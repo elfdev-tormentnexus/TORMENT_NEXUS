@@ -19,7 +19,8 @@
 ## Beta status
 
 TORMENT_NEXUS is in active beta. This public repository is the **source and
-documentation** for the project; it is not a one-click download by itself.
+documentation** for the project. A ready-to-run Windows beta is available on
+the [Releases page](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases).
 
 The local language model, llama.cpp binary, most voice assets, personal
 runtime state, and the multi-gigabyte Windows handoff package are deliberately
@@ -67,11 +68,27 @@ claim of consciousness or personhood.
 
 A packaged Windows beta is built separately from this source repository. It
 contains the model, bundled Python, wheels, and installer needed for a
-self-contained test. No public packaged release is attached here yet.
+self-contained test.
 
-If you receive the package from the maintainer, extract it, run `setup.bat`,
-then launch the created **TORMENT_NEXUS** desktop shortcut. See the
-[beta guide](docs/BETA_GUIDE.md) before sharing or testing it.
+### Downloading a GitHub beta release
+
+GitHub cannot accept a single package file this large, so each Windows beta is
+published as two ZIP parts plus a small reassembly helper. On the relevant
+[GitHub Release](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases),
+download all three files into the **same folder**:
+
+1. `TORMENT_NEXUS.zip.part01`
+2. `TORMENT_NEXUS.zip.part02`
+3. `REASSEMBLE_TORMENT_NEXUS.bat`
+
+Run `REASSEMBLE_TORMENT_NEXUS.bat`. It creates `TORMENT_NEXUS.zip`; compare its
+SHA-256 checksum with the value printed in that release's notes, extract the
+ZIP, run `setup.bat`, and then launch the created **TORMENT_NEXUS** desktop
+shortcut. Do not download GitHub's automatic **Source code (zip)** asset for
+this purpose: it is only the source tree and does not include the model or
+Windows runtime.
+
+See the [beta guide](docs/BETA_GUIDE.md) before sharing or testing it.
 
 ### Developers and reviewers
 

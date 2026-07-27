@@ -2,13 +2,24 @@
 
 ## What a beta copy includes
 
-The private Windows handoff package contains the local model, embedded Python,
+The Windows beta package contains the local model, embedded Python,
 offline wheels, llama.cpp binary, and the assets needed for a self-contained
 test. It starts with no conversation history, saved memories, developer
 passcode, API key, device pairing, or music library from the maintainer.
 
-The public GitHub repository does **not** contain those multi-gigabyte runtime
-assets. It is a source repository, not the public installer.
+The normal repository checkout does **not** contain those multi-gigabyte
+runtime assets. The release package does, split across two download parts so
+that it can be hosted by GitHub.
+
+## Downloading the Windows package
+
+On the chosen GitHub Release, download `TORMENT_NEXUS.zip.part01`,
+`TORMENT_NEXUS.zip.part02`, and `REASSEMBLE_TORMENT_NEXUS.bat` into the same
+folder. Run the helper, compare the resulting ZIP's SHA-256 with the checksum
+in the release notes, extract `TORMENT_NEXUS.zip`, then run `setup.bat`.
+
+GitHub's automatic **Source code (zip)** and **Source code (tar.gz)** downloads
+are for developers only; they are not installable packages.
 
 ## What to expect
 
