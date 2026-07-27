@@ -1,6 +1,7 @@
 import inspect
 import json
 import os
+from pathlib import Path
 import sys
 import tempfile
 import threading
@@ -103,6 +104,44 @@ class PathSafetyTests(unittest.TestCase):
     def test_project_analyzer_cannot_read_outside_project(self):
         result = project_analyzer.analyze_file("../start_assistant.bat")
         self.assertIn("error", result)
+
+
+class PublicRepositoryPresentationTests(unittest.TestCase):
+    def test_readme_keeps_windows_paths_literal(self):
+        root = Path(__file__).resolve().parents[2]
+        readme = (root / "README.md").read_bytes()
+
+        # Forward slashes work in PowerShell and keep the Markdown portable;
+        # the Windows launcher command must still remain literal text.
+        self.assertIn(b"setup/requirements.txt", readme)
+        self.assertIn(b".\\setup\\test_assistant.bat", readme)
+        # CRLF is a valid checkout format on Windows. A bare carriage return
+        # inside a path is not: GitHub rendered that old README incorrectly.
+        bare_carriage_return = any(
+            byte == 13 and (index + 1 == len(readme) or readme[index + 1] != 10)
+            for index, byte in enumerate(readme)
+        )
+        self.assertFalse(bare_carriage_return)
+        self.assertNotIn(b"\t", readme)
+
+    def test_public_docs_replace_private_handoff_files(self):
+        root = Path(__file__).resolve().parents[2]
+
+        for name in (
+            "ARCHITECTURE.md",
+            "BETA_GUIDE.md",
+            "RELEASE_CHECKLIST.md",
+            "TESTING.md",
+        ):
+            self.assertTrue((root / "docs" / name).is_file(), name)
+
+        for name in (
+            "AGENT_HANDOFF.md",
+            "README_DIGITALBIOHAZARD.txt",
+            "RELEASE_HANDOFF.md",
+            "BENCHMARKS.md",
+        ):
+            self.assertFalse((root / "docs" / name).exists(), name)
 
 
 class GoalScopeTests(unittest.TestCase):

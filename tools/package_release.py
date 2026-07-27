@@ -76,10 +76,10 @@ INCLUDE_FILES = [
     # A package built for someone to review is missing its most useful
     # file if the front door is left behind.
     "README.md",
-    "docs/AGENT_HANDOFF.md",
-    "docs/README_DIGITALBIOHAZARD.txt",
-    "docs/RELEASE_HANDOFF.md",
-    "docs/BENCHMARKS.md",
+    "docs/ARCHITECTURE.md",
+    "docs/BETA_GUIDE.md",
+    "docs/RELEASE_CHECKLIST.md",
+    "docs/TESTING.md",
     "setup/requirements.txt",
     "setup/requirements-voice.txt",
     "setup/requirements-hardware.txt",
@@ -757,13 +757,13 @@ if failures:
 print("  verified: dependencies import and model files are present")
 '''
 
-README = r"""TORMENT_NEXUS - a private, offline AI companion
+README = r"""TORMENT_NEXUS - local-first beta
 ==========================================
 
 WHAT THIS IS
-    A local AI assistant that runs entirely on your machine. No account, no
-    cloud, no internet needed once installed. It talks, listens, remembers,
-    searches your files, edits its own code, and plays music.
+    A local-first AI companion and tool system that runs on your machine.
+    Conversation, memory, and speech work locally after installation. Optional
+    web search and hardware features need deliberate separate setup.
 
 INSTALLING
     1. Extract this whole archive somewhere with at least 7 GB free.
@@ -794,8 +794,7 @@ SOME THINGS TO TRY
     sing daisy bell   ask politely
 
 VOICE
-    Speech runs through a vocoder that separates pitch from vocal tract,
-    tuned against a reference recording. If it is not to your taste, three
+    Speech is generated locally. If its delivery is not to your taste, three
     environment variables retune it without touching code:
 
         TORMENT_NEXUS_CARRIER_HZ       pitch of the carrier (default 145)

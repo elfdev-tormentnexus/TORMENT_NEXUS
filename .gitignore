@@ -48,6 +48,8 @@ assistant/cache/
 *.bak
 *.backup
 dump/
+# Legacy root-level runtime placeholders are not source files.
+memory/
 # Obsolete captured wiring logs; they are neither source nor runtime state.
 wirelog/
 
