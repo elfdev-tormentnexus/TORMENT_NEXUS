@@ -9,7 +9,7 @@ import threading
 PROJECT_HOME = os.path.dirname(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
-REQUIREMENTS = os.path.join(PROJECT_HOME, "requirements-hardware.txt")
+REQUIREMENTS = os.path.join(PROJECT_HOME, "setup", "requirements-hardware.txt")
 CONFIGURE_TIMEOUT_SECONDS = 75
 
 

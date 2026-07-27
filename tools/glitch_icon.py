@@ -46,11 +46,12 @@ import subprocess
 import sys
 import time
 
-PROJECT = os.path.dirname(os.path.abspath(__file__))
+# This script lives in tools/, so the project root is one level up.
+PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FRAME_DIR = os.path.join(PROJECT, "icon_anim")
 VARIANT_DIR = os.path.join(FRAME_DIR, "shortcuts")
 
-SOURCE_ICON = os.path.join(PROJECT, "assistant_icon.ico")
+SOURCE_ICON = os.path.join(PROJECT, "assets", "assistant_icon.ico")
 
 # The resting icon is served from its own path rather than straight from
 # assistant_icon.ico, and that is not tidiness -- it is the whole reason

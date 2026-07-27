@@ -144,12 +144,12 @@ def _ble_interface_class():
     except ImportError as error:
         raise TDeckSetupError(
             "T-Deck support is not installed yet. Close the assistant, run "
-            "setup_hardware.bat once, then reopen it."
+            "setup\setup_hardware.bat once, then reopen it."
         ) from error
     except Exception as error:
         raise TDeckSetupError(
             "T-Deck support is installed but could not load correctly. Run "
-            "setup_hardware.bat again, then restart the assistant."
+            "setup\setup_hardware.bat again, then restart the assistant."
         ) from error
 
     return BLEInterface
@@ -467,7 +467,7 @@ class TDeckTerminal:
             except ImportError as error:
                 raise TDeckSetupError(
                     "T-Deck terminal support is incomplete. Run "
-                    "setup_hardware.bat again."
+                    "setup\setup_hardware.bat again."
                 ) from error
 
             self.pub = pub
@@ -817,7 +817,7 @@ def configure_stable_pairing(
         if not callable(begin) or not callable(commit):
             raise TDeckSetupError(
                 "The installed Meshtastic package is too old for a one-reboot "
-                "configuration transaction. Run setup_hardware.bat again."
+                "configuration transaction. Run setup\setup_hardware.bat again."
             )
 
         def apply_transaction():

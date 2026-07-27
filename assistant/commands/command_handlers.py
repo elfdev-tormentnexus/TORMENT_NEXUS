@@ -1555,6 +1555,131 @@ def handle_search(user_input):
     return "\n".join(lines)
 
 
+def _goal_action(operation):
+    """Run a goal-engine call, turning its errors into readable output."""
+    from editing.goal_engine import GoalError
+
+    try:
+        return _run_with_activity("Working on goals", operation)
+    except GoalError as error:
+        return f"GOALS\n{'=' * 58}\n\n{error}"
+    except Exception as error:
+        return f"GOALS FAILED\n{'=' * 58}\n\n{error}"
+
+
+@command("goals", "Show the sub-goals it set for itself",
+         dev_only=False, group="editing")
+def handle_show_goals(user_input):
+    if not _match_exact(user_input, "goals"):
+        return False
+
+    from editing import goal_engine
+
+    if not goal_engine.ENABLED:
+        return (
+            f"GOALS\n{'=' * 58}\n\n"
+            "Self-directed goals are off.\n\n"
+            "Set AI_BUDDY_GOALS=1 to enable them. When on, it can choose\n"
+            "its own sub-goals and write notes toward them into the\n"
+            "workshop/ folder -- text files only, nothing executable, and\n"
+            "nothing outside that folder."
+        )
+
+    goals = goal_engine.all_goals()
+
+    if not goals:
+        return (
+            f"GOALS\n{'=' * 58}\n\n"
+            "None yet. 'set goals' asks it to choose some."
+        )
+
+    lines = [f"GOALS\n{'=' * 58}\n"]
+
+    for index, goal in enumerate(goals):
+        mark = "done" if goal.get("done") else f"{goal.get('notes', 0)} steps"
+        lines.append(f"  [{index}] {goal['goal']}")
+        if goal.get("why"):
+            lines.append(f"       why: {goal['why']}")
+        lines.append(f"       {mark}, set {goal.get('created', '?')}")
+        lines.append("")
+
+    lines.append(f"Workshop: {goal_engine.WORKSHOP}")
+    lines.append("'work on goals' takes one step. 'goal done <n>' closes one.")
+
+    return "\n".join(lines)
+
+
+@command("set goals", "Let it choose new sub-goals for itself",
+         group="editing")
+def handle_set_goals(user_input):
+    if not DEV_MODE or not _match_exact(user_input, "set goals"):
+        return False
+
+    from editing import goal_engine
+
+    if not goal_engine.ENABLED:
+        return "Self-directed goals are off. Set AI_BUDDY_GOALS=1 first."
+
+    result = _goal_action(goal_engine.propose_goals)
+
+    if isinstance(result, str):
+        return result
+
+    lines = [f"NEW GOALS\n{'=' * 58}\n"]
+    for item in result:
+        lines.append(f"  {item['goal']}")
+        if item["why"]:
+            lines.append(f"    {item['why']}")
+    lines.append("\n'work on goals' to start.")
+
+    return "\n".join(lines)
+
+
+@command("work on goals", "Take one step toward a self-chosen goal",
+         group="editing")
+def handle_work_on_goals(user_input):
+    if not DEV_MODE or not _match_exact(user_input, "work on goals"):
+        return False
+
+    from editing import goal_engine
+
+    if not goal_engine.ENABLED:
+        return "Self-directed goals are off. Set AI_BUDDY_GOALS=1 first."
+
+    result = _goal_action(goal_engine.act)
+
+    if isinstance(result, str):
+        return result
+
+    return (
+        f"GOAL STEP {result['step']}\n{'=' * 58}\n\n"
+        f"{result['goal']}\n\n"
+        f"{result['mode']} {result['bytes']} bytes to {result['path']}"
+    )
+
+
+@command("goal done", "Close one of its goals",
+         usage="goal done <number>", group="editing",
+         arg_pattern=r"^\d+$")
+def handle_goal_done(user_input):
+    if not DEV_MODE or not _match_prefix(user_input, "goal done "):
+        return False
+
+    argument = user_input[len("goal done "):].strip()
+
+    if not argument.isdigit():
+        return "Usage: goal done <number>"
+
+    from editing import goal_engine
+
+    result = _goal_action(lambda: goal_engine.complete(int(argument)))
+
+    if isinstance(result, str):
+        return result
+
+    return f"Closed: {result['goal']}"
+
+
 @command("run autonomous cycle",
          "Trigger one guarded, no-approval self-improvement attempt",
          group="editing")

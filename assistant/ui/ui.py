@@ -1648,7 +1648,10 @@ class LayeredDisplayEngine:
             if len(live) != len(self.chat_history):
                 self.chat_history[:] = live
 
-            lines = [(text, colour) for text, colour, _ in live]
+            lines = [
+                (_decaying_text(text, colour, expires, now), colour)
+                for text, colour, expires in live
+            ]
 
             if self.live_text:
                 wrap_w = max(w - CHAT_INDENT - 2, 10)
@@ -1898,6 +1901,50 @@ def print_startup_screen(model_path=None, layout_seed=None, display_name=None):
 
 def trigger_wireframe_disintegration():
     _engine.trigger_disintegration_transition()
+
+# How long a notice spends corrupting before it goes.
+DECAY_SECONDS = 1.6
+
+# Glyphs an expiring line rots into. Kept to a narrow band of similar
+# visual weight so the line dissolves rather than appearing to flash
+# brighter as it goes.
+DECAY_GLYPHS = "▓▒░#%&$@*+=~-_:."
+
+
+def _decaying_text(text, colour, expires_at, now):
+    """
+    Corrupt a notice during its final moments instead of blinking it out.
+
+    Only applies to VIOLET, which is the colour of system notices. An
+    earlier full-UI corruption effect was removed because it fought
+    readability; confining it to text that is already leaving keeps the
+    look without ever obscuring something the operator still needs.
+
+    Characters are chosen fresh each frame on purpose -- the flicker is
+    the effect. Spaces are preserved so the line keeps its shape and
+    dissolves in place rather than turning into a solid bar.
+    """
+    if expires_at is None or colour != VIOLET or not text:
+        return text
+
+    remaining = expires_at - now
+
+    if remaining >= DECAY_SECONDS:
+        return text
+
+    # 0 at the start of the decay window, 1 as it expires.
+    progress = max(0.0, min(1.0, 1.0 - (remaining / DECAY_SECONDS)))
+
+    # Ease in, so it holds legible longer and then goes quickly.
+    corruption = progress ** 2
+
+    return "".join(
+        character
+        if character == " " or random.random() > corruption
+        else random.choice(DECAY_GLYPHS)
+        for character in text
+    )
+
 
 def print_framed(text="", color="", expires_in=None):
     """

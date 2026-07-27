@@ -11,12 +11,12 @@ text-only terminal.
 Install the core dependency and launch:
 
 ```powershell
-python -m pip install -r requirements.txt
+python -m pip install -r setupequirements.txt
 .\start_assistant.bat
 ```
 
 Run `health check` inside the assistant at any time. Run
-`test_assistant.bat` for the regression suite.
+`setup	est_assistant.bat` for the regression suite.
 
 Developer tools require a local owner passcode. On first use, type `dev mode`
 and enter the chosen digits twice in the masked prompt. Only a salted PBKDF2
@@ -31,9 +31,9 @@ Use 64-bit Raspberry Pi OS, build `llama.cpp` so its server exists at
 Then:
 
 ```sh
-python3 -m pip install -r requirements.txt
-chmod +x start_assistant.sh test_assistant.sh
-./start_assistant.sh
+python3 -m pip install -r setup/requirements.txt
+chmod +x setup/start_assistant.sh setup/test_assistant.sh
+./setup/start_assistant.sh
 ```
 
 ARM64 launches automatically use four llama.cpp inference threads. Override
@@ -57,10 +57,10 @@ core-memory prefix does not need to be reprocessed before the first answer.
 ## Optional services
 
 - Web search: start the local stack in `searxng/` with Docker Compose.
-- Voice: run `setup_voice.bat` on Windows, or follow
+- Voice: run `setup\setup_voice.bat` on Windows, or follow
   `assistant/voice/README.md` on Raspberry Pi OS.
-- T-Deck companion: run `setup_hardware.bat` on Windows or
-  `sh setup_hardware.sh` on Raspberry Pi OS. The setup connects to the one
+- T-Deck companion: run `setup\setup_hardware.bat` on Windows or
+  `sh setup/setup_hardware.sh` on Raspberry Pi OS. The setup connects to the one
   nearby Meshtastic device and applies the requested always-on display setting.
   Keep Meshtastic Bluetooth on and Wi-Fi off, then use `tdeck scan`,
   `tdeck status`, or `tdeck nodes`.

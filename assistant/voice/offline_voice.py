@@ -189,7 +189,7 @@ def setup_report():
     lines = ["Voice is not ready yet:"]
     lines.extend("- " + issue for issue in issues)
     lines.append("")
-    lines.append("Run setup_voice.bat once, then restart the assistant.")
+    lines.append("Run setup\setup_voice.bat once, then restart the assistant.")
     lines.append(
         "On the Raspberry Pi, see assistant/voice/README.md for the one-time "
         "audio setup."

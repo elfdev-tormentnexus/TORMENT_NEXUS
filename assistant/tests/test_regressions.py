@@ -34,8 +34,8 @@ from visualizer import local_player
 from visualizer.radial import RadialVisualizer
 
 # The desktop icon animator lives beside the assistant package, not in it.
-sys.path.insert(0, os.path.dirname(os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__)))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__)))), "tools"))
 import glitch_icon
 from web import search_engine
 

@@ -110,6 +110,19 @@ icon_anim/
 
 
 # ---------------------------------------------------------------
+# The workshop
+#
+# Everything in here is written by the goal engine, unprompted. It is
+# genuinely interesting to read, but it is this machine's output rather
+# than the project's source -- and it changes on its own, which would
+# make every git status noisy. The folder itself is kept so a fresh
+# clone has somewhere to work.
+# ---------------------------------------------------------------
+workshop/*
+!workshop/.gitkeep
+
+
+# ---------------------------------------------------------------
 # Editor and tool-local settings
 # ---------------------------------------------------------------
 .claude/settings.local.json

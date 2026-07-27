@@ -1,6 +1,7 @@
 @echo off
 setlocal
-set "ROOT=%~dp0"
+REM This script lives in setup/, so the project root is one level up.
+set "ROOT=%~dp0..\"
 set "PY="
 
 echo Running TORMENT_NEXUS regression tests...

@@ -15,7 +15,7 @@ ASR_NAME = "sherpa-onnx-moonshine-tiny-en-int8"
 ASR_DIR = os.path.join(VOICE_ROOT, ASR_NAME)
 PIPER_DIR = os.path.join(VOICE_ROOT, "piper")
 PIPER_VOICE = "en_US-hfc_female-medium"
-REQUIREMENTS = os.path.join(PROJECT_HOME, "requirements-voice.txt")
+REQUIREMENTS = os.path.join(PROJECT_HOME, "setup", "requirements-voice.txt")
 
 ASR_URL = (
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"

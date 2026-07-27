@@ -48,7 +48,8 @@ from datetime import datetime, timezone
 # animator started with the packaged interpreter will do it.
 LOCKED = []
 
-ROOT = os.path.dirname(os.path.abspath(__file__))
+# This script lives in tools/, so the project root is one level up.
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIST = os.path.join(ROOT, "dist")
 PACKAGE_NAME = "TORMENT_NEXUS"
 STAGE = os.path.join(DIST, PACKAGE_NAME)
@@ -75,20 +76,20 @@ INCLUDE_FILES = [
     # A package built for someone to review is missing its most useful
     # file if the front door is left behind.
     "README.md",
-    "README_DIGITALBIOHAZARD.txt",
-    "RELEASE_HANDOFF.md",
-    "BENCHMARKS.md",
-    "requirements.txt",
-    "requirements-voice.txt",
-    "requirements-hardware.txt",
-    "requirements-release-windows.txt",
+    "docs/README_DIGITALBIOHAZARD.txt",
+    "docs/RELEASE_HANDOFF.md",
+    "docs/BENCHMARKS.md",
+    "setup/requirements.txt",
+    "setup/requirements-voice.txt",
+    "setup/requirements-hardware.txt",
+    "setup/requirements-release-windows.txt",
     "start_assistant.bat",
-    "test_assistant.bat",
-    "glitch_icon.py",
-    "start_glitch.bat",
-    "stop_glitch.bat",
-    "assistant_icon.ico",
-    "assistant_icon_animated.gif",
+    "setup/test_assistant.bat",
+    "tools/glitch_icon.py",
+    "tools/start_glitch.bat",
+    "tools/stop_glitch.bat",
+    "assets/assistant_icon.ico",
+    "assets/assistant_icon_animated.gif",
     "models/Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
     "models/voice/silero_vad.onnx",
 ]
@@ -323,7 +324,7 @@ def bundle_wheels(report):
     wheels = os.path.join(STAGE, "wheels")
     os.makedirs(wheels, exist_ok=True)
 
-    reqs = [os.path.join(ROOT, "requirements-release-windows.txt")]
+    reqs = [os.path.join(ROOT, "setup", "requirements-release-windows.txt")]
 
     command = [sys.executable, "-m", "pip", "download",
                "--dest", wheels,
@@ -448,11 +449,13 @@ def verify(report):
 def _verify_release_launchers(report, problems):
     """Ensure the handoff starts with its embedded interpreter, not the host."""
     expectations = {
+        # Paths are package-relative, and the launchers keep the folders
+        # they live in at source.
         "start_assistant.bat": "python\\python.exe",
-        "start_glitch.bat": "python\\pythonw.exe",
-        "stop_glitch.bat": "python\\python.exe",
-        "test_assistant.bat": "python\\python.exe",
-        "setup.bat": "requirements-release-windows.txt",
+        "tools/start_glitch.bat": "python\\pythonw.exe",
+        "tools/stop_glitch.bat": "python\\python.exe",
+        "setup/test_assistant.bat": "python\\python.exe",
+        "setup.bat": "setup\\requirements-release-windows.txt",
     }
 
     for name, required_text in expectations.items():
@@ -611,7 +614,7 @@ if not exist "%~dp0python\Scripts\pip.exe" (
 
 echo   [2/4] Installing packages from the bundled wheels...
 "%PY%" -m pip install --no-index --find-links "%~dp0wheels" ^
-    -r "%~dp0requirements-release-windows.txt" ^
+    -r "%~dp0setup\requirements-release-windows.txt" ^
     --quiet --no-warn-script-location
 if errorlevel 1 (
     echo   ERROR: package install failed.
