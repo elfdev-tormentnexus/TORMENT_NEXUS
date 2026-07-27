@@ -438,9 +438,37 @@ def verify(report):
             if leftovers:
                 problems.append(f"{label} still holds {leftovers}")
 
+    _verify_release_launchers(report, problems)
     _verify_manifest(report, problems)
 
     return problems
+
+
+def _verify_release_launchers(report, problems):
+    """Ensure the handoff starts with its embedded interpreter, not the host."""
+    expectations = {
+        "start_assistant.bat": "python\\python.exe",
+        "start_glitch.bat": "python\\pythonw.exe",
+        "stop_glitch.bat": "python\\python.exe",
+        "test_assistant.bat": "python\\python.exe",
+        "setup.bat": "requirements-release-windows.txt",
+    }
+
+    for name, required_text in expectations.items():
+        path = os.path.join(STAGE, name)
+        try:
+            with open(path, "r", encoding="utf-8") as source:
+                contents = source.read().lower()
+        except OSError:
+            problems.append(f"missing release launcher: {name}")
+            continue
+
+        if required_text.lower() not in contents:
+            problems.append(
+                f"release launcher does not use the self-contained setup: {name}"
+            )
+
+    report.append(f"  checked {len(expectations)} self-contained launchers")
 
 
 def _hash_file(path):
