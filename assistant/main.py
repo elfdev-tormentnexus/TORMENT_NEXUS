@@ -1,6 +1,7 @@
 import hashlib
 import math
 import os
+import random
 import re
 import signal
 import sys
@@ -29,6 +30,9 @@ from core.config import (
     CONTEXT_SIZE,
     AUTONOMOUS_ON_STARTUP,
     VOICE_ON_STARTUP,
+    IDLE_CHECKIN_ENABLED,
+    IDLE_CHECKIN_SECONDS,
+    IDLE_RESPONSE_SECONDS,
 )
 from memory import memory_store as mem
 from memory.memory_extraction import extract_direct_memory
@@ -1395,10 +1399,15 @@ def _voice_mode_loop():
             elif transcript is None:
                 if not microphone_notice_shown:
                     detail = voice.microphone_issue or "No input device was found."
+                    # Clears itself: the notice explains why typing is the
+                    # input method, which is worth saying once. Left in the
+                    # transcript it reads as an error that is still
+                    # happening, every time you scroll past it.
                     ui.print_framed(
                         "AI > Audio mode is using typed input because the "
                         f"microphone is unavailable.\n\n{detail}",
                         color=ui.VIOLET,
+                        expires_in=15,
                     )
                     microphone_notice_shown = True
 
@@ -1574,6 +1583,109 @@ def _voice_mode_loop():
 queued_input = []
 
 
+_IDLE_FALLBACK_LINES = (
+    "Still there?",
+    "You have gone quiet. Are you still around?",
+    "Checking in -- are you still at the keyboard?",
+)
+
+
+def _idle_check_in_line():
+    """
+    Ask the model for one short line to break the silence with.
+
+    Kept off the streaming path and out of session history: this is the
+    assistant talking to an empty room, not a conversational turn, and
+    recording it would leave the next real reply answering something the
+    operator never said.
+
+    Any failure falls back to a fixed line. A check-in that cannot happen
+    because the model is busy would silently disable the shutdown that
+    depends on it.
+    """
+    try:
+        response = requests.post(
+            SERVER_URL + "/v1/chat/completions",
+            headers=MODEL_REQUEST_HEADERS,
+            json={
+                "messages": [
+                    {"role": "system", "content": _stable_system_prompt()},
+                    {
+                        "role": "user",
+                        "content": (
+                            "You have not heard from the operator in a "
+                            "while. Say one short sentence, at most twelve "
+                            "words, checking whether they are still there. "
+                            "Do not greet them and do not ask what they "
+                            "need. Reply with the sentence only."
+                        ),
+                    },
+                ],
+                "max_tokens": 40,
+                "temperature": 0.9,
+                "stream": False,
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        line = clean_reply(
+            response.json()["choices"][0]["message"]["content"]
+        ).strip().strip('"')
+
+        # A model that rambles here would talk over its own timer.
+        if line and len(line) <= 160:
+            return line
+    except Exception:
+        pass
+
+    return random.choice(_IDLE_FALLBACK_LINES)
+
+
+def _run_idle_check_in():
+    """
+    Speak up after a silence and wait a little longer for an answer.
+
+    Returns the operator's input if they replied, ui.IDLE if the room
+    stayed empty, or None if they cancelled.
+    """
+    line = _idle_check_in_line()
+
+    ui.print_framed(f"AI > {line}", color=ui.VIOLET)
+
+    # Speaking is best-effort. On a machine with no working output device
+    # the printed line and the timer still do their job, so a missing
+    # speaker must not cancel the check-in.
+    global _startup_voice
+
+    try:
+        if _startup_voice is None:
+            _startup_voice = offline_voice.OfflineVoice()
+            _startup_voice.prepare_output()
+
+        ui.set_voice_mode(True)
+        ui.set_voice_speaking(True)
+        _startup_voice.speak(line, lambda: False)
+    except Exception:
+        pass
+    finally:
+        ui.set_voice_speaking(False)
+        ui.set_voice_mode(VOICE_ON_STARTUP)
+
+    ui.print_framed(
+        f"AI > Closing in {IDLE_RESPONSE_SECONDS}s unless you say something.",
+        color=ui.GREY_DIM if hasattr(ui, "GREY_DIM") else ui.VIOLET,
+        expires_in=IDLE_RESPONSE_SECONDS,
+    )
+
+    # The grace period starts now, after the speech has finished, so a
+    # long sentence does not eat the window it is asking about.
+    return ui.input_framed(
+        "YOU >",
+        color=ui.RED,
+        idle_timeout=IDLE_RESPONSE_SECONDS,
+    )
+
+
 def chat_loop():
     draft_input = ""
 
@@ -1590,8 +1702,24 @@ def chat_loop():
                 prompt,
                 color=ui.RED,
                 initial_text=draft_input,
+                idle_timeout=(
+                    IDLE_CHECKIN_SECONDS if IDLE_CHECKIN_ENABLED else None
+                ),
             )
             draft_input = ""
+
+            if user_input is ui.IDLE:
+                user_input = _run_idle_check_in()
+
+                if user_input is ui.IDLE:
+                    ui.print_framed(
+                        "AI > No answer. Shutting down to free the memory "
+                        "the model is holding.",
+                        color=ui.VIOLET,
+                    )
+                    time.sleep(1.2)
+                    stop_server(server_process)
+                    break
 
         user_input = _protect_user_input(user_input)
 

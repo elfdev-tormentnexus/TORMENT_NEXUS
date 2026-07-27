@@ -2636,5 +2636,112 @@ class SelfEditBoundaryTests(unittest.TestCase):
                         f"unattended-only: {unattended - approved}")
 
 
+class ExpiringNoticeTests(unittest.TestCase):
+    """A transient condition should not leave a permanent-looking error."""
+
+    def setUp(self):
+        self._saved = list(ui._engine.chat_history)
+        ui._engine.chat_history.clear()
+        self.addCleanup(
+            lambda: ui._engine.chat_history.__setitem__(
+                slice(None), self._saved)
+        )
+
+    def _visible(self):
+        now = time.monotonic()
+        return [entry[0] for entry in ui._engine.chat_history
+                if entry[2] is None or entry[2] > now]
+
+    def test_a_notice_disappears_and_conversation_does_not(self):
+        ui.print_framed("a real reply")
+        ui.print_framed("microphone unavailable", expires_in=0.4)
+
+        self.assertEqual(len(self._visible()), 2)
+        time.sleep(0.6)
+
+        remaining = self._visible()
+        self.assertEqual(remaining, ["a real reply"])
+
+    def test_messages_without_a_lifetime_never_expire(self):
+        ui.print_framed("permanent")
+
+        self.assertTrue(
+            all(entry[2] is None for entry in ui._engine.chat_history))
+
+
+class IdleCheckInTests(unittest.TestCase):
+    """
+    Going quiet should be noticed once, not acted on immediately.
+
+    The shutdown at the end of this is real, so the conditions that reach
+    it are worth pinning: a mistake here closes a session someone was
+    still using.
+    """
+
+    def test_idle_is_its_own_sentinel(self):
+        # None already means cancelled and "" is a valid empty submission,
+        # so neither can stand in for "nobody is there".
+        self.assertIsNotNone(ui.IDLE)
+        self.assertNotEqual(ui.IDLE, "")
+        self.assertIsNot(ui.IDLE, "")
+
+    def test_input_reports_idle_after_the_timeout(self):
+        ui._engine.running = True
+        ui._engine.current_input = ""
+
+        with mock.patch.object(ui, "get_char", return_value=None):
+            self.assertIs(ui.input_framed("YOU >", idle_timeout=0.3), ui.IDLE)
+
+    def test_a_partly_typed_line_is_never_treated_as_absence(self):
+        # Someone mid-sentence is present, however long they pause.
+        ui._engine.running = True
+        outcome = {}
+
+        def compose():
+            with mock.patch.object(ui, "get_char", return_value=None):
+                outcome["value"] = ui.input_framed(
+                    "YOU >", initial_text="mid sentence", idle_timeout=0.2)
+
+        worker = threading.Thread(target=compose, daemon=True)
+        worker.start()
+        worker.join(timeout=1.2)
+
+        still_waiting = worker.is_alive() and "value" not in outcome
+
+        ui._engine.running = False
+        worker.join(timeout=2.0)
+        ui._engine.running = True
+
+        self.assertTrue(still_waiting, f"returned {outcome.get('value')!r}")
+
+    def test_the_check_in_line_survives_an_unreachable_model(self):
+        # If this raised or hung, the shutdown that depends on it would
+        # never happen and the check-in would fail silently.
+        with mock.patch.object(assistant_main.requests, "post",
+                               side_effect=OSError("no server")):
+            line = assistant_main._idle_check_in_line()
+
+        self.assertIn(line, assistant_main._IDLE_FALLBACK_LINES)
+
+    def test_a_rambling_check_in_is_rejected(self):
+        reply = {"choices": [{"message": {"content": "x" * 400}}]}
+        response = mock.Mock()
+        response.json.return_value = reply
+        response.raise_for_status.return_value = None
+
+        with mock.patch.object(assistant_main.requests, "post",
+                               return_value=response):
+            line = assistant_main._idle_check_in_line()
+
+        # Too long to speak before its own timer runs; falls back instead.
+        self.assertIn(line, assistant_main._IDLE_FALLBACK_LINES)
+
+    def test_timings_are_bounded(self):
+        # The grace period is measured from the end of speech, so it has
+        # to be long enough to answer in.
+        self.assertGreaterEqual(config.IDLE_CHECKIN_SECONDS, 60)
+        self.assertGreaterEqual(config.IDLE_RESPONSE_SECONDS, 15)
+
+
 if __name__ == "__main__":
     unittest.main()

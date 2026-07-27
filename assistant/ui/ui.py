@@ -1637,7 +1637,18 @@ class LayeredDisplayEngine:
             # Layer 1: Chat Output Buffer
             chat_area_h = max(1, h - self.header_height - 3)
 
-            lines = list(self.chat_history)
+            # Drop expired notices, and reduce to the (text, colour) pairs
+            # everything downstream expects. Pruning here rather than on a
+            # timer means a message disappears on the next drawn frame,
+            # with no extra thread to keep alive.
+            now = time.monotonic()
+            live = [entry for entry in self.chat_history
+                    if entry[2] is None or entry[2] > now]
+
+            if len(live) != len(self.chat_history):
+                self.chat_history[:] = live
+
+            lines = [(text, colour) for text, colour, _ in live]
 
             if self.live_text:
                 wrap_w = max(w - CHAT_INDENT - 2, 10)
@@ -1888,12 +1899,31 @@ def print_startup_screen(model_path=None, layout_seed=None, display_name=None):
 def trigger_wireframe_disintegration():
     _engine.trigger_disintegration_transition()
 
-def print_framed(text="", color=""):
+def print_framed(text="", color="", expires_in=None):
+    """
+    Add a message to the chat area.
+
+    `expires_in` gives the message a lifetime in seconds, after which it
+    removes itself from the transcript. Intended for notices that explain
+    a transient condition -- an unavailable microphone, a device that
+    could not be opened -- which are useful the moment they appear and
+    then sit there implying the problem is ongoing.
+
+    Anything the operator said, or the assistant replied, must never
+    expire: a conversation that quietly edits itself is worse than a
+    cluttered one.
+    """
+    expires_at = (
+        time.monotonic() + float(expires_in)
+        if expires_in
+        else None
+    )
+
     with _engine.lock:
         for line in str(text).split("\n"):
             wrapped = textwrap.wrap(line, max(_engine.width - CHAT_INDENT - 2, 10)) or [""]
             for w_line in wrapped:
-                _engine.chat_history.append((w_line, color or RESET))
+                _engine.chat_history.append((w_line, color or RESET, expires_at))
 
         # Without this the buffer grows for the whole session.
         if len(_engine.chat_history) > 500:
@@ -1941,6 +1971,12 @@ def safe_user_text(text):
     return dev_auth.redact_credential_like_text(text)
 
 
+# Returned by input_framed when it gave up waiting. A sentinel object
+# rather than None, which already means "cancelled", or "", which is a
+# legitimate empty submission.
+IDLE = object()
+
+
 def input_framed(
     label,
     color=RED,
@@ -1948,7 +1984,17 @@ def input_framed(
     masked=False,
     allow_cycle=True,
     allow_cancel=False,
+    idle_timeout=None,
 ):
+    """
+    Block for a line of input.
+
+    `idle_timeout` returns the IDLE sentinel after that many seconds with
+    no keypress at all. The timer resets on every key, and never fires
+    while there is a partially typed line waiting -- someone mid-sentence
+    is present, however long they pause, and interrupting them to ask if
+    they are still there would be both wrong and irritating.
+    """
     _engine.input_prompt = label + " "
     # A response can finish while the user is still composing the next
     # message. Restore that draft instead of clearing it at the next
@@ -1957,8 +2003,20 @@ def input_framed(
     _engine.input_masked = bool(masked)
     _engine.cycle_index = -1
 
+    last_activity = time.monotonic()
+
     while _engine.running:
+        if (
+            idle_timeout
+            and not _engine.current_input
+            and time.monotonic() - last_activity >= idle_timeout
+        ):
+            return IDLE
+
         ch = get_char()
+
+        if ch is not None:
+            last_activity = time.monotonic()
         if ch is None:
             time.sleep(0.01)
             continue

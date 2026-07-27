@@ -475,13 +475,56 @@ VOICE_SPEECH_VOCODER = (
 
 # Pitch of that carrier, in Hz. The reference recordings measured 130.6
 # and 149.5; the sung path defaults to 172.
+#
+# Raised 7% from 145.0 on listening feedback: 145 * 1.07 = 155.15, which
+# is about 1.17 semitones up. Because the vocoder decouples pitch from
+# the spectral envelope, moving the carrier alone shifts register without
+# touching the formants -- so this reads as a higher voice rather than a
+# smaller speaker, which is exactly what resampling could never do here.
 try:
     VOICE_SPEECH_CARRIER_HZ = max(
         60.0,
-        min(400.0, float(os.environ.get("AI_BUDDY_CARRIER_HZ", "145.0"))),
+        min(400.0, float(os.environ.get("AI_BUDDY_CARRIER_HZ", "155.0"))),
     )
 except ValueError:
-    VOICE_SPEECH_CARRIER_HZ = 145.0
+    VOICE_SPEECH_CARRIER_HZ = 155.0
+
+# ------------------------------------------------------------------
+# Idle check-in
+#
+# After a long silence the assistant speaks up once to see whether
+# anyone is still there, and shuts down cleanly if nobody answers.
+#
+# The shutdown is the point: a local model holds gigabytes of RAM, and a
+# session left open overnight keeps all of it. Asking first, rather than
+# closing on a timer alone, means the machine is never reclaimed out
+# from under someone who simply went quiet for a while.
+#
+# Set AI_BUDDY_IDLE_CHECKIN=0 to disable both the prompt and the exit.
+IDLE_CHECKIN_ENABLED = (
+    os.environ.get("AI_BUDDY_IDLE_CHECKIN", "1").strip().lower()
+    not in {"0", "false", "off", "no"}
+)
+
+# Silence before the check-in. Minimum 60s so a misconfiguration cannot
+# turn this into something that interrupts an ordinary pause.
+IDLE_CHECKIN_SECONDS = _bounded_int_env(
+    "AI_BUDDY_IDLE_SECONDS",
+    300,
+    60,
+    24 * 60 * 60,
+)
+
+# Grace period after the spoken question, measured from when the speech
+# finishes rather than when it starts -- otherwise a long sentence eats
+# most of the window it is asking about.
+IDLE_RESPONSE_SECONDS = _bounded_int_env(
+    "AI_BUDDY_IDLE_RESPONSE_SECONDS",
+    60,
+    15,
+    60 * 60,
+)
+
 
 # How much of Piper's natural pitch movement to keep. 1.0 keeps all of it,
 # 0.0 is perfectly monotone.
