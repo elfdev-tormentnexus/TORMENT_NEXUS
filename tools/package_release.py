@@ -614,7 +614,13 @@ if not exist "%PY%" (
 
 echo   [1/4] Preparing the bundled Python...
 if not exist "%~dp0python\Scripts\pip.exe" (
-    "%PY%" "%~dp0python\get-pip.py" --no-index --find-links "%~dp0wheels" --quiet
+    REM --no-warn-script-location matters here too, not just on the install
+    REM below. get-pip drops pip.exe into python\Scripts, and warning that
+    REM the folder is not on PATH is exactly wrong for a self-contained
+    REM handoff -- nothing here should be on PATH. A yellow WARNING is the
+    REM first thing a new user sees, and it reads like something broke.
+    "%PY%" "%~dp0python\get-pip.py" --no-index --find-links "%~dp0wheels" ^
+        --quiet --no-warn-script-location
     if errorlevel 1 (
         echo   ERROR: could not set up pip.
         pause
