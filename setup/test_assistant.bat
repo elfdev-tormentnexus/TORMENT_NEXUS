@@ -18,7 +18,7 @@ if defined TORMENT_NEXUS_PYTHON (
 )
 
 cd /d "%ROOT%assistant"
-"%PY%" -m unittest discover -s tests -v
+"%PY%" "%ROOT%assistant\run_regressions.py"
 
 echo.
 pause

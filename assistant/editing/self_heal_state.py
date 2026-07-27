@@ -112,8 +112,8 @@ def validate_restart():
 
     try:
         result = subprocess.run(
-            [sys.executable, "-m", "unittest", "discover", "-s", "tests",
-             "-p", "test_*.py"],
+            [sys.executable,
+             os.path.join(edit_guard.PROJECT_ROOT, "run_regressions.py")],
             cwd=edit_guard.PROJECT_ROOT,
             capture_output=True,
             text=True,

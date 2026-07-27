@@ -155,7 +155,12 @@ class SelfHealRewardTests(unittest.TestCase):
 
         self.assertTrue(healthy)
         self.assertIn("passed", detail)
-        self.assertEqual(run.call_args.args[0][1:4], ["-m", "unittest", "discover"])
+        command = run.call_args.args[0]
+        self.assertEqual(command[0], sys.executable)
+        self.assertEqual(
+            command[1],
+            os.path.join(edit_guard.PROJECT_ROOT, "run_regressions.py"),
+        )
 
     def test_clean_batch_spends_exactly_one_bonus_credit_after_validation(self):
         state = {
@@ -3936,6 +3941,38 @@ class StartupImportTests(unittest.TestCase):
             "lacks, which is what hid this bug",
         )
         self.assertIn("--check-imports", body)
+
+
+class RegressionLauncherTests(unittest.TestCase):
+    """The fixed suite must also run under the bundled interpreter."""
+
+    def test_windows_launcher_uses_the_bootstrapped_runner(self):
+        root = os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))))
+        with open(os.path.join(root, "setup", "test_assistant.bat"),
+                  encoding="utf-8") as handle:
+            source = handle.read()
+
+        self.assertIn(r'assistant\run_regressions.py', source)
+        self.assertNotIn("-m unittest", source)
+
+    def test_restart_validation_uses_the_bootstrapped_runner(self):
+        source = inspect.getsource(self_heal_state.validate_restart)
+
+        self.assertIn('"run_regressions.py"', source)
+        self.assertNotIn('"-m", "unittest"', source)
+
+    def test_runner_bootstraps_the_project_before_discovery(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "run_regressions.py"),
+                  encoding="utf-8") as handle:
+            source = handle.read()
+
+        bootstrap = source.find("sys.path.insert(0, PROJECT_ROOT)")
+        discovery = source.find("defaultTestLoader.discover")
+        self.assertNotEqual(bootstrap, -1)
+        self.assertNotEqual(discovery, -1)
+        self.assertLess(bootstrap, discovery)
 
 
 if __name__ == "__main__":
