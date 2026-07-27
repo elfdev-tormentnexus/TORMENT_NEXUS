@@ -86,7 +86,7 @@ def get_char():
 
     Returns a single character, None if nothing is waiting, "" for an
     extended key this doesn't otherwise handle, or the sentinel strings
-    "UP"/"DOWN"/"ESC". The explicit Escape sentinel lets voice mode always
+    "UP"/"DOWN"/"LEFT"/"RIGHT"/"ESC". The explicit Escape sentinel lets voice mode always
     offer a silent manual exit without mistaking an arrow sequence for it.
     """
     if os.name == "nt":
@@ -101,6 +101,10 @@ def get_char():
                 return "UP"
             if code == "P":
                 return "DOWN"
+            if code == "K":
+                return "LEFT"
+            if code == "M":
+                return "RIGHT"
             return ""
         return ch
     else:
@@ -124,6 +128,10 @@ def get_char():
                         return "UP"
                     if ch3 == "B":
                         return "DOWN"
+                    if ch3 == "C":
+                        return "RIGHT"
+                    if ch3 == "D":
+                        return "LEFT"
 
             return "ESC"
 
@@ -405,6 +413,9 @@ class LayeredDisplayEngine:
         self.music_audio = None
         self.music_status = ""
         self.music_palette_index = 0
+        self.music_scene_index = 0
+        self.music_volume_percent = 100
+        self._music_scene_started_at = 0.0
         self._music_last_frame = 0.0
         self.input_masked = False
 
@@ -1759,6 +1770,15 @@ class LayeredDisplayEngine:
             fg(159), WHITE,
         )),
     )
+    # The original radial tunnel remains first: it is the visual identity
+    # already established for music mode.
+    _MUSIC_SCENES = (
+        "radial tunnel",
+        "spectrum cathedral",
+        "orbital reactor",
+        "corrupt cube",
+    )
+    _MUSIC_SCENE_ROTATION_SECONDS = 165
 
     def _draw_music(self, canvas, width, height):
         """Full-viewport visualiser. Replaces the header and chat log."""
@@ -1776,6 +1796,14 @@ class LayeredDisplayEngine:
         self._music_last_frame = now
         # A stall (resize, scheduling hiccup) must not jump the animation.
         delta = max(0.01, min(0.25, delta))
+
+        if (
+            self.music_visualizer is not None
+            and now - self._music_scene_started_at
+            >= self._MUSIC_SCENE_ROTATION_SECONDS
+        ):
+            _replace_music_scene(self.music_scene_index + 1, now=now)
+            self.music_status = "scene rotated automatically"
 
         stage_h = max(1, height - 1)
 
@@ -1801,7 +1829,20 @@ class LayeredDisplayEngine:
         if text_row < 0:
             return
 
-        status = self.music_status or "music mode  --  space: palette  |  ctrl+b: exit"
+        scene_name = self._MUSIC_SCENES[self.music_scene_index]
+        remaining = max(
+            0,
+            int(self._MUSIC_SCENE_ROTATION_SECONDS - (
+                time.time() - self._music_scene_started_at
+            )),
+        )
+        controls = (
+            f"scene {self.music_scene_index + 1}/{len(self._MUSIC_SCENES)}: "
+            f"{scene_name} | auto {remaining // 60}:{remaining % 60:02d} | "
+            f"←/→ scene | space palette | [/] vol {self.music_volume_percent}% | "
+            f"{MUSIC_TOGGLE_LABEL} exit"
+        )
+        status = f"{self.music_status} | {controls}" if self.music_status else controls
         level = max(0.0, min(1.0, features.get("level", 0.0)))
         meter_width = min(12, max(4, width // 10))
         meter = "━" * int(level * meter_width)
@@ -2088,6 +2129,14 @@ def input_framed(
             print_framed(toggle_music_mode(), color=VIOLET)
         elif ch == MUSIC_PALETTE_CYCLE_KEY and music_mode_active():
             cycle_music_palette()
+        elif ch == "LEFT" and music_mode_active():
+            cycle_music_scene(-1)
+        elif ch == "RIGHT" and music_mode_active():
+            cycle_music_scene(1)
+        elif ch == MUSIC_VOLUME_DOWN_KEY and music_mode_active():
+            cycle_music_volume(-5)
+        elif ch == MUSIC_VOLUME_UP_KEY and music_mode_active():
+            cycle_music_volume(5)
         elif ch == "ESC" and allow_cancel:
             _engine.current_input = ""
             _engine.input_masked = False
@@ -2386,6 +2435,22 @@ def poll_input_event():
         cycle_music_palette()
         return None
 
+    if ch == "LEFT" and music_mode_active():
+        cycle_music_scene(-1)
+        return None
+
+    if ch == "RIGHT" and music_mode_active():
+        cycle_music_scene(1)
+        return None
+
+    if ch == MUSIC_VOLUME_DOWN_KEY and music_mode_active():
+        cycle_music_volume(-5)
+        return None
+
+    if ch == MUSIC_VOLUME_UP_KEY and music_mode_active():
+        cycle_music_volume(5)
+        return None
+
     if ch == "ESC":
         return ("escape", None)
     if ch in ("\r", "\n"):
@@ -2421,6 +2486,9 @@ MUSIC_TOGGLE_KEY = "\x02"          # Ctrl+B
 MUSIC_TOGGLE_LABEL = "ctrl+b"
 MUSIC_PALETTE_CYCLE_KEY = " "
 MUSIC_PALETTE_CYCLE_LABEL = "space"
+MUSIC_VOLUME_DOWN_KEY = "["
+MUSIC_VOLUME_UP_KEY = "]"
+MUSIC_VOLUME_LABEL = "[/]"
 
 
 def music_mode_active():
@@ -2449,6 +2517,70 @@ def cycle_music_palette():
         return _engine.music_status
 
 
+def _make_music_scene(name, palette):
+    """Construct a visualizer lazily; normal chat never imports these scenes."""
+    if name == "radial tunnel":
+        from visualizer.radial import RadialVisualizer
+        return RadialVisualizer(palette)
+    if name == "spectrum cathedral":
+        from visualizer.spectrum import SpectrumVisualizer
+        return SpectrumVisualizer(palette)
+    if name == "orbital reactor":
+        from visualizer.reactor import ReactorVisualizer
+        return ReactorVisualizer(palette)
+    if name == "corrupt cube":
+        from visualizer.cube import CubeVisualizer
+        return CubeVisualizer(palette)
+    raise ValueError(f"Unknown music scene: {name}")
+
+
+def _replace_music_scene(index, now=None):
+    """Replace the active scene; callers coordinate access to the engine."""
+    _engine.music_scene_index = index % len(_engine._MUSIC_SCENES)
+    name = _engine._MUSIC_SCENES[_engine.music_scene_index]
+    _palette_name, palette = _engine._MUSIC_PALETTES[_engine.music_palette_index]
+    _engine.music_visualizer = _make_music_scene(name, palette)
+    _engine._music_scene_started_at = time.time() if now is None else now
+    return name
+
+
+def cycle_music_scene(direction=1):
+    """Manually select the next or previous scene without touching playback."""
+    with _engine.lock:
+        if not _engine.music_mode:
+            return "Music mode is off."
+        try:
+            name = _replace_music_scene(_engine.music_scene_index + direction)
+        except Exception as error:
+            _engine.music_status = f"scene unavailable: {error}"
+            return _engine.music_status
+        _engine.music_status = f"scene: {name}"
+        return _engine.music_status
+
+
+def set_music_volume(percent):
+    """Set local-library playback gain without changing system or Spotify volume."""
+    value = max(0, min(100, int(round(float(percent)))))
+    from visualizer import local_player
+    local_player.get_player().set_volume(value / 100.0)
+    with _engine.lock:
+        _engine.music_volume_percent = value
+        if _engine.music_mode:
+            _engine.music_status = f"local music volume: {value}%"
+    return value
+
+
+def music_volume_percent():
+    """The retained gain for TORMENT_NEXUS local music playback."""
+    with _engine.lock:
+        return _engine.music_volume_percent
+
+
+def cycle_music_volume(delta):
+    """Adjust the next/current local track in five-percent steps."""
+    return set_music_volume(music_volume_percent() + int(delta))
+
+
 def toggle_music_mode():
     """
     Enter or leave the visualiser. Returns a line to show the user.
@@ -2470,17 +2602,19 @@ def toggle_music_mode():
 
     try:
         from visualizer.audio_source import AudioSource
-        from visualizer.radial import RadialVisualizer
+        _make_music_scene("radial tunnel", _engine._MUSIC_PALETTES[0][1])
     except Exception as error:
         return f"Music mode unavailable: {error}"
 
     source = AudioSource()
     started = source.start()
 
-    palette_name, palette = _engine._MUSIC_PALETTES[_engine.music_palette_index]
+    palette_name, _palette = _engine._MUSIC_PALETTES[_engine.music_palette_index]
     _engine.music_audio = source if started else None
-    _engine.music_visualizer = RadialVisualizer(palette)
     _engine.music_mode = True
+    _engine.music_scene_index = 0
+    _engine._music_scene_started_at = time.time()
+    _replace_music_scene(_engine.music_scene_index, now=_engine._music_scene_started_at)
     _engine._music_last_frame = 0.0
     clear_screen()
 
@@ -2493,8 +2627,9 @@ def toggle_music_mode():
         return (
             "Music mode on, but system audio capture failed:\n"
             f"{source.error}\n\n"
-            f"The visualiser is running idle. {MUSIC_PALETTE_CYCLE_LABEL} "
-            f"cycles colours; {MUSIC_TOGGLE_LABEL} exits."
+            f"The visualiser is running idle. ←/→ cycles scenes; "
+            f"{MUSIC_PALETTE_CYCLE_LABEL} cycles colours; {MUSIC_VOLUME_LABEL} "
+            f"changes local-music volume; {MUSIC_TOGGLE_LABEL} exits."
         )
 
     _engine.music_status = (
@@ -2503,7 +2638,9 @@ def toggle_music_mode():
     return (
         f"Music mode on -- reacting to system audio.\n"
         f"Play anything (Spotify, browser, a file) and it will respond.\n"
-        f"{MUSIC_PALETTE_CYCLE_LABEL} cycles colours; {MUSIC_TOGGLE_LABEL} exits."
+        f"Scenes rotate every 2:45. ←/→ changes them now; "
+        f"{MUSIC_PALETTE_CYCLE_LABEL} cycles colours; {MUSIC_VOLUME_LABEL} "
+        f"changes local-music volume; {MUSIC_TOGGLE_LABEL} exits."
     )
 
 

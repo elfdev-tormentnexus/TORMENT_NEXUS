@@ -40,6 +40,8 @@ from visualizer import local_player
 from visualizer import music_metadata
 from visualizer import spotify_control
 from visualizer.radial import RadialVisualizer
+from visualizer.spectrum import SpectrumVisualizer
+from visualizer.reactor import ReactorVisualizer
 
 # The desktop icon animator lives beside the assistant package, not in it.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
@@ -2146,6 +2148,24 @@ class MusicVisualizerTests(unittest.TestCase):
         self.assertEqual(len(frame), 1)
         self.assertEqual(len(frame[0]), 1)
 
+    def test_added_scenes_fill_requested_terminal_shape(self):
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        palette = tuple(f"color-{index}" for index in range(9))
+        features = self._features()
+
+        for scene_class in (SpectrumVisualizer, ReactorVisualizer):
+            with self.subTest(scene=scene_class.__name__):
+                visualizer = scene_class(palette)
+                visualizer.step(0.08, features, 48, 16)
+                frame = visualizer.render(48, 16, features)
+                self.assertEqual(len(frame), 16)
+                self.assertTrue(all(len(row) == 48 for row in frame))
+                self.assertTrue(any(cell for row in frame for cell in row))
+
 
 class AudioModeUiTests(unittest.TestCase):
     def tearDown(self):
@@ -2156,6 +2176,9 @@ class AudioModeUiTests(unittest.TestCase):
         ui._engine.music_audio = None
         ui._engine.music_status = ""
         ui._engine.music_palette_index = 0
+        ui._engine.music_scene_index = 0
+        ui._engine.music_volume_percent = 100
+        ui._engine._music_scene_started_at = 0.0
         ui.set_voice_mode(False)
 
     def test_live_input_reports_lines_and_escape_separately(self):
@@ -2267,6 +2290,33 @@ class AudioModeUiTests(unittest.TestCase):
         ui._engine.music_visualizer = None
 
         self.assertEqual(ui.cycle_music_palette(), "Music mode is off.")
+
+    def test_arrow_keys_cycle_visualizer_scenes_without_typing(self):
+        engine = ui._engine
+        engine.music_mode = True
+        engine.music_scene_index = 0
+        engine.music_visualizer = SimpleNamespace(palette=())
+        engine.current_input = "keep this draft"
+
+        with mock.patch.object(
+            ui,
+            "_make_music_scene",
+            return_value=SimpleNamespace(palette=()),
+        ), mock.patch.object(ui, "get_char", return_value="RIGHT"):
+            self.assertIsNone(ui.poll_input_event())
+
+        self.assertEqual(engine.music_scene_index, 1)
+        self.assertEqual(engine.current_input, "keep this draft")
+        self.assertIn("spectrum cathedral", engine.music_status)
+
+    def test_volume_command_is_visible_without_developer_mode(self):
+        with mock.patch.object(ui, "set_music_volume", return_value=70) as setter:
+            result = command_handlers.try_handle_command("volume 70")
+
+        setter.assert_called_once_with(70)
+        self.assertIn("70%", result)
+        entry = next(c for c in command_handlers.COMMANDS if c["name"] == "volume")
+        self.assertFalse(entry["dev_only"])
 
 
 class PromptEfficiencyTests(unittest.TestCase):
@@ -2892,6 +2942,8 @@ class TutorialTests(unittest.TestCase):
                      if lesson["key"] == "music")["body"]
         self.assertIn("Space", music)
         self.assertIn("Ctrl+B", music)
+        self.assertIn("2:45", music)
+        self.assertIn("Left/Right", music)
 
     def test_tutorial_explains_the_spotify_number_picker(self):
         lesson = next(lesson for lesson in tutorial.LESSONS

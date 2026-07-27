@@ -125,11 +125,16 @@ LESSONS = [
             "Music runs on its own audio stream, so TORMENT_NEXUS can talk over\n"
             "it without cutting the track off.\n\n"
             "There is also an audio-reactive visualiser that responds to\n"
-            "whatever the machine is playing. In visualiser mode, Space\n"
-            "cycles the colour palette and Ctrl+B exits."
+            "whatever the machine is playing. It begins with the original\n"
+            "radial tunnel, rotates through four scenes every 2:45, and can\n"
+            "be changed immediately with Left/Right. Space cycles colours,\n"
+            "[/] changes local-music volume, and Ctrl+B exits.\n\n"
+            "The 'volume' command controls files played from the local music\n"
+            "library. Spotify and browser audio keep their own controls."
         ),
         "commands": ["music library", "play", "spotify", "pause local",
-                     "resume local", "stop music", "now playing", "music mode"],
+                     "resume local", "stop music", "now playing", "music mode",
+                     "volume"],
     },
     {
         "key": "projects",

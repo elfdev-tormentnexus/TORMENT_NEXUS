@@ -165,8 +165,19 @@ Useful first checks:
 health check
 voice status
 music mode
+volume 70
 goals
 ```
+
+### Music visualizer controls
+
+Music mode starts on the original **radial tunnel** scene, then rotates every
+2 minutes 45 seconds through spectrum cathedral, orbital reactor, and corrupt
+cube. Press **Left/Right** to select a scene immediately, **Space** to cycle
+its colour palette, and **Ctrl+B** to leave visualizer mode. While it is open,
+**[** and **]** adjust the volume of local-library playback in 5% steps.
+`volume <0-100>` provides the same local-player control from the terminal;
+Spotify and browser audio retain their own volume controls.
 
 ## Documentation
 

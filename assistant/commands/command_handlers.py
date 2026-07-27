@@ -1447,6 +1447,44 @@ def handle_music_mode(user_input):
     return ui.toggle_music_mode()
 
 
+@command("volume", "Set the volume for local music playback",
+         usage="volume <0-100>", dev_only=False, group="music")
+def handle_local_music_volume(user_input):
+    """Control only TORMENT_NEXUS's local player, never system/Spotify volume."""
+    normalized = (user_input or "").strip()
+    lower = normalized.lower()
+
+    if lower == "volume":
+        return (
+            f"Local music volume: {ui.music_volume_percent()}%\n\n"
+            "Use 'volume <0-100>'. This controls files played from the local "
+            "music library; Spotify and browser audio keep their own controls."
+        )
+
+    if not lower.startswith("volume "):
+        return False
+
+    argument = normalized[len("volume"):].strip().rstrip("%")
+    if argument.lower() == "up":
+        value = ui.cycle_music_volume(5)
+    elif argument.lower() == "down":
+        value = ui.cycle_music_volume(-5)
+    else:
+        try:
+            value = int(argument)
+        except ValueError:
+            return "Usage: volume <0-100>"
+        if not 0 <= value <= 100:
+            return "Volume must be from 0 to 100."
+        value = ui.set_music_volume(value)
+
+    return (
+        f"Local music volume: {value}%\n\n"
+        "This affects local files played through TORMENT_NEXUS. Spotify and "
+        "browser audio retain their own volume controls."
+    )
+
+
 @command("spotify", "Open Spotify or search its catalogue from the terminal",
          usage="spotify [search <query>]", dev_only=False, group="music")
 def handle_spotify_desktop(user_input):

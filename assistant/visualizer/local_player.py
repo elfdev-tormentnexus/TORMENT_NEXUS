@@ -146,6 +146,7 @@ class LocalPlayer:
         self._frames_played = 0
         self._total_frames = 0
         self._samplerate = 0
+        self._volume = 1.0
         self._finished = threading.Event()
 
     # -- state ------------------------------------------------------
@@ -176,6 +177,21 @@ class LocalPlayer:
                 self._frames_played / self._samplerate,
                 self._total_frames / self._samplerate,
             )
+
+    def volume(self):
+        """Current local-playback gain, from silent (0.0) to full (1.0)."""
+        with self._lock:
+            return self._volume
+
+    def set_volume(self, volume):
+        """Change local playback gain immediately and retain it for next track."""
+        try:
+            value = float(volume)
+        except (TypeError, ValueError):
+            value = 1.0
+        with self._lock:
+            self._volume = max(0.0, min(1.0, value))
+            return self._volume
 
     # -- transport --------------------------------------------------
 
@@ -334,6 +350,7 @@ class LocalPlayer:
         with self._lock:
             paused = self._paused
             blocks = self._blocks
+            volume = self._volume
 
         if paused or blocks is None:
             outdata[:] = 0
@@ -352,7 +369,7 @@ class LocalPlayer:
             raise sd.CallbackStop
 
         count = min(len(data), frames)
-        outdata[:count] = data[:count]
+        outdata[:count] = data[:count] * volume
 
         if count < frames:
             outdata[count:] = 0
