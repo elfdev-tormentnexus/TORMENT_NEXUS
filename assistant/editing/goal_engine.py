@@ -26,7 +26,10 @@ Everything else follows from that:
   until something ran it, and the way that stops being true is somebody
   double-clicking it later.
 - Every goal, action, and refusal is journalled with a timestamp.
-- Off unless TORMENT_NEXUS_GOALS=1.
+- Available by default; set TORMENT_NEXUS_GOALS=0 to remove it entirely.
+  "Available" is not "running": nothing here ever fires on its own.
+  Reading the goal list is open, but setting or working a goal requires
+  developer mode, so every action traces to a human command.
 
 The engine lives under editing/, which edit_guard denies to the editor,
 so it cannot rewrite its own limits.
