@@ -36,6 +36,7 @@ from core.config import (
     VOICE_SPEECH_NOISE_SCALE,
     VOICE_SPEECH_NOISE_W_SCALE,
     VOICE_SPEECH_PAUSE_SECONDS,
+    VOICE_SPEECH_CLAUSE_PAUSE_SECONDS,
     VOICE_VOWEL_STRETCH,
     VOICE_PITCH_FLATTEN,
     VOICE_SPEECH_VOCODER,
@@ -2173,7 +2174,19 @@ class OfflineVoice:
                 if phase_changed:
                     phase_changed("pausing between phrases")
 
-                deadline = time.monotonic() + VOICE_SPEECH_PAUSE_SECONDS
+                # A chunk that ends on sentence punctuation really is the
+                # end of a thought. One that does not is a long sentence
+                # cut at a word boundary to fit the synthesiser, and
+                # giving that the full stop's pause invents a sentence
+                # break the text never had.
+                ends_sentence = chunk.rstrip().endswith((".", "!", "?", ":"))
+                gap = (
+                    VOICE_SPEECH_PAUSE_SECONDS
+                    if ends_sentence
+                    else VOICE_SPEECH_CLAUSE_PAUSE_SECONDS
+                )
+
+                deadline = time.monotonic() + gap
 
                 while time.monotonic() < deadline:
                     if cancelled():

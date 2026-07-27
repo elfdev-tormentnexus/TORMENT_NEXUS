@@ -3720,5 +3720,77 @@ class PersonaShotsTests(unittest.TestCase):
         self.assertLess(approx_tokens, config.CONTEXT_SIZE // 2)
 
 
+class SpeechPauseTests(unittest.TestCase):
+    """
+    A full stop and a mid-sentence break are not the same silence.
+
+    Every chunk boundary used to get one pause length. Long sentences are
+    split at an arbitrary word boundary to fit the synthesiser, so those
+    splits were being given the full sentence pause -- inventing a stop
+    the text never had, in the middle of a thought.
+    """
+
+    def _timed_gaps(self, text):
+        voice = offline_voice.OfflineVoice.__new__(offline_voice.OfflineVoice)
+        voice.piper_voice = object()
+        voice.speech_syn_config = None
+
+        gaps = []
+        previous = [None]
+
+        def fake_play(*args, **kwargs):
+            now = time.monotonic()
+            if previous[0] is not None:
+                gaps.append(now - previous[0])
+            previous[0] = now
+            return True
+
+        with mock.patch.object(offline_voice.OfflineVoice,
+                               "_load_piper", lambda self: None), \
+             mock.patch.object(offline_voice.OfflineVoice,
+                               "_synthesize_wav_bytes",
+                               lambda self, *a, **k: b"x"), \
+             mock.patch.object(offline_voice.OfflineVoice,
+                               "_play_wav_bytes", fake_play):
+            voice.speak(text, lambda: False)
+
+        return gaps
+
+    def test_a_clause_break_is_much_shorter_than_a_full_stop(self):
+        self.assertLess(
+            config.VOICE_SPEECH_CLAUSE_PAUSE_SECONDS,
+            config.VOICE_SPEECH_PAUSE_SECONDS / 3,
+        )
+
+    def test_sentence_ends_get_the_full_pause(self):
+        gaps = self._timed_gaps("One thing. Another thing. A third.")
+
+        self.assertTrue(gaps)
+        for gap in gaps:
+            self.assertAlmostEqual(
+                gap, config.VOICE_SPEECH_PAUSE_SECONDS, delta=0.25)
+
+    def test_a_split_long_sentence_does_not_gain_a_full_stop(self):
+        long_sentence = "we kept going " * 40 + "and then it worked."
+        chunks = offline_voice._speech_chunks(long_sentence)
+
+        self.assertGreater(len(chunks), 1, "fixture was not long enough")
+
+        # Only the final chunk is a real sentence end.
+        for chunk in chunks[:-1]:
+            self.assertFalse(chunk.rstrip().endswith((".", "!", "?")))
+
+        gaps = self._timed_gaps(long_sentence)
+        self.assertTrue(gaps)
+        for gap in gaps:
+            self.assertLess(gap, config.VOICE_SPEECH_PAUSE_SECONDS / 2)
+
+    def test_both_pauses_are_tunable_without_editing_code(self):
+        source = inspect.getsource(config)
+
+        self.assertIn("TORMENT_NEXUS_PAUSE_SECONDS", source)
+        self.assertIn("TORMENT_NEXUS_CLAUSE_PAUSE", source)
+
+
 if __name__ == "__main__":
     unittest.main()

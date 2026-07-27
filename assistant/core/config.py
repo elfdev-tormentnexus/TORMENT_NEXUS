@@ -460,10 +460,34 @@ except ValueError:
 VOICE_SPEECH_LENGTH_SCALE = max(0.5, VOICE_SPEECH_PACE)
 VOICE_SPEECH_NOISE_SCALE = 0.04
 VOICE_SPEECH_NOISE_W_SCALE = 0.035
-# Measured from the reference recording: median pause between phrases is
-# 0.51s. 0.20 was rushing the gaps, which undercut the unhurried delivery
-# the rest of the chain is aiming for.
-VOICE_SPEECH_PAUSE_SECONDS = 0.45
+# Silence inserted after a sentence ends.
+#
+# The reference recording measured a 0.51s median between phrases, and
+# 0.45 was set to match it. Listening says that still reads as slightly
+# clipped: a full stop wants more air than the measurement suggests,
+# because the vocoder's flat pitch removes the falling intonation that
+# normally signals an ending. The pause has to carry that on its own.
+try:
+    VOICE_SPEECH_PAUSE_SECONDS = max(
+        0.0,
+        min(3.0, float(os.environ.get("TORMENT_NEXUS_PAUSE_SECONDS", "0.72"))),
+    )
+except ValueError:
+    VOICE_SPEECH_PAUSE_SECONDS = 0.72
+
+# Silence inserted where a long sentence had to be split mid-way.
+#
+# Those breaks land on an arbitrary word boundary, not a real clause end,
+# so giving them the full sentence pause invents a full stop that the text
+# never had. Short enough to read as drawing breath rather than finishing
+# a thought.
+try:
+    VOICE_SPEECH_CLAUSE_PAUSE_SECONDS = max(
+        0.0,
+        min(2.0, float(os.environ.get("TORMENT_NEXUS_CLAUSE_PAUSE", "0.16"))),
+    )
+except ValueError:
+    VOICE_SPEECH_CLAUSE_PAUSE_SECONDS = 0.16
 
 # Route ordinary speech through the same vocoder the sung Daisy Bell
 # performance uses, instead of PSOLA.
