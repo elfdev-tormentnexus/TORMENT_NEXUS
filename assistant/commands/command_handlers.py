@@ -208,6 +208,127 @@ def command_catalog():
     ]
 
 
+@command("voice speed", "Set how fast speech is read (0.5 fast - 3.0 slow)",
+         usage="voice speed <number>", dev_only=False, group="session",
+         arg_pattern=r"^\d+(\.\d+)?$")
+def handle_voice_speed(user_input):
+    if not _match_prefix(user_input, "voice speed"):
+        return False
+
+    argument = user_input.strip()[len("voice speed"):].strip()
+
+    if not argument:
+        return (
+            f"Reading speed is {offline_voice.speech_pace():.2f}.\n\n"
+            "Higher is slower. This project runs slower than Piper's\n"
+            "natural pace by default, because the flattened pitch needs\n"
+            "the extra time to stay intelligible.\n\n"
+            "Usage: voice speed 1.3"
+        )
+
+    try:
+        applied = offline_voice.set_speech_pace(float(argument))
+    except ValueError:
+        return "Usage: voice speed <number>, for example: voice speed 1.3"
+
+    return (
+        f"Reading speed set to {applied:.2f}.\n\n"
+        "Takes effect on the next spoken reply."
+    )
+
+
+@command("audio devices", "List microphones and speakers",
+         dev_only=False, group="session")
+def handle_audio_devices(user_input):
+    if not _match_exact(user_input, "audio devices"):
+        return False
+
+    inputs, outputs, error = offline_voice.audio_devices()
+
+    if error:
+        return f"AUDIO DEVICES\n{'=' * 58}\n\n{error}"
+
+    chosen_in = offline_voice.input_device()
+    chosen_out = offline_voice.output_device()
+    lines = [f"AUDIO DEVICES\n{'=' * 58}\n"]
+
+    for title, devices, chosen in (
+        ("INPUTS (microphones)", inputs, chosen_in),
+        ("OUTPUTS (speakers)", outputs, chosen_out),
+    ):
+        lines.append(title)
+
+        for index, name, _channels, is_default in devices:
+            marks = []
+            if is_default:
+                marks.append("system default")
+            if chosen is not None and str(chosen) == str(index):
+                marks.append("selected")
+            suffix = f"   [{', '.join(marks)}]" if marks else ""
+            lines.append(f"  {index:>3}  {name[:42]}{suffix}")
+
+        if not devices:
+            lines.append("  (none found)")
+
+        lines.append("")
+
+    lines.append("'audio input <number>' or 'audio output <number>' to choose.")
+    lines.append("'audio input default' returns to the system default.")
+
+    return "\n".join(lines)
+
+
+def _select_device(kind, argument):
+    """Shared body for choosing an input or output."""
+    inputs, outputs, error = offline_voice.audio_devices()
+
+    if error:
+        return error
+
+    available = inputs if kind == "input" else outputs
+    setter = (offline_voice.set_input_device if kind == "input"
+              else offline_voice.set_output_device)
+
+    if argument.lower() in ("default", "auto", "system"):
+        setter(None)
+        return f"Audio {kind} returned to the system default."
+
+    if not argument.isdigit():
+        return f"Usage: audio {kind} <number>, or 'audio {kind} default'"
+
+    index = int(argument)
+    match = next((d for d in available if d[0] == index), None)
+
+    if match is None:
+        return (f"No {kind} device numbered {index}. "
+                "Run 'audio devices' to see the list.")
+
+    setter(str(index))
+
+    return (f"Audio {kind} set to {index}: {match[1]}\n\n"
+            "Takes effect the next time audio mode starts.")
+
+
+@command("audio input", "Choose which microphone to listen with",
+         usage="audio input <number>", dev_only=False, group="session",
+         arg_pattern=r"^(\d+|default|auto|system)$")
+def handle_audio_input(user_input):
+    if not _match_prefix(user_input, "audio input "):
+        return False
+
+    return _select_device("input", user_input[len("audio input "):].strip())
+
+
+@command("audio output", "Choose which speaker to play through",
+         usage="audio output <number>", dev_only=False, group="session",
+         arg_pattern=r"^(\d+|default|auto|system)$")
+def handle_audio_output(user_input):
+    if not _match_prefix(user_input, "audio output "):
+        return False
+
+    return _select_device("output", user_input[len("audio output "):].strip())
+
+
 @command("tutorial", "Walk through TORMENT_NEXUS's core features",
          usage="tutorial [next|<n>|restart]", dev_only=False, group="session")
 def handle_tutorial(user_input):

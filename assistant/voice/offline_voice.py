@@ -149,6 +149,92 @@ def setup_issues(check_devices=True, require_microphone=False):
     return issues
 
 
+# Runtime overrides for things that were previously environment-only.
+#
+# A beta tester asked for reading speed and a way to choose the
+# microphone. Both already existed as environment variables, which means
+# restarting to change them -- fine for a developer, useless for someone
+# adjusting by ear mid-conversation.
+_pace_override = None
+_input_override = None
+_output_override = None
+
+
+def speech_pace():
+    """Current length_scale. Higher is slower."""
+    return _pace_override if _pace_override is not None else VOICE_SPEECH_LENGTH_SCALE
+
+
+def set_speech_pace(value):
+    """
+    Set reading speed. Returns the value actually applied.
+
+    Bounded because Piper degrades badly outside this range -- far below
+    0.6 the words run together, far above 3.0 it stops sounding like
+    speech and starts sounding like a fault.
+    """
+    global _pace_override
+
+    _pace_override = max(0.5, min(3.0, float(value)))
+    return _pace_override
+
+
+def input_device():
+    return _input_override if _input_override is not None else VOICE_INPUT_DEVICE
+
+
+def output_device():
+    return _output_override if _output_override is not None else VOICE_OUTPUT_DEVICE
+
+
+def set_input_device(value):
+    global _input_override
+    _input_override = value
+    return value
+
+
+def set_output_device(value):
+    global _output_override
+    _output_override = value
+    return value
+
+
+def audio_devices():
+    """
+    Every input and output the machine reports.
+
+    Returns (inputs, outputs, error). Each entry is (index, name,
+    channels, is_default). Errors are returned rather than raised: a
+    listing that cannot be produced should say so, not take the command
+    down.
+    """
+    try:
+        import sounddevice as sd
+    except ImportError as error:
+        return [], [], f"sounddevice is not installed: {error}"
+
+    try:
+        devices = sd.query_devices()
+        default_in, default_out = sd.default.device
+    except Exception as error:
+        return [], [], f"could not list audio devices: {error}"
+
+    inputs, outputs = [], []
+
+    for index, device in enumerate(devices):
+        name = device.get("name", "?")
+
+        if device.get("max_input_channels", 0) > 0:
+            inputs.append((index, name, device["max_input_channels"],
+                           index == default_in))
+
+        if device.get("max_output_channels", 0) > 0:
+            outputs.append((index, name, device["max_output_channels"],
+                            index == default_out))
+
+    return inputs, outputs, None
+
+
 def microphone_issues(check_device=True):
     """Return microphone/recognizer issues without blocking speech output."""
     return setup_issues(
@@ -271,6 +357,31 @@ def _prepare_for_speech(text):
     value = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", value)
     value = re.sub(r"https?://\S+", "link", value)
     value = re.sub(r"[`*_#>|]", " ", value)
+
+    # Give list items terminal punctuation while the line structure still
+    # exists -- the whitespace collapse below destroys it.
+    #
+    # A numbered item has punctuation only on its number, so the sentence
+    # splitter ends the sentence THERE and the number joins the previous
+    # item: "13. Connected hardware" was spoken as "...searching the web,
+    # thirteen." then a pause, then "connected hardware, fourteen." Every
+    # pause landed one item late. Turning the number's full stop into a
+    # comma and ending the item properly puts the break where the item
+    # actually ends.
+    def _close_item(match):
+        number, body = match.group(1), match.group(2).rstrip()
+        tail = "" if body.endswith((".", ":", ";", ",")) else "."
+        return f"{number}, {body}{tail}"
+
+    def _close_bullet(match):
+        body = match.group(1).rstrip()
+        tail = "" if body.endswith((".", ":", ";", ",")) else "."
+        return f"{body}{tail}"
+
+    value = re.sub(r"(?m)^[ \t>]*(\d+)[.)]\s+(.+?)[ \t]*$", _close_item, value)
+    value = re.sub(r"(?m)^[ \t>]*[-•–]\s+(.+?)[ \t]*$",
+                   _close_bullet, value)
+
     # The displayed answer keeps its punctuation; only the spoken rendering
     # flattens excited and questioning marks so Piper does not inject a
     # cheerful or inquisitive upswing before clinical shaping is applied.
@@ -1542,8 +1653,10 @@ class OfflineVoice:
 
         self.np = np
         self.sd = sd
-        self.input_device = _device_value(VOICE_INPUT_DEVICE)
-        self.output_device = _device_value(VOICE_OUTPUT_DEVICE)
+        # Read through the accessors so a device chosen mid-session is
+        # picked up by the next voice instance without a restart.
+        self.input_device = _device_value(input_device())
+        self.output_device = _device_value(output_device())
         input_issues = microphone_issues()
         self.microphone_available = not input_issues
         self.microphone_issue = "\n".join(input_issues)
@@ -1694,7 +1807,7 @@ class OfflineVoice:
             self.piper_voice = PiperVoice.load(VOICE_TTS_MODEL)
             self.speech_syn_config = SynthesisConfig(
                 volume=0.94,
-                length_scale=VOICE_SPEECH_LENGTH_SCALE,
+                length_scale=speech_pace(),
                 noise_scale=VOICE_SPEECH_NOISE_SCALE,
                 noise_w_scale=VOICE_SPEECH_NOISE_W_SCALE,
                 normalize_audio=True,
