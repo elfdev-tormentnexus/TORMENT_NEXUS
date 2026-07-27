@@ -188,9 +188,19 @@ def _bounded_int_env(name, default, minimum, maximum):
 
 # Context window passed to llama-server (-c). Shared with main.py's
 # prompt-budget accounting so the two can never drift out of sync.
+#
+# Raised from 4096 after the identity and honesty rules grew: the system
+# prompt alone was taking 53% of the window, and a small model spending
+# half its attention on instructions answers correctly but blandly --
+# every reply became "How may I assist you today?". Doubling the window
+# costs roughly 600MB of KV cache and drops the prompt to about a fifth
+# of it, which leaves room for the conversation to have a shape.
+#
+# Drop this back to 4096 on the Pi, where the memory matters more than
+# the headroom does.
 CONTEXT_SIZE = _bounded_int_env(
     "TORMENT_NEXUS_CONTEXT_SIZE",
-    4096,
+    8192,
     2048,
     8192,
 )
