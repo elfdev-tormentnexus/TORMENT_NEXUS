@@ -1,0 +1,553 @@
+import os
+import platform
+import secrets
+from urllib.parse import urlparse
+
+
+ASSISTANT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PROJECT_HOME = os.path.dirname(ASSISTANT_ROOT)
+DUMP_FOLDER = os.path.join(PROJECT_HOME, "dump")
+
+
+def _first_existing(paths):
+    for path in paths:
+        if os.path.isfile(path):
+            return path
+
+    return paths[0]
+
+
+def _default_llama_server():
+    binary = "llama-server.exe" if os.name == "nt" else "llama-server"
+    base = os.path.join(PROJECT_HOME, "llama.cpp", "build", "bin")
+    candidates = (
+        (
+            os.path.join(base, "Release", binary),
+            os.path.join(base, binary),
+        )
+        if os.name == "nt"
+        else (
+            os.path.join(base, binary),
+            os.path.join(base, "Release", binary),
+        )
+    )
+    return _first_existing(candidates)
+
+
+LLAMA_SERVER = (
+    os.environ.get("AI_BUDDY_LLAMA_SERVER", "").strip()
+    or _default_llama_server()
+)
+MODEL_PATH = (
+    os.environ.get("AI_BUDDY_MODEL_PATH", "").strip()
+    or os.path.join(
+        PROJECT_HOME,
+        "models",
+        "Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+    )
+)
+
+# What the UI header shows. Kept separate from MODEL_PATH's filename
+# so the on-disk name can stay descriptive (matching what it was
+# downloaded as) while the header shows a shorter label.
+MODEL_DISPLAY_NAME = "Qwen3-4B-I-2507-Q5_K_M"
+SERVER_URL = (
+    os.environ.get("AI_BUDDY_SERVER_URL", "").strip()
+    or "http://127.0.0.1:8080"
+).rstrip("/")
+_SERVER_PARSED = urlparse(SERVER_URL)
+SERVER_HOST = (
+    os.environ.get("AI_BUDDY_SERVER_HOST", "").strip()
+    or _SERVER_PARSED.hostname
+    or "127.0.0.1"
+)
+
+try:
+    SERVER_PORT = _SERVER_PARSED.port or 8080
+except ValueError:
+    SERVER_PORT = 8080
+
+
+def _load_or_create_model_api_key():
+    """
+    Keep the loopback model API private from arbitrary browser pages.
+
+    llama-server otherwise enables permissive CORS with no authentication,
+    allowing a web page open on the same computer to submit requests to the
+    local model. A persistent random key survives assistant restarts and can
+    still be overridden explicitly for advanced setups.
+    """
+    configured = os.environ.get("AI_BUDDY_MODEL_API_KEY", "").strip()
+
+    if configured:
+        return configured
+
+    key_path = os.path.join(ASSISTANT_ROOT, ".model_api_key")
+
+    try:
+        with open(key_path, "r", encoding="utf-8") as key_file:
+            stored = key_file.read().strip()
+
+        if stored:
+            os.environ["AI_BUDDY_MODEL_API_KEY"] = stored
+            return stored
+    except FileNotFoundError:
+        pass
+    except OSError:
+        # A read-only installation still works for this process; it simply
+        # cannot reuse an orphaned authenticated server after a full restart.
+        key_path = None
+
+    generated = secrets.token_urlsafe(32)
+
+    if key_path:
+        try:
+            descriptor = os.open(
+                key_path,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL,
+                0o600,
+            )
+
+            with os.fdopen(descriptor, "w", encoding="utf-8") as key_file:
+                key_file.write(generated)
+        except FileExistsError:
+            with open(key_path, "r", encoding="utf-8") as key_file:
+                generated = key_file.read().strip() or generated
+        except OSError:
+            pass
+
+    os.environ["AI_BUDDY_MODEL_API_KEY"] = generated
+    return generated
+
+
+MODEL_API_KEY = _load_or_create_model_api_key()
+MODEL_REQUEST_HEADERS = {
+    "Authorization": f"Bearer {MODEL_API_KEY}",
+}
+_MODEL_API_KEY_PATH = os.path.join(ASSISTANT_ROOT, ".model_api_key")
+
+try:
+    with open(_MODEL_API_KEY_PATH, "r", encoding="utf-8") as key_file:
+        _stored_model_api_key = key_file.read().strip()
+except OSError:
+    _stored_model_api_key = ""
+
+# Prefer llama.cpp's key-file option so the normal generated secret is not
+# visible in a process listing. An environment-only override intentionally
+# falls back to --api-key unless it exactly matches the protected file.
+MODEL_API_KEY_FILE = (
+    _MODEL_API_KEY_PATH
+    if (
+        _stored_model_api_key
+        and secrets.compare_digest(_stored_model_api_key, MODEL_API_KEY)
+    )
+    else None
+)
+
+CORE_MEMORY_FILE = os.path.join(ASSISTANT_ROOT, "memory", "core_memory.txt")
+MEMORY_FILE = os.path.join(ASSISTANT_ROOT, "memory", "memories.json")
+HISTORY_FILE = os.path.join(ASSISTANT_ROOT, "memory", "conversation_history.txt")
+PROMPT_CACHE_DIR = os.path.join(ASSISTANT_ROOT, "cache", "prompt")
+
+# Audio files here play with no network, no account, and no Spotify.
+# Whatever is dropped in becomes a track named after its filename.
+MUSIC_LIBRARY_DIR = os.path.join(ASSISTANT_ROOT, "music")
+
+# llama-server's own stdout/stderr gets piped here instead of your
+# terminal, so its timing logs stop shredding the UI. Check this file
+# if the server misbehaves.
+SERVER_LOG_FILE = os.path.join(ASSISTANT_ROOT, "logs", "llama_server.log")
+
+# Master switch for all the DEBUG / rejection-reason chatter.
+# Flip to True when you're debugging the memory pipeline.
+DEBUG = False
+
+# Show "[Memory Saved]" confirmations during chat. Rejections and
+# duplicates stay quiet unless DEBUG is on.
+SHOW_MEMORY_EVENTS = True
+
+# A full autonomous cycle makes multiple model requests and can take
+# noticeably longer on the target Pi. Running it before chat made the
+# app look as if its keyboard was broken because the input loop did
+# not exist yet. Keep startup responsive by default; autonomy remains
+# available through "run autonomous cycle". Set the environment
+# variable to 1 only when deliberately opting back into startup runs.
+AUTONOMOUS_ON_STARTUP = (
+    os.environ.get("AI_BUDDY_AUTONOMOUS_ON_STARTUP", "").strip() == "1"
+)
+
+
+def _bounded_int_env(name, default, minimum, maximum):
+    try:
+        value = int(os.environ.get(name, str(default)).strip())
+    except ValueError:
+        value = default
+
+    return max(minimum, min(maximum, value))
+
+
+# Context window passed to llama-server (-c). Shared with main.py's
+# prompt-budget accounting so the two can never drift out of sync.
+CONTEXT_SIZE = _bounded_int_env(
+    "AI_BUDDY_CONTEXT_SIZE",
+    4096,
+    2048,
+    8192,
+)
+
+# Max tokens per assistant reply. This is a ceiling, not a requested length;
+# raising it prevents useful answers from being cut off while short replies
+# still stop naturally. It remains configurable for slower Pi deployments.
+MAX_TOKENS = _bounded_int_env(
+    "AI_BUDDY_MAX_TOKENS",
+    420,
+    128,
+    min(1024, CONTEXT_SIZE // 2),
+)
+
+# The base Qwen3 hybrid models emit <think> reasoning blocks unless
+# told not to. Qwen3-4B-Instruct-2507 is the dedicated non-thinking
+# release and shouldn't emit them at all, but this is left on (the
+# template just ignores the unused kwarg) as a no-cost guard in case
+# the model is ever swapped back to a thinking/hybrid variant. The
+# <think> stripper in main.py stays as a backstop either way.
+QWEN_NO_THINK = True
+
+# Which backend web/search_engine.py dispatches to -- "searxng" or
+# "brave". Lets the assistant answer questions that need current
+# information (see web/search_engine.py, web/search_intent.py).
+SEARCH_BACKEND = (
+    os.environ.get("AI_BUDDY_SEARCH_BACKEND", "").strip().lower()
+    or "searxng"
+)
+
+# Self-hosted SearXNG (see searxng/docker-compose.yml at the project
+# root). Port 8081, not 8080 -- that's already SERVER_URL above.
+SEARXNG_URL = (
+    os.environ.get("AI_BUDDY_SEARXNG_URL", "").strip()
+    or "http://127.0.0.1:8081"
+).rstrip("/")
+
+# Brave Search API. Get a key at
+# https://api-dashboard.search.brave.com/register and set a spending
+# cap in the dashboard; the account itself has none by default. Left
+# blank until configured -- search_engine_brave.search() refuses
+# cleanly rather than erroring when this is empty. Kept around so
+# switching SEARCH_BACKEND back to "brave" later doesn't need
+# rewiring, just a key.
+BRAVE_API_KEY = os.environ.get("AI_BUDDY_BRAVE_API_KEY", "").strip()
+BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
+
+_MACHINE = platform.machine().lower()
+_DEFAULT_LLAMA_THREADS = 4 if _MACHINE in {"aarch64", "arm64"} else None
+
+try:
+    _configured_threads = os.environ.get("AI_BUDDY_LLAMA_THREADS", "").strip()
+    LLAMA_THREADS = (
+        max(1, min(32, int(_configured_threads)))
+        if _configured_threads
+        else _DEFAULT_LLAMA_THREADS
+    )
+except ValueError:
+    LLAMA_THREADS = _DEFAULT_LLAMA_THREADS
+
+LLAMA_CACHE_RAM_MB = _bounded_int_env(
+    "AI_BUDDY_LLAMA_CACHE_RAM_MB",
+    256,
+    64,
+    1024,
+)
+
+# Dedicated offline voice mode. The one-time setup_voice script downloads a
+# compact Moonshine recognizer, Silero voice detector, and Piper voice beneath
+# models/voice. Optional device values may be a numeric sounddevice index or a
+# device-name string; leaving them blank uses the operating system defaults.
+VOICE_MODEL_ROOT = os.path.join(PROJECT_HOME, "models", "voice")
+VOICE_ON_STARTUP = (
+    os.environ.get("AI_BUDDY_START_IN_VOICE_MODE", "1").strip().lower()
+    not in {"0", "false", "off", "no", "text"}
+)
+VOICE_ASR_DIR = os.path.join(
+    VOICE_MODEL_ROOT,
+    "sherpa-onnx-moonshine-tiny-en-int8",
+)
+VOICE_VAD_MODEL = os.path.join(VOICE_MODEL_ROOT, "silero_vad.onnx")
+# Chosen by measurement, not by name. voice_training/screen_voices.py scored
+# 1014 candidates against the reference recording; this speaker ranked 2nd
+# overall and 1st on the property that decided it -- it sits at 149.8 Hz
+# natively against a 149.5 Hz target, so it needs essentially no pitch
+# correction at all.
+#
+# That matters beyond pitch. Correction is applied by resampling, which also
+# stretches time and drags formants down, and those side effects are what
+# produced both the slow-motion delivery and the over-dark timbre earlier.
+# A voice that starts on target pays none of it.
+#
+# For reference, the previous voice (en_US-hfc_female-medium) placed 1010th
+# of 1014: 4.54st pitch variation against this one's 1.79st, and a 7.10st
+# stress-peak against 2.64st. It is an expressive, bright voice that was
+# being asked to sound bored.
+VOICE_TTS_NAME = (
+    os.environ.get("AI_BUDDY_PIPER_VOICE", "").strip()
+    or "en_US-hfc_female-medium"
+)
+
+# Which speaker inside a multi-speaker model. Ignored (and must be None) for
+# single-speaker voices such as hfc_female or lessac.
+try:
+    _speaker = os.environ.get("AI_BUDDY_PIPER_SPEAKER", "").strip()
+    VOICE_TTS_SPEAKER = int(_speaker) if _speaker else None
+except ValueError:
+    VOICE_TTS_SPEAKER = None
+VOICE_TTS_MODEL = os.path.join(
+    VOICE_MODEL_ROOT,
+    "piper",
+    VOICE_TTS_NAME + ".onnx",
+)
+
+# Piper remains responsible for articulation, pitch, and feminine source
+# timbre. Ordinary machine cadence uses direct variable-speed resampling with
+# no vocoder. Set AI_BUDDY_ROBOT_VOICE=0 for untouched Piper output, or tune
+# the overall cadence depth from 0.0 to 1.0 with the strength variable.
+VOICE_ROBOT_ENABLED = (
+    os.environ.get("AI_BUDDY_ROBOT_VOICE", "1").strip().lower()
+    not in {"0", "false", "off", "none", "clean"}
+)
+
+try:
+    VOICE_ROBOT_STRENGTH = max(
+        0.0,
+        min(
+            1.0,
+            float(
+                os.environ.get(
+                    "AI_BUDDY_ROBOT_STRENGTH",
+                    "0.94",
+                )
+            ),
+        ),
+    )
+except ValueError:
+    VOICE_ROBOT_STRENGTH = 0.94
+
+# A modest formant lift keeps the fixed carrier from pulling the chosen voice
+# toward an androgynous or masculine register.  It applies to speech and Daisy
+# alike, while the carrier itself handles the separate pitch contour.
+try:
+    VOICE_ROBOT_FORMANT_SHIFT = max(
+        0.85,
+        min(
+            1.25,
+            float(
+                os.environ.get(
+                    "AI_BUDDY_ROBOT_FORMANT_SHIFT",
+                    "1.12",
+                )
+            ),
+        ),
+    )
+except ValueError:
+    VOICE_ROBOT_FORMANT_SHIFT = 1.12
+
+# Alternating two-way playback-rate plateaus give ordinary replies a deliberate,
+# asymmetric machine cadence while keeping the source waveform intact. A value
+# of 0 disables cadence shaping; 1 uses the full pattern.
+try:
+    VOICE_CADENCE_STRENGTH = max(
+        0.0,
+        min(
+            1.0,
+            float(
+                os.environ.get(
+                    "AI_BUDDY_CADENCE_STRENGTH",
+                    "0.88",
+                )
+            ),
+        ),
+    )
+except ValueError:
+    VOICE_CADENCE_STRENGTH = 0.88
+
+# Very low variation and slower phoneme timing give ordinary replies a
+# deliberately controlled delivery before the cadence resampler changes the
+# duration of individual speech groups. The short explicit gap combines with
+# Piper's punctuation timing to approximate the measured reference pacing.
+# Constant semitone shift for the whole speaking voice, negative for a
+# colder/deeper register. Applied through the same variable-speed resampler
+# the cadence uses, so no vocoder or phase vocoder is involved and the
+# shimmer that a fixed carrier produced does not come back.
+#
+# +12 semitones -- a full octave up, chosen by ear over the measurements.
+#
+# The reference recording sits at ~150 Hz, and that was re-verified four
+# ways (varying the pitch-search floor, isolating the loudest speech, and
+# high-passing above 150 Hz) after the low result looked suspicious; every
+# method agreed, so it is not a measurement artifact. Shifting *down* to
+# meet it is therefore the numerically faithful choice -- and it is the one
+# that was rejected, because it reads as male. Formants cannot be held well
+# enough through a large downward shift, so the voice slid between
+# androgynous and male depending on the phoneme.
+#
+# Going up avoids that entirely and is also the better-conditioned
+# direction for PSOLA: raising pitch packs grains closer together, so their
+# overlap increases rather than thinning, which is what caused the
+# inconsistency on the way down.
+#
+# So this deliberately sits far from the reference number while being
+# closer to the intent. Do not "correct" it back toward 150 Hz on the
+# strength of the measurements alone.
+try:
+    VOICE_PITCH_SEMITONES = max(
+        -12.0,
+        min(
+            12.0,
+            float(os.environ.get("AI_BUDDY_PITCH_SEMITONES", "5.0")),
+        ),
+    )
+except ValueError:
+    VOICE_PITCH_SEMITONES = 5.0
+
+# How slow the delivery should actually sound, as a multiple of the voice's
+# natural rate. This is the number to tune -- 1.0 is normal, higher is more
+# deliberate.
+#
+# It is NOT passed to Piper directly. Lowering the pitch is done by reading
+# the waveform slower, so VOICE_PITCH_SEMITONES already stretches time on
+# its own: at -5 semitones that is a 1.33x stretch before Piper's own
+# length_scale is applied at all. Setting both by hand meant they multiplied
+# -- 1.90 x 1.33 came out at 2.54x, which sounded like slow motion rather
+# than like an unhurried speaker. Deriving one from the other keeps the
+# audible pace stable no matter how far the pitch is dialled.
+# Ordinary speech follows the unhurried pace of the Daisy performance.  This
+# is intentionally applied at synthesis time, before the fixed-carrier voice
+# shaping, so its cadence remains stable and intelligible instead of becoming
+# a crude post-playback time stretch.  It can still be tuned without code.
+try:
+    VOICE_SPEECH_PACE = max(
+        0.70,
+        min(2.00, float(os.environ.get("AI_BUDDY_SPEECH_PACE", "1.50"))),
+    )
+except ValueError:
+    VOICE_SPEECH_PACE = 1.50
+
+# How much longer voiced sounds are held, applied in voice/offline_voice.py
+# by PSOLA. Consonants keep their original attack, so the result reads as
+# synthesised rather than merely slow. 1.0 is off; 1.6 makes vowels about
+# half again as long.
+try:
+    VOICE_VOWEL_STRETCH = max(
+        1.0,
+        min(3.0, float(os.environ.get("AI_BUDDY_VOWEL_STRETCH", "1.6"))),
+    )
+except ValueError:
+    VOICE_VOWEL_STRETCH = 1.6
+
+# No compensation term any more. The register shift is done by PSOLA
+# (voice/offline_voice.py), which preserves duration exactly, so pace is
+# now just pace. This used to divide out the time stretch that resampling
+# imposed -- resampling lowered pitch *by* reading slower, which is what
+# made the delivery sound like slow motion once the two multiplied.
+VOICE_SPEECH_LENGTH_SCALE = max(0.5, VOICE_SPEECH_PACE)
+VOICE_SPEECH_NOISE_SCALE = 0.04
+VOICE_SPEECH_NOISE_W_SCALE = 0.035
+# Measured from the reference recording: median pause between phrases is
+# 0.51s. 0.20 was rushing the gaps, which undercut the unhurried delivery
+# the rest of the chain is aiming for.
+VOICE_SPEECH_PAUSE_SECONDS = 0.45
+
+# Route ordinary speech through the same vocoder the sung Daisy Bell
+# performance uses, instead of PSOLA.
+#
+# This is the only approach available here that separates pitch from
+# formants. A fixed oscillator carrier provides the pitch while the
+# spectral envelope -- and therefore the perceived vocal tract and gender
+# -- comes from the Piper voice. Resampling and PSOLA both move the two
+# together, which is why every attempt to lower the register with them
+# drifted toward sounding male.
+#
+# Its carrier remains cold and tightly constrained.  A shallow energy-derived
+# step contour is still applied in the vocoder itself so longer sentences keep
+# the deliberate machine cadence without becoming melodic.
+VOICE_SPEECH_VOCODER = (
+    os.environ.get("AI_BUDDY_SPEECH_VOCODER", "1").strip().lower()
+    not in {"0", "false", "off", "no"}
+)
+
+# Pitch of that carrier, in Hz. The reference recordings measured 130.6
+# and 149.5; the sung path defaults to 172.
+try:
+    VOICE_SPEECH_CARRIER_HZ = max(
+        60.0,
+        min(400.0, float(os.environ.get("AI_BUDDY_CARRIER_HZ", "145.0"))),
+    )
+except ValueError:
+    VOICE_SPEECH_CARRIER_HZ = 145.0
+
+# How much of Piper's natural pitch movement to keep. 1.0 keeps all of it,
+# 0.0 is perfectly monotone.
+#
+# This is the setting that finally addresses "not flat enough". Measured
+# against the reference: GLaDOS sits at 2.43st pitch deviation and holds
+# pitch completely static across 82% of frames, while untouched Piper runs
+# 5-6st. Every earlier attempt failed because the stepped-cadence layer
+# only *added* movement on top of Piper's contour and never suppressed it.
+# 0.45 was chosen to land near the measured 2.43st target.
+try:
+    VOICE_PITCH_FLATTEN = max(
+        0.0,
+        min(1.0, float(os.environ.get("AI_BUDDY_PITCH_FLATTEN", "0.45"))),
+    )
+except ValueError:
+    VOICE_PITCH_FLATTEN = 0.45
+# Keyed by voice and speaker. The cached performance is minutes of audio
+# rendered in whatever voice was active when it was built, so a fixed
+# filename would keep serving the old singer indefinitely after a voice
+# change -- silently, since the cache is only checked for existence.
+_DAISY_VOICE_KEY = VOICE_TTS_NAME + (
+    "" if VOICE_TTS_SPEAKER is None else f"-spk{VOICE_TTS_SPEAKER}"
+)
+
+try:
+    VOICE_DAISY_ACCOMPANIMENT_GAIN = max(
+        0.10,
+        min(
+            1.20,
+            float(
+                os.environ.get(
+                    "AI_BUDDY_DAISY_ACCOMPANIMENT_GAIN",
+                    "1.10",
+                )
+            ),
+        ),
+    )
+except ValueError:
+    VOICE_DAISY_ACCOMPANIMENT_GAIN = 1.10
+
+VOICE_DAISY_CACHE = os.path.join(
+    VOICE_MODEL_ROOT,
+    "cache",
+    "daisy_bell_machine_v10_"
+    f"mix{int(round(VOICE_DAISY_ACCOMPANIMENT_GAIN * 100))}_"
+    f"{_DAISY_VOICE_KEY}.wav",
+)
+
+VOICE_SAMPLE_RATE = 16_000
+
+try:
+    VOICE_INPUT_CHANNELS = max(
+        1,
+        min(2, int(os.environ.get("AI_BUDDY_INPUT_CHANNELS", "1"))),
+    )
+except ValueError:
+    VOICE_INPUT_CHANNELS = 1
+
+try:
+    VOICE_NUM_THREADS = max(
+        1,
+        min(4, int(os.environ.get("AI_BUDDY_VOICE_THREADS", "2"))),
+    )
+except ValueError:
+    VOICE_NUM_THREADS = 2
+
+VOICE_INPUT_DEVICE = os.environ.get("AI_BUDDY_INPUT_DEVICE", "").strip() or None
+VOICE_OUTPUT_DEVICE = os.environ.get("AI_BUDDY_OUTPUT_DEVICE", "").strip() or None

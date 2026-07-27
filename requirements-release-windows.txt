@@ -1,0 +1,8 @@
+# Exact top-level dependencies used by the private Windows handoff.
+# The installer uses only the bundled wheels beside this file, never PyPI.
+requests==2.34.2
+numpy==2.5.1
+soundcard==0.4.6
+sounddevice==0.5.5
+sherpa-onnx==1.13.4
+piper-tts==1.5.0
