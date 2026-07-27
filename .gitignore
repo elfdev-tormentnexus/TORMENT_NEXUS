@@ -48,6 +48,8 @@ assistant/cache/
 *.bak
 *.backup
 dump/
+# Obsolete captured wiring logs; they are neither source nor runtime state.
+wirelog/
 
 
 # ---------------------------------------------------------------
