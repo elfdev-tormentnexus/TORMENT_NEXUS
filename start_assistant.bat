@@ -3,8 +3,8 @@ setlocal
 set "ROOT=%~dp0"
 set "PY="
 
-if defined AI_BUDDY_PYTHON (
-    set "PY=%AI_BUDDY_PYTHON%"
+if defined TORMENT_NEXUS_PYTHON (
+    set "PY=%TORMENT_NEXUS_PYTHON%"
 ) else if exist "%ROOT%python\python.exe" (
     REM A private handoff carries its own interpreter. Prefer it so the
     REM launcher remains self-contained on a recipient's clean computer.

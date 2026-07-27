@@ -40,12 +40,12 @@ def _spotify_executable():
     start one -- so being able to launch the client is what turns "no
     active device" from a dead end into a short wait.
 
-    AI_BUDDY_SPOTIFY_EXE overrides everything. Otherwise: the standard
+    TORMENT_NEXUS_SPOTIFY_EXE overrides everything. Otherwise: the standard
     per-user Windows install, then the Start Menu shortcut's target, then
     anything named spotify on PATH (which covers Linux and the Pi, where
     the client may be a snap, flatpak shim, or spotifyd).
     """
-    override = os.environ.get("AI_BUDDY_SPOTIFY_EXE", "").strip()
+    override = os.environ.get("TORMENT_NEXUS_SPOTIFY_EXE", "").strip()
 
     if override:
         return override if os.path.isfile(override) else None
@@ -200,7 +200,7 @@ class SpotifyControl:
                 "starting -- try the command again in a moment."
                 if executable
                 else "No Spotify desktop client found. Open Spotify manually, "
-                     "or set AI_BUDDY_SPOTIFY_EXE to its path."
+                     "or set TORMENT_NEXUS_SPOTIFY_EXE to its path."
             )
             raise SpotifyError(f"No active Spotify device.\n{detail}")
 

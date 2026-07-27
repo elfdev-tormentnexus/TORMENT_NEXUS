@@ -6,9 +6,13 @@ hardware-validation milestone.
 
 Before sending:
 
-- Build with `python package_release.py --archive --skip-download`.
-- Run `python package_release.py --verify-only` and require a clean result.
-- Share only `dist/TORMENT_NEXUS.zip`, not the project folder, old AI_Buddy
+- Run the source regression gate: `setup\test_assistant.bat`.
+- Build with `python tools\package_release.py --archive --skip-download`.
+- Run `python tools\package_release.py --verify-only` and require a clean result.
+- Do not run `setup.bat` inside the final `dist\TORMENT_NEXUS` folder.
+  Installer testing modifies that staging folder. If you test it, rebuild a
+  fresh archive afterwards, then verify the fresh build again.
+- Share only `dist/TORMENT_NEXUS.zip`, not the project folder, old AI_TORMENT_NEXUS
   archive, model cache, desktop shortcut, conversation history, or device files.
 - Send the SHA-256 value printed by your file manager or PowerShell separately
   so the recipient can verify the copied ZIP.
@@ -18,7 +22,7 @@ What the recipient should do:
 1. Extract the archive with at least 7 GB of free space available.
 2. Run `setup.bat`; it uses only the bundled Python and bundled wheels.
 3. Launch TORMENT_NEXUS from the created shortcut.
-4. Run `test_assistant.bat`, then try text chat, `voice status`, `audio mode`,
+4. Run `setup\test_assistant.bat`, then try text chat, `voice status`, `audio mode`,
    `text mode`, and `health check`.
 5. Do not connect personal accounts, paste credentials, or pair hardware unless
    that is part of a deliberate test.

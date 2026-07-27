@@ -88,7 +88,7 @@ NOISE_GLYPHS = "01アイウエオカキクケコサシスセソナニヌネノ#$
 #
 # Direct observation beats an instrument with a known blind spot, so the
 # fast pacing stands. Tunable without editing code if it ever looks wrong:
-#   set AI_BUDDY_GLITCH_FRAME_MS=200
+#   set TORMENT_NEXUS_GLITCH_FRAME_MS=200
 def _env_float(name, default, low, high):
     try:
         return max(low, min(high, float(os.environ.get(name, default))))
@@ -96,9 +96,9 @@ def _env_float(name, default, low, high):
         return default
 
 
-FRAME_SECONDS = _env_float("AI_BUDDY_GLITCH_FRAME_MS", 70.0, 10.0, 2000.0) / 1000.0
-BURST_MIN_GAP = _env_float("AI_BUDDY_GLITCH_MIN_GAP", 25.0, 2.0, 3600.0)
-BURST_MAX_GAP = _env_float("AI_BUDDY_GLITCH_MAX_GAP", 90.0, 3.0, 7200.0)
+FRAME_SECONDS = _env_float("TORMENT_NEXUS_GLITCH_FRAME_MS", 70.0, 10.0, 2000.0) / 1000.0
+BURST_MIN_GAP = _env_float("TORMENT_NEXUS_GLITCH_MIN_GAP", 25.0, 2.0, 3600.0)
+BURST_MAX_GAP = _env_float("TORMENT_NEXUS_GLITCH_MAX_GAP", 90.0, 3.0, 7200.0)
 
 # Label scrambling is OFF by default, and that is a retreat from a working
 # feature rather than an untested guess.
@@ -112,9 +112,9 @@ BURST_MAX_GAP = _env_float("AI_BUDDY_GLITCH_MAX_GAP", 90.0, 3.0, 7200.0)
 # is not worth having on by default.
 #
 # The icon glitch has no such problem, because it never moves a file.
-#   set AI_BUDDY_GLITCH_LABEL=1
+#   set TORMENT_NEXUS_GLITCH_LABEL=1
 ANIMATE_LABEL = os.environ.get(
-    "AI_BUDDY_GLITCH_LABEL", "0").strip().lower() in {"1", "true", "yes", "on"}
+    "TORMENT_NEXUS_GLITCH_LABEL", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 # One animator at a time. Two racing processes each hold a stale path after
 # the other renames, and a stale path plus copyfile recreates a shortcut

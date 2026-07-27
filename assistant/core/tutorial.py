@@ -98,8 +98,8 @@ LESSONS = [
             "own speaker. Typing keeps working the whole time, and Escape\n"
             "always gets you back to the plain terminal.\n\n"
             "Three environment variables retune the voice without touching\n"
-            "code: AI_BUDDY_CARRIER_HZ, AI_BUDDY_PITCH_FLATTEN, and\n"
-            "AI_BUDDY_VOWEL_STRETCH."
+            "code: TORMENT_NEXUS_CARRIER_HZ, TORMENT_NEXUS_PITCH_FLATTEN, and\n"
+            "TORMENT_NEXUS_VOWEL_STRETCH."
         ),
         "commands": ["audio mode", "voice status", "text mode", "exit audio",
                      "sing daisy bell"],

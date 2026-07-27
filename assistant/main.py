@@ -1967,14 +1967,14 @@ def main():
 
     if (
         AUTONOMOUS_ON_STARTUP
-        and os.environ.get("AI_BUDDY_DISABLE_AUTONOMOUS") != "1"
-        and os.environ.get("AI_BUDDY_AUTONOMOUS_CYCLE_DONE") != "1"
+        and os.environ.get("TORMENT_NEXUS_DISABLE_AUTONOMOUS") != "1"
+        and os.environ.get("TORMENT_NEXUS_AUTONOMOUS_CYCLE_DONE") != "1"
     ):
         # Mark the launch before attempting the cycle, not only after
         # a successful edit. Any later execv() reload in this same
         # launch (for example after a human-confirmed edit) must not
         # unexpectedly trigger a second startup cycle.
-        os.environ["AI_BUDDY_AUTONOMOUS_CYCLE_DONE"] = "1"
+        os.environ["TORMENT_NEXUS_AUTONOMOUS_CYCLE_DONE"] = "1"
         ui.set_generating(True)
         ui.set_status("Starting autonomous self-improvement")
 

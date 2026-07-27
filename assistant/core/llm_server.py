@@ -29,7 +29,7 @@ _log_handle = None
 # start_server() has returned anything to the caller -- can still
 # find and kill the subprocess it just spawned, instead of leaking it.
 _current_process = None
-_OWNED_PID_ENV = "AI_BUDDY_OWNED_SERVER_PID"
+_OWNED_PID_ENV = "TORMENT_NEXUS_OWNED_SERVER_PID"
 STARTUP_TIMEOUT = 300
 
 
@@ -85,14 +85,14 @@ def start_server():
         raise RuntimeError(
             "llama-server was not found.\n"
             f"Expected: {LLAMA_SERVER}\n"
-            "Build llama.cpp first, or set AI_BUDDY_LLAMA_SERVER."
+            "Build llama.cpp first, or set TORMENT_NEXUS_LLAMA_SERVER."
         )
 
     if not os.path.isfile(MODEL_PATH):
         raise RuntimeError(
             "The GGUF model was not found.\n"
             f"Expected: {MODEL_PATH}\n"
-            "Set AI_BUDDY_MODEL_PATH if it is stored elsewhere."
+            "Set TORMENT_NEXUS_MODEL_PATH if it is stored elsewhere."
         )
 
     folder = os.path.dirname(SERVER_LOG_FILE)

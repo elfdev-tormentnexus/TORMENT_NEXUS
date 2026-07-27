@@ -35,11 +35,11 @@ def _default_llama_server():
 
 
 LLAMA_SERVER = (
-    os.environ.get("AI_BUDDY_LLAMA_SERVER", "").strip()
+    os.environ.get("TORMENT_NEXUS_LLAMA_SERVER", "").strip()
     or _default_llama_server()
 )
 MODEL_PATH = (
-    os.environ.get("AI_BUDDY_MODEL_PATH", "").strip()
+    os.environ.get("TORMENT_NEXUS_MODEL_PATH", "").strip()
     or os.path.join(
         PROJECT_HOME,
         "models",
@@ -52,12 +52,12 @@ MODEL_PATH = (
 # downloaded as) while the header shows a shorter label.
 MODEL_DISPLAY_NAME = "Qwen3-4B-I-2507-Q5_K_M"
 SERVER_URL = (
-    os.environ.get("AI_BUDDY_SERVER_URL", "").strip()
+    os.environ.get("TORMENT_NEXUS_SERVER_URL", "").strip()
     or "http://127.0.0.1:8080"
 ).rstrip("/")
 _SERVER_PARSED = urlparse(SERVER_URL)
 SERVER_HOST = (
-    os.environ.get("AI_BUDDY_SERVER_HOST", "").strip()
+    os.environ.get("TORMENT_NEXUS_SERVER_HOST", "").strip()
     or _SERVER_PARSED.hostname
     or "127.0.0.1"
 )
@@ -77,7 +77,7 @@ def _load_or_create_model_api_key():
     local model. A persistent random key survives assistant restarts and can
     still be overridden explicitly for advanced setups.
     """
-    configured = os.environ.get("AI_BUDDY_MODEL_API_KEY", "").strip()
+    configured = os.environ.get("TORMENT_NEXUS_MODEL_API_KEY", "").strip()
 
     if configured:
         return configured
@@ -89,7 +89,7 @@ def _load_or_create_model_api_key():
             stored = key_file.read().strip()
 
         if stored:
-            os.environ["AI_BUDDY_MODEL_API_KEY"] = stored
+            os.environ["TORMENT_NEXUS_MODEL_API_KEY"] = stored
             return stored
     except FileNotFoundError:
         pass
@@ -116,7 +116,7 @@ def _load_or_create_model_api_key():
         except OSError:
             pass
 
-    os.environ["AI_BUDDY_MODEL_API_KEY"] = generated
+    os.environ["TORMENT_NEXUS_MODEL_API_KEY"] = generated
     return generated
 
 
@@ -173,7 +173,7 @@ SHOW_MEMORY_EVENTS = True
 # available through "run autonomous cycle". Set the environment
 # variable to 1 only when deliberately opting back into startup runs.
 AUTONOMOUS_ON_STARTUP = (
-    os.environ.get("AI_BUDDY_AUTONOMOUS_ON_STARTUP", "").strip() == "1"
+    os.environ.get("TORMENT_NEXUS_AUTONOMOUS_ON_STARTUP", "").strip() == "1"
 )
 
 
@@ -189,7 +189,7 @@ def _bounded_int_env(name, default, minimum, maximum):
 # Context window passed to llama-server (-c). Shared with main.py's
 # prompt-budget accounting so the two can never drift out of sync.
 CONTEXT_SIZE = _bounded_int_env(
-    "AI_BUDDY_CONTEXT_SIZE",
+    "TORMENT_NEXUS_CONTEXT_SIZE",
     4096,
     2048,
     8192,
@@ -199,7 +199,7 @@ CONTEXT_SIZE = _bounded_int_env(
 # raising it prevents useful answers from being cut off while short replies
 # still stop naturally. It remains configurable for slower Pi deployments.
 MAX_TOKENS = _bounded_int_env(
-    "AI_BUDDY_MAX_TOKENS",
+    "TORMENT_NEXUS_MAX_TOKENS",
     420,
     128,
     min(1024, CONTEXT_SIZE // 2),
@@ -217,14 +217,14 @@ QWEN_NO_THINK = True
 # "brave". Lets the assistant answer questions that need current
 # information (see web/search_engine.py, web/search_intent.py).
 SEARCH_BACKEND = (
-    os.environ.get("AI_BUDDY_SEARCH_BACKEND", "").strip().lower()
+    os.environ.get("TORMENT_NEXUS_SEARCH_BACKEND", "").strip().lower()
     or "searxng"
 )
 
 # Self-hosted SearXNG (see searxng/docker-compose.yml at the project
 # root). Port 8081, not 8080 -- that's already SERVER_URL above.
 SEARXNG_URL = (
-    os.environ.get("AI_BUDDY_SEARXNG_URL", "").strip()
+    os.environ.get("TORMENT_NEXUS_SEARXNG_URL", "").strip()
     or "http://127.0.0.1:8081"
 ).rstrip("/")
 
@@ -235,14 +235,14 @@ SEARXNG_URL = (
 # cleanly rather than erroring when this is empty. Kept around so
 # switching SEARCH_BACKEND back to "brave" later doesn't need
 # rewiring, just a key.
-BRAVE_API_KEY = os.environ.get("AI_BUDDY_BRAVE_API_KEY", "").strip()
+BRAVE_API_KEY = os.environ.get("TORMENT_NEXUS_BRAVE_API_KEY", "").strip()
 BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search"
 
 _MACHINE = platform.machine().lower()
 _DEFAULT_LLAMA_THREADS = 4 if _MACHINE in {"aarch64", "arm64"} else None
 
 try:
-    _configured_threads = os.environ.get("AI_BUDDY_LLAMA_THREADS", "").strip()
+    _configured_threads = os.environ.get("TORMENT_NEXUS_LLAMA_THREADS", "").strip()
     LLAMA_THREADS = (
         max(1, min(32, int(_configured_threads)))
         if _configured_threads
@@ -252,7 +252,7 @@ except ValueError:
     LLAMA_THREADS = _DEFAULT_LLAMA_THREADS
 
 LLAMA_CACHE_RAM_MB = _bounded_int_env(
-    "AI_BUDDY_LLAMA_CACHE_RAM_MB",
+    "TORMENT_NEXUS_LLAMA_CACHE_RAM_MB",
     256,
     64,
     1024,
@@ -264,7 +264,7 @@ LLAMA_CACHE_RAM_MB = _bounded_int_env(
 # device-name string; leaving them blank uses the operating system defaults.
 VOICE_MODEL_ROOT = os.path.join(PROJECT_HOME, "models", "voice")
 VOICE_ON_STARTUP = (
-    os.environ.get("AI_BUDDY_START_IN_VOICE_MODE", "1").strip().lower()
+    os.environ.get("TORMENT_NEXUS_START_IN_VOICE_MODE", "1").strip().lower()
     not in {"0", "false", "off", "no", "text"}
 )
 VOICE_ASR_DIR = os.path.join(
@@ -288,14 +288,14 @@ VOICE_VAD_MODEL = os.path.join(VOICE_MODEL_ROOT, "silero_vad.onnx")
 # stress-peak against 2.64st. It is an expressive, bright voice that was
 # being asked to sound bored.
 VOICE_TTS_NAME = (
-    os.environ.get("AI_BUDDY_PIPER_VOICE", "").strip()
+    os.environ.get("TORMENT_NEXUS_PIPER_VOICE", "").strip()
     or "en_US-hfc_female-medium"
 )
 
 # Which speaker inside a multi-speaker model. Ignored (and must be None) for
 # single-speaker voices such as hfc_female or lessac.
 try:
-    _speaker = os.environ.get("AI_BUDDY_PIPER_SPEAKER", "").strip()
+    _speaker = os.environ.get("TORMENT_NEXUS_PIPER_SPEAKER", "").strip()
     VOICE_TTS_SPEAKER = int(_speaker) if _speaker else None
 except ValueError:
     VOICE_TTS_SPEAKER = None
@@ -307,10 +307,10 @@ VOICE_TTS_MODEL = os.path.join(
 
 # Piper remains responsible for articulation, pitch, and feminine source
 # timbre. Ordinary machine cadence uses direct variable-speed resampling with
-# no vocoder. Set AI_BUDDY_ROBOT_VOICE=0 for untouched Piper output, or tune
+# no vocoder. Set TORMENT_NEXUS_ROBOT_VOICE=0 for untouched Piper output, or tune
 # the overall cadence depth from 0.0 to 1.0 with the strength variable.
 VOICE_ROBOT_ENABLED = (
-    os.environ.get("AI_BUDDY_ROBOT_VOICE", "1").strip().lower()
+    os.environ.get("TORMENT_NEXUS_ROBOT_VOICE", "1").strip().lower()
     not in {"0", "false", "off", "none", "clean"}
 )
 
@@ -321,7 +321,7 @@ try:
             1.0,
             float(
                 os.environ.get(
-                    "AI_BUDDY_ROBOT_STRENGTH",
+                    "TORMENT_NEXUS_ROBOT_STRENGTH",
                     "0.94",
                 )
             ),
@@ -340,7 +340,7 @@ try:
             1.25,
             float(
                 os.environ.get(
-                    "AI_BUDDY_ROBOT_FORMANT_SHIFT",
+                    "TORMENT_NEXUS_ROBOT_FORMANT_SHIFT",
                     "1.12",
                 )
             ),
@@ -359,7 +359,7 @@ try:
             1.0,
             float(
                 os.environ.get(
-                    "AI_BUDDY_CADENCE_STRENGTH",
+                    "TORMENT_NEXUS_CADENCE_STRENGTH",
                     "0.88",
                 )
             ),
@@ -401,7 +401,7 @@ try:
         -12.0,
         min(
             12.0,
-            float(os.environ.get("AI_BUDDY_PITCH_SEMITONES", "5.0")),
+            float(os.environ.get("TORMENT_NEXUS_PITCH_SEMITONES", "5.0")),
         ),
     )
 except ValueError:
@@ -425,7 +425,7 @@ except ValueError:
 try:
     VOICE_SPEECH_PACE = max(
         0.70,
-        min(2.00, float(os.environ.get("AI_BUDDY_SPEECH_PACE", "1.50"))),
+        min(2.00, float(os.environ.get("TORMENT_NEXUS_SPEECH_PACE", "1.50"))),
     )
 except ValueError:
     VOICE_SPEECH_PACE = 1.50
@@ -437,7 +437,7 @@ except ValueError:
 try:
     VOICE_VOWEL_STRETCH = max(
         1.0,
-        min(3.0, float(os.environ.get("AI_BUDDY_VOWEL_STRETCH", "1.6"))),
+        min(3.0, float(os.environ.get("TORMENT_NEXUS_VOWEL_STRETCH", "1.6"))),
     )
 except ValueError:
     VOICE_VOWEL_STRETCH = 1.6
@@ -469,7 +469,7 @@ VOICE_SPEECH_PAUSE_SECONDS = 0.45
 # step contour is still applied in the vocoder itself so longer sentences keep
 # the deliberate machine cadence without becoming melodic.
 VOICE_SPEECH_VOCODER = (
-    os.environ.get("AI_BUDDY_SPEECH_VOCODER", "1").strip().lower()
+    os.environ.get("TORMENT_NEXUS_SPEECH_VOCODER", "1").strip().lower()
     not in {"0", "false", "off", "no"}
 )
 
@@ -484,7 +484,7 @@ VOICE_SPEECH_VOCODER = (
 try:
     VOICE_SPEECH_CARRIER_HZ = max(
         60.0,
-        min(400.0, float(os.environ.get("AI_BUDDY_CARRIER_HZ", "155.0"))),
+        min(400.0, float(os.environ.get("TORMENT_NEXUS_CARRIER_HZ", "155.0"))),
     )
 except ValueError:
     VOICE_SPEECH_CARRIER_HZ = 155.0
@@ -500,16 +500,16 @@ except ValueError:
 # closing on a timer alone, means the machine is never reclaimed out
 # from under someone who simply went quiet for a while.
 #
-# Set AI_BUDDY_IDLE_CHECKIN=0 to disable both the prompt and the exit.
+# Set TORMENT_NEXUS_IDLE_CHECKIN=0 to disable both the prompt and the exit.
 IDLE_CHECKIN_ENABLED = (
-    os.environ.get("AI_BUDDY_IDLE_CHECKIN", "1").strip().lower()
+    os.environ.get("TORMENT_NEXUS_IDLE_CHECKIN", "1").strip().lower()
     not in {"0", "false", "off", "no"}
 )
 
 # Silence before the check-in. Minimum 60s so a misconfiguration cannot
 # turn this into something that interrupts an ordinary pause.
 IDLE_CHECKIN_SECONDS = _bounded_int_env(
-    "AI_BUDDY_IDLE_SECONDS",
+    "TORMENT_NEXUS_IDLE_SECONDS",
     300,
     60,
     24 * 60 * 60,
@@ -519,7 +519,7 @@ IDLE_CHECKIN_SECONDS = _bounded_int_env(
 # finishes rather than when it starts -- otherwise a long sentence eats
 # most of the window it is asking about.
 IDLE_RESPONSE_SECONDS = _bounded_int_env(
-    "AI_BUDDY_IDLE_RESPONSE_SECONDS",
+    "TORMENT_NEXUS_IDLE_RESPONSE_SECONDS",
     60,
     15,
     60 * 60,
@@ -538,7 +538,7 @@ IDLE_RESPONSE_SECONDS = _bounded_int_env(
 try:
     VOICE_PITCH_FLATTEN = max(
         0.0,
-        min(1.0, float(os.environ.get("AI_BUDDY_PITCH_FLATTEN", "0.45"))),
+        min(1.0, float(os.environ.get("TORMENT_NEXUS_PITCH_FLATTEN", "0.45"))),
     )
 except ValueError:
     VOICE_PITCH_FLATTEN = 0.45
@@ -557,7 +557,7 @@ try:
             1.20,
             float(
                 os.environ.get(
-                    "AI_BUDDY_DAISY_ACCOMPANIMENT_GAIN",
+                    "TORMENT_NEXUS_DAISY_ACCOMPANIMENT_GAIN",
                     "1.10",
                 )
             ),
@@ -579,7 +579,7 @@ VOICE_SAMPLE_RATE = 16_000
 try:
     VOICE_INPUT_CHANNELS = max(
         1,
-        min(2, int(os.environ.get("AI_BUDDY_INPUT_CHANNELS", "1"))),
+        min(2, int(os.environ.get("TORMENT_NEXUS_INPUT_CHANNELS", "1"))),
     )
 except ValueError:
     VOICE_INPUT_CHANNELS = 1
@@ -587,10 +587,10 @@ except ValueError:
 try:
     VOICE_NUM_THREADS = max(
         1,
-        min(4, int(os.environ.get("AI_BUDDY_VOICE_THREADS", "2"))),
+        min(4, int(os.environ.get("TORMENT_NEXUS_VOICE_THREADS", "2"))),
     )
 except ValueError:
     VOICE_NUM_THREADS = 2
 
-VOICE_INPUT_DEVICE = os.environ.get("AI_BUDDY_INPUT_DEVICE", "").strip() or None
-VOICE_OUTPUT_DEVICE = os.environ.get("AI_BUDDY_OUTPUT_DEVICE", "").strip() or None
+VOICE_INPUT_DEVICE = os.environ.get("TORMENT_NEXUS_INPUT_DEVICE", "").strip() or None
+VOICE_OUTPUT_DEVICE = os.environ.get("TORMENT_NEXUS_OUTPUT_DEVICE", "").strip() or None

@@ -40,12 +40,12 @@ ARM64 launches automatically use four llama.cpp inference threads. Override
 locations or resource settings without changing protected source files:
 
 ```sh
-export AI_BUDDY_LLAMA_SERVER="/path/to/llama-server"
-export AI_BUDDY_MODEL_PATH="/path/to/model.gguf"
-export AI_BUDDY_CONTEXT_SIZE="4096"
-export AI_BUDDY_MAX_TOKENS="420"
-export AI_BUDDY_LLAMA_THREADS="4"
-export AI_BUDDY_LLAMA_CACHE_RAM_MB="256"
+export TORMENT_NEXUS_LLAMA_SERVER="/path/to/llama-server"
+export TORMENT_NEXUS_MODEL_PATH="/path/to/model.gguf"
+export TORMENT_NEXUS_CONTEXT_SIZE="4096"
+export TORMENT_NEXUS_MAX_TOKENS="420"
+export TORMENT_NEXUS_LLAMA_THREADS="4"
+export TORMENT_NEXUS_LLAMA_CACHE_RAM_MB="256"
 ```
 
 The model API binds to loopback and is protected by a locally generated key.

@@ -104,7 +104,7 @@ def _search_health():
         return ok, (
             "Brave API key configured"
             if ok
-            else "Brave selected but AI_BUDDY_BRAVE_API_KEY is empty"
+            else "Brave selected but TORMENT_NEXUS_BRAVE_API_KEY is empty"
         )
 
     return False, f"unknown backend {config.SEARCH_BACKEND!r}"

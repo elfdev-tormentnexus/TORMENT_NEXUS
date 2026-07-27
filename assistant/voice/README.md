@@ -67,28 +67,28 @@ after this download. No cloud speech account or API key is used.
 
 The default speaking voice is `en_US-hfc_female-medium`. To try another Piper
 voice later, download it into `models/voice/piper` and set
-`AI_BUDDY_PIPER_VOICE` to its filename without `.onnx`; no retraining of Qwen
+`TORMENT_NEXUS_PIPER_VOICE` to its filename without `.onnx`; no retraining of Qwen
 is needed. The HFC female dataset uses CC BY-NC-SA 4.0 terms; review those
 terms before distributing its model file.
 
 The overall machine treatment defaults to 94% strength. To make it milder, set
-`AI_BUDDY_ROBOT_STRENGTH` to a value from `0.0` to `1.0` before launching.
-Set `AI_BUDDY_ROBOT_VOICE=0` to hear unprocessed Piper output.
+`TORMENT_NEXUS_ROBOT_STRENGTH` to a value from `0.0` to `1.0` before launching.
+Set `TORMENT_NEXUS_ROBOT_VOICE=0` to hear unprocessed Piper output.
 
 The stepped cadence defaults to 88% strength. Its timing holds speech groups
 for roughly 0.32 seconds and moves through asymmetric low/high plateaus before
 settling lower at the end of a phrase. This gives the voice its machine-like
 inflection while the vocoder preserves the HFC model's feminine envelope. Set
-`AI_BUDDY_CADENCE_STRENGTH` from `0.0` to `1.0` to tune how far its alternating
+`TORMENT_NEXUS_CADENCE_STRENGTH` from `0.0` to `1.0` to tune how far its alternating
 pitch offsets move. Set it to `0` to retain the clean feminine voice without the
 added cadence.
 
-`AI_BUDDY_ROBOT_FORMANT_SHIFT` applies to both ordinary speech and Daisy Bell.
+`TORMENT_NEXUS_ROBOT_FORMANT_SHIFT` applies to both ordinary speech and Daisy Bell.
 Ordinary speech uses a 1.50 timing scale and a deliberate break between
 sentences; the spoken path is intentionally flatter than the sung one.
 
 To override the voice-first startup for a particular launch, set
-`AI_BUDDY_START_IN_VOICE_MODE=0`. This does not remove audio mode; type
+`TORMENT_NEXUS_START_IN_VOICE_MODE=0`. This does not remove audio mode; type
 `audio mode` whenever you want to enter it.
 
 The Whisplay HAT's WM8960 audio device must be visible to ALSA before voice
@@ -104,13 +104,13 @@ By default, audio mode uses the operating system's default input and output.
 To select a particular device, set either variable before launching:
 
 ```sh
-export AI_BUDDY_INPUT_DEVICE="device name or numeric index"
-export AI_BUDDY_OUTPUT_DEVICE="device name or numeric index"
+export TORMENT_NEXUS_INPUT_DEVICE="device name or numeric index"
+export TORMENT_NEXUS_OUTPUT_DEVICE="device name or numeric index"
 ```
 
-On Windows, use `set "AI_BUDDY_INPUT_DEVICE=..."` in a Command Prompt instead.
+On Windows, use `set "TORMENT_NEXUS_INPUT_DEVICE=..."` in a Command Prompt instead.
 If the Whisplay driver exposes only a two-channel capture stream, also set
-`AI_BUDDY_INPUT_CHANNELS=2`; audio mode averages the two microphones before
+`TORMENT_NEXUS_INPUT_CHANNELS=2`; audio mode averages the two microphones before
 recognition.
 
 The `voice status` command reports device or model problems without entering a

@@ -9,10 +9,10 @@ REM matches its own command line and kills itself.
 cd /d "%~dp0.."
 
 set "PY=python"
-if defined AI_BUDDY_PYTHON (
-    set "PY=%AI_BUDDY_PYTHON%"
+if defined TORMENT_NEXUS_PYTHON (
+    set "PY=%TORMENT_NEXUS_PYTHON%"
 ) else if exist "%~dp0..\python\python.exe" (
-    set "PY=%~dp0python\python.exe"
+    set "PY=%~dp0..\python\python.exe"
 ) else if exist "%LocalAppData%\Python\pythoncore-3.14-64\python.exe" (
     set "PY=%LocalAppData%\Python\pythoncore-3.14-64\python.exe"
 )

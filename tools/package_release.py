@@ -24,10 +24,10 @@ Nothing is guessed about what to include. Anything not named is left out,
 so a new stray folder cannot silently end up in a package sent to someone
 else.
 
-    python package_release.py                 build into dist/
-    python package_release.py --archive       ... and zip it
-    python package_release.py --verify-only   re-check an existing build
-    python package_release.py --skip-download reuse cached wheels/python
+    python tools/package_release.py                 build into dist/
+    python tools/package_release.py --archive       ... and zip it
+    python tools/package_release.py --verify-only   re-check an existing build
+    python tools/package_release.py --skip-download reuse cached wheels/python
 """
 
 import argparse
@@ -76,6 +76,7 @@ INCLUDE_FILES = [
     # A package built for someone to review is missing its most useful
     # file if the front door is left behind.
     "README.md",
+    "docs/AGENT_HANDOFF.md",
     "docs/README_DIGITALBIOHAZARD.txt",
     "docs/RELEASE_HANDOFF.md",
     "docs/BENCHMARKS.md",
@@ -86,6 +87,7 @@ INCLUDE_FILES = [
     "start_assistant.bat",
     "setup/test_assistant.bat",
     "tools/glitch_icon.py",
+    "tools/package_release.py",
     "tools/start_glitch.bat",
     "tools/stop_glitch.bat",
     "assets/assistant_icon.ico",
@@ -108,6 +110,11 @@ DENY_PATTERNS = [
     "*/memory/change_plans/*",
     "*/backups/*",
     "*/assistant/music/*",
+    # Generated desktop links contain absolute paths for this particular PC.
+    # They are regenerated locally by glitch_icon.py and are not portable.
+    "icon_anim/shortcuts/*",
+    "icon_anim/recovered/*",
+    "icon_anim/.animator.lock",
     "*.model_api_key",
     ".model_api_key",
     "*.dev_passcode",
@@ -452,8 +459,8 @@ def _verify_release_launchers(report, problems):
         # Paths are package-relative, and the launchers keep the folders
         # they live in at source.
         "start_assistant.bat": "python\\python.exe",
-        "tools/start_glitch.bat": "python\\pythonw.exe",
-        "tools/stop_glitch.bat": "python\\python.exe",
+        "tools/start_glitch.bat": "..\\python\\pythonw.exe",
+        "tools/stop_glitch.bat": "..\\python\\python.exe",
         "setup/test_assistant.bat": "python\\python.exe",
         "setup.bat": "setup\\requirements-release-windows.txt",
     }
@@ -759,7 +766,7 @@ WHAT THIS IS
     searches your files, edits its own code, and plays music.
 
 INSTALLING
-    1. Extract this whole archive somewhere with ~4 GB free.
+    1. Extract this whole archive somewhere with at least 7 GB free.
        (Keep the folder together - setup needs everything beside it.)
     2. Run setup.bat
     3. Launch "TORMENT_NEXUS" from your desktop.
@@ -791,14 +798,14 @@ VOICE
     tuned against a reference recording. If it is not to your taste, three
     environment variables retune it without touching code:
 
-        AI_BUDDY_CARRIER_HZ       pitch of the carrier (default 145)
-        AI_BUDDY_PITCH_FLATTEN    monotone-ness, 0 to 1 (default 0.45)
-        AI_BUDDY_VOWEL_STRETCH    how drawn-out vowels are (default 1.6)
+        TORMENT_NEXUS_CARRIER_HZ       pitch of the carrier (default 145)
+        TORMENT_NEXUS_PITCH_FLATTEN    monotone-ness, 0 to 1 (default 0.45)
+        TORMENT_NEXUS_VOWEL_STRETCH    how drawn-out vowels are (default 1.6)
 
 THE GLITCHING ICON (optional)
-    start_glitch.bat makes the desktop icon corrupt itself now and then.
-    stop_glitch.bat stops it and restores the normal icon. It is off unless
-    you start it, and it does not survive a reboot.
+    tools\start_glitch.bat makes the desktop icon corrupt itself now and
+    then. tools\stop_glitch.bat stops it and restores the normal icon. It is
+    off unless you start it, and it does not survive a reboot.
 
 PRIVACY
     This package contains no conversation history, memories, developer
@@ -818,10 +825,29 @@ def main():
                         help="re-check an existing build")
     parser.add_argument("--sanitize", action="store_true",
                         help="strip runtime artifacts, then re-verify "
-                             "(run this if you test-ran setup.bat)")
+                             "(rebuild before making a final archive if "
+                             "you test-ran setup.bat)")
     args = parser.parse_args()
 
     report = []
+
+    # Windows keeps DLLs from the running embedded interpreter open. A build
+    # cannot safely replace dist/TORMENT_NEXUS while it is being run by that
+    # same package; without this check shutil emits an opaque access-denied
+    # traceback partway through staging.
+    if not (args.verify_only or args.sanitize):
+        try:
+            running_from_stage = os.path.commonpath((
+                os.path.realpath(sys.executable),
+                os.path.realpath(STAGE),
+            )) == os.path.realpath(STAGE)
+        except ValueError:
+            running_from_stage = False
+        if running_from_stage:
+            print("REFUSING TO REBUILD FROM THE PACKAGE BEING REPLACED.")
+            print("Run tools\\package_release.py with Python outside "
+                  "dist\\TORMENT_NEXUS, then try again.")
+            return 1
 
     if args.verify_only or args.sanitize:
         if not os.path.isdir(STAGE):

@@ -100,7 +100,7 @@ every prompt, and a suite the subject can edit stops being evidence.
 Paths resolve via `realpath` and are re-checked against the workshop root;
 only `.md/.txt/.json/.csv`; one action per run; capped per file, per goal,
 and in total. It lives under `editing/` so it cannot widen its own limits.
-Off unless `AI_BUDDY_GOALS=1`.
+Off unless `TORMENT_NEXUS_GOALS=1`.
 
 If you extend it, do not add execution. That is a different and much
 larger thing to be responsible for.
@@ -138,7 +138,7 @@ Rewriting an `.ico` in place is invisible to it, even after `ie4uinit`.
 This is why `tools/glitch_icon.py` uses a separate file per frame.
 
 **Don't let the icon animator rename desktop shortcuts.**
-`AI_BUDDY_GLITCH_LABEL` is off for a reason: renaming a `.lnk` ten times a
+`TORMENT_NEXUS_GLITCH_LABEL` is off for a reason: renaming a `.lnk` ten times a
 burst leaves ghost entries in the desktop view. Recovery quarantines,
 never deletes — an earlier version deleted, and a shortcut went missing.
 

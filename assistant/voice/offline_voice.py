@@ -189,7 +189,7 @@ def setup_report():
     lines = ["Voice is not ready yet:"]
     lines.extend("- " + issue for issue in issues)
     lines.append("")
-    lines.append("Run setup\setup_voice.bat once, then restart the assistant.")
+    lines.append("Run setup\\setup_voice.bat once, then restart the assistant.")
     lines.append(
         "On the Raspberry Pi, see assistant/voice/README.md for the one-time "
         "audio setup."
@@ -1644,7 +1644,7 @@ class OfflineVoice:
             raise VoiceSetupError(
                 f"{VOICE_TTS_NAME} has {available} speakers, so speaker "
                 f"{VOICE_TTS_SPEAKER} does not exist. Set "
-                "AI_BUDDY_PIPER_SPEAKER to a valid id."
+                "TORMENT_NEXUS_PIPER_SPEAKER to a valid id."
             )
 
         return VOICE_TTS_SPEAKER

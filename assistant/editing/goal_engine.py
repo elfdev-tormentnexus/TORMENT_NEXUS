@@ -26,7 +26,7 @@ Everything else follows from that:
   until something ran it, and the way that stops being true is somebody
   double-clicking it later.
 - Every goal, action, and refusal is journalled with a timestamp.
-- Off unless AI_BUDDY_GOALS=1.
+- Off unless TORMENT_NEXUS_GOALS=1.
 
 The engine lives under editing/, which edit_guard denies to the editor,
 so it cannot rewrite its own limits.
@@ -52,7 +52,7 @@ WORKSHOP = os.path.join(PROJECT_ROOT, "workshop")
 GOALS_FILE = os.path.join(WORKSHOP, "goals.json")
 JOURNAL_FILE = os.path.join(WORKSHOP, "journal.md")
 
-ENABLED = os.environ.get("AI_BUDDY_GOALS", "0").strip().lower() in {
+ENABLED = os.environ.get("TORMENT_NEXUS_GOALS", "0").strip().lower() in {
     "1", "true", "yes", "on"
 }
 

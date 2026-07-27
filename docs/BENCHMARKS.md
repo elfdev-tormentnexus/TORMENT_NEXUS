@@ -52,8 +52,8 @@ maps to.
 Want to fiddle? These change it instantly, no code:
 
 ```
-set AI_BUDDY_CARRIER_HZ=130
-set AI_BUDDY_PITCH_FLATTEN=0.30
+set TORMENT_NEXUS_CARRIER_HZ=130
+set TORMENT_NEXUS_PITCH_FLATTEN=0.30
 ```
 
 ---

@@ -6,11 +6,11 @@ REM taskbar -- use stop_glitch.bat to stop it again.
 cd /d "%~dp0.."
 
 set PYW=
-if defined AI_BUDDY_PYTHON (
-    set "PYW=%AI_BUDDY_PYTHON:python.exe=pythonw.exe%"
+if defined TORMENT_NEXUS_PYTHON (
+    set "PYW=%TORMENT_NEXUS_PYTHON:python.exe=pythonw.exe%"
 ) else if exist "%~dp0..\python\pythonw.exe" (
     REM The private handoff carries this interpreter beside the launcher.
-    set "PYW=%~dp0python\pythonw.exe"
+    set "PYW=%~dp0..\python\pythonw.exe"
 ) else if exist "%LocalAppData%\Python\pythoncore-3.14-64\pythonw.exe" (
     set "PYW=%LocalAppData%\Python\pythoncore-3.14-64\pythonw.exe"
 ) else (

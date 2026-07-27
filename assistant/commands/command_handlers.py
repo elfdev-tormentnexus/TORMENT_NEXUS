@@ -1579,7 +1579,7 @@ def handle_show_goals(user_input):
         return (
             f"GOALS\n{'=' * 58}\n\n"
             "Self-directed goals are off.\n\n"
-            "Set AI_BUDDY_GOALS=1 to enable them. When on, it can choose\n"
+            "Set TORMENT_NEXUS_GOALS=1 to enable them. When on, it can choose\n"
             "its own sub-goals and write notes toward them into the\n"
             "workshop/ folder -- text files only, nothing executable, and\n"
             "nothing outside that folder."
@@ -1618,7 +1618,7 @@ def handle_set_goals(user_input):
     from editing import goal_engine
 
     if not goal_engine.ENABLED:
-        return "Self-directed goals are off. Set AI_BUDDY_GOALS=1 first."
+        return "Self-directed goals are off. Set TORMENT_NEXUS_GOALS=1 first."
 
     result = _goal_action(goal_engine.propose_goals)
 
@@ -1644,7 +1644,7 @@ def handle_work_on_goals(user_input):
     from editing import goal_engine
 
     if not goal_engine.ENABLED:
-        return "Self-directed goals are off. Set AI_BUDDY_GOALS=1 first."
+        return "Self-directed goals are off. Set TORMENT_NEXUS_GOALS=1 first."
 
     result = _goal_action(goal_engine.act)
 
