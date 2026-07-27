@@ -1,3 +1,4 @@
+from collections import Counter
 import inspect
 import json
 import os
@@ -3637,6 +3638,86 @@ class DeclaredDependencyTests(unittest.TestCase):
             sorted(runtime - release), [],
             "declared for development but missing from the release pins",
         )
+
+
+class PersonaShotsTests(unittest.TestCase):
+    """
+    Style has to be demonstrated, not just described.
+
+    The shot list was emptied once because the model copied example
+    wording verbatim. With no examples a 4B instruct model reverts to its
+    tuned register, and every reply became "How may I assist you today?"
+    -- the exact phrasing the Voice section rejects. An empty list is
+    therefore a regression, not a clean slate.
+    """
+
+    def test_examples_exist_at_all(self):
+        self.assertTrue(
+            persona.PERSONA_SHOTS,
+            "no demonstrations left; the model will fall back to the "
+            "generic assistant register it was tuned on",
+        )
+
+    def test_enough_variety_that_none_becomes_the_formula(self):
+        shots = persona.PERSONA_SHOTS
+        self.assertGreaterEqual(len(shots) // 2, 4)
+
+        openings = [
+            m["content"].split()[0].lower().strip(".,")
+            for m in shots if m["role"] == "assistant"
+        ]
+        # Repeating one opening across most replies is how a catchphrase
+        # forms, which is what emptying the list was trying to avoid.
+        most_common = max(Counter(openings).values())
+        self.assertLessEqual(
+            most_common, max(1, len(openings) // 3),
+            f"assistant replies start the same way too often: {openings}",
+        )
+
+    def test_they_alternate_and_are_well_formed(self):
+        shots = persona.PERSONA_SHOTS
+        self.assertEqual(len(shots) % 2, 0, "a shot is missing its reply")
+
+        for index, message in enumerate(shots):
+            self.assertEqual(message["role"],
+                             "user" if index % 2 == 0 else "assistant")
+            self.assertTrue(message["content"].strip())
+
+    def test_they_demonstrate_the_honesty_rules(self):
+        replies = " ".join(
+            m["content"].lower() for m in persona.PERSONA_SHOTS
+            if m["role"] == "assistant"
+        )
+        # Cheaper to show these than to describe them.
+        self.assertIn("no sensor", replies)
+        self.assertIn("i was wrong", replies)
+
+    def test_no_reply_uses_the_service_desk_register(self):
+        banned = ("how may i assist", "how can i assist",
+                  "how may i help you today")
+        for message in persona.PERSONA_SHOTS:
+            if message["role"] != "assistant":
+                continue
+            lowered = message["content"].lower()
+            for phrase in banned:
+                self.assertNotIn(phrase, lowered)
+
+    def test_the_shots_reach_the_model(self):
+        messages = assistant_main.build_messages("hello")
+        rendered = [m.get("content", "") for m in messages]
+
+        for shot in persona.PERSONA_SHOTS:
+            self.assertIn(shot["content"], rendered)
+
+    def test_the_prompt_still_leaves_room_to_talk(self):
+        # Demonstrations are worth their tokens only while the
+        # conversation still fits beside them.
+        messages = assistant_main.build_messages("hello")
+        text = "\n".join(m.get("content", "") for m in messages)
+
+        # Rough estimate; the real count needs a running server.
+        approx_tokens = len(text) // 4
+        self.assertLess(approx_tokens, config.CONTEXT_SIZE // 2)
 
 
 if __name__ == "__main__":
