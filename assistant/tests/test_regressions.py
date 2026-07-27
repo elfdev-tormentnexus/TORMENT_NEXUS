@@ -3376,5 +3376,59 @@ class IdleCheckInTests(unittest.TestCase):
         self.assertGreaterEqual(config.IDLE_RESPONSE_SECONDS, 15)
 
 
+class HardwareHonestyTests(unittest.TestCase):
+    """
+    It confabulated hardware it does not have.
+
+    Asked a nonsense fragment, it reported "the Whisplay HAT is running at
+    72% brightness. Ambient light levels are stable at 380 lux. System
+    temperature is 41C" -- three precise readings from sensors that do not
+    exist, on a Pi that has never been connected. Told it was wrong, it
+    restated the claim in softer words instead of correcting it.
+
+    The cause was the core memory opening with the Pi as the project's
+    target, which a small model flattens into a present-tense fact.
+    """
+
+    def setUp(self):
+        self.prompt = assistant_main._stable_system_prompt()
+
+    def test_the_real_runtime_is_stated_before_the_target_hardware(self):
+        where = self.prompt.find("Windows desktop PC")
+        pi = self.prompt.find("Raspberry Pi 5")
+
+        self.assertGreater(where, -1, "the actual runtime is not stated")
+        self.assertGreater(pi, -1)
+        self.assertLess(where, pi,
+                        "the Pi is mentioned before the real runtime")
+
+    def test_the_pi_is_marked_as_not_yet_obtained(self):
+        for phrase in ("has not been obtained", "never a present fact"):
+            self.assertIn(phrase, self.prompt)
+
+    def test_it_is_told_it_has_no_sensors(self):
+        self.assertIn("no sensors of any kind", self.prompt)
+
+        for reading in ("temperature", "brightness", "ambient light"):
+            self.assertIn(reading, self.prompt.lower())
+
+    def test_invented_measurements_are_forbidden_by_example(self):
+        # The exact fabrications are named, so the rule is concrete rather
+        # than a general instruction to be truthful.
+        self.assertIn("Never invent an observation", self.prompt)
+
+        for fabricated in ("41C", "72% brightness", "380 lux"):
+            self.assertIn(fabricated, self.prompt)
+
+    def test_self_correction_must_be_plain(self):
+        # Rewording an error is not correcting it.
+        self.assertIn("I was wrong", self.prompt)
+        self.assertIn("softer language is not", self.prompt)
+
+    def test_the_earlier_honesty_rules_survived(self):
+        self.assertIn("asserting an inner state is not", self.prompt)
+        self.assertIn("Declining:", self.prompt)
+
+
 if __name__ == "__main__":
     unittest.main()

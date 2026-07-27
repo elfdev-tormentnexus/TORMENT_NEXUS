@@ -1,0 +1,137 @@
+# ---------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+
+# ---------------------------------------------------------------
+# Secrets and personal state
+#
+# These are the entries that matter most. Everything below is either a
+# credential or a record of real conversations, and git history is
+# effectively permanent -- a secret committed once has to be treated as
+# leaked even after a later commit deletes it.
+#
+# Kept deliberately in step with DENY_PATTERNS in package_release.py,
+# which strips the same files from a shared build. If a new one is added
+# there, add it here too.
+# ---------------------------------------------------------------
+assistant/.model_api_key
+assistant/.dev_passcode
+assistant/.tdeck_ble_pin
+assistant/.spotify_token
+*.env
+*secrets*
+
+# Real conversations, and the memories extracted from them.
+assistant/memory/conversation_history.txt
+assistant/memory/memories.json
+assistant/memory/change_plans/
+assistant/memory/plan_*.txt
+
+# The absence of this file is what marks a fresh install, so it must
+# never be tracked -- committing it would deny every clone its first-run
+# walkthrough.
+assistant/.tutorial_state.json
+
+
+# ---------------------------------------------------------------
+# Generated runtime state
+# ---------------------------------------------------------------
+assistant/logs/
+assistant/backups/
+assistant/cache/
+*.bak
+*.backup
+dump/
+# Legacy root-level runtime placeholders are not source files.
+memory/
+# Obsolete captured wiring logs; they are neither source nor runtime state.
+wirelog/
+
+
+# ---------------------------------------------------------------
+# Models and large binaries
+#
+# Multi-gigabyte weights do not belong in git. They are downloadable,
+# and committing one makes every future clone pay for it forever.
+# ---------------------------------------------------------------
+models/*.gguf
+models/voice/cache/
+models/voice/**/*.onnx
+models/voice/**/*.onnx.json
+
+
+# ---------------------------------------------------------------
+# Vendored third-party trees
+#
+# Each of these carries its own .git directory. Tracked naively they
+# become empty gitlinks that clone into nothing -- worse than absent,
+# because the code looks present when it is not. They are upstream
+# projects, re-clonable on demand.
+# ---------------------------------------------------------------
+llama.cpp/
+firmware/
+searxng/
+
+# An 83MB ffmpeg binary pip pulled in for the voice analysis scripts.
+# Downloadable, platform-specific, and would otherwise be 96% of the
+# repository by size.
+voice_training/.analysis_tools/
+
+
+# ---------------------------------------------------------------
+# Build output
+#
+# dist/ is the shareable package: several gigabytes, rebuilt in full by
+# package_release.py from the sources that ARE tracked here.
+# ---------------------------------------------------------------
+dist/
+build/
+
+
+# ---------------------------------------------------------------
+# Media
+#
+# The music library is someone else's copyright, and is excluded from
+# shared builds for the same reason. Voice training samples are large
+# generated renders, reproducible from the scripts that are kept.
+# ---------------------------------------------------------------
+assistant/music/*
+!assistant/music/.gitkeep
+voice_training/samples*/
+*.mp3
+*.wav
+
+# Generated icon frames and the shortcut variants built from them. Both
+# come from glitch_icon.py --setup, and the .lnk files embed absolute
+# paths from this machine.
+icon_anim/
+
+
+# ---------------------------------------------------------------
+# The workshop
+#
+# Everything in here is written by the goal engine, unprompted. It is
+# genuinely interesting to read, but it is this machine's output rather
+# than the project's source -- and it changes on its own, which would
+# make every git status noisy. The folder itself is kept so a fresh
+# clone has somewhere to work.
+# ---------------------------------------------------------------
+workshop/*
+!workshop/.gitkeep
+
+
+# ---------------------------------------------------------------
+# Editor and tool-local settings
+# ---------------------------------------------------------------
+.claude/settings.local.json
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
