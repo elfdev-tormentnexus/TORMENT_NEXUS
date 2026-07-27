@@ -729,33 +729,69 @@ try {
 # Runs inside the freshly built environment, so a package that installs
 # but cannot actually import its own dependencies fails loudly at install
 # time rather than the first time the recipient double-clicks it.
-VERIFY_INSTALL_PY = r'''"""Check the bundled environment really works."""
+VERIFY_INSTALL_PY = r'''"""
+Check the bundled environment really works.
+
+This must reproduce how the launcher actually starts, not a convenient
+approximation of it. An earlier version began with
+
+    sys.path.insert(0, os.path.join(HERE, "assistant"))
+
+which manufactured the one condition a real launch never has. The
+embeddable interpreter does not put the script's folder on sys.path, so
+every project import failed on the recipient's machine -- while this
+check reported "verified", because it had quietly supplied the missing
+entry itself. A verifier that arranges its own success is worse than no
+verifier: it converts a caught bug into a shipped one.
+
+So the check below runs main.py itself, in a separate process, exactly
+the way start_assistant.bat runs it: same interpreter, same working
+directory, no path help. --check-imports makes it exit after the imports
+instead of starting a session.
+
+Probing with `python -c "import core.config"` is NOT equivalent and was
+briefly used here by mistake -- it fails even on a healthy install,
+because main.py's own path bootstrap never runs. The check has to invoke
+the same file the launcher does.
+"""
 import os
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "assistant"))
+ASSISTANT = os.path.join(HERE, "assistant")
 
 failures = []
 
-for module in ("numpy", "requests", "sounddevice", "soundcard",
-               "piper", "sherpa_onnx"):
+for module in ("numpy", "requests", "sounddevice", "soundfile",
+               "soundcard", "piper", "sherpa_onnx"):
     try:
         __import__(module)
     except Exception as error:
         failures.append(f"import {module}: {error}")
 
+# The real test: run main.py the way the launcher does.
 try:
-    import core.config as config
-    for label, path in (
-        ("language model", config.MODEL_PATH
-         if hasattr(config, "MODEL_PATH") else None),
-        ("voice model", config.VOICE_TTS_MODEL),
-    ):
-        if path and not os.path.isfile(path):
-            failures.append(f"{label} missing at {path}")
+    result = subprocess.run(
+        [sys.executable, os.path.join(ASSISTANT, "main.py"), "--check-imports"],
+        cwd=ASSISTANT,
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+
+    if "IMPORTS_OK" not in (result.stdout or ""):
+        detail = (result.stderr or "").strip().splitlines()
+        failures.append(
+            "the launcher's own start-up fails: "
+            + (detail[-1] if detail else "no output")
+        )
+
+    for line in (result.stdout or "").splitlines():
+        if line.startswith("MISSING:"):
+            failures.append(line.partition(":")[2].strip())
 except Exception as error:
-    failures.append(f"assistant config: {error}")
+    failures.append(f"could not run the start-up check: {error}")
 
 if failures:
     print("  install verification FAILED:")

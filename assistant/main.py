@@ -9,6 +9,23 @@ import threading
 import time
 from datetime import datetime
 import json
+
+# Put this file's own folder on the import path before anything project
+# local is imported.
+#
+# A normal Python does this automatically, which is why it was never
+# missed here. The private handoff ships the Windows embeddable build,
+# and that variant reads sys.path exclusively from the python._pth file
+# beside python.exe -- it does not add the script's directory and it
+# ignores PYTHONPATH. So on a recipient's machine sys.path held only the
+# interpreter's own zip and folder, and the very first project import
+# died with "No module named 'core'".
+#
+# Fixed here rather than in the packaging so it holds for every entry
+# point and every interpreter: the launcher, the desktop shortcut, the
+# test runner, and anyone running main.py directly.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from core.stream_filter import StreamFilter
 from memory import memory_logic
 from memory import memory_extractor
@@ -2081,6 +2098,40 @@ def main():
         # Never leave the terminal with a restricted scroll region,
         # even if something above blew up.
         ui.teardown()
+
+
+def _import_self_check():
+    """
+    Import everything the launcher imports, then exit without starting.
+
+    Exists so the installer can verify start-up the honest way: by
+    running THIS file the way start_assistant.bat runs it, rather than
+    approximating it with `python -c "import core.config"`. Reaching this
+    function at all means every module-level import above succeeded under
+    the real interpreter, real working directory and real sys.path.
+    """
+    from core import config
+
+    problems = []
+
+    for label, attribute in (
+        ("language model", "MODEL_PATH"),
+        ("speech model", "VOICE_TTS_MODEL"),
+    ):
+        path = getattr(config, attribute, None)
+
+        if path and not os.path.isfile(path):
+            problems.append(f"{label} missing at {path}")
+
+    for problem in problems:
+        print(f"MISSING: {problem}")
+
+    print("IMPORTS_OK")
+    return 1 if problems else 0
+
+
+if __name__ == "__main__" and "--check-imports" in sys.argv:
+    raise SystemExit(_import_self_check())
 
 
 if __name__ == "__main__":

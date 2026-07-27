@@ -3860,5 +3860,83 @@ class BatchScriptTests(unittest.TestCase):
             self.assertIn(f'"%{variable}%"', source)
 
 
+class StartupImportTests(unittest.TestCase):
+    """
+    main.py must be importable without help from the interpreter.
+
+    The handoff ships the Windows embeddable Python, which builds
+    sys.path only from the ._pth file beside python.exe -- it does not
+    add the script's own directory and ignores PYTHONPATH. On a
+    recipient's machine the first project import died with "No module
+    named 'core'". It was never seen here because the launcher falls back
+    to a normal system Python when no bundled one is present, and a
+    normal Python does add the script directory.
+
+    The installer's check had also masked it by inserting the missing
+    path itself before importing, so setup reported success on a tree
+    that could not start.
+    """
+
+    def _main_source(self):
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        with open(os.path.join(root, "main.py"), encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_main_puts_its_own_folder_on_the_path(self):
+        source = self._main_source()
+
+        self.assertIn(
+            "sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))",
+            source,
+        )
+
+    def test_the_bootstrap_runs_before_any_project_import(self):
+        source = self._main_source()
+
+        bootstrap = source.find(
+            "sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))")
+        first_local = min(
+            index for index in (
+                source.find("\nfrom core"),
+                source.find("\nfrom memory"),
+                source.find("\nfrom commands"),
+            ) if index != -1
+        )
+
+        self.assertNotEqual(bootstrap, -1)
+        self.assertLess(
+            bootstrap, first_local,
+            "a project import happens before the path is set up",
+        )
+
+    def test_the_check_flag_exists_for_the_installer(self):
+        # The installer verifies start-up by running this file the way the
+        # launcher does. Probing with `python -c "import core.config"` is
+        # not equivalent -- that skips the bootstrap above and fails even
+        # on a healthy install.
+        source = self._main_source()
+
+        self.assertIn("--check-imports", source)
+        self.assertIn("IMPORTS_OK", source)
+
+    def test_the_installer_check_does_not_fake_the_path(self):
+        root = os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))))
+        with open(os.path.join(root, "tools", "package_release.py"),
+                  encoding="utf-8") as handle:
+            packager = handle.read()
+
+        template = packager.split("VERIFY_INSTALL_PY = r'''")[1]
+        # Skip the docstring, which describes the old mistake on purpose.
+        body = template.split('"""', 2)[-1]
+
+        self.assertNotIn(
+            "sys.path.insert", body,
+            "the installer's verifier is supplying the path a real launch "
+            "lacks, which is what hid this bug",
+        )
+        self.assertIn("--check-imports", body)
+
+
 if __name__ == "__main__":
     unittest.main()
