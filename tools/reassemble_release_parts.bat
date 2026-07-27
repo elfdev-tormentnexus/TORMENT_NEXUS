@@ -5,13 +5,17 @@ set "PART1=%HERE%TORMENT_NEXUS.zip.part01"
 set "PART2=%HERE%TORMENT_NEXUS.zip.part02"
 set "ZIP=%HERE%TORMENT_NEXUS.zip"
 
-if not exist "%PART1% (
+REM The closing quote matters. Without it the variable expands and the
+REM opening "(" is swallowed into the quoted filename, so cmd loses the
+REM start of the block and the script fails in a way that points nowhere
+REM near the actual line.
+if not exist "%PART1%" (
     echo Missing TORMENT_NEXUS.zip.part01 in this folder.
     pause
     exit /b 1
 )
 
-if not exist "%PART2% (
+if not exist "%PART2%" (
     echo Missing TORMENT_NEXUS.zip.part02 in this folder.
     pause
     exit /b 1

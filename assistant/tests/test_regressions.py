@@ -3792,5 +3792,73 @@ class SpeechPauseTests(unittest.TestCase):
         self.assertIn("TORMENT_NEXUS_CLAUSE_PAUSE", source)
 
 
+class BatchScriptTests(unittest.TestCase):
+    """
+    An unclosed quote in a .bat is invisible and breaks it completely.
+
+    The release reassembly script shipped with `if not exist "%PART1% (`
+    -- the variable expanded, the quote never closed, and the opening
+    brace was swallowed into the filename, so cmd lost the start of the
+    block. It reached a real user before anyone noticed, because nothing
+    about the line looks wrong.
+
+    Batch has no syntax check, so this stands in for one.
+    """
+
+    _SKIP_DIRS = {"dist", "llama.cpp", "firmware", ".git", ".pio",
+                  "node_modules"}
+
+    def _scripts(self):
+        root = os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))))
+        found = []
+
+        for folder, dirs, files in os.walk(root):
+            dirs[:] = [d for d in dirs if d not in self._SKIP_DIRS]
+
+            for name in files:
+                if name.lower().endswith((".bat", ".cmd")):
+                    found.append(os.path.join(folder, name))
+
+        return root, found
+
+    def test_every_batch_line_has_balanced_quotes(self):
+        root, scripts = self._scripts()
+        self.assertTrue(scripts, "no batch files found to check")
+
+        offenders = []
+
+        for path in scripts:
+            with open(path, encoding="utf-8", errors="replace") as handle:
+                for number, line in enumerate(handle, 1):
+                    stripped = line.strip()
+
+                    if not stripped or stripped.upper().startswith("REM"):
+                        continue
+
+                    # A trailing caret continues the line, so a quote may
+                    # legitimately stay open across the break.
+                    if stripped.endswith("^"):
+                        continue
+
+                    if stripped.count('"') % 2:
+                        offenders.append(
+                            f"{os.path.relpath(path, root)}:{number}: {stripped[:60]}"
+                        )
+
+        self.assertEqual(offenders, [], "unbalanced quotes in batch scripts")
+
+    def test_the_reassembly_script_quotes_its_variables(self):
+        root, _ = self._scripts()
+        path = os.path.join(root, "tools", "reassemble_release_parts.bat")
+
+        with open(path, encoding="utf-8") as handle:
+            source = handle.read()
+
+        for variable in ("PART1", "PART2"):
+            self.assertNotIn(f'"%{variable}% (', source)
+            self.assertIn(f'"%{variable}%"', source)
+
+
 if __name__ == "__main__":
     unittest.main()
