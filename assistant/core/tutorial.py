@@ -37,9 +37,13 @@ LESSONS = [
         "title": "What this is",
         "body": (
             "A private AI companion that runs entirely on your own machine.\n"
-            "The language model, the speech, the listening, and the search\n"
-            "index are all local. Nothing you type is sent to a company, and\n"
-            "once installed it works with the network unplugged.\n\n"
+            "The language model, memory, speech, and listening all run\n"
+            "locally. Ordinary conversation stays on this machine, and the\n"
+            "core system still works with the network unplugged.\n\n"
+            "Web search is the deliberate exception: using 'search' sends\n"
+            "that query through the SearXNG setup you chose, then out to the\n"
+            "internet. It is optional, and it does not make web results\n"
+            "trusted.\n\n"
             "That constraint shapes everything else here. Features are built\n"
             "to degrade quietly rather than depend on a service being up."
         ),
@@ -116,10 +120,25 @@ LESSONS = [
             "Music runs on its own audio stream, so TORMENT_NEXUS can talk over\n"
             "it without cutting the track off.\n\n"
             "There is also an audio-reactive visualiser that responds to\n"
-            "whatever the machine is playing."
+            "whatever the machine is playing. In visualiser mode, Space\n"
+            "cycles the colour palette and Ctrl+B exits."
         ),
         "commands": ["music library", "play", "pause local", "resume local",
                      "stop music", "now playing", "music mode"],
+    },
+    {
+        "key": "projects",
+        "title": "Making small projects",
+        "body": (
+            "Ask it to build a small project in ordinary language and it will\n"
+            "create a self-contained result in the dump folder instead of\n"
+            "scattering new files through the assistant itself. You can list\n"
+            "what it made or open the destination at any time.\n\n"
+            "This is for new, contained work such as a simple utility, web\n"
+            "page, or prototype. It does not grant permission to modify the\n"
+            "TORMENT_NEXUS source code."
+        ),
+        "commands": ["build project", "list projects", "dump path"],
     },
     {
         "key": "files",
@@ -165,6 +184,21 @@ LESSONS = [
         "commands": ["run autonomous cycle"],
     },
     {
+        "key": "goals",
+        "title": "Self-directed documentation goals",
+        "body": (
+            "The optional goals feature lets TORMENT_NEXUS propose useful\n"
+            "project-related documentation tasks, such as a benchmark plan\n"
+            "or hardware integration notes. It is off by default and needs\n"
+            "developer mode before new goals can be set or worked on.\n\n"
+            "Its goal work is deliberately narrower than self-editing: it can\n"
+            "only write plain text, Markdown, JSON, or CSV inside workshop/.\n"
+            "It cannot change source code, run programs, use the network, or\n"
+            "write outside that folder through this feature."
+        ),
+        "commands": ["goals", "set goals", "work on goals", "goal done"],
+    },
+    {
         "key": "web",
         "title": "Searching the web",
         "body": (
@@ -184,10 +218,12 @@ LESSONS = [
             "It can pair with a LilyGO T-Deck over Bluetooth and use it as a\n"
             "remote terminal, including over Meshtastic radio where there is\n"
             "no internet at all.\n\n"
-            "Messages arriving from the device are treated as untrusted: they\n"
-            "can ask questions, but they cannot reach the command, project,\n"
-            "editing, or autonomous systems. Physical access to a radio is\n"
-            "not proof of who is sending."
+            "The terminal is conversation-only: it cannot reach command,\n"
+            "project, editing, or autonomous systems. It accepts text only\n"
+            "from the paired local T-Deck, not arbitrary mesh traffic.\n\n"
+            "Meshtastic text uses the configured radio channel. Other devices\n"
+            "with that channel key may be able to see those messages, so\n"
+            "treat the radio terminal as non-secret."
         ),
         "commands": ["tdeck setup", "tdeck scan", "tdeck status",
                      "tdeck terminal", "tdeck nodes"],
@@ -196,7 +232,7 @@ LESSONS = [
         "key": "next",
         "title": "Where to go from here",
         "body": (
-            "That is the whole tool set. A few things worth knowing:\n\n"
+            "That covers the core tool set. A few things worth knowing:\n\n"
             "  - Escape interrupts almost anything: a long reply, speech,\n"
             "    a song, a running search.\n"
             "  - 'health check' reports what is actually working right now\n"
@@ -218,17 +254,25 @@ TOPICS = {
     "memory": "memory",
     "memories": "memory",
     "music": "music",
+    "visualizer": "music",
+    "visualiser": "music",
+    "projects": "projects",
+    "project": "projects",
+    "dump": "projects",
+    "dump folder": "projects",
     "editing": "editing",
     "edits": "editing",
     "self-editing": "editing",
     "autonomous": "autonomous",
+    "goals": "goals",
+    "goal": "goals",
+    "subgoals": "goals",
     "web": "web",
     "search": "web",
     "hardware": "hardware",
     "tdeck": "hardware",
     "t-deck": "hardware",
     "files": "files",
-    "project": "files",
     "commands": "commands",
     "dev mode": "commands",
     "yourself": "what",
@@ -276,8 +320,8 @@ def set_position(index):
     state = _load()
     state["position"] = max(0, min(len(LESSONS) - 1, int(index)))
     state.setdefault("first_seen", time.strftime("%Y-%m-%d %H:%M:%S"))
-    if state["position"] >= len(LESSONS) - 1:
-        state["completed"] = True
+    state["completed"] = state["position"] >= len(LESSONS) - 1
+    state["active"] = not state["completed"]
     _save(state)
 
 
@@ -285,11 +329,18 @@ def reset():
     state = _load()
     state["position"] = 0
     state["completed"] = False
+    state["active"] = True
     _save(state)
 
 
 def is_complete():
     return bool(_load().get("completed"))
+
+
+def is_active():
+    """Whether a tutorial session is currently awaiting the next lesson."""
+    state = _load()
+    return bool(state.get("active")) and not bool(state.get("completed"))
 
 
 def _catalog():
@@ -321,7 +372,7 @@ def _command_lines(names, catalog):
     return lines
 
 
-def render_lesson(index):
+def render_lesson(index, include_navigation=True):
     """One lesson as display text, with its real commands attached."""
     index = max(0, min(len(LESSONS) - 1, int(index)))
     lesson = LESSONS[index]
@@ -345,15 +396,41 @@ def render_lesson(index):
             out.append("")
             out.append("  * needs developer mode ('dev mode')")
 
-    out.append("")
+    if include_navigation:
+        out.append("")
 
-    if index < len(LESSONS) - 1:
-        nxt = LESSONS[index + 1]["title"]
-        out.append(f"'tutorial next' for {nxt.lower()}, or 'tutorial done'.")
-    else:
-        out.append("That's everything. 'tutorial restart' to go again.")
+        if index < len(LESSONS) - 1:
+            nxt = LESSONS[index + 1]["title"]
+            out.append(
+                f"'next' or 'tutorial next' for {nxt.lower()}, "
+                "or 'tutorial done'."
+            )
+        else:
+            out.append("That's everything. 'tutorial restart' to go again.")
 
     return "\n".join(out)
+
+
+def render_batch(start_index, size=2):
+    """Render a short voice-friendly run of consecutive tutorial lessons."""
+    start = max(0, min(len(LESSONS) - 1, int(start_index)))
+    stop = min(len(LESSONS), start + max(1, int(size)))
+    last = stop - 1
+    lessons = [
+        render_lesson(index, include_navigation=False)
+        for index in range(start, stop)
+    ]
+
+    if last < len(LESSONS) - 1:
+        next_title = LESSONS[last + 1]["title"].lower()
+        footer = (
+            f"'next' or 'tutorial next' for the next two sections, starting "
+            f"with {next_title}. 'tutorial done' closes the walkthrough."
+        )
+    else:
+        footer = "That's everything. 'tutorial restart' to go again."
+
+    return "\n\n".join(lessons + [footer])
 
 
 def overview():
@@ -362,8 +439,8 @@ def overview():
         "TUTORIAL",
         "=" * 58,
         "",
-        "A walkthrough of everything TORMENT_NEXUS does. Roughly five",
-        "minutes if you read it straight through.",
+        "A walkthrough of TORMENT_NEXUS's core systems and common workflows.",
+        "Roughly five minutes if you read it straight through.",
         "",
     ]
 
@@ -375,7 +452,7 @@ def overview():
 
     out.extend([
         "",
-        "'tutorial next' walks through it in order.",
+        "'next' or 'tutorial next' moves through two sections at a time.",
         "'tutorial 5' jumps to a section.",
         "'explain <topic>' digs into any single piece.",
     ])
@@ -450,7 +527,8 @@ def first_run_invitation():
     """Short pitch shown once on a brand new install."""
     return (
         "It looks like this is a fresh install.\n\n"
-        "Type 'tutorial' for a five-minute walkthrough of everything I can\n"
-        "do, or just start talking and ask 'explain <anything>' when you\n"
+        "Type 'tutorial' for a five-minute walkthrough of the core system.\n"
+        "If voice input is available, you can say it instead; typing always\n"
+        "works. Or just start talking and ask 'explain <anything>' when you\n"
         "want detail. 'help' lists the commands at any time."
     )

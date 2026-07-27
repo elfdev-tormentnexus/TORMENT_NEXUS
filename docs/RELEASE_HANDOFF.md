@@ -12,7 +12,7 @@ Before sending:
 - Do not run `setup.bat` inside the final `dist\TORMENT_NEXUS` folder.
   Installer testing modifies that staging folder. If you test it, rebuild a
   fresh archive afterwards, then verify the fresh build again.
-- Share only `dist/TORMENT_NEXUS.zip`, not the project folder, old AI_TORMENT_NEXUS
+- Share only `dist/TORMENT_NEXUS.zip`, not the project folder, any legacy
   archive, model cache, desktop shortcut, conversation history, or device files.
 - Send the SHA-256 value printed by your file manager or PowerShell separately
   so the recipient can verify the copied ZIP.

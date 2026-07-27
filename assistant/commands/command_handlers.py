@@ -206,13 +206,20 @@ def command_catalog():
     ]
 
 
-@command("tutorial", "Walk through everything TORMENT_NEXUS can do",
+@command("tutorial", "Walk through TORMENT_NEXUS's core features",
          usage="tutorial [next|<n>|restart]", dev_only=False, group="session")
 def handle_tutorial(user_input):
-    if not _match_prefix(user_input, "tutorial"):
-        return False
-
     from core import tutorial
+
+    normalized = (user_input or "").strip().lower()
+
+    # Once someone has deliberately started the walkthrough, the obvious
+    # "next" should work without making them repeat the tutorial command.
+    # Outside that state it remains ordinary conversation.
+    if normalized in ("next", "n", "continue") and tutorial.is_active():
+        user_input = "tutorial next"
+    elif not _match_prefix(user_input, "tutorial"):
+        return False
 
     argument = user_input.strip()[len("tutorial"):].strip().lower()
     tutorial.mark_seen()
@@ -230,13 +237,15 @@ def handle_tutorial(user_input):
             return ("That was the last section. 'tutorial restart' to go "
                     "again, or 'explain <topic>' for any single piece.")
 
-        tutorial.set_position(index)
-        return tutorial.render_lesson(index)
+        end = min(len(tutorial.LESSONS) - 1, index + 1)
+        tutorial.set_position(end)
+        return tutorial.render_batch(index)
 
     if argument in ("restart", "start", "begin"):
         tutorial.reset()
-        tutorial.set_position(0)
-        return tutorial.render_lesson(0)
+        end = min(len(tutorial.LESSONS) - 1, 1)
+        tutorial.set_position(end)
+        return tutorial.render_batch(0)
 
     if argument in ("done", "stop", "exit", "quit"):
         tutorial.set_position(len(tutorial.LESSONS) - 1)
@@ -1594,13 +1603,29 @@ def handle_show_goals(user_input):
         )
 
     lines = [f"GOALS\n{'=' * 58}\n"]
+    legacy_indices = []
 
     for index, goal in enumerate(goals):
         mark = "done" if goal.get("done") else f"{goal.get('notes', 0)} steps"
+        if (
+            not goal.get("done")
+            and not goal_engine._goal_is_project_relevant(
+                goal.get("goal"), goal.get("why")
+            )
+        ):
+            legacy_indices.append(str(index))
         lines.append(f"  [{index}] {goal['goal']}")
         if goal.get("why"):
             lines.append(f"       why: {goal['why']}")
         lines.append(f"       {mark}, set {goal.get('created', '?')}")
+        lines.append("")
+
+    if legacy_indices:
+        lines.append(
+            "Blocked legacy goal(s): " + ", ".join(legacy_indices) + ". "
+            "They are unrelated to TORMENT_NEXUS; use 'goal done <n>' "
+            "to close them before setting new goals."
+        )
         lines.append("")
 
     lines.append(f"Workshop: {goal_engine.WORKSHOP}")

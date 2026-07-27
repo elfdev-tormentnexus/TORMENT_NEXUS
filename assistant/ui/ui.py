@@ -404,6 +404,7 @@ class LayeredDisplayEngine:
         self.music_visualizer = None
         self.music_audio = None
         self.music_status = ""
+        self.music_palette_index = 0
         self._music_last_frame = 0.0
         self.input_masked = False
 
@@ -1738,18 +1739,25 @@ class LayeredDisplayEngine:
     # MUSIC VISUALIZER
     # ------------------------------------------------------------
 
-    # Deep navy -> electric blue -> white. The final entry is reserved for
-    # the hard central oscilloscope trace.
-    _MUSIC_PALETTE = (
-        fg(17),
-        fg(18),
-        fg(19),
-        fg(20),
-        fg(27),
-        fg(33),
-        fg(45),
-        fg(153),
-        WHITE,
+    # Each palette runs dark -> bright, with a near-white final oscilloscope
+    # trace. Space cycles these only while music mode owns the viewport.
+    _MUSIC_PALETTES = (
+        ("electric blue", (
+            fg(17), fg(18), fg(19), fg(20), fg(27), fg(33), fg(45),
+            fg(153), WHITE,
+        )),
+        ("ultraviolet", (
+            fg(53), fg(54), fg(55), fg(56), fg(93), fg(129), fg(165),
+            fg(219), WHITE,
+        )),
+        ("inferno", (
+            fg(52), fg(88), fg(124), fg(160), fg(196), fg(202), fg(208),
+            fg(226), WHITE,
+        )),
+        ("toxic cyan", (
+            fg(22), fg(23), fg(29), fg(30), fg(35), fg(42), fg(48),
+            fg(159), WHITE,
+        )),
     )
 
     def _draw_music(self, canvas, width, height):
@@ -1793,7 +1801,7 @@ class LayeredDisplayEngine:
         if text_row < 0:
             return
 
-        status = self.music_status or "music mode  --  ctrl+b to exit"
+        status = self.music_status or "music mode  --  space: palette  |  ctrl+b: exit"
         level = max(0.0, min(1.0, features.get("level", 0.0)))
         meter_width = min(12, max(4, width // 10))
         meter = "━" * int(level * meter_width)
@@ -2078,6 +2086,8 @@ def input_framed(
             return user_text
         elif ch == MUSIC_TOGGLE_KEY:
             print_framed(toggle_music_mode(), color=VIOLET)
+        elif ch == MUSIC_PALETTE_CYCLE_KEY and music_mode_active():
+            cycle_music_palette()
         elif ch == "ESC" and allow_cancel:
             _engine.current_input = ""
             _engine.input_masked = False
@@ -2372,6 +2382,10 @@ def poll_input_event():
         print_framed(toggle_music_mode(), color=VIOLET)
         return None
 
+    if ch == MUSIC_PALETTE_CYCLE_KEY and music_mode_active():
+        cycle_music_palette()
+        return None
+
     if ch == "ESC":
         return ("escape", None)
     if ch in ("\r", "\n"):
@@ -2405,6 +2419,8 @@ def poll_input_event():
 
 MUSIC_TOGGLE_KEY = "\x02"          # Ctrl+B
 MUSIC_TOGGLE_LABEL = "ctrl+b"
+MUSIC_PALETTE_CYCLE_KEY = " "
+MUSIC_PALETTE_CYCLE_LABEL = "space"
 
 
 def music_mode_active():
@@ -2413,6 +2429,24 @@ def music_mode_active():
 
 def set_music_status(text):
     _engine.music_status = str(text or "")
+
+
+def cycle_music_palette():
+    """Advance the visualizer palette without interrupting audio capture."""
+    with _engine.lock:
+        if not _engine.music_mode or _engine.music_visualizer is None:
+            return "Music mode is off."
+
+        _engine.music_palette_index = (
+            _engine.music_palette_index + 1
+        ) % len(_engine._MUSIC_PALETTES)
+        name, palette = _engine._MUSIC_PALETTES[_engine.music_palette_index]
+        _engine.music_visualizer.palette = tuple(palette)
+        _engine.music_status = (
+            f"palette: {name} | {MUSIC_PALETTE_CYCLE_LABEL}: cycle | "
+            f"{MUSIC_TOGGLE_LABEL}: exit"
+        )
+        return _engine.music_status
 
 
 def toggle_music_mode():
@@ -2443,8 +2477,9 @@ def toggle_music_mode():
     source = AudioSource()
     started = source.start()
 
+    palette_name, palette = _engine._MUSIC_PALETTES[_engine.music_palette_index]
     _engine.music_audio = source if started else None
-    _engine.music_visualizer = RadialVisualizer(_engine._MUSIC_PALETTE)
+    _engine.music_visualizer = RadialVisualizer(palette)
     _engine.music_mode = True
     _engine._music_last_frame = 0.0
     clear_screen()
@@ -2452,18 +2487,23 @@ def toggle_music_mode():
     if not started:
         # The visualiser still runs, it just has nothing to react to.
         # Saying so beats letting it look like the music is silent.
-        _engine.music_status = "no audio capture -- idle animation"
+        _engine.music_status = (
+            f"no audio capture -- idle animation | palette: {palette_name}"
+        )
         return (
             "Music mode on, but system audio capture failed:\n"
             f"{source.error}\n\n"
-            f"The visualiser is running idle. {MUSIC_TOGGLE_LABEL} to exit."
+            f"The visualiser is running idle. {MUSIC_PALETTE_CYCLE_LABEL} "
+            f"cycles colours; {MUSIC_TOGGLE_LABEL} exits."
         )
 
-    _engine.music_status = f"listening: {source.device_name}"
+    _engine.music_status = (
+        f"listening: {source.device_name} | palette: {palette_name}"
+    )
     return (
         f"Music mode on -- reacting to system audio.\n"
         f"Play anything (Spotify, browser, a file) and it will respond.\n"
-        f"{MUSIC_TOGGLE_LABEL} to exit."
+        f"{MUSIC_PALETTE_CYCLE_LABEL} cycles colours; {MUSIC_TOGGLE_LABEL} exits."
     )
 
 

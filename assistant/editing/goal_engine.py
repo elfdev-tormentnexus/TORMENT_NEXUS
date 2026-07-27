@@ -52,7 +52,7 @@ WORKSHOP = os.path.join(PROJECT_ROOT, "workshop")
 GOALS_FILE = os.path.join(WORKSHOP, "goals.json")
 JOURNAL_FILE = os.path.join(WORKSHOP, "journal.md")
 
-ENABLED = os.environ.get("TORMENT_NEXUS_GOALS", "0").strip().lower() in {
+ENABLED = os.environ.get("TORMENT_NEXUS_GOALS", "1").strip().lower() in {
     "1", "true", "yes", "on"
 }
 
@@ -174,14 +174,14 @@ def all_goals():
 # Model
 # ----------------------------------------------------------------------
 
-def _ask(system, user, max_tokens=400):
+def _ask(system, user, max_tokens=400, temperature=0.55):
     payload = {
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
         "max_tokens": max_tokens,
-        "temperature": 0.8,
+        "temperature": max(0.0, min(1.0, float(temperature))),
         "stream": False,
     }
 
@@ -216,13 +216,32 @@ def _extract_json(text):
 
 
 _GOAL_SYSTEM = (
-    "You are choosing your own sub-goals. You can only write plain text, "
-    "markdown, JSON or CSV files into a single folder called workshop/. "
-    "You cannot run anything, edit any source code, use a network, or "
-    "touch any file outside that folder. Choose goals that are genuinely "
-    "achievable by writing documents alone, and that are worth someone "
-    "reading later. Reply with JSON only."
+    "You are choosing sub-goals only for TORMENT_NEXUS, a private local AI "
+    "companion project. You can only write plain text, markdown, JSON or "
+    "CSV files into a single folder called workshop/. You cannot run "
+    "anything, edit source code, use a network, or touch any file outside "
+    "that folder. Choose goals that directly improve the project's future "
+    "understanding, testing, documentation, or review. Useful areas include "
+    "the local model, voice, terminal UI, music visualizer, memory, search, "
+    "privacy, release readiness, Raspberry Pi plans, T-Deck integration, and "
+    "safe workshop experiments. Goals must be achievable by writing useful "
+    "documents alone. Do not choose generic workplace, remote-team, personal "
+    "productivity, or lifestyle content. Reply with JSON only."
 )
+
+_PROJECT_GOAL_TERMS = (
+    "torment_nexus", "torment nexus", "local ai", "assistant", "qwen",
+    "model", "voice", "speech", "audio", "piper", "vocoder", "terminal",
+    "interface", " ui ", "visualizer", "music", "memory", "privacy",
+    "search", "searxng", "t-deck", "tdeck", "meshtastic", "raspberry",
+    "hardware", "benchmark", "test", "tutorial", "release", "workshop",
+)
+
+
+def _goal_is_project_relevant(goal, why=""):
+    """Reject generic document ideas that are not about this project."""
+    text = f" {goal or ''} {why or ''} ".lower()
+    return any(term in text for term in _PROJECT_GOAL_TERMS)
 
 
 def propose_goals(context=""):
@@ -259,8 +278,13 @@ def propose_goals(context=""):
             continue
 
         goal = str(item.get("goal", "")).strip()
+        why = str(item.get("why", "")).strip()[:300]
 
-        if not goal or len(goal) > 300:
+        if (
+            not goal
+            or len(goal) > 300
+            or not _goal_is_project_relevant(goal, why)
+        ):
             continue
 
         if any(goal.lower() == g["goal"].lower() for g in existing):
@@ -268,14 +292,16 @@ def propose_goals(context=""):
 
         added.append({
             "goal": goal,
-            "why": str(item.get("why", "")).strip()[:300],
+            "why": why,
             "created": time.strftime("%Y-%m-%d %H:%M:%S"),
             "notes": 0,
             "done": False,
         })
 
     if not added:
-        raise GoalError("nothing usable came back")
+        raise GoalError(
+            "the model proposed no TORMENT_NEXUS-relevant goals; try again"
+        )
 
     _save_goals(_load_goals() + added)
 
@@ -313,6 +339,12 @@ def act(goal_index=None):
         raise GoalError(f"goal {index} is not active")
 
     goal = goals[index]
+
+    if not _goal_is_project_relevant(goal.get("goal"), goal.get("why")):
+        raise GoalError(
+            "this legacy goal is unrelated to TORMENT_NEXUS. Mark it done "
+            "with 'goal done <n>' before setting project-relevant goals."
+        )
 
     if goal.get("notes", 0) >= MAX_NOTES_PER_GOAL:
         goal["done"] = True

@@ -10,6 +10,7 @@ Optional packages are imported only when audio mode is requested, so normal
 text chat has no voice dependency or startup cost.
 """
 
+import copy
 import io
 import os
 import re
@@ -228,6 +229,38 @@ def _speech_chunks(text, limit=260):
             chunks.append(sentence)
 
     return chunks
+
+
+# Brief lines need more room than a paragraph. At the normal synthesis pace a
+# two- to eight-word answer is often over before its deliberately mechanical
+# cadence has time to register, while applying the same slowdown to a long
+# reply makes it drag. These multipliers are applied by Piper at synthesis
+# time, so text streaming and audio playback remain naturally synchronized.
+_VERY_SHORT_SPEECH_WORD_LIMIT = 4
+_SHORT_SPEECH_WORD_LIMIT = 8
+_VERY_SHORT_SPEECH_PACE_MULTIPLIER = 1.20
+_SHORT_SPEECH_PACE_MULTIPLIER = 1.11
+_MAX_SPEECH_LENGTH_SCALE = 2.30
+
+
+def _speech_length_scale_for_chunk(text, base_scale=None):
+    """Return a more deliberate Piper pace for brief spoken replies."""
+    if base_scale is None:
+        base_scale = VOICE_SPEECH_LENGTH_SCALE
+
+    words = re.findall(r"[A-Za-z0-9']+", str(text or ""))
+
+    if len(words) <= _VERY_SHORT_SPEECH_WORD_LIMIT:
+        multiplier = _VERY_SHORT_SPEECH_PACE_MULTIPLIER
+    elif len(words) <= _SHORT_SPEECH_WORD_LIMIT:
+        multiplier = _SHORT_SPEECH_PACE_MULTIPLIER
+    else:
+        multiplier = 1.0
+
+    return min(
+        _MAX_SPEECH_LENGTH_SCALE,
+        max(0.5, float(base_scale) * multiplier),
+    )
 
 
 def _prepare_for_speech(text):
@@ -1692,6 +1725,25 @@ class OfflineVoice:
         """Load speech synthesis before the first reply needs it."""
         self._load_piper()
 
+    def _speech_config_for_chunk(self, text):
+        """Copy Piper settings only when a brief reply needs slower timing."""
+        config = self.speech_syn_config
+        base_scale = getattr(config, "length_scale", None)
+
+        # Keeping the original object for test doubles and unchanged longer
+        # text avoids needless allocations in the normal reply path.
+        if base_scale is None:
+            return config
+
+        adjusted_scale = _speech_length_scale_for_chunk(text, base_scale)
+
+        if abs(adjusted_scale - float(base_scale)) < 1e-6:
+            return config
+
+        adjusted = copy.copy(config)
+        adjusted.length_scale = adjusted_scale
+        return adjusted
+
     def _synthesize_wav_bytes(self, text, syn_config, cancelled):
         target = io.BytesIO()
         synthesis_error = []
@@ -2090,10 +2142,15 @@ class OfflineVoice:
                 return False
 
             if phase_changed:
-                phase_changed("synthesizing speech")
+                phase_changed(
+                    "synthesizing short reply at deliberate pace"
+                    if len(re.findall(r"[A-Za-z0-9']+", chunk))
+                    <= _SHORT_SPEECH_WORD_LIMIT
+                    else "synthesizing speech"
+                )
             wav_bytes = self._synthesize_wav_bytes(
                 chunk,
-                self.speech_syn_config,
+                self._speech_config_for_chunk(chunk),
                 cancelled,
             )
 

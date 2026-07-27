@@ -17,10 +17,12 @@ from core import dev_auth
 from core import file_utils
 from core import health_check
 from core import llm_server
+from core import persona
 from core import tutorial
 from core.stream_filter import StreamFilter
 from editing import edit_guard
 from editing import edit_generator
+from editing import goal_engine
 from hardware import tdeck
 from memory import memory_worker
 from memory import memory_extractor
@@ -101,6 +103,30 @@ class PathSafetyTests(unittest.TestCase):
     def test_project_analyzer_cannot_read_outside_project(self):
         result = project_analyzer.analyze_file("../start_assistant.bat")
         self.assertIn("error", result)
+
+
+class GoalScopeTests(unittest.TestCase):
+    def test_goal_filter_rejects_generic_remote_work(self):
+        self.assertFalse(goal_engine._goal_is_project_relevant(
+            "Write a guide for remote-team meeting etiquette.",
+            "It could help an office communicate more effectively.",
+        ))
+
+    def test_goal_filter_accepts_torment_nexus_work(self):
+        self.assertTrue(goal_engine._goal_is_project_relevant(
+            "Document a TORMENT_NEXUS voice benchmark procedure.",
+            "It will make local speech regressions easier to verify.",
+        ))
+
+    def test_goal_system_names_the_project_scope(self):
+        self.assertIn("TORMENT_NEXUS", goal_engine._GOAL_SYSTEM)
+        self.assertIn("remote-team", goal_engine._GOAL_SYSTEM)
+
+
+class PersonaIdentityTests(unittest.TestCase):
+    def test_persona_has_one_consistent_project_name(self):
+        self.assertIn("Your sole name is TORMENT_NEXUS", persona.PERSONA)
+        self.assertNotIn("Do not call yourself TORMENT_NEXUS", persona.PERSONA)
 
 
 class EditPromptBudgetTests(unittest.TestCase):
@@ -1274,6 +1300,47 @@ class VoiceModeTests(unittest.TestCase):
     def test_default_speech_pace_is_deliberate(self):
         self.assertGreaterEqual(offline_voice.VOICE_SPEECH_LENGTH_SCALE, 1.45)
 
+    def test_short_sentences_receive_a_more_deliberate_synthesis_pace(self):
+        base = 1.50
+
+        self.assertAlmostEqual(
+            offline_voice._speech_length_scale_for_chunk("Confirmed.", base),
+            1.80,
+        )
+        self.assertAlmostEqual(
+            offline_voice._speech_length_scale_for_chunk(
+                "The local system is stable now.",
+                base,
+            ),
+            1.665,
+        )
+        self.assertEqual(
+            offline_voice._speech_length_scale_for_chunk(
+                "This longer sentence stays at the normal deliberate pace.",
+                base,
+            ),
+            base,
+        )
+        self.assertEqual(
+            offline_voice._speech_length_scale_for_chunk("Yes.", 2.0),
+            2.30,
+        )
+
+    def test_short_sentence_uses_a_copied_piper_config(self):
+        speaker = object.__new__(offline_voice.OfflineVoice)
+        speaker.speech_syn_config = SimpleNamespace(length_scale=1.50)
+
+        adjusted = speaker._speech_config_for_chunk("Confirmed.")
+
+        self.assertIsNot(adjusted, speaker.speech_syn_config)
+        self.assertAlmostEqual(adjusted.length_scale, 1.80)
+        self.assertIs(
+            speaker._speech_config_for_chunk(
+                "This longer sentence stays at the normal deliberate pace."
+            ),
+            speaker.speech_syn_config,
+        )
+
     def test_voice_output_can_be_preloaded_before_the_first_reply(self):
         speaker = object.__new__(offline_voice.OfflineVoice)
         speaker._load_piper = mock.Mock()
@@ -1893,6 +1960,11 @@ class AudioModeUiTests(unittest.TestCase):
     def tearDown(self):
         ui._engine.current_input = ""
         ui._engine.cycle_index = -1
+        ui._engine.music_mode = False
+        ui._engine.music_visualizer = None
+        ui._engine.music_audio = None
+        ui._engine.music_status = ""
+        ui._engine.music_palette_index = 0
         ui.set_voice_mode(False)
 
     def test_live_input_reports_lines_and_escape_separately(self):
@@ -1978,6 +2050,32 @@ class AudioModeUiTests(unittest.TestCase):
         ui.set_voice_mode(True)
         ui.set_voice_speaking(True)
         self.assertTrue(ui._engine.voice_speaking)
+
+    def test_space_cycles_visualizer_palette_without_typing(self):
+        engine = ui._engine
+        engine.music_mode = True
+        engine.music_visualizer = SimpleNamespace(
+            palette=engine._MUSIC_PALETTES[0][1]
+        )
+        engine.music_palette_index = 0
+        engine.current_input = "keep this draft"
+
+        with mock.patch.object(ui, "get_char", return_value=" "):
+            self.assertIsNone(ui.poll_input_event())
+
+        self.assertEqual(engine.music_palette_index, 1)
+        self.assertEqual(
+            engine.music_visualizer.palette,
+            tuple(engine._MUSIC_PALETTES[1][1]),
+        )
+        self.assertEqual(engine.current_input, "keep this draft")
+        self.assertIn("ultraviolet", engine.music_status)
+
+    def test_palette_cycle_does_not_start_music_mode(self):
+        ui._engine.music_mode = False
+        ui._engine.music_visualizer = None
+
+        self.assertEqual(ui.cycle_music_palette(), "Music mode is off.")
 
 
 class PromptEfficiencyTests(unittest.TestCase):
@@ -2357,6 +2455,34 @@ class TutorialTests(unittest.TestCase):
 
         self.assertIn(entry["description"], rendered)
 
+    def test_new_user_sections_cover_projects_and_goals(self):
+        lessons = {lesson["key"]: lesson for lesson in tutorial.LESSONS}
+
+        self.assertEqual(
+            lessons["projects"]["commands"],
+            ["build project", "list projects", "dump path"],
+        )
+        self.assertEqual(
+            lessons["goals"]["commands"],
+            ["goals", "set goals", "work on goals", "goal done"],
+        )
+
+    def test_tutorial_mentions_voice_first_and_visualizer_controls(self):
+        self.assertIn("say it instead", tutorial.first_run_invitation())
+        music = next(lesson for lesson in tutorial.LESSONS
+                     if lesson["key"] == "music")["body"]
+        self.assertIn("Space", music)
+        self.assertIn("Ctrl+B", music)
+
+    def test_tutorial_qualifies_web_and_radio_privacy(self):
+        what = next(lesson for lesson in tutorial.LESSONS
+                    if lesson["key"] == "what")["body"]
+        hardware = next(lesson for lesson in tutorial.LESSONS
+                        if lesson["key"] == "hardware")["body"]
+
+        self.assertIn("deliberate exception", what)
+        self.assertIn("non-secret", hardware)
+
     def test_a_vanished_command_is_flagged_not_invented(self):
         broken = dict(tutorial.LESSONS[0])
         broken["commands"] = ["help", "command that does not exist"]
@@ -2380,6 +2506,33 @@ class TutorialTests(unittest.TestCase):
 
         self.assertIn("numbered 1 to",
                       command_handlers.try_handle_command("tutorial 99"))
+
+    def test_bare_next_only_advances_an_active_tutorial(self):
+        tutorial.reset()
+        tutorial.set_position(0)
+
+        result = command_handlers.try_handle_command("next")
+
+        self.assertIn("TUTORIAL  2/", result)
+        self.assertIn("TUTORIAL  3/", result)
+        self.assertEqual(tutorial.position(), 2)
+
+        tutorial.set_position(len(tutorial.LESSONS) - 1)
+        self.assertFalse(command_handlers.handle_tutorial("next"))
+
+    def test_restart_and_next_render_two_lesson_batches(self):
+        first = command_handlers.try_handle_command("tutorial restart")
+
+        self.assertIn("TUTORIAL  1/", first)
+        self.assertIn("TUTORIAL  2/", first)
+        self.assertEqual(tutorial.position(), 1)
+        self.assertIn("next two sections", first)
+
+        second = command_handlers.try_handle_command("tutorial next")
+
+        self.assertIn("TUTORIAL  3/", second)
+        self.assertIn("TUTORIAL  4/", second)
+        self.assertEqual(tutorial.position(), 3)
 
     def test_explain_returns_none_for_unknown_topics(self):
         # Falling through to the model beats inventing a feature.
