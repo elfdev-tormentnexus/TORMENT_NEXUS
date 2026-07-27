@@ -1,4 +1,5 @@
 numpy>=2.0,<3
 sounddevice>=0.5,<0.6
+soundfile>=0.13,<1
 sherpa-onnx>=1.13.4,<1.14
 piper-tts>=1.5,<1.6

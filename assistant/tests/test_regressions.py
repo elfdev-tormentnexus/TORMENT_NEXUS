@@ -1,6 +1,7 @@
 import inspect
 import json
 import os
+import re
 from pathlib import Path
 import sys
 import tempfile
@@ -3428,6 +3429,165 @@ class HardwareHonestyTests(unittest.TestCase):
     def test_the_earlier_honesty_rules_survived(self):
         self.assertIn("asserting an inner state is not", self.prompt)
         self.assertIn("Declining:", self.prompt)
+
+
+class DeclaredDependencyTests(unittest.TestCase):
+    """
+    Every third-party import must be declared in a requirements file.
+
+    soundfile was imported by the music player and declared nowhere. It
+    worked here only because librosa -- installed by hand for voice
+    analysis and never a project dependency -- happened to pull it in.
+    The shipped package had no such accident, so its music player would
+    have failed on the recipient's machine with a ModuleNotFoundError.
+
+    Transitive luck is not a dependency declaration, and the machine that
+    builds a release is the worst place to notice the difference.
+    """
+
+    # Modules that ship with Python, or are the project's own packages.
+    _LOCAL = {
+        "commands", "core", "editing", "hardware", "memory", "project",
+        "tests", "ui", "visualizer", "voice", "web", "main", "glitch_icon",
+        # hardware/setup_hardware.py imports its sibling by bare name.
+        "tdeck",
+    }
+
+    # Third-party imports deliberately left undeclared, each with the
+    # reason. An entry here is a decision; anything missing from both this
+    # list and the requirements files is an accident, which is the whole
+    # point of the check.
+    #
+    # Being wrapped in try/except is NOT sufficient justification on its
+    # own -- soundfile was guarded exactly like these and still broke the
+    # shipped music player, because the feature it serves is advertised
+    # rather than optional. The question is whether the buddy is expected
+    # to work without it.
+    _OPTIONAL = {
+        "pubsub": "provided by meshtastic, declared in requirements-hardware",
+        "spotipy": "optional legacy Spotify API path; absence is reported "
+                   "to the operator with install instructions",
+        "win32com": "optional Windows COM lookup for the Spotify desktop "
+                    "app; falls back silently when absent",
+    }
+
+    def _project_root(self):
+        return os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))))
+
+    def _declared(self):
+        root = os.path.join(self._project_root(), "setup")
+        names = set()
+
+        for entry in os.listdir(root):
+            if not entry.startswith("requirements"):
+                continue
+
+            with open(os.path.join(root, entry), encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    name = re.split(r"[<>=!\[; ]", line)[0].strip().lower()
+                    if name:
+                        # pip is case- and separator-insensitive.
+                        names.add(name.replace("-", "_"))
+
+        return names
+
+    def _imports(self):
+        """Top-level third-party modules imported anywhere in assistant/."""
+        import ast
+
+        base = os.path.join(self._project_root(), "assistant")
+        found = {}
+
+        for folder, dirs, files in os.walk(base):
+            dirs[:] = [d for d in dirs if d != "__pycache__"]
+
+            for name in files:
+                if not name.endswith(".py"):
+                    continue
+
+                path = os.path.join(folder, name)
+                try:
+                    with open(path, encoding="utf-8") as handle:
+                        tree = ast.parse(handle.read(), filename=path)
+                except (OSError, SyntaxError):
+                    continue
+
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Import):
+                        mods = [a.name for a in node.names]
+                    elif isinstance(node, ast.ImportFrom):
+                        # Relative imports are always local.
+                        mods = [node.module] if node.level == 0 and node.module else []
+                    else:
+                        continue
+
+                    for mod in mods:
+                        top = mod.split(".")[0]
+                        found.setdefault(top, os.path.relpath(path, base))
+
+        return found
+
+    def test_every_third_party_import_is_declared(self):
+        import sys
+
+        stdlib = set(getattr(sys, "stdlib_module_names", ()))
+        declared = self._declared()
+
+        # pip distribution names that differ from the imported module.
+        aliases = {
+            "sherpa_onnx": {"sherpa_onnx", "sherpa_onnx_core"},
+            "piper": {"piper_tts"},
+            "serial": {"pyserial"},
+            "yaml": {"pyyaml"},
+            "PIL": {"pillow"},
+        }
+
+        undeclared = []
+
+        for module, where in sorted(self._imports().items()):
+            if module in stdlib or module in self._LOCAL:
+                continue
+            if module in self._OPTIONAL:
+                continue
+            if module.startswith("_"):
+                continue
+
+            candidates = aliases.get(module, {module.lower()})
+
+            if not (candidates & declared):
+                undeclared.append(f"{module} (imported by {where})")
+
+        self.assertEqual(
+            undeclared, [],
+            "imported but not in any setup/requirements*.txt -- these would "
+            "fail on a clean install",
+        )
+
+    def test_the_release_pins_cover_the_same_packages(self):
+        # A package can be declared for developers and forgotten in the
+        # release pin file, which is what actually reaches the recipient.
+        root = os.path.join(self._project_root(), "setup")
+
+        def names(filename):
+            out = set()
+            with open(os.path.join(root, filename), encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        out.add(re.split(r"[<>=!\[; ]", line)[0].lower())
+            return out
+
+        runtime = names("requirements.txt") | names("requirements-voice.txt")
+        release = names("requirements-release-windows.txt")
+
+        self.assertEqual(
+            sorted(runtime - release), [],
+            "declared for development but missing from the release pins",
+        )
 
 
 if __name__ == "__main__":
