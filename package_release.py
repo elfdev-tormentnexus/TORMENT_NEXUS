@@ -33,6 +33,7 @@ else.
 import argparse
 import fnmatch
 import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -632,6 +633,7 @@ if errorlevel 1 (
 )
 
 echo   [4/4] Creating the desktop shortcut...
+if defined TORMENT_NEXUS_SKIP_SHORTCUT goto :shortcut_done
 REM %~dp0 ends with a backslash, which escapes the closing quote when
 REM passed to PowerShell and silently corrupts the path. Strip it.
 set "ROOT=%~dp0"
@@ -645,13 +647,19 @@ if errorlevel 1 (
     exit /b 0
 )
 
+:shortcut_done
 echo.
-echo   Done. 'TORMENT_NEXUS' is on your desktop.
+if defined TORMENT_NEXUS_SKIP_SHORTCUT (
+    echo   Done. Shortcut creation was intentionally skipped.
+) else (
+    echo   Done. 'TORMENT_NEXUS' is on your desktop.
+)
 echo.
 echo   Everything lives in this folder and nothing else on your PC was
 echo   changed - no system Python, no PATH, no registry. To uninstall,
 echo   delete this folder and the desktop shortcut.
 echo.
+if defined TORMENT_NEXUS_NONINTERACTIVE exit /b 0
 pause
 """
 

@@ -52,15 +52,32 @@ MAX_EDITABLE_BYTES = 120_000
 DENIED_PREFIXES = (
     "editing" + os.sep,
     "backups" + os.sep,
+    "tests" + os.sep,
     "__pycache__" + os.sep,
     ".git" + os.sep,
 )
 
+#
+# core/persona.py -- the honesty rules, the refusal guidance, and the
+#                   character live here, and this text is injected into
+#                   every single prompt. It is the same argument as
+#                   main.py above: an editor able to soften the rule that
+#                   says "do not claim feelings you do not have" can talk
+#                   its way past a human skimming a diff, and the rule
+#                   stops being a constraint.
+# tests/          -- the suite is the evidence that a change was safe.
+#                   An editor that can weaken a test can make any change
+#                   pass, which turns the proof into a formality. The
+#                   project's own README says a green suite does not
+#                   prove a change correct; that is only true while the
+#                   suite is written by someone other than the thing
+#                   being tested.
 DENIED_FILES = (
     os.path.join("core", "config.py"),
     os.path.join("core", "dev_auth.py"),
     os.path.join("core", "file_utils.py"),
     os.path.join("core", "llm_server.py"),
+    os.path.join("core", "persona.py"),
     "main.py",
     os.path.join("commands", "command_handlers.py"),
     os.path.join("commands", "natural_command.py"),

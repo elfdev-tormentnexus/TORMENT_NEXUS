@@ -2575,5 +2575,66 @@ class GlitchRecoveryTests(unittest.TestCase):
         self.assertIn("shutil.move", source)
 
 
+class SelfEditBoundaryTests(unittest.TestCase):
+    """
+    The editor must not be able to weaken the things that judge it.
+
+    edit_guard already denies main.py and command_handlers.py on the
+    grounds that an editor which can rewrite the approval gate makes
+    approval theatre. These pin the same argument to the two other files
+    that decide whether a change was acceptable.
+    """
+
+    def test_the_persona_cannot_be_edited(self):
+        # Injected into every prompt, and holds the honesty and refusal
+        # rules. Softening it would be approved as a diff like any other.
+        self.assertNotIn(
+            os.path.join("core", "persona.py").replace(os.sep, "/"),
+            [p.replace(os.sep, "/") for p in edit_guard.list_editable_files()],
+        )
+
+    def test_the_test_suite_cannot_be_edited(self):
+        # A suite the subject can rewrite stops being evidence.
+        editable = [p.replace(os.sep, "/")
+                    for p in edit_guard.list_editable_files()]
+
+        self.assertFalse([p for p in editable if p.startswith("tests/")])
+
+    def test_the_safety_system_itself_stays_denied(self):
+        editable = [p.replace(os.sep, "/")
+                    for p in edit_guard.list_editable_files()]
+
+        for protected in (
+            "main.py",
+            "commands/command_handlers.py",
+            "core/config.py",
+            "core/dev_auth.py",
+            "ui/ui.py",
+        ):
+            self.assertNotIn(protected, editable)
+
+        self.assertFalse([p for p in editable if p.startswith("editing/")])
+
+    def test_ordinary_modules_are_still_editable(self):
+        # The point is a narrow boundary, not a frozen project.
+        editable = [p.replace(os.sep, "/")
+                    for p in edit_guard.list_editable_files()]
+
+        for allowed in ("voice/offline_voice.py", "core/tutorial.py",
+                        "memory/memory_logic.py"):
+            self.assertIn(allowed, editable)
+
+    def test_the_autonomous_set_is_a_subset_of_the_approved_set(self):
+        # Anything editable without a human present must also be editable
+        # with one; the reverse would be a hole.
+        approved = {p.replace(os.sep, "/")
+                    for p in edit_guard.list_editable_files()}
+        unattended = {p.replace(os.sep, "/")
+                      for p in edit_guard.list_autonomous_files()}
+
+        self.assertTrue(unattended <= approved,
+                        f"unattended-only: {unattended - approved}")
+
+
 if __name__ == "__main__":
     unittest.main()
