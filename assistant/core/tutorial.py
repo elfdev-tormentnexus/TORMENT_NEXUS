@@ -113,18 +113,23 @@ LESSONS = [
         "title": "Music",
         "body": (
             "Drop audio files into the music folder and they become playable\n"
-            "by name, with no account and no network. Spotify controls exist\n"
-            "too, and the plain 'play' command checks your local library\n"
-            "first -- an offline machine should never lose a local file to a\n"
-            "service it cannot reach.\n\n"
+            "by name, with no account and no network. The plain 'play' command\n"
+            "checks your local library first -- an offline machine should never\n"
+            "lose a local file to a service it cannot reach.\n\n"
+            "Spotify can also search from the terminal. Type 'spotify search\n"
+            "<song>', then reply with 1 through 5 to choose a listed result,\n"
+            "or 'spotify cancel' to abandon it. The five-result picker uses\n"
+            "MusicBrainz metadata and needs no Spotify developer account. Your\n"
+            "search text goes online to MusicBrainz; choosing a result opens its\n"
+            "title-and-artist search in the installed Spotify app.\n\n"
             "Music runs on its own audio stream, so TORMENT_NEXUS can talk over\n"
             "it without cutting the track off.\n\n"
             "There is also an audio-reactive visualiser that responds to\n"
             "whatever the machine is playing. In visualiser mode, Space\n"
             "cycles the colour palette and Ctrl+B exits."
         ),
-        "commands": ["music library", "play", "pause local", "resume local",
-                     "stop music", "now playing", "music mode"],
+        "commands": ["music library", "play", "spotify", "pause local",
+                     "resume local", "stop music", "now playing", "music mode"],
     },
     {
         "key": "projects",
@@ -180,8 +185,16 @@ LESSONS = [
             "arrived as untrusted input, and a full log of what it did.\n\n"
             "It is off at startup by default, because a multi-request cycle\n"
             "before the prompt appears looks like a frozen program."
+            "\n\n"
+            "If you are actively watching, 'autonomous serial on' lets the\n"
+            "next cycle batch up to three of the same small guarded edits,\n"
+            "then reload once. It is off by default and turns itself off when\n"
+            "developer mode ends. If all three edits survive the fixed health\n"
+            "and regression validation after restart, that batch earns one\n"
+            "extra guarded edit. A failed validation restores the batch and\n"
+            "earns no credit."
         ),
-        "commands": ["run autonomous cycle"],
+        "commands": ["run autonomous cycle", "autonomous serial"],
     },
     {
         "key": "goals",

@@ -39,7 +39,7 @@ _TARGET = re.compile(
     r"plan|suggestion|idea|developer|dev|mode|voice|audio|microphone|speaker|"
     r"talk|speak|sing|song|daisy|bell|dump|output|health|status|system|"
     r"t-?deck|meshtastic|bluetooth|ble|hardware|screen|display|timeout|"
-    r"mesh|node|nodes|power|saving|sleep|awake)\b",
+    r"mesh|node|nodes|power|saving|sleep|awake|spotify)\b",
     re.IGNORECASE,
 )
 
@@ -213,6 +213,21 @@ def _deterministic(text, dev_mode):
             r"^(?:please\s+)?(?:enter|start|enable|use|turn on)\s+"
             r"(?:the\s+)?(?:text|typing)(?:\s+mode)?\b",
             lambda m: "text mode",
+        ),
+        (
+            r"^(?:please\s+)?(?:open|launch|start)\s+"
+            r"(?:the\s+)?spotify(?:\s+(?:app|desktop|client))?\b",
+            lambda m: "spotify",
+        ),
+        (
+            r"^(?:please\s+)?(?:search|find|look up)\s+"
+            r"(?:on\s+)?spotify(?:\s+for)?\s+(.+)$",
+            lambda m: "spotify search " + m.group(1).strip(),
+        ),
+        (
+            r"^(?:please\s+)?(?:search|find|look up)\s+(.+?)\s+"
+            r"(?:on|in)\s+spotify\b",
+            lambda m: "spotify search " + m.group(1).strip(),
         ),
         (
             r"^(?:please\s+)?(?:check|show)\s+(?:the\s+)?"

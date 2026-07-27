@@ -34,6 +34,15 @@ Try `health check`, optional `search <query>`, and -- only if deliberately
 configured -- T-Deck commands. Check that unavailable services fail clearly rather
 than freezing the interface.
 
+## 6. Observed serial repair (developer test only)
+
+In developer mode, run `autonomous serial on`, then `run autonomous cycle`.
+Watch the status updates. It may apply no more than three small allowlisted
+edits, then reload. If all three apply, the restart performs a health and
+regression validation before one possible bonus edit; the bonus restarts and
+validates once more. Confirm a failed validation restores the recorded batch
+instead of awarding the bonus.
+
 ## Reporting a problem
 
 Include the command or prompt, the visible result, approximate timing, and the

@@ -23,9 +23,10 @@ atomic write, timestamped backup):
   Small surgical fixes only -- the same philosophy edit_generator.py
   already leans on for a 4B model, just also enforced as a hard cap
   here since nobody is reading the diff before it lands.
-- RUN_LIMIT: at most one autonomous edit actually applied per process
-  run. Unbounded autonomy on a schedule is how one bad decision
-  compounds into several before anyone notices.
+- RUN_LIMIT: normal autonomous work applies at most one edit per
+  process run. OBSERVED_SERIAL_LIMIT is a separate, opt-in developer
+  mode that can batch up to three of those same edits while its operator
+  is watching. It is never the unattended default.
 - Every attempt -- applied, refused, or failed -- is appended to
   logs/autonomous_edits.log, so what happened is visible after the
   fact even though nobody approved it beforehand.
@@ -44,10 +45,13 @@ from ui import ui
 
 MAX_CHANGED_LINES = 40
 RUN_LIMIT = 1
+OBSERVED_SERIAL_LIMIT = 3
 
 LOG_FILE = os.path.join(edit_guard.PROJECT_ROOT, "logs", "autonomous_edits.log")
 
 _applied_this_run = 0
+_last_applied_record = None
+_last_observed_serial_records = []
 
 
 def _log(line):
@@ -56,7 +60,7 @@ def _log(line):
     append_file(LOG_FILE, f"[{stamp}] {line}\n")
 
 
-def run_cycle():
+def run_cycle(limit=RUN_LIMIT):
     """
     One attempt: ask suggestion_engine for ideas and try the first one
     that produces a small enough, valid diff. No approval step -- if
@@ -66,7 +70,10 @@ def run_cycle():
     otherwise None (budget spent, nothing usable, or an error --
     check the log for which).
     """
-    if _applied_this_run >= RUN_LIMIT:
+    global _last_applied_record
+    _last_applied_record = None
+
+    if _applied_this_run >= limit:
         return None
 
     ui.set_status("Scanning for improvement ideas")
@@ -87,8 +94,62 @@ def run_cycle():
     return None
 
 
+def run_observed_serial():
+    """Apply up to three guarded improvements during a watched dev session.
+
+    This is deliberately a batch of the existing `run_cycle` behavior, not a
+    broader autonomous permission. Each edit still gets its own backup,
+    syntax/import checks, allowlist check, and audit-log entry. The caller
+    reloads once after the batch so all accepted edits take effect together.
+    """
+    global _last_observed_serial_records
+    summaries = []
+    _last_observed_serial_records = []
+
+    while _applied_this_run < OBSERVED_SERIAL_LIMIT:
+        ui.set_status(
+            f"Observed self-repair {len(summaries) + 1}/{OBSERVED_SERIAL_LIMIT}"
+        )
+        applied_before = _applied_this_run
+        summary = run_cycle(limit=OBSERVED_SERIAL_LIMIT)
+
+        if not summary:
+            break
+
+        # _try_apply() is the only normal success path and increments this
+        # counter. Refuse to loop if a future refactor reports success without
+        # consuming budget.
+        if _applied_this_run <= applied_before:
+            _log("OBSERVED SERIAL STOPPED: success reported without budget use")
+            break
+
+        summaries.append(summary)
+        if _last_applied_record:
+            _last_observed_serial_records.append(dict(_last_applied_record))
+
+    if summaries:
+        _log(
+            f"OBSERVED SERIAL COMPLETE: applied {len(summaries)} of "
+            f"{OBSERVED_SERIAL_LIMIT} allowed edits"
+        )
+    else:
+        _log("OBSERVED SERIAL STOPPED: no safe edit was applied")
+
+    return summaries
+
+
+def last_applied_record():
+    """A copy of the latest successful edit's rollback record, if any."""
+    return dict(_last_applied_record) if _last_applied_record else None
+
+
+def last_observed_serial_records():
+    """Copies of rollback records from the latest observed serial batch."""
+    return [dict(record) for record in _last_observed_serial_records]
+
+
 def _try_apply(suggestion):
-    global _applied_this_run
+    global _applied_this_run, _last_applied_record
 
     file = suggestion["file"]
     change = suggestion["change"]
@@ -176,6 +237,11 @@ def _try_apply(suggestion):
         f"APPLIED {target}: {edit['explanation']} "
         f"(+{added} -{removed}, backup: {backup_path})"
     )
+    _last_applied_record = {
+        "target": target,
+        "backup": backup_path,
+        "summary": summary,
+    }
     _log(summary)
 
     return summary

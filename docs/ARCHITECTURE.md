@@ -38,7 +38,12 @@ language.
 - Developer mode is time-limited and protected by a local passcode verifier.
 - Self-editing uses plans, review, backups, and a protected-file denylist.
 - The autonomous cycle is bounded; it cannot edit the guardrail modules or
-  execute arbitrary commands.
+  execute arbitrary commands. An explicit, in-memory developer-mode toggle
+  can batch up to three of the same guarded edits while an operator watches;
+  it clears when developer mode ends and is never the unattended default. A
+  completed three-edit batch receives only one short-lived bonus credit, and
+  only after a fixed post-restart health and regression validation; failure
+  restores the recorded batch backups instead.
 - The goal engine can only write small text, Markdown, JSON, or CSV artifacts
   inside `workshop/`.
 - Web and radio content are treated as untrusted data.

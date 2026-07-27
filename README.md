@@ -12,6 +12,7 @@
   <a href="#beta-status">Beta status</a> |
   <a href="#what-it-does">Capabilities</a> |
   <a href="#getting-started">Getting started</a> |
+  <a href="#bring-your-own-gguf">Bring your own GGUF</a> |
   <a href="#documentation">Documentation</a>
 </p>
 
@@ -38,10 +39,16 @@ claim of consciousness or personhood.
 - Uses a local memory store with visible, removable saved facts.
 - Routes plain-language requests to guarded project, music, search, and
   hardware tools.
-- Offers reviewable self-editing workflows, plus tightly bounded autonomous
-  documentation work in `workshop/`.
+- Offers reviewable self-editing workflows, including an opt-in watched batch
+  of up to three tightly bounded autonomous repairs. A clean post-restart
+  health and regression validation earns one extra guarded repair; failed
+  validation restores the batch. Also supports documentation work in `workshop/`.
 - Supports optional SearXNG web search, local music playback and visualisation,
   Raspberry Pi planning, and a Meshtastic T-Deck companion terminal.
+- Opens the already installed Spotify desktop client or its in-app search
+  without copying the Spotify profile or requiring a developer key. It uses
+  an optional MusicBrainz metadata lookup to show five terminal results, then
+  sends the chosen title-and-artist search to Spotify.
 
 ## Local by default, connected by choice
 
@@ -49,6 +56,7 @@ claim of consciousness or personhood.
 | --- | --- |
 | Conversation, model, memory, and speech | Local to the machine |
 | Web search | Optional; queries leave the machine only when `search` is used through configured SearXNG |
+| Music metadata lookup | Optional; the text in `spotify search` is sent to MusicBrainz, then the selected title and artist are opened in Spotify |
 | Hardware | Optional; requires deliberate local setup and pairing |
 | Self-editing | Guarded and reviewable; protected files remain off-limits |
 | Goal engine | Optional and document-only inside `workshop/`; no code execution or network access |
@@ -80,6 +88,29 @@ A source clone needs its runtime assets provisioned manually:
    ```
 
 5. Inside TORMENT_NEXUS, run `health check`.
+
+### Bring your own GGUF
+
+TORMENT_NEXUS can use a compatible local GGUF model, including a separately
+shared model file. Extract the model locally and either place it at the default
+path below, or set `TORMENT_NEXUS_MODEL_PATH` to its full path before launch:
+
+```text
+models/Qwen3-4B-Instruct-2507-Q5_K_M.gguf
+```
+
+On Windows, a one-launch override looks like this:
+
+```bat
+set "TORMENT_NEXUS_MODEL_PATH=C:\path\to\your-model.gguf"
+start_assistant.bat
+```
+
+The model is not an installer: llama.cpp, Python dependencies, and the GGUF
+must be in place before it can answer. Once it is running, its plain-language
+tools can explain the project and propose guarded changes, but the Python
+guardrails—not the model's willingness—control what it can modify. See
+[Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md) for the full handoff path.
 
 For the regression suite:
 
@@ -126,6 +157,8 @@ goals
 - [Beta guide](docs/BETA_GUIDE.md) -- capabilities, limits, privacy, and
   handoff expectations.
 - [Testing guide](docs/TESTING.md) -- repeatable beta checks and bug reports.
+- [Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md) -- use a separately
+  provided compatible local model with the source checkout.
 - [Release checklist](docs/RELEASE_CHECKLIST.md) -- how a maintainer produces
   a clean Windows handoff.
 

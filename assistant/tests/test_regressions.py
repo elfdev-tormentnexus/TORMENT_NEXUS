@@ -23,7 +23,10 @@ from core import tutorial
 from core.stream_filter import StreamFilter
 from editing import edit_guard
 from editing import edit_generator
+from editing import edit_engine
 from editing import goal_engine
+from editing import autonomous_engine
+from editing import self_heal_state
 from hardware import tdeck
 from memory import memory_worker
 from memory import memory_extractor
@@ -34,6 +37,8 @@ from ui import ui
 from voice import offline_voice
 from voice import session as voice_session
 from visualizer import local_player
+from visualizer import music_metadata
+from visualizer import spotify_control
 from visualizer.radial import RadialVisualizer
 
 # The desktop icon animator lives beside the assistant package, not in it.
@@ -43,7 +48,7 @@ import glitch_icon
 from web import search_engine
 
 
-class PathSafetyTests(unittest.TestCase):
+class PathSafetyGuardTests(unittest.TestCase):
     def test_edit_guard_denylist_is_case_insensitive(self):
         for path in (
             "MAIN.py",
@@ -94,6 +99,122 @@ class PathSafetyTests(unittest.TestCase):
 
         self.assertIsNone(problem)
 
+class AutonomousSerialTests(unittest.TestCase):
+    def setUp(self):
+        self.original_applied = autonomous_engine._applied_this_run
+        autonomous_engine._applied_this_run = 0
+        self.addCleanup(self._restore_applied)
+
+    def _restore_applied(self):
+        autonomous_engine._applied_this_run = self.original_applied
+
+    def test_observed_serial_is_capped_at_three_successful_edits(self):
+        suggestion = {
+            "title": "small repair",
+            "file": "memory/memory_logic.py",
+            "change": "small local change",
+        }
+
+        def apply_one(_suggestion):
+            autonomous_engine._applied_this_run += 1
+            return f"edit {autonomous_engine._applied_this_run}"
+
+        with mock.patch.object(
+            autonomous_engine.suggestion_engine,
+            "generate",
+            return_value=([suggestion], None),
+        ), mock.patch.object(
+            autonomous_engine,
+            "_try_apply",
+            side_effect=apply_one,
+        ) as apply, mock.patch.object(autonomous_engine, "_log"):
+            summaries = autonomous_engine.run_observed_serial()
+
+        self.assertEqual(summaries, ["edit 1", "edit 2", "edit 3"])
+        self.assertEqual(apply.call_count, autonomous_engine.OBSERVED_SERIAL_LIMIT)
+
+
+class SelfHealRewardTests(unittest.TestCase):
+    def test_validation_requires_health_and_the_fixed_regression_run(self):
+        completed = SimpleNamespace(returncode=0, stdout="tests ok", stderr="")
+
+        with mock.patch.object(
+            self_heal_state.health_check,
+            "report",
+            return_value="ASSISTANT HEALTH CHECK\nOverall: healthy",
+        ), mock.patch.object(
+            self_heal_state.subprocess,
+            "run",
+            return_value=completed,
+        ) as run:
+            healthy, detail = self_heal_state.validate_restart()
+
+        self.assertTrue(healthy)
+        self.assertIn("passed", detail)
+        self.assertEqual(run.call_args.args[0][1:4], ["-m", "unittest", "discover"])
+
+    def test_clean_batch_spends_exactly_one_bonus_credit_after_validation(self):
+        state = {
+            "phase": self_heal_state.PHASE_VALIDATE_BATCH,
+            "records": [{"target": "memory/memory_logic.py", "backup": "x.bak"}],
+        }
+        record = {
+            "target": "memory/memory_logic.py",
+            "backup": "bonus.bak",
+        }
+
+        with mock.patch.object(
+            self_heal_state,
+            "load",
+            return_value=state,
+        ), mock.patch.object(
+            self_heal_state,
+            "validate_restart",
+            return_value=(True, "Health check and regression validation passed."),
+        ), mock.patch.object(
+            autonomous_engine,
+            "run_cycle",
+            return_value="APPLIED bonus",
+        ) as cycle, mock.patch.object(
+            autonomous_engine,
+            "last_applied_record",
+            return_value=record,
+        ), mock.patch.object(self_heal_state, "begin_bonus_validation") as mark:
+            message, reload_needed = assistant_main._resume_earned_self_heal_reward()
+
+        cycle.assert_called_once_with()
+        mark.assert_called_once_with(record)
+        self.assertTrue(reload_needed)
+        self.assertIn("BONUS APPLIED", message)
+
+    def test_failed_validation_restores_the_batch_and_withholds_credit(self):
+        state = {
+            "phase": self_heal_state.PHASE_VALIDATE_BATCH,
+            "records": [{"target": "memory/memory_logic.py", "backup": "x.bak"}],
+        }
+
+        with mock.patch.object(
+            self_heal_state,
+            "load",
+            return_value=state,
+        ), mock.patch.object(
+            self_heal_state,
+            "validate_restart",
+            return_value=(False, "Health check did not report healthy."),
+        ), mock.patch.object(
+            self_heal_state,
+            "rollback_records",
+            return_value=[],
+        ) as rollback, mock.patch.object(self_heal_state, "clear") as clear:
+            message, reload_needed = assistant_main._resume_earned_self_heal_reward()
+
+        rollback.assert_called_once_with(state["records"])
+        clear.assert_called_once_with()
+        self.assertTrue(reload_needed)
+        self.assertIn("VALIDATION FAILED", message)
+
+
+class PathSafetyTests(unittest.TestCase):
     def test_safe_join_rejects_escape_and_absolute_paths(self):
         with tempfile.TemporaryDirectory() as root:
             with self.assertRaises(file_utils.PathError):
@@ -226,12 +347,15 @@ class CommandTests(unittest.TestCase):
     def setUp(self):
         self.old_dev_mode = command_handlers.DEV_MODE
         self.old_dev_expiry = command_handlers.DEV_MODE_EXPIRES_AT
+        self.old_serial_mode = command_handlers.AUTONOMOUS_SERIAL_MODE
         command_handlers.DEV_MODE = True
         command_handlers.DEV_MODE_EXPIRES_AT = 0.0
+        command_handlers.AUTONOMOUS_SERIAL_MODE = False
 
     def tearDown(self):
         command_handlers.DEV_MODE = self.old_dev_mode
         command_handlers.DEV_MODE_EXPIRES_AT = self.old_dev_expiry
+        command_handlers.AUTONOMOUS_SERIAL_MODE = self.old_serial_mode
 
     def test_read_file_rejects_reversed_range(self):
         reply = command_handlers.handle_read_file(
@@ -345,6 +469,34 @@ class CommandTests(unittest.TestCase):
         reply = command_handlers.try_handle_command("dev mode 12345678")
 
         self.assertIn("masked prompt", reply)
+
+    def test_observed_serial_mode_is_explicit_and_clears_with_dev_mode(self):
+        enabled = command_handlers.handle_autonomous_serial("autonomous serial on")
+        status = command_handlers.handle_autonomous_serial("autonomous serial status")
+        exited = command_handlers.handle_exit_dev_mode("exit dev mode")
+
+        self.assertIn("ON", enabled)
+        self.assertIn("ON", status)
+        self.assertIn("OFF", exited)
+        self.assertFalse(command_handlers.AUTONOMOUS_SERIAL_MODE)
+
+    def test_observed_serial_cycle_uses_bounded_batch_and_one_reload(self):
+        command_handlers.AUTONOMOUS_SERIAL_MODE = True
+
+        with mock.patch.object(
+            autonomous_engine,
+            "run_observed_serial",
+            return_value=["first edit", "second edit"],
+        ) as serial, mock.patch.object(edit_engine, "mark_restart_pending") as reload:
+            reply = command_handlers.handle_run_autonomous_cycle(
+                "run autonomous cycle"
+            )
+
+        serial.assert_called_once_with()
+        reload.assert_called_once_with()
+        self.assertIn("OBSERVED SERIAL REPAIR", reply)
+        self.assertIn("Applied 2 guarded edits", reply)
+        self.assertIn("Reloading once", reply)
 
     def test_tdeck_scan_uses_the_hardware_adapter(self):
         with mock.patch.object(
@@ -2235,6 +2387,234 @@ class ServerOwnershipTests(unittest.TestCase):
                 os.environ[llm_server._OWNED_PID_ENV] = old
 
 
+class SpotifyDesktopTests(unittest.TestCase):
+    def setUp(self):
+        self.original_desktop = command_handlers._spotify_desktop
+        command_handlers._spotify_desktop = None
+        self.addCleanup(self._restore_desktop)
+
+    def _restore_desktop(self):
+        command_handlers._spotify_desktop = self.original_desktop
+
+    def test_desktop_search_uses_spotify_protocol_not_web_api(self):
+        with mock.patch.object(
+            spotify_control,
+            "_spotify_executable",
+            return_value=r"C:\\Spotify\\Spotify.exe",
+        ), mock.patch.object(
+            spotify_control,
+            "_launch_desktop_client",
+            return_value=True,
+        ) as launch, mock.patch.object(
+            spotify_control.SpotifyDesktop,
+            "_open_uri",
+            return_value=True,
+        ) as open_uri:
+            result = spotify_control.SpotifyDesktop.search("dark break core")
+
+        launch.assert_called_once_with()
+        open_uri.assert_called_once_with("spotify:search:dark%20break%20core")
+        self.assertEqual(result, "Opened Spotify search: dark break core")
+
+    def test_desktop_launch_is_honest_when_spotify_is_missing(self):
+        with mock.patch.object(
+            spotify_control,
+            "_spotify_executable",
+            return_value=None,
+        ):
+            with self.assertRaisesRegex(
+                spotify_control.SpotifyError,
+                "No Spotify desktop client",
+            ):
+                spotify_control.SpotifyDesktop.launch()
+
+    def test_spotify_search_uses_metadata_picker_not_the_web_api(self):
+        tracks = [{
+            "title": "Breakcore Test",
+            "artist": "Example Artist",
+            "release": "Example Release",
+            "year": "2026",
+            "length_ms": 120000,
+        }]
+
+        with mock.patch.object(
+            music_metadata,
+            "search_recordings",
+            return_value=tracks,
+        ) as search, mock.patch.object(command_handlers, "_get_spotify") as remote:
+            result = command_handlers.try_handle_command("spotify search breakcore")
+
+        search.assert_called_once_with("breakcore", limit=5)
+        remote.assert_not_called()
+        self.assertIn("MUSIC RESULTS", result)
+        self.assertIn("Breakcore Test - Example Artist", result)
+
+    def test_natural_spotify_requests_route_to_the_local_command(self):
+        self.assertTrue(natural_command.looks_like_command_request("open Spotify"))
+        self.assertEqual(
+            natural_command._deterministic("search Spotify for breakcore", False),
+            "spotify search breakcore",
+        )
+        self.assertEqual(
+            natural_command._deterministic("find breakcore on Spotify", False),
+            "spotify search breakcore",
+        )
+
+
+class SpotifyPickerTests(unittest.TestCase):
+    TRACKS = [
+        {
+            "title": "Daisy",
+            "artist": "Harry Dacre",
+            "release": "Music Hall",
+            "year": "1892",
+            "length_ms": 174000,
+        },
+        {
+            "title": "Daisy Bell Rework",
+            "artist": "Example Artist",
+            "release": "Machine Songs",
+            "year": "2026",
+            "length_ms": 201000,
+        },
+    ]
+
+    def setUp(self):
+        self.original_selection = command_handlers._spotify_pending_selection
+        command_handlers._spotify_pending_selection = None
+        self.addCleanup(self._restore_selection)
+
+    def _restore_selection(self):
+        command_handlers._spotify_pending_selection = self.original_selection
+
+    def test_search_renders_choices_then_numeric_reply_opens_local_spotify(self):
+        desktop = mock.Mock()
+        desktop.search.return_value = (
+            "Opened Spotify search: Daisy Bell Rework - Example Artist"
+        )
+
+        with mock.patch.object(
+            music_metadata,
+            "search_recordings",
+            return_value=self.TRACKS,
+        ) as search, mock.patch.object(
+            command_handlers,
+            "_get_spotify_desktop",
+            return_value=desktop,
+        ), mock.patch.object(command_handlers, "_get_spotify") as remote:
+            results = command_handlers.try_handle_command("spotify search daisy")
+            chosen = command_handlers.try_handle_command("2")
+
+        search.assert_called_once_with("daisy", limit=5)
+        remote.assert_not_called()
+        desktop.search.assert_called_once_with("Daisy Bell Rework - Example Artist")
+        self.assertIn("[1] Daisy - Harry Dacre", results)
+        self.assertIn("[2] Daisy Bell Rework - Example Artist", results)
+        self.assertIn("Reply with a number", results)
+        self.assertIn("Opened Spotify search", chosen)
+        self.assertIn("Choose the matching result there", chosen)
+        self.assertIsNone(command_handlers._spotify_pending_selection)
+
+    def test_invalid_number_keeps_the_picker_and_cancel_clears_it(self):
+        command_handlers._spotify_pending_selection = {
+            "query": "daisy",
+            "tracks": self.TRACKS,
+            "expires_at": time.monotonic() + 60,
+        }
+
+        invalid = command_handlers.try_handle_command("6")
+        cancelled = command_handlers.try_handle_command("spotify cancel")
+
+        self.assertIn("1 to 2", invalid)
+        self.assertEqual(cancelled, "Spotify selection cancelled.")
+        self.assertIsNone(command_handlers._spotify_pending_selection)
+
+    def test_local_spotify_error_is_shown_honestly(self):
+        command_handlers._spotify_pending_selection = {
+            "query": "daisy",
+            "tracks": self.TRACKS,
+            "expires_at": time.monotonic() + 60,
+        }
+        desktop = mock.Mock()
+        desktop.search.side_effect = spotify_control.SpotifyError(
+            "Spotify was found but could not be started."
+        )
+
+        with mock.patch.object(
+            command_handlers,
+            "_get_spotify_desktop",
+            return_value=desktop,
+        ):
+            result = command_handlers.try_handle_command("1")
+
+        desktop.search.assert_called_once_with("Daisy - Harry Dacre")
+        self.assertIn("SPOTIFY (LOCAL)", result)
+        self.assertIn("could not be started", result)
+
+
+class MusicMetadataTests(unittest.TestCase):
+    def setUp(self):
+        self.original_cache = music_metadata._cache
+        self.original_last_request_at = music_metadata._last_request_at
+        music_metadata._cache = {}
+        music_metadata._last_request_at = 0.0
+        self.addCleanup(self._restore_metadata_state)
+
+    def _restore_metadata_state(self):
+        music_metadata._cache = self.original_cache
+        music_metadata._last_request_at = self.original_last_request_at
+
+    def test_lookup_sends_plain_query_and_returns_minimal_recording_data(self):
+        response = mock.Mock()
+        response.json.return_value = {
+            "recordings": [{
+                "title": "Daisy",
+                "artist-credit": [{"name": "Harry Dacre"}],
+                "releases": [{"title": "Music Hall", "date": "1892-01-01"}],
+                "length": 174000,
+                "unneeded": "not kept",
+            }]
+        }
+
+        with mock.patch.object(
+            music_metadata.requests,
+            "get",
+            return_value=response,
+        ) as get:
+            results = music_metadata.search_recordings("  daisy   bell  ", limit=99)
+
+        response.raise_for_status.assert_called_once_with()
+        get.assert_called_once_with(
+            music_metadata.SEARCH_URL,
+            params={"query": "daisy bell", "fmt": "json", "limit": 5,
+                    "dismax": "true"},
+            headers={"User-Agent": music_metadata.USER_AGENT,
+                     "Accept": "application/json"},
+            timeout=music_metadata.TIMEOUT_SECONDS,
+        )
+        self.assertEqual(results, [{
+            "title": "Daisy",
+            "artist": "Harry Dacre",
+            "release": "Music Hall",
+            "year": "1892",
+            "length_ms": 174000,
+        }])
+
+    def test_lookup_uses_short_lived_cache(self):
+        response = mock.Mock()
+        response.json.return_value = {"recordings": []}
+
+        with mock.patch.object(
+            music_metadata.requests,
+            "get",
+            return_value=response,
+        ) as get:
+            self.assertEqual(music_metadata.search_recordings("daisy"), [])
+            self.assertEqual(music_metadata.search_recordings("DAISY"), [])
+
+        get.assert_called_once()
+
+
 class LocalMusicTests(unittest.TestCase):
     """
     The local library is the only music path that works with no network,
@@ -2512,6 +2892,15 @@ class TutorialTests(unittest.TestCase):
                      if lesson["key"] == "music")["body"]
         self.assertIn("Space", music)
         self.assertIn("Ctrl+B", music)
+
+    def test_tutorial_explains_the_spotify_number_picker(self):
+        lesson = next(lesson for lesson in tutorial.LESSONS
+                      if lesson["key"] == "music")
+
+        self.assertIn("spotify search", lesson["body"])
+        self.assertIn("1 through 5", lesson["body"])
+        self.assertIn("MusicBrainz", lesson["body"])
+        self.assertIn("spotify", lesson["commands"])
 
     def test_tutorial_qualifies_web_and_radio_privacy(self):
         what = next(lesson for lesson in tutorial.LESSONS

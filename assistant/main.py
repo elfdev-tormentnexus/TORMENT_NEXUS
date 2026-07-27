@@ -52,6 +52,7 @@ from core.persona import PERSONA, PERSONA_SHOTS
 from editing import edit_engine
 from editing import edit_intent
 from editing import autonomous_engine
+from editing import self_heal_state
 from web import search_engine
 from web import search_intent
 from project import project_builder
@@ -121,6 +122,82 @@ def reload_self():
         print(f"Reload failed: {e}")
         print("Restart it by hand.")
         sys.exit(1)
+
+
+def _resume_earned_self_heal_reward():
+    """Validate one watched batch after restart, then optionally spend credit.
+
+    The marker is written only by a completed observed serial batch and
+    expires quickly. The model neither supplies the test command nor decides
+    what health means: both are fixed in self_heal_state.py.
+    """
+    state = self_heal_state.load()
+    if not state:
+        return None, False
+
+    ui.set_generating(True)
+    ui.set_status("Validating earned self-heal credit")
+
+    try:
+        healthy, detail = self_heal_state.validate_restart()
+    finally:
+        ui.finish_activity("Self-heal validation completed")
+
+    if not healthy:
+        ui.set_status("Rolling back unhealthy self-heal batch")
+        rollback_errors = self_heal_state.rollback_records(state["records"])
+        self_heal_state.clear()
+
+        if rollback_errors:
+            return (
+                "SELF-HEAL VALIDATION FAILED\n" + "=" * 58
+                + f"\n\n{detail}\n\nRollback also needs attention:\n"
+                + "\n".join(f"  {error}" for error in rollback_errors),
+                False,
+            )
+
+        return (
+            "SELF-HEAL VALIDATION FAILED\n" + "=" * 58
+            + f"\n\n{detail}\n\nThe affected edit set was restored. "
+            "Reloading the known-good version.",
+            True,
+        )
+
+    if state["phase"] == self_heal_state.PHASE_VALIDATE_BONUS:
+        self_heal_state.clear()
+        return (
+            "SELF-HEAL BONUS VERIFIED\n" + "=" * 58
+            + "\n\nThe earned fourth edit passed its restart health and "
+            "regression validation. No further bonus is available this run.",
+            False,
+        )
+
+    ui.set_generating(True)
+    ui.set_status("Spending earned self-heal credit")
+    try:
+        bonus = autonomous_engine.run_cycle()
+    finally:
+        ui.finish_activity("Earned self-heal attempt completed")
+
+    record = autonomous_engine.last_applied_record()
+    if not bonus or not record or not record.get("backup"):
+        self_heal_state.clear()
+        return (
+            "SELF-HEAL CREDIT COMPLETE\n" + "=" * 58
+            + "\n\n"
+            + detail
+            + "\n\nThe three-edit batch earned one bonus attempt, but no "
+            "additional safe edit was available. The credit is now closed.",
+            False,
+        )
+
+    self_heal_state.begin_bonus_validation(record)
+    return (
+        "SELF-HEAL BONUS APPLIED\n" + "=" * 58
+        + f"\n\n{detail}\n\n{bonus}\n\n"
+        "Reloading to validate the earned fourth edit.",
+        True,
+    )
 
 
 # ============================================================
@@ -1957,6 +2034,12 @@ def main():
     start_prompt_cache()
 
     memory_worker.start(run_memory_pipeline, ui.is_generating)
+
+    reward_message, reward_reload = _resume_earned_self_heal_reward()
+    if reward_message:
+        ui.print_framed(f"AI > {reward_message}", color=ui.VIOLET)
+    if reward_reload:
+        reload_self()
 
     # Optional startup self-improvement. It is off by default because
     # a multi-request cycle before chat made the interface appear

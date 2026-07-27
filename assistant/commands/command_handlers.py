@@ -36,6 +36,7 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEV_MODE = False
 DEV_MODE_EXPIRES_AT = 0.0
 DEV_MODE_DURATION_SECONDS = 15 * 60
+AUTONOMOUS_SERIAL_MODE = False
 
 
 def is_dev_mode():
@@ -44,7 +45,7 @@ def is_dev_mode():
 
 
 def _expire_dev_mode():
-    global DEV_MODE, DEV_MODE_EXPIRES_AT
+    global DEV_MODE, DEV_MODE_EXPIRES_AT, AUTONOMOUS_SERIAL_MODE
 
     if (
         DEV_MODE
@@ -53,6 +54,7 @@ def _expire_dev_mode():
     ):
         DEV_MODE = False
         DEV_MODE_EXPIRES_AT = 0.0
+        AUTONOMOUS_SERIAL_MODE = False
 
 
 # ============================================================
@@ -323,7 +325,7 @@ def handle_dev_help(user_input):
 @command("dev mode", "Unlock developer tools with the owner passcode",
          dev_only=False, group="session")
 def handle_dev_mode(user_input):
-    global DEV_MODE, DEV_MODE_EXPIRES_AT
+    global DEV_MODE, DEV_MODE_EXPIRES_AT, AUTONOMOUS_SERIAL_MODE
 
     if _match_exact(user_input, "dev mode"):
         _expire_dev_mode()
@@ -338,6 +340,8 @@ def handle_dev_mode(user_input):
             if unlocked
             else 0.0
         )
+        # Serial work must be deliberately enabled for each unlocked session.
+        AUTONOMOUS_SERIAL_MODE = False
         return message
 
     if _match_prefix(user_input, "dev mode "):
@@ -352,13 +356,14 @@ def handle_dev_mode(user_input):
 @command("exit dev mode", "Return to the everyday command set",
          group="session")
 def handle_exit_dev_mode(user_input):
-    global DEV_MODE, DEV_MODE_EXPIRES_AT
+    global DEV_MODE, DEV_MODE_EXPIRES_AT, AUTONOMOUS_SERIAL_MODE
 
     if not _match_exact(user_input, "exit dev mode"):
         return False
 
     DEV_MODE = False
     DEV_MODE_EXPIRES_AT = 0.0
+    AUTONOMOUS_SERIAL_MODE = False
     return "Developer mode: OFF"
 
 
@@ -1221,6 +1226,9 @@ def handle_do_suggestion(user_input):
 # ============================================================
 
 _spotify = None
+_spotify_desktop = None
+_spotify_pending_selection = None
+SPOTIFY_SELECTION_SECONDS = 120
 
 
 def _get_spotify():
@@ -1231,6 +1239,16 @@ def _get_spotify():
         _spotify = SpotifyControl()
 
     return _spotify
+
+
+def _get_spotify_desktop():
+    global _spotify_desktop
+
+    if _spotify_desktop is None:
+        from visualizer.spotify_control import SpotifyDesktop
+        _spotify_desktop = SpotifyDesktop()
+
+    return _spotify_desktop
 
 
 def _spotify_action(operation):
@@ -1245,6 +1263,18 @@ def _spotify_action(operation):
         return f"SPOTIFY FAILED\n{'=' * 58}\n\n{error}"
 
 
+def _spotify_desktop_action(operation):
+    """Run a local-client action without asking Spotify's Web API for access."""
+    from visualizer.spotify_control import SpotifyError
+
+    try:
+        return _run_with_activity("Opening local Spotify", operation)
+    except SpotifyError as error:
+        return f"SPOTIFY (LOCAL)\n{'=' * 58}\n\n{error}"
+    except Exception as error:
+        return f"SPOTIFY (LOCAL) FAILED\n{'=' * 58}\n\n{error}"
+
+
 def _get_local_player():
     from visualizer import local_player
 
@@ -1254,6 +1284,120 @@ def _get_local_player():
 def _clock(seconds):
     seconds = int(seconds)
     return f"{seconds // 60}:{seconds % 60:02d}"
+
+
+def _clear_spotify_selection():
+    global _spotify_pending_selection
+    existed = _spotify_pending_selection is not None
+    _spotify_pending_selection = None
+    return existed
+
+
+def _spotify_track_label(track):
+    title = str(track.get("title") or track.get("name") or "unknown track")
+    artist = str(track.get("artist") or track.get("artists") or "unknown artist")
+    return f"{title} - {artist}"
+
+
+def _format_spotify_results(query, tracks):
+    lines = [f"MUSIC RESULTS: {query}\n{'=' * 58}\n"]
+    lines.append("Source: MusicBrainz metadata; selection opens Spotify search.\n")
+
+    for number, track in enumerate(tracks, start=1):
+        label = _spotify_track_label(track)
+        album = str(track.get("release") or track.get("album") or "")
+        duration_ms = track.get("length_ms") or track.get("duration_ms") or 0
+        duration = _clock(float(duration_ms) / 1000) if duration_ms else "?"
+        year = str(track.get("year") or "")
+
+        lines.append(f"  [{number}] {label}")
+        lines.append(f"      {album or 'unknown release'}"
+                     f"{f' ({year})' if year else ''} - {duration}")
+
+    lines.append(
+        "\nReply with a number to open that result in Spotify, or type "
+        "'spotify cancel'."
+    )
+    return "\n".join(lines)
+
+
+def _search_spotify_picker(query):
+    """Return five no-login metadata results for a local Spotify search."""
+    from visualizer import music_metadata
+
+    try:
+        tracks = _run_with_activity(
+            "Searching music metadata",
+            lambda: music_metadata.search_recordings(query, limit=5),
+        )
+    except music_metadata.MusicMetadataError as error:
+        return f"MUSIC SEARCH\n{'=' * 58}\n\n{error}"
+    except Exception as error:
+        return f"MUSIC SEARCH FAILED\n{'=' * 58}\n\n{error}"
+
+    if not tracks:
+        return f"MUSIC RESULTS\n{'=' * 58}\n\nNo tracks found for: {query}"
+
+    global _spotify_pending_selection
+    _spotify_pending_selection = {
+        "query": query,
+        "tracks": tracks[:5],
+        "expires_at": time.monotonic() + SPOTIFY_SELECTION_SECONDS,
+    }
+    ui.set_music_status("Music search: choose a result"[:70])
+    return _format_spotify_results(query, tracks[:5])
+
+
+def _handle_spotify_selection(user_input):
+    """Consume only clear picker replies; everything else remains normal chat."""
+    global _spotify_pending_selection
+
+    selection = _spotify_pending_selection
+    if selection is None:
+        return None
+
+    text = (user_input or "").strip()
+    lower = text.lower()
+
+    if time.monotonic() >= selection["expires_at"]:
+        _spotify_pending_selection = None
+        if text.isdigit():
+            return "That Spotify selection expired. Run 'spotify search <query>' again."
+        return None
+
+    if lower in ("spotify cancel", "cancel spotify", "cancel"):
+        _spotify_pending_selection = None
+        ui.set_music_status("")
+        return "Spotify selection cancelled."
+
+    if not text.isdigit():
+        return None
+
+    number = int(text)
+    tracks = selection["tracks"]
+
+    if not 1 <= number <= len(tracks):
+        return (
+            f"Choose a Spotify result from 1 to {len(tracks)}, or type "
+            "'spotify cancel'."
+        )
+
+    track = tracks[number - 1]
+    _spotify_pending_selection = None
+    spotify_query = _spotify_track_label(track)
+    result = _spotify_desktop_action(
+        lambda: _get_spotify_desktop().search(spotify_query)
+    )
+
+    if result.startswith("SPOTIFY"):
+        return result
+
+    ui.set_music_status(f"Spotify selected: {spotify_query}"[:70])
+    return (
+        f"{result}\n\nSelected: {spotify_query}\n"
+        "Spotify now has the exact title-and-artist search. Choose the matching "
+        "result there to begin playback."
+    )
 
 
 def _play_local_track(query):
@@ -1301,6 +1445,65 @@ def handle_music_mode(user_input):
         return False
 
     return ui.toggle_music_mode()
+
+
+@command("spotify", "Open Spotify or search its catalogue from the terminal",
+         usage="spotify [search <query>]", dev_only=False, group="music")
+def handle_spotify_desktop(user_input):
+    normalized = (user_input or "").strip()
+    lower = normalized.lower()
+
+    if lower == "spotify":
+        return _spotify_desktop_action(lambda: _get_spotify_desktop().launch())
+
+    if not lower.startswith("spotify "):
+        return False
+
+    argument = normalized[len("spotify"):].strip()
+    lowered_argument = argument.lower()
+
+    if lowered_argument in ("open", "launch", "start"):
+        return _spotify_desktop_action(lambda: _get_spotify_desktop().launch())
+
+    if lowered_argument in ("setup", "configure"):
+        return (
+            f"SPOTIFY PICKER\n{'=' * 58}\n\n"
+            "No Spotify developer app, Premium account, or account token is "
+            "needed. 'spotify search <song>' looks up five public music-metadata "
+            "matches, then opens your numeric choice in the installed Spotify "
+            "client.\n\n"
+            "The lookup is online: the search text is sent to MusicBrainz. "
+            "Spotify's own client remains responsible for playback."
+        )
+
+    if lowered_argument == "cancel":
+        return (
+            "Spotify selection cancelled."
+            if _clear_spotify_selection()
+            else "No Spotify selection is waiting."
+        )
+
+    if lowered_argument in ("help", "?"):
+        return (
+            f"SPOTIFY (LOCAL)\n{'=' * 58}\n\n"
+            "spotify                    Open the installed desktop app.\n"
+            "spotify search <query>     Show five no-login terminal results.\n"
+            "spotify <query>            Same as a search.\n"
+            "spotify cancel              Clear a numbered result picker.\n"
+            "spotify setup               Explain the optional picker setup.\n\n"
+            "No Spotify developer setup is needed. Search text goes to "
+            "MusicBrainz for metadata; TORMENT_NEXUS then opens your chosen "
+            "title-and-artist search in Spotify without reading its profile."
+        )
+
+    if lowered_argument == "search":
+        return "Usage: spotify search <query>"
+
+    query = argument[len("search"):].strip() \
+        if lowered_argument.startswith("search ") else argument
+
+    _clear_spotify_selection()
+    return _search_spotify_picker(query)
 
 
 @command("play playlist", "Start a Spotify playlist by name",
@@ -1716,16 +1919,25 @@ def handle_run_autonomous_cycle(user_input):
     # proposes and validates an edit. Make that work visible instead
     # of presenting another apparently frozen prompt.
     ui.set_generating(True)
-    ui.set_status("self-improvement")
+    serial = AUTONOMOUS_SERIAL_MODE
+    ui.set_status("Observed serial self-repair" if serial else "self-improvement")
 
     try:
-        summary = autonomous_engine.run_cycle()
+        result = (
+            autonomous_engine.run_observed_serial()
+            if serial else autonomous_engine.run_cycle()
+        )
     finally:
-        ui.finish_activity("Autonomous cycle completed")
+        ui.finish_activity(
+            "Observed serial repair completed" if serial
+            else "Autonomous cycle completed"
+        )
 
-    if not summary:
+    summaries = result if serial else ([result] if result else [])
+
+    if not summaries:
         return (
-            "Nothing applied this run. Either the per-run budget is spent, "
+            "Nothing applied this run. Either the current budget is spent, "
             f"or check {autonomous_engine.LOG_FILE} for why every candidate "
             "was skipped."
         )
@@ -1734,7 +1946,83 @@ def handle_run_autonomous_cycle(user_input):
     # success path, so reaching here means a write actually happened.
     edit_engine.mark_restart_pending()
 
-    return f"{summary}\n\nReloading so the change takes effect."
+    if serial:
+        completed = len(summaries)
+        details = "\n".join(f"  {index}. {summary}"
+                            for index, summary in enumerate(summaries, start=1))
+        reward_note = ""
+
+        # Three successful watched edits earn exactly one post-restart bonus
+        # attempt. Persist only the backup references needed to verify and, if
+        # necessary, restore this batch; it is a finite authorization, not a
+        # durable autonomous setting.
+        if completed == autonomous_engine.OBSERVED_SERIAL_LIMIT:
+            from editing import self_heal_state
+
+            records = autonomous_engine.last_observed_serial_records()
+            if len(records) == completed and all(record.get("backup")
+                                                 for record in records):
+                try:
+                    self_heal_state.begin_batch_reward(records)
+                    reward_note = (
+                        "\n\nA single bonus repair has been earned. After the "
+                        "restart, TORMENT_NEXUS will run its fixed health and "
+                        "regression checks before it may use that credit."
+                    )
+                except Exception as error:
+                    reward_note = (
+                        "\n\nThe batch is applied, but the bonus credit could "
+                        f"not be recorded: {error}"
+                    )
+
+        return (
+            f"OBSERVED SERIAL REPAIR\n{'=' * 58}\n\n"
+            f"Applied {completed} guarded edit{'s' if completed != 1 else ''} "
+            f"(maximum {autonomous_engine.OBSERVED_SERIAL_LIMIT}).\n\n"
+            f"{details}{reward_note}\n\n"
+            "Reloading once so the accepted changes take effect."
+        )
+
+    return f"{summaries[0]}\n\nReloading so the change takes effect."
+
+
+@command("autonomous serial",
+         "Toggle watched batches of up to three guarded self-repairs",
+         usage="autonomous serial [on|off|status]", group="editing")
+def handle_autonomous_serial(user_input):
+    """Keep serial mode explicit and memory-only for the current dev session."""
+    global AUTONOMOUS_SERIAL_MODE
+
+    if not DEV_MODE or not _match_prefix(user_input, "autonomous serial"):
+        return False
+
+    argument = user_input[len("autonomous serial"):].strip().lower()
+
+    if argument in ("", "status"):
+        state = "ON" if AUTONOMOUS_SERIAL_MODE else "OFF"
+        return (
+            f"OBSERVED SERIAL MODE: {state}\n{'=' * 58}\n\n"
+            "When ON, 'run autonomous cycle' can apply up to "
+            f"{autonomous_engine.OBSERVED_SERIAL_LIMIT} small guarded edits "
+            "while this developer-mode session stays open. Each edit is backed "
+            "up and import-tested; the assistant reloads once after the batch."
+        )
+
+    if argument == "on":
+        AUTONOMOUS_SERIAL_MODE = True
+        return (
+            "Observed serial mode: ON\n\n"
+            f"The next 'run autonomous cycle' may apply up to "
+            f"{autonomous_engine.OBSERVED_SERIAL_LIMIT} small, allowlisted "
+            "edits. It remains limited to this developer-mode session and "
+            "turns off when developer mode closes or expires."
+        )
+
+    if argument == "off":
+        AUTONOMOUS_SERIAL_MODE = False
+        return "Observed serial mode: OFF. The next cycle is limited to one edit."
+
+    return "Usage: autonomous serial [on|off|status]"
 
 
 # ============================================================
@@ -1785,6 +2073,10 @@ def try_handle_command(user_input):
 
     _expire_dev_mode()
     user_input = user_input.strip()
+
+    spotify_selection = _handle_spotify_selection(user_input)
+    if spotify_selection is not None:
+        return spotify_selection
 
     # Enforce the registry's developer boundary in one place before any
     # handler runs. Individual handlers retain their own DEV_MODE checks as

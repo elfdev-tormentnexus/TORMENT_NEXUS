@@ -26,10 +26,12 @@ first two, and add the redirect URI there verbatim.
 """
 
 import os
+import re
 import shutil
 import subprocess
 import sys
 import time
+from urllib.parse import quote
 
 
 def _spotify_executable():
@@ -94,6 +96,121 @@ class SpotifyError(RuntimeError):
     pass
 
 
+def _launch_desktop_client():
+    """Start the installed Spotify client without inheriting the terminal."""
+    executable = _spotify_executable()
+
+    if not executable:
+        return False
+
+    try:
+        # Detached: the client must outlive whichever command started it,
+        # and its console output must not land in the terminal UI.
+        kwargs = {
+            "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL,
+        }
+
+        if sys.platform == "win32":
+            kwargs["creationflags"] = (
+                subprocess.CREATE_NO_WINDOW
+                | subprocess.DETACHED_PROCESS
+            )
+        else:
+            kwargs["start_new_session"] = True
+
+        subprocess.Popen([executable], **kwargs)
+        return True
+    except Exception:
+        return False
+
+
+class SpotifyDesktop:
+    """
+    Credential-free helper for the locally installed Spotify desktop app.
+
+    This deliberately never reads, copies, or packages Spotify's roaming
+    profile. It only starts the user's existing client and asks Windows (or
+    the desktop shell) to open a fixed Spotify protocol URI.
+    """
+
+    @staticmethod
+    def launch():
+        if not _spotify_executable():
+            raise SpotifyError(
+                "No Spotify desktop client was found. Install or open Spotify "
+                "normally, or set TORMENT_NEXUS_SPOTIFY_EXE to its executable."
+            )
+
+        if not _launch_desktop_client():
+            raise SpotifyError("Spotify was found but could not be started.")
+
+        return "Opened the local Spotify desktop app."
+
+    @staticmethod
+    def _open_uri(uri):
+        """Ask the OS to hand a fixed Spotify URI to the installed client."""
+        try:
+            if sys.platform == "win32":
+                # startfile invokes the registered spotify: protocol. It does
+                # not shell-parse the query and cannot run an arbitrary command.
+                os.startfile(uri)  # type: ignore[attr-defined]
+            elif sys.platform == "darwin":
+                subprocess.Popen(
+                    ["open", uri],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+            else:
+                subprocess.Popen(
+                    ["xdg-open", uri],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+            return True
+        except Exception:
+            return False
+
+    @classmethod
+    def search(cls, query):
+        query = " ".join((query or "").split())
+
+        if not query:
+            raise SpotifyError("Give Spotify something to search for.")
+
+        cls.launch()
+        uri = "spotify:search:" + quote(query, safe="")
+
+        if not cls._open_uri(uri):
+            raise SpotifyError(
+                "Spotify started, but Windows could not open its search link."
+            )
+
+        return f"Opened Spotify search: {query}"
+
+    @classmethod
+    def open_track(cls, track):
+        """Open one API-returned track in the existing desktop client."""
+        uri = (track or {}).get("uri") if isinstance(track, dict) else track
+
+        if not isinstance(uri, str) or not re.fullmatch(
+            r"spotify:track:[A-Za-z0-9]{22}", uri
+        ):
+            raise SpotifyError("That Spotify track selection is invalid.")
+
+        cls.launch()
+
+        if not cls._open_uri(uri):
+            raise SpotifyError(
+                "Spotify started, but Windows could not open the selected track."
+            )
+
+        name = (track or {}).get("name") if isinstance(track, dict) else None
+        return f"Opened selected Spotify track: {name or uri}"
+
+
 class SpotifyControl:
     def __init__(self):
         self.client = None
@@ -111,9 +228,11 @@ class SpotifyControl:
     @staticmethod
     def setup_help():
         return (
-            "Spotify is not configured. Music mode still works -- the "
-            "visualiser reacts to any system audio -- but 'play' commands "
-            "need these set:\n"
+            "Spotify's optional remote-control features are not configured. "
+            "Music mode still works -- the visualiser reacts to any system "
+            "audio -- and 'spotify search' does not need this setup. The "
+            "older remote playback commands need these set:\n"
+            "  python -m pip install spotipy\n"
             "  SPOTIFY_CLIENT_ID\n"
             "  SPOTIFY_CLIENT_SECRET\n"
             f"  SPOTIFY_REDIRECT_URI   (optional, default {DEFAULT_REDIRECT})\n\n"
@@ -215,31 +334,7 @@ class SpotifyControl:
     @staticmethod
     def _launch_client():
         """Start the Spotify desktop client. True if a launch was attempted."""
-        executable = _spotify_executable()
-
-        if not executable:
-            return False
-
-        try:
-            # Detached: the client must outlive whichever command started
-            # it, and its console output must not land in the terminal UI.
-            kwargs = {
-                "stdout": subprocess.DEVNULL,
-                "stderr": subprocess.DEVNULL,
-            }
-
-            if sys.platform == "win32":
-                kwargs["creationflags"] = (
-                    subprocess.CREATE_NO_WINDOW
-                    | subprocess.DETACHED_PROCESS
-                )
-            else:
-                kwargs["start_new_session"] = True
-
-            subprocess.Popen([executable], **kwargs)
-            return True
-        except Exception:
-            return False
+        return _launch_desktop_client()
 
     @staticmethod
     def _describe(item):
@@ -247,8 +342,75 @@ class SpotifyControl:
             return "nothing"
 
         name = item.get("name", "unknown")
-        artists = ", ".join(a.get("name", "") for a in item.get("artists", []))
+        artists_value = item.get("artists", [])
+        if isinstance(artists_value, str):
+            artists = artists_value
+        else:
+            artists = ", ".join(
+                a.get("name", "") for a in artists_value if isinstance(a, dict)
+            )
         return f"{name} - {artists}" if artists else name
+
+    @staticmethod
+    def _track_summary(track):
+        """Keep only the tiny, display-safe subset needed for the picker."""
+        artists = ", ".join(
+            artist.get("name", "")
+            for artist in track.get("artists", [])
+            if isinstance(artist, dict) and artist.get("name")
+        )
+        album = track.get("album") or {}
+
+        return {
+            "uri": track.get("uri", ""),
+            "name": track.get("name", "unknown track"),
+            "artists": artists or "unknown artist",
+            "album": album.get("name", "") if isinstance(album, dict) else "",
+            "duration_ms": track.get("duration_ms", 0),
+            "explicit": bool(track.get("explicit")),
+        }
+
+    def search_tracks(self, query, limit=5):
+        """Return a short, selectable list of official Spotify track results."""
+        if not self.connect():
+            raise SpotifyError(self.error)
+
+        query = " ".join((query or "").split())
+        if not query:
+            raise SpotifyError("Give Spotify something to search for.")
+
+        try:
+            limit = min(max(int(limit), 1), 5)
+            found = self.client.search(q=query, type="track", limit=limit)
+            items = ((found or {}).get("tracks") or {}).get("items") or []
+        except Exception as error:
+            raise SpotifyError(f"Spotify search failed: {error}")
+
+        return [
+            self._track_summary(item)
+            for item in items
+            if isinstance(item, dict) and item.get("uri")
+        ]
+
+    def play_track_item(self, track):
+        """Ask the active Spotify device to play one previously shown result."""
+        if not self.connect():
+            raise SpotifyError(self.error)
+
+        uri = (track or {}).get("uri") if isinstance(track, dict) else None
+        if not isinstance(uri, str) or not re.fullmatch(
+            r"spotify:track:[A-Za-z0-9]{22}", uri
+        ):
+            raise SpotifyError("That Spotify track selection is invalid.")
+
+        device = self._active_device()
+
+        try:
+            self.client.start_playback(device_id=device, uris=[uri])
+        except Exception as error:
+            raise SpotifyError(self._playback_error(error))
+
+        return f"Playing: {self._describe(track)}"
 
     # -- commands --------------------------------------------------------
 
@@ -304,27 +466,12 @@ class SpotifyControl:
         return f"Playing playlist: {match['name']} (by {owner})"
 
     def play_track(self, query):
-        if not self.connect():
-            raise SpotifyError(self.error)
+        matches = self.search_tracks(query, limit=1)
 
-        try:
-            found = self.client.search(q=query, type="track", limit=1)
-            items = ((found or {}).get("tracks") or {}).get("items") or []
-        except Exception as error:
-            raise SpotifyError(f"Spotify search failed: {error}")
-
-        if not items:
+        if not matches:
             raise SpotifyError(f"No track found matching: {query}")
 
-        track = items[0]
-        device = self._active_device()
-
-        try:
-            self.client.start_playback(device_id=device, uris=[track["uri"]])
-        except Exception as error:
-            raise SpotifyError(self._playback_error(error))
-
-        return f"Playing: {self._describe(track)}"
+        return self.play_track_item(matches[0])
 
     def _simple(self, method_name, label):
         """Run a no-argument transport command on the active device."""
