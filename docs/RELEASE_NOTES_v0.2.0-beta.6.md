@@ -63,7 +63,8 @@ download instructions, so nobody discovers it after fetching 12 GB.
 | Semantic retrieval and embeddings | On when the local embedding service is healthy | Local-only vector retrieval; degrades to lexical matching when absent |
 | Web search | Backend set to self-hosted SearXNG on `127.0.0.1:8081` | See the note below — the search service is **not** part of this download |
 | Foreground activity awareness | Off | Records application, window title, idle time and load locally |
-| Radar / room sensing | Not present | Hardware has not arrived; nothing is shipped |
+| Wi-Fi sensing bridge (`TORMENT_NEXUS_WIFI_EXPERIMENT=1` plus a status file) | Off, and no default file path | Reads one small aggregate JSON record written by a separately authorised external collector. It never changes a wireless driver, enters monitor mode, transmits packets, or records raw radio measurements |
+| Radar / room sensing hardware | Not present | The LD2450 has not arrived; no radar capability ships |
 
 **Autonomous editing is the one to read twice.** It is genuinely capable of
 changing this project's source without asking about each change. The
@@ -228,6 +229,15 @@ HLK-LD2450 24 GHz movement-tracking radar and CP2102 USB adapter.
 The separate Raspberry Pi monitor-mode, display, battery, and thermal work is
 documented as future hardware validation. It is not present hardware and is
 not a shipped sensing capability.
+
+The underlying Wi-Fi CSI research lives in the repository rather than in this
+package, but its conclusion belongs here: the LiveSense AX211 range-Doppler
+demonstration is real and **not publicly reproducible** — all five authors are
+Intel, and neither paper ships code or an artifact. The open paths are FeitCSI
+and the IAX artifact at `github.com/fflq/iax`, both Linux-only. The desktop's
+AX211 stays untouched because it is the machine's only internet link and IAX
+replaces that card's firmware and driver system-wide. None of this is shipped
+capability; it is a reproduction plan for hardware that has not arrived.
 
 ## Privacy and network boundaries
 
