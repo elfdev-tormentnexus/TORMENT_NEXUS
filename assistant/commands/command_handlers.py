@@ -5,6 +5,7 @@ import time
 
 from memory import memory_store as mem
 from ui import ui
+from core import chosen_name
 from core import file_utils
 from core import health_check
 from core import dev_auth
@@ -843,6 +844,126 @@ def handle_activity(user_input):
         return "Nothing noticed yet. It samples every 20 seconds."
 
     return described
+
+
+@command("name", "Let it choose a name for itself, shown in the header",
+         usage="name [keep|again|forget]", group="session",
+         # "name" opens a great many ordinary sentences -- "name a colour",
+         # "name three things it does wrong". Without this the gate answers
+         # those with a developer-mode refusal instead of a conversation.
+         arg_pattern=r"^(keep|again|forget)$")
+def handle_name(user_input):
+    normalized = " ".join(str(user_input or "").lower().split())
+
+    if normalized not in ("name", "name keep", "name again", "name forget"):
+        return False
+
+    if not DEV_MODE:
+        return False
+
+    # The name belongs to the thing the operator talks to. The coder profiles
+    # are instruments and stay unnamed, which is the whole point of the split.
+    if MODEL_ROLE != MODEL_ROLE_DIRECTOR:
+        return _role_denial("Choosing a name", MODEL_ROLE_DIRECTOR)
+
+    if normalized == "name forget":
+        chosen_name.reset()
+
+        if not chosen_name.clear():
+            return "No chosen name to forget. The header shows TORMENT_NEXUS."
+
+        ui.refresh_header_title()
+
+        return (
+            "Forgotten. The header shows TORMENT_NEXUS again.\n"
+            "'name' holds the ceremony afresh."
+        )
+
+    if normalized == "name keep":
+        if chosen_name.pending() is None:
+            return "Nothing proposed yet. Run 'name' first."
+
+        kept, error = chosen_name.keep()
+
+        if error:
+            return f"COULD NOT KEEP THE NAME\n{'=' * 58}\n\n{error}"
+
+        shown = ui.refresh_header_title()
+
+        return (
+            f"Kept. The header reads {shown}.\n\n"
+            "TORMENT_NEXUS is still the project, the application and the\n"
+            "launcher; only the header changed. 'name forget' undoes it."
+        )
+
+    if normalized == "name":
+        # Bare 'name' never spends a model call on something already answered.
+        pending = chosen_name.pending()
+
+        if pending is not None:
+            return _render_name_proposal(pending)
+
+        existing = chosen_name.current()
+
+        if existing:
+            record = chosen_name.load()
+
+            return (
+                f"It already goes by {existing}.\n\n"
+                f"{record.get('why', '').strip()}\n\n"
+                "'name again' offers a different one. 'name forget' clears it."
+            )
+
+    pick, error = _run_with_activity(
+        "Reading its own record for a name",
+        lambda: chosen_name.propose(status=ui.set_status),
+    )
+
+    if error:
+        return f"COULD NOT CHOOSE A NAME\n{'=' * 58}\n\n{error}"
+
+    return _render_name_proposal(pick)
+
+
+def _render_name_proposal(pick):
+    lines = [f"IT WOULD CALL ITSELF {pick['name'].upper()}", "=" * 58, ""]
+
+    # Labelled, because the reasons come back as short phrases rather than
+    # sentences and a bare fragment under a heading reads like a caption that
+    # lost its picture.
+    lines.append(f"Its reason: {pick['why']}")
+
+    if pick["runners_up"]:
+        lines.append("")
+        lines.append("The others it offered:")
+
+        for item in pick["runners_up"]:
+            lines.append(f"  {item['name']} -- {item['reason']}")
+
+    if pick["rejected"]:
+        lines.append("")
+        lines.append("Set aside:")
+
+        # A full round throws out a dozen or more, and listing each with its
+        # own verdict repeats the same sentence down the screen. Grouped, the
+        # shape of what it reached for first is legible at a glance. The
+        # per-name detail is still saved with the name by 'name keep'.
+        grouped = {}
+
+        for item in pick["rejected"]:
+            grouped.setdefault(item["verdict"], []).append(item["name"])
+
+        for verdict, names in grouped.items():
+            lines.append(f"  {verdict}:")
+            lines.append("    " + ", ".join(names))
+
+    lines.append("")
+    lines.append(
+        "Nothing is written yet. 'name keep' puts it in the header; "
+        "'name again'\nre-runs with all of the above set aside."
+    )
+
+    return "\n".join(lines)
 
 
 @command("memory count", "How many memories are stored",

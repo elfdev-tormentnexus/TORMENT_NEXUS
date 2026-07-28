@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Added `name`, a grounded naming ceremony for the director. It reads only
+  what happened to this system -- its own commit subjects, the changelog, the
+  parts it is assembled from, and the shape of what it watches -- and never
+  the memory store, the conversation history, or the persona. Candidates are
+  then vetoed three ways: stock AI names and fictional machines, any word
+  already in the operator's stored text, and any word lifted straight out of
+  the record it was shown. What survives has to be the operator's own word
+  for an idea in the material rather than a token copied out of it.
+  `name keep` writes it, `name again` re-rolls, `name forget` clears it. The
+  chosen name appears in the header and nowhere else: TORMENT_NEXUS remains
+  the project, the application, the launcher, and the terminal window title.
 - Moved the abliterated Qwen2.5-Coder 7B default into `models/` and added a
   separate opt-in desktop launcher for the experimental abliterated 4B Q8,
   leaving the Q5 companion untouched as the default and Raspberry Pi model.

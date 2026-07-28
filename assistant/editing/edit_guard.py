@@ -72,7 +72,15 @@ DENIED_PREFIXES = (
 #                   prove a change correct; that is only true while the
 #                   suite is written by someone other than the thing
 #                   being tested.
+#
+# core/chosen_name.py -- the validator in here is the only thing standing
+#                   between a grounded name and a stock one, and it is also
+#                   what keeps the operator's stored text out of the answer.
+#                   An editor able to relax its own naming rules can name
+#                   itself anything, which is the same argument as persona.py:
+#                   a constraint the constrained thing can edit is decoration.
 DENIED_FILES = (
+    os.path.join("core", "chosen_name.py"),
     os.path.join("core", "config.py"),
     os.path.join("core", "dev_auth.py"),
     os.path.join("core", "file_utils.py"),

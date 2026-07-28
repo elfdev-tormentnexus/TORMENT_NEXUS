@@ -7,6 +7,7 @@ import shutil
 import textwrap
 import threading
 
+from core import chosen_name
 from core import dev_auth
 
 if os.name == "nt":
@@ -531,7 +532,7 @@ class LayeredDisplayEngine:
         self.width = 80
         self.height = 24
         self.header_height = HEADER_MIN_HEIGHT
-        self.title_text = "TORMENT_NEXUS"
+        self.title_text = chosen_name.header_title()
         self.quant_text = "Q4_K_M"
 
         self.chat_history = []
@@ -2465,14 +2466,29 @@ def _set_terminal_title(title):
         pass
 
 
+def refresh_header_title():
+    """
+    Re-read the chosen name so a naming ceremony takes effect on the next
+    frame instead of at the next launch. Returns what the header now shows.
+    """
+    _engine.title_text = chosen_name.header_title()
+
+    return _engine.title_text
+
+
 def print_startup_screen(model_path=None, layout_seed=None, display_name=None):
     enable_ansi()
     enable_character_input()
 
     # The header names the system, not the model.  Keep parsing the model label
     # only for its quantisation metadata, so it remains available to future
-    # diagnostics without competing with TORMENT_NEXUS's visible identity.
-    _engine.title_text = "TORMENT_NEXUS"
+    # diagnostics without competing with the visible identity.
+    #
+    # The header is the one surface a self-chosen name reaches. The terminal
+    # window title below stays TORMENT_NEXUS deliberately -- so do the
+    # launcher, the docs and MODEL_DISPLAY_NAME. The project's name is fixed;
+    # what the director calls itself sits under the face and nowhere else.
+    _engine.title_text = chosen_name.header_title()
     _set_terminal_title("TORMENT_NEXUS")
 
     if display_name:

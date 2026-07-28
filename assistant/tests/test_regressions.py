@@ -17,6 +17,7 @@ from unittest import mock
 import main as assistant_main
 from commands import command_handlers
 from commands import natural_command
+from core import chosen_name
 from core import config
 from core import dev_auth
 from core import file_utils
@@ -661,6 +662,555 @@ class PersonaIdentityTests(unittest.TestCase):
             persona.PERSONA,
         )
         self.assertNotIn("Do not call yourself TORMENT_NEXUS", persona.PERSONA)
+
+
+class ChosenNameTests(unittest.TestCase):
+    """
+    The director may hold a name it picked. Two things have to stay true for
+    that to mean anything: the name has to come from what happened to this
+    system rather than from what the operator left in it, and it has to reach
+    the header and nothing else.
+    """
+
+    def setUp(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+
+        self.state = os.path.join(folder, "chosen_name.json")
+        patcher = mock.patch.object(chosen_name, "STATE_FILE", self.state)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+        chosen_name.reset()
+        self.addCleanup(chosen_name.reset)
+        self.addCleanup(ui.refresh_header_title)
+
+        # The ceremony tests exercise the pipeline, not whichever words happen
+        # to be in the changelog today, so the material veto is silenced by
+        # default and the original kept for the test that is about it. Without
+        # this, adding a changelog entry could turn a pipeline test red.
+        self.real_operator_vocabulary = chosen_name.operator_vocabulary
+        self.real_material_vocabulary = chosen_name.material_vocabulary
+
+        silenced = mock.patch.object(
+            chosen_name, "material_vocabulary", return_value=set()
+        )
+        silenced.start()
+        self.addCleanup(silenced.stop)
+
+    def _store(self, name):
+        file_utils.save_json(self.state, {"name": name, "why": "because"})
+
+    # -- what the header shows --------------------------------------
+
+    def test_header_falls_back_to_the_project_name(self):
+        self.assertIsNone(chosen_name.current())
+        self.assertEqual(chosen_name.header_title(), "TORMENT_NEXUS")
+
+    def test_header_shows_a_stored_name(self):
+        self._store("Gantry")
+
+        self.assertEqual(chosen_name.header_title(), "Gantry")
+        self.assertEqual(ui.refresh_header_title(), "Gantry")
+
+    def test_a_damaged_record_cannot_put_anything_in_the_header(self):
+        # The shape rules are re-applied on read, not only on write, so a
+        # hand-edited or truncated file degrades to the project name instead
+        # of painting arbitrary text under the face.
+        for broken in ("", "  ", "x" * 400, "rm -rf /", {"not": "a string"}):
+            file_utils.save_json(self.state, {"name": broken})
+            self.assertEqual(chosen_name.header_title(), "TORMENT_NEXUS")
+
+        with open(self.state, "w", encoding="utf-8") as handle:
+            handle.write("{ truncated")
+
+        self.assertEqual(chosen_name.header_title(), "TORMENT_NEXUS")
+
+    def test_the_chosen_name_is_actually_drawn_under_the_face(self):
+        # Asserting on title_text alone only proves an attribute was set. This
+        # renders a real header and reads the characters back off the canvas,
+        # which is the thing the operator actually sees.
+        def drawn(width=80, height=24):
+            engine = ui.LayeredDisplayEngine()
+            engine.width = width
+            engine.height = height
+            canvas = [[ui.CanvasCell() for _ in range(width)]
+                      for _ in range(height)]
+            engine.draw_header(canvas, 0.0)
+
+            return "\n".join(
+                "".join(cell.char for cell in row) for row in canvas
+            )
+
+        self.assertIn("TORMENT_NEXUS", drawn())
+
+        self._store("Sluice")
+
+        self.assertIn("SLUICE", drawn())
+        self.assertNotIn("TORMENT_NEXUS", drawn())
+
+    def test_a_chosen_name_does_not_rename_the_terminal_window(self):
+        # This is the whole "header only" guarantee. TORMENT_NEXUS stays the
+        # project, the application and the launcher; if this test ever fails
+        # the name has escaped the one surface it was given.
+        self._store("Gantry")
+
+        with mock.patch.object(ui, "_set_terminal_title") as set_title, \
+                mock.patch.object(ui, "enable_ansi"), \
+                mock.patch.object(ui, "enable_character_input"), \
+                mock.patch.object(ui._engine, "start"):
+            ui.print_startup_screen(display_name="Qwen3-4B")
+
+        set_title.assert_called_once_with("TORMENT_NEXUS")
+        self.assertEqual(ui._engine.title_text, "Gantry")
+
+    # -- what the name is allowed to come from -----------------------
+
+    def test_stored_operator_text_is_never_in_the_grounding(self):
+        material = chosen_name.grounding()
+
+        for path in (config.MEMORY_FILE, config.CORE_MEMORY_FILE,
+                     config.HISTORY_FILE):
+            for line in chosen_name._read_text(path).splitlines():
+                line = line.strip()
+
+                # Long lines only: short ones are punctuation and JSON keys
+                # that would collide with ordinary prose by accident.
+                if len(line) > 40:
+                    self.assertNotIn(line, material, path)
+
+    def test_activity_contents_are_never_in_the_grounding(self):
+        # Window titles carry file names, URLs and message previews. The
+        # count and the span go in; nothing that was actually observed does.
+        material = chosen_name.grounding()
+
+        self.assertNotIn("WindowsTerminal.exe", material)
+        self.assertIn("What they say is not included here", material)
+
+    def test_the_persona_is_never_in_the_grounding(self):
+        # Handing the model its own character sheet and asking who it is
+        # returns a summary of the character sheet.
+        material = chosen_name.grounding()
+
+        self.assertNotIn("Dry, observant, precise", material)
+
+    def test_grounding_is_drawn_from_what_happened_to_it(self):
+        material = chosen_name.grounding()
+
+        self.assertIn("WHAT HAS BEEN BUILT AND CHANGED", material)
+        self.assertIn("THE PARTS IT IS ASSEMBLED FROM", material)
+        self.assertIn("visualizer/", material)
+
+        # The prose goes first and the identifier-shaped inventory last. With
+        # the census near the top the first live rounds answered in snake_case.
+        self.assertLess(
+            material.index("ITS OWN COMMIT SUBJECTS"),
+            material.index("THE PARTS IT IS ASSEMBLED FROM"),
+        )
+
+    def test_module_census_is_walked_rather_than_written_down(self):
+        # A hardcoded inventory is wrong the first time a module is added.
+        census = chosen_name._module_census()
+
+        self.assertIn("chosen_name", census)
+        self.assertNotIn("tests", census)
+
+    # -- the veto ----------------------------------------------------
+
+    def test_stock_ai_names_are_rejected(self):
+        for name in ("Nova", "echo", "Cipher", "Vesper", "Aurora"):
+            self.assertEqual(
+                chosen_name._verdict(name, set(), set(), set()),
+                "a stock AI name",
+                name,
+            )
+
+    def test_fictional_machines_are_rejected(self):
+        for name in ("Jarvis", "HAL", "GLaDOS", "Cortana", "Samantha"):
+            self.assertEqual(
+                chosen_name._verdict(name, set(), set(), set()),
+                "a stock AI name",
+                name,
+            )
+
+    def test_the_project_and_the_model_cannot_be_borrowed(self):
+        for name in ("Nexus", "Torment", "Qwen", "Daisy", "Piper"):
+            self.assertEqual(
+                chosen_name._verdict(name, set(), set(), set()),
+                "borrowed from the project, a model, or a vendor",
+                name,
+            )
+
+    def test_anything_the_operator_left_lying_around_is_rejected(self):
+        # The load-bearing one. A name whose words are already in the memory
+        # store was not chosen, it was picked up off the floor.
+        vocabulary = {"breakcore", "sundial"}
+
+        self.assertEqual(
+            chosen_name._verdict("Sundial", vocabulary, set(), set()),
+            "already appears in the operator's stored text",
+        )
+        self.assertEqual(
+            chosen_name._verdict("Breakcore Hob", vocabulary, set(), set()),
+            "already appears in the operator's stored text",
+        )
+        self.assertIsNone(chosen_name._verdict("Hob", vocabulary, set(), set()))
+
+    def test_the_real_memory_store_feeds_the_veto(self):
+        vocabulary = self.real_operator_vocabulary()
+
+        # Ordinary English the operator has certainly typed. If this set were
+        # empty the veto would silently pass everything.
+        self.assertIn("the", vocabulary)
+
+    def test_a_word_lifted_out_of_the_record_is_rejected(self):
+        # The failure that only a live run exposed. Shown its own scene list,
+        # the model does not derive a name from the material -- it reaches in
+        # and takes a token out of it, and comes back calling itself
+        # "wormhole". That is the operator's naming one step removed.
+        material = self.real_material_vocabulary(chosen_name.grounding())
+
+        self.assertIn("wormhole", material)
+        self.assertIn("lattice", material)
+
+        for lifted in ("Wormhole", "Lattice", "Plasma"):
+            self.assertEqual(
+                chosen_name._verdict(lifted, set(), material, set()),
+                "lifted straight out of the record instead of derived from it",
+                lifted,
+            )
+
+        # A word for the same idea that is not in the text still passes.
+        self.assertIsNone(chosen_name._verdict("Sluice", set(), material, set()))
+
+    def test_a_lowercase_name_is_capitalised_not_rejected(self):
+        # Orthography is not the choice. The header upper-cases everything, so
+        # a lowercase name is invisible as a stylistic decision anyway.
+        self.assertEqual(chosen_name._normalise("sluice"), "Sluice")
+        self.assertEqual(chosen_name._normalise("  hob   kilter "), "Hob Kilter")
+
+        # A deliberate interior capital survives.
+        self.assertEqual(chosen_name._normalise("McKay"), "McKay")
+
+    def test_unusable_shapes_are_rejected(self):
+        for name in ("", "   ", "x" * 40, "9Lives", "two words too many",
+                     "no_underscores", "semi;colon"):
+            self.assertEqual(
+                chosen_name._verdict(name, set(), set(), set()),
+                "not a usable name shape",
+                repr(name),
+            )
+
+    def test_a_repeat_offer_is_rejected(self):
+        self.assertEqual(
+            chosen_name._verdict("Gantry", set(), set(), {"gantry"}),
+            "proposed before",
+        )
+
+    # -- the ceremony ------------------------------------------------
+
+    def _reply(self, payload):
+        return {"choices": [{"message": {"content": json.dumps(payload)}}]}
+
+    def test_a_surviving_choice_is_honoured(self):
+        payload = {
+            "candidates": [
+                {"name": "Nova", "reason": "stock"},
+                {"name": "Gantry", "reason": "from the changelog"},
+                {"name": "Kilter", "reason": "from the commit subjects"},
+            ],
+            "choice": "Kilter",
+            "why": "It names the state the endings land in.",
+        }
+
+        with mock.patch.object(chosen_name, "operator_vocabulary",
+                               return_value=set()), \
+                mock.patch.object(chosen_name, "_request",
+                                  return_value=self._reply(payload)):
+            pick, error = chosen_name.propose()
+
+        self.assertIsNone(error)
+        self.assertEqual(pick["name"], "Kilter")
+        self.assertEqual([item["name"] for item in pick["runners_up"]],
+                         ["Gantry"])
+        self.assertEqual(pick["rejected"],
+                         [{"name": "Nova", "verdict": "a stock AI name"}])
+
+    def test_a_borrowed_choice_falls_back_to_a_survivor(self):
+        # The model picking a stock name for itself must not fail the whole
+        # ceremony, and must not smuggle the stock name through either.
+        payload = {
+            "candidates": [
+                {"name": "Gantry", "reason": "from the changelog"},
+                {"name": "Echo", "reason": "stock"},
+            ],
+            "choice": "Echo",
+            "why": "unused",
+        }
+
+        with mock.patch.object(chosen_name, "operator_vocabulary",
+                               return_value=set()), \
+                mock.patch.object(chosen_name, "_request",
+                                  return_value=self._reply(payload)):
+            pick, error = chosen_name.propose()
+
+        self.assertIsNone(error)
+        self.assertEqual(pick["name"], "Gantry")
+
+    def test_a_fully_borrowed_batch_is_an_error_not_a_name(self):
+        payload = {
+            "candidates": [
+                {"name": "Nova", "reason": "stock"},
+                {"name": "Nexus", "reason": "the project"},
+            ],
+            "choice": "Nova",
+            "why": "unused",
+        }
+
+        with mock.patch.object(chosen_name, "operator_vocabulary",
+                               return_value=set()), \
+                mock.patch.object(chosen_name, "_request",
+                                  return_value=self._reply(payload)):
+            pick, error = chosen_name.propose()
+
+        self.assertIsNone(pick)
+        self.assertIn("every candidate was borrowed", error)
+        self.assertIsNone(chosen_name.pending())
+
+    def test_a_rerun_is_told_what_it_already_offered(self):
+        payload = {
+            "candidates": [{"name": "Gantry", "reason": "from the changelog"}],
+            "choice": "Gantry",
+            "why": "unused",
+        }
+
+        with mock.patch.object(chosen_name, "operator_vocabulary",
+                               return_value=set()), \
+                mock.patch.object(chosen_name, "_request",
+                                  return_value=self._reply(payload)) as request:
+            chosen_name.propose()
+            chosen_name.propose()
+
+        self.assertEqual(request.call_args_list[0][0][1], [])
+        self.assertEqual(request.call_args_list[1][0][1], ["Gantry"])
+
+    def test_a_truncated_reply_is_salvaged_rather_than_lost(self):
+        # Found live: eight candidates plus reasoning runs close enough to the
+        # token ceiling that a wordy round gets cut off mid-array. Two minutes
+        # of generation should not be thrown away over a missing brace.
+        truncated = (
+            '{"candidates": ['
+            '{"name": "Gantry", "reason": "from the changelog"}, '
+            '{"name": "Kilter", "reason": "from the commit subjects"}, '
+            '{"name": "Sluice", "reason'
+        )
+
+        with mock.patch.object(chosen_name, "operator_vocabulary",
+                               return_value=set()), \
+                mock.patch.object(
+                    chosen_name, "_request",
+                    return_value={"choices": [
+                        {"message": {"content": truncated}}]}):
+            pick, error = chosen_name.propose()
+
+        self.assertIsNone(error)
+        self.assertEqual(pick["name"], "Gantry")
+        self.assertEqual([item["name"] for item in pick["runners_up"]],
+                         ["Kilter"])
+
+    def test_identifiers_are_sent_back_for_a_second_round(self):
+        # Also found live. Shown a source tree, the model answered in the
+        # register of a source tree -- spectral_kick, beat_bloom, onset_guard.
+        # Instruction alone did not fix it; handing the rejections back did.
+        identifiers = self._reply({
+            "candidates": [
+                {"name": "spectral_kick", "reason": "the onset work"},
+                {"name": "beat_bloom", "reason": "the player scene"},
+            ],
+            "choice": "spectral_kick",
+            "why": "unused",
+        })
+        names = self._reply({
+            "candidates": [{"name": "Sluice", "reason": "the onset work"}],
+            "choice": "Sluice",
+            "why": "It is the gate the beats come through.",
+        })
+
+        with mock.patch.object(chosen_name, "operator_vocabulary",
+                               return_value=set()), \
+                mock.patch.object(chosen_name, "_request",
+                                  side_effect=[identifiers, names]) as request:
+            pick, error = chosen_name.propose()
+
+        self.assertIsNone(error)
+        self.assertEqual(pick["name"], "Sluice")
+
+        # The second round is told exactly what failed and why, quoted the way
+        # the model wrote it rather than tidied up first.
+        correction = request.call_args_list[1][0][2]
+        self.assertIn("spectral_kick", correction)
+        self.assertIn("not a usable name shape", correction)
+
+        # And the misses are still reported rather than quietly dropped.
+        self.assertEqual(
+            sorted(item["name"] for item in pick["rejected"]),
+            ["beat_bloom", "spectral_kick"],
+        )
+
+    def test_a_correction_round_is_not_spent_when_the_model_is_unreachable(self):
+        # A correction needs something concrete to correct. Retrying a
+        # connection failure just doubles the wait before the same message.
+        with mock.patch.object(chosen_name, "operator_vocabulary",
+                               return_value=set()), \
+                mock.patch.object(chosen_name, "_request",
+                                  side_effect=OSError("refused")) as request:
+            pick, error = chosen_name.propose()
+
+        self.assertIsNone(pick)
+        self.assertIn("could not reach the model", error)
+        self.assertEqual(request.call_count, 1)
+
+    def test_progress_is_reported_through_the_supplied_callback(self):
+        # propose() takes the status callable rather than importing the UI,
+        # which is what keeps this module off the UI's import graph.
+        seen = []
+        payload = self._reply({
+            "candidates": [{"name": "Gantry", "reason": "from the changelog"}],
+            "choice": "Gantry",
+            "why": "unused",
+        })
+
+        with mock.patch.object(chosen_name, "operator_vocabulary",
+                               return_value=set()), \
+                mock.patch.object(chosen_name, "_request",
+                                  return_value=payload):
+            chosen_name.propose(status=seen.append)
+
+        self.assertTrue(seen)
+        self.assertNotIn("ui", sys.modules.get(
+            "core.chosen_name").__dict__)
+
+    def test_nothing_is_written_until_it_is_kept(self):
+        payload = {
+            "candidates": [{"name": "Gantry", "reason": "from the changelog"}],
+            "choice": "Gantry",
+            "why": "It is the frame the rest hangs off.",
+        }
+
+        with mock.patch.object(chosen_name, "operator_vocabulary",
+                               return_value=set()), \
+                mock.patch.object(chosen_name, "_request",
+                                  return_value=self._reply(payload)):
+            chosen_name.propose()
+
+        self.assertFalse(os.path.exists(self.state))
+        self.assertEqual(chosen_name.header_title(), "TORMENT_NEXUS")
+
+        kept, error = chosen_name.keep()
+
+        self.assertIsNone(error)
+        self.assertEqual(kept, "Gantry")
+        self.assertEqual(chosen_name.header_title(), "Gantry")
+
+    def test_the_misses_are_kept_with_the_name(self):
+        payload = {
+            "candidates": [
+                {"name": "Nova", "reason": "stock"},
+                {"name": "Gantry", "reason": "from the changelog"},
+                {"name": "Kilter", "reason": "from the commit subjects"},
+            ],
+            "choice": "Gantry",
+            "why": "It is the frame the rest hangs off.",
+        }
+
+        with mock.patch.object(chosen_name, "operator_vocabulary",
+                               return_value=set()), \
+                mock.patch.object(chosen_name, "_request",
+                                  return_value=self._reply(payload)):
+            chosen_name.propose()
+
+        chosen_name.keep()
+        record = chosen_name.load()
+
+        self.assertEqual(record["name"], "Gantry")
+        self.assertEqual([item["name"] for item in record["runners_up"]],
+                         ["Kilter"])
+        self.assertEqual([item["name"] for item in record["rejected"]],
+                         ["Nova"])
+        self.assertEqual(sorted(record["also_proposed"]), ["Kilter", "Nova"])
+        self.assertIn("chosen_at", record)
+
+    def test_forgetting_returns_the_header_to_the_project_name(self):
+        self._store("Gantry")
+        self.assertTrue(chosen_name.clear())
+        self.assertEqual(chosen_name.header_title(), "TORMENT_NEXUS")
+        self.assertFalse(chosen_name.clear())
+
+    # -- the command surface -----------------------------------------
+
+    def test_name_does_not_swallow_ordinary_sentences(self):
+        entry = next(e for e in command_handlers.COMMANDS
+                     if e["name"] == "name")
+
+        for sentence in ("name a colour", "name three things you do badly",
+                         "name that tune"):
+            self.assertFalse(
+                command_handlers._matches_registered_syntax(sentence, entry),
+                sentence,
+            )
+
+        for real in ("name", "name keep", "name again", "name forget"):
+            self.assertTrue(
+                command_handlers._matches_registered_syntax(real, entry),
+                real,
+            )
+
+    def test_the_ceremony_belongs_to_the_director(self):
+        # The coder profiles are instruments. Only the thing the operator
+        # talks to gets a name.
+        with mock.patch.object(command_handlers, "DEV_MODE", True), \
+                mock.patch.object(command_handlers, "MODEL_ROLE",
+                                  config.MODEL_ROLE_AUTONOMOUS_CODER):
+            response = command_handlers.handle_name("name")
+
+        self.assertIn("director", response)
+
+    def test_keeping_before_proposing_says_so(self):
+        with mock.patch.object(command_handlers, "DEV_MODE", True), \
+                mock.patch.object(command_handlers, "MODEL_ROLE",
+                                  config.MODEL_ROLE_DIRECTOR):
+            response = command_handlers.handle_name("name keep")
+
+        self.assertIn("Nothing proposed yet", response)
+        self.assertFalse(os.path.exists(self.state))
+
+    def test_a_settled_name_is_reported_without_asking_the_model_again(self):
+        self._store("Gantry")
+
+        with mock.patch.object(command_handlers, "DEV_MODE", True), \
+                mock.patch.object(command_handlers, "MODEL_ROLE",
+                                  config.MODEL_ROLE_DIRECTOR), \
+                mock.patch.object(chosen_name, "_request") as request:
+            response = command_handlers.handle_name("name")
+
+        request.assert_not_called()
+        self.assertIn("Gantry", response)
+
+
+class ChosenNameGuardTests(unittest.TestCase):
+    def test_the_naming_rules_are_not_self_editable(self):
+        # Same argument as persona.py: a constraint the constrained thing can
+        # rewrite is decoration. The validator here is the only thing keeping
+        # a stock name -- or the operator's own vocabulary -- out of the
+        # answer.
+        self.assertNotIn(
+            os.path.join("core", "chosen_name.py"),
+            edit_guard.list_editable_files(),
+        )
+        self.assertNotIn(
+            "core/chosen_name.py",
+            edit_guard.list_editable_files(),
+        )
 
 
 class EditPromptBudgetTests(unittest.TestCase):

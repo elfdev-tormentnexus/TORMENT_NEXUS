@@ -134,6 +134,7 @@ DENY_PATTERNS = [
     "*.spotify_token",
     ".spotify_token",
     "*.tutorial_state.json",
+    "*/memory/chosen_name.json",
     "*/logs/*",
     "*/cache/prompt/*",
     "*__pycache__*",
@@ -155,6 +156,7 @@ PRIVATE_RUNTIME_BASENAMES = {
     ".tdeck_ble_pin",
     ".spotify_token",
     ".tutorial_state.json",
+    "chosen_name.json",
     "conversation_history.txt",
     "memories.json",
 }
@@ -377,6 +379,9 @@ RUNTIME_ARTIFACTS = (
     # Its absence is what marks a fresh install. Shipping it would rob the
     # recipient of the first-run walkthrough entirely.
     "assistant/.tutorial_state.json",
+    # Likewise: a recipient's copy should hold its own naming ceremony rather
+    # than arrive already answering to this one's.
+    "assistant/memory/chosen_name.json",
 )
 
 

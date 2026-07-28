@@ -39,6 +39,12 @@ assistant/memory/plan_*.txt
 # walkthrough.
 assistant/.tutorial_state.json
 
+# The name the director chose for itself. Same reasoning: it belongs to a
+# running install, not to the source tree. Committing one would hand every
+# clone a name it did not choose, which is the one thing the ceremony exists
+# to avoid.
+assistant/memory/chosen_name.json
+
 
 # ---------------------------------------------------------------
 # Generated runtime state
