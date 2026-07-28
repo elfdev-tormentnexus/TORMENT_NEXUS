@@ -2787,7 +2787,17 @@ def music_mode_active():
 
 
 def set_music_status(text):
-    _engine.music_status = str(text or "")
+    with _engine.lock:
+        _engine.music_status = str(text or "")
+
+
+def local_track_changed(name, error=None):
+    """Refresh the HUD when library repeat advances on its worker thread."""
+    if error is not None:
+        set_music_status(f"local library repeat stopped: {error}"[:70])
+        return
+
+    set_music_status(f"playing {name} (local) | library repeat on"[:70])
 
 
 def cycle_music_palette():

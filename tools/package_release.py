@@ -882,6 +882,10 @@ MUSIC AND VISUALIZER
     beat, melody, treble, stereo movement, and waveform detail. Space affects
     local music only, never Spotify or a browser.
 
+    Local-library repeat is on by default. When one local song ends, the next
+    filename starts, and the last returns to the first. "repeat music off"
+    stops after the current song; "repeat music on" restores the loop.
+
 TIME AND RETURNING
     TORMENT_NEXUS reads this computer's local clock during each reply. It
     knows the current date and time, how long this session has been open,

@@ -183,6 +183,10 @@ LESSONS = [
             "You can also type 'music mode' to open the visualizer without\n"
             "starting a local song. Colours change automatically "
             "every 20 seconds.\n"
+            "Local-library repeat is on by default: when one song ends, the\n"
+            "next filename starts, and the last song loops back to the first.\n"
+            "Type 'repeat music off' to stop after the current song, or\n"
+            "'repeat music on' to restore continuous playback.\n"
             "Space plays the next song in your local music folder, Left/Right\n"
             "changes the scene, [ and ] change local-song volume, and Ctrl+B\n"
             "exits. Scenes also rotate automatically every 2:45. The 'volume'\n"
@@ -191,7 +195,7 @@ LESSONS = [
         ),
         "commands": ["music library", "play", "spotify", "pause local",
                      "resume local", "stop music", "now playing", "music mode",
-                     "volume"],
+                     "repeat music", "volume"],
     },
     {
         "key": "projects",

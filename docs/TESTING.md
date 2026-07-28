@@ -38,6 +38,11 @@ advances to the next local song, Left/Right changes scenes, and Ctrl+B exits.
 Confirm `music mode` can still open the visualizer manually and `stop` stops
 local playback.
 
+Let a short local song finish and confirm the next filename starts
+automatically. Confirm the final filename wraps to the first. Then confirm
+`repeat music off` stops after the current song and `repeat music on` restores
+continuous library playback.
+
 ## 5. Time awareness
 
 Ask for the current local time and date, then close and reopen the app after a

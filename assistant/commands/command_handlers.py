@@ -1547,14 +1547,18 @@ def _play_local_track(query):
     name, path = match
 
     try:
-        player.get_player().play(name, path)
+        local = player.get_player()
+        local.set_track_change_callback(ui.local_track_changed)
+        local.play(name, path)
     except player.LocalPlaybackError as error:
         return f"MUSIC FAILED\n{'=' * 58}\n\n{error}"
 
     visualizer_result = ui.enter_music_mode()
-    _, total = player.get_player().position()
+    _, total = local.position()
     status = f"Playing {name} (local)"
     hud_status = status
+    if local.library_repeat_enabled():
+        hud_status += " | library repeat on"
     if "capture failed" in visualizer_result.lower():
         hud_status += " | visualizer idle: capture unavailable"
     ui.set_music_status(hud_status[:70])
@@ -1570,9 +1574,17 @@ def _play_local_track(query):
         visualizer_note = (
             "Visualizer opened automatically. Press Ctrl+B to leave it."
         )
+    repeat_note = (
+        "Local library repeat is on: each song advances to the next filename, "
+        "and the last song returns to the first."
+        if local.library_repeat_enabled()
+        else "Local library repeat is off. Type 'repeat music on' to keep the "
+             "library playing after this song."
+    )
     return voice_session.silent_reply(
         f"MUSIC\n{'=' * 58}\n\n{status} - {_clock(total)}\n\n"
-        f"{visualizer_note}"
+        f"{visualizer_note}\n"
+        f"{repeat_note}"
     )
 
 
@@ -1749,8 +1761,46 @@ def handle_music_library(user_input):
     lines = [f"MUSIC LIBRARY\n{'=' * 58}\n"]
     lines.append(f"{len(tracks)} track(s) in {player.library_dir()}\n")
     lines.extend(f"  play {name}" for name, _ in tracks)
+    repeat = player.get_player().library_repeat_enabled()
+    lines.append(
+        "\nLibrary repeat is "
+        f"{'on' if repeat else 'off'}. When on, finished songs advance in "
+        "the order above and the last returns to the first."
+    )
 
     return "\n".join(lines)
+
+
+@command("repeat music", "Turn continuous local-library playback on or off",
+         usage="repeat music [on|off]", dev_only=False, group="music")
+def handle_repeat_music(user_input):
+    normalized = (user_input or "").strip().lower()
+    if normalized == "repeat music":
+        enabled = _get_local_player().get_player().library_repeat_enabled()
+        return (
+            f"Local library repeat is {'on' if enabled else 'off'}.\n\n"
+            "When it is on, a finished local song advances to the next "
+            "filename and the last song returns to the first."
+        )
+
+    if not normalized.startswith("repeat music "):
+        return False
+
+    setting = normalized[len("repeat music "):].strip()
+    if setting not in ("on", "off"):
+        return "Usage: repeat music [on|off]"
+
+    enabled = _get_local_player().get_player().set_library_repeat(
+        setting == "on"
+    )
+    return (
+        f"Local library repeat is {'on' if enabled else 'off'}. "
+        + (
+            "Finished local songs will keep cycling through the library."
+            if enabled
+            else "The current local song will stop when it reaches the end."
+        )
+    )
 
 
 @command("stop music", "Stop the local track that is playing",
@@ -1901,7 +1951,9 @@ def handle_now_playing(user_input):
         ui.set_music_status(line[:70])
         return (
             f"NOW PLAYING\n{'=' * 58}\n\n"
-            f"{line}\n{_clock(elapsed)} / {_clock(total)}"
+            f"{line}\n{_clock(elapsed)} / {_clock(total)}\n"
+            "Library repeat: "
+            f"{'on' if player.library_repeat_enabled() else 'off'}"
         )
 
     result = _spotify_action(lambda: _get_spotify().now_playing())

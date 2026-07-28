@@ -93,6 +93,15 @@ different response profiles: bass expands the tunnel and reactor, spectrum
 detail raises the cathedral, and mids and treble drive the cube's motion and
 corruption.
 
+Local-library repeat is on by default. A finished local song advances to the
+next filename, and the last song returns to the first. Use:
+
+```text
+repeat music          show whether the loop is on
+repeat music off      stop after the current local song
+repeat music on       continuously cycle the local library
+```
+
 ## Reading long answers
 
 Long answers appear one page at a time when they do not fit on screen.

@@ -180,6 +180,16 @@ Playing a local song should open music mode automatically. If the visualizer
 was closed manually, type `music mode`, confirm a local song is active, and
 press Space again.
 
+## Local music stops instead of continuing through the library
+
+Type `repeat music`. Local-library repeat is on by default. If it reports off,
+type `repeat music on`.
+
+Tracks play in filename order. When one finishes, the next starts
+automatically; after the last filename, playback returns to the first. A file
+that cannot be decoded is skipped so one damaged addition does not stop the
+rest of the library.
+
 ## Text, code, or diagnostics appear beneath the visualizer
 
 The current visualizer protects the terminal's bottom-right cell from automatic

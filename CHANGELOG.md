@@ -10,6 +10,8 @@
   treble, stereo, spectrum, and waveform movement.
 - Added a checksum-verified, reversible Beta 3 music visualizer patch and a
   novice installer that applies it automatically to the original release ZIP.
+- Made local music continue through the name-sorted library automatically,
+  wrapping from the last track to the first, with `repeat music on/off`.
 - Reorganized the GitHub landing page around a clear novice Windows install.
 - Added dedicated Windows installation, first-session, and troubleshooting
   guides.

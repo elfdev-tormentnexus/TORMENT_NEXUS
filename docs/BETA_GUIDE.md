@@ -89,6 +89,8 @@ and waveform detail. In music mode:
 - colours change every 20 seconds;
 - Left and Right change the scene;
 - Space plays the next local song;
+- finished local songs advance automatically, with the last wrapping to the
+  first; `repeat music on` and `repeat music off` control this;
 - `[` and `]` change local playback volume;
 - Ctrl+B exits.
 

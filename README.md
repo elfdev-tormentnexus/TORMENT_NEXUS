@@ -182,6 +182,11 @@ or browser audio. Each scene gives different emphasis to bass, beats, melody,
 treble, stereo movement, and the real waveform for larger, more dramatic
 changes.
 
+Local-library repeat is on by default. When a local song ends, the next
+filename in the library starts automatically; after the last song, playback
+returns to the first. Type `repeat music off` to stop after the current song,
+`repeat music on` to restore the loop, or `repeat music` to check its status.
+
 ## Choose the right guide
 
 ### I want to use the Windows beta

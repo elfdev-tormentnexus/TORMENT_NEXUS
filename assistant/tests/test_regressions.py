@@ -3099,7 +3099,10 @@ class LocalMusicTests(unittest.TestCase):
         )
         self.enter_music_mode = visualizer.start()
         self.addCleanup(visualizer.stop)
-        self.addCleanup(local_player.get_player().stop)
+        player = local_player.get_player()
+        player.set_library_repeat(True)
+        player.set_track_change_callback(None)
+        self.addCleanup(player.stop)
 
     def _add(self, filename):
         path = os.path.join(self.folder, filename)
@@ -3189,6 +3192,127 @@ class LocalMusicTests(unittest.TestCase):
         with mock.patch.object(player, "play", return_value=True) as play:
             self.assertEqual(player.play_next(), "alpha")
             play.assert_called_once_with("alpha", first_path)
+
+    def test_one_track_library_can_repeat_itself(self):
+        only_path = self._add("only song.mp3")
+        player = local_player.get_player()
+
+        with player._lock:
+            player._name = "only song"
+            player._path = only_path
+
+        with mock.patch.object(player, "play", return_value=True) as play:
+            self.assertEqual(player.play_next(), "only song")
+            play.assert_called_once_with("only song", only_path)
+
+    def test_natural_finish_advances_and_wraps_the_sorted_library(self):
+        alpha_path = self._add("alpha.mp3")
+        beta_path = self._add("beta.mp3")
+        player = local_player.get_player()
+        changed = mock.Mock()
+        player.set_track_change_callback(changed)
+
+        for current_name, current_path, expected_name, expected_path in (
+            ("alpha", alpha_path, "beta", beta_path),
+            ("beta", beta_path, "alpha", alpha_path),
+        ):
+            finished = threading.Event()
+            with player._lock:
+                player._stream = object()
+                player._name = current_name
+                player._path = current_path
+                player._finished = finished
+                player._generation += 1
+                generation = player._generation
+
+            with mock.patch.object(
+                player,
+                "_play_locked",
+                return_value=True,
+            ) as play:
+                finished.set()
+                player._advance_after_finish(generation, finished)
+
+            play.assert_called_once_with(expected_name, expected_path)
+            self.assertEqual(changed.call_args.args, (expected_name, None))
+
+    def test_repeat_off_leaves_a_naturally_finished_track_stopped(self):
+        alpha_path = self._add("alpha.mp3")
+        player = local_player.get_player()
+        player.set_library_repeat(False)
+        finished = threading.Event()
+
+        with player._lock:
+            player._stream = object()
+            player._name = "alpha"
+            player._path = alpha_path
+            player._finished = finished
+            player._generation += 1
+            generation = player._generation
+
+        with mock.patch.object(player, "_play_locked") as play:
+            finished.set()
+            player._advance_after_finish(generation, finished)
+
+        play.assert_not_called()
+
+    def test_manual_stop_invalidates_pending_auto_advance(self):
+        alpha_path = self._add("alpha.mp3")
+        self._add("beta.mp3")
+        player = local_player.get_player()
+        finished = threading.Event()
+
+        with player._lock:
+            player._stream = object()
+            player._name = "alpha"
+            player._path = alpha_path
+            player._finished = finished
+            player._generation += 1
+            old_generation = player._generation
+            player._generation += 1
+
+        with mock.patch.object(player, "_play_locked") as play:
+            finished.set()
+            player._advance_after_finish(old_generation, finished)
+
+        play.assert_not_called()
+
+    def test_auto_advance_skips_one_unreadable_track(self):
+        alpha_path = self._add("alpha.mp3")
+        broken_path = self._add("broken.mp3")
+        gamma_path = self._add("gamma.mp3")
+        player = local_player.get_player()
+        changed = mock.Mock()
+        player.set_track_change_callback(changed)
+        finished = threading.Event()
+
+        with player._lock:
+            player._stream = object()
+            player._name = "alpha"
+            player._path = alpha_path
+            player._finished = finished
+            player._generation += 1
+            generation = player._generation
+
+        with mock.patch.object(
+            player,
+            "_play_locked",
+            side_effect=[
+                local_player.LocalPlaybackError("cannot decode"),
+                True,
+            ],
+        ) as play:
+            finished.set()
+            player._advance_after_finish(generation, finished)
+
+        self.assertEqual(
+            play.call_args_list,
+            [
+                mock.call("broken", broken_path),
+                mock.call("gamma", gamma_path),
+            ],
+        )
+        changed.assert_called_once_with("gamma", None)
 
     def test_next_local_track_requires_an_active_song(self):
         self._add("alpha.mp3")
@@ -3430,8 +3554,26 @@ class LocalMusicTests(unittest.TestCase):
         self.assertIn(self.folder, result)
         self.assertIn("play <filename>", result)
 
+    def test_repeat_music_command_reports_and_changes_local_repeat(self):
+        player = local_player.get_player()
+
+        self.assertIn(
+            "repeat is on",
+            command_handlers.try_handle_command("repeat music").lower(),
+        )
+        self.assertIn(
+            "repeat is off",
+            command_handlers.try_handle_command("repeat music off").lower(),
+        )
+        self.assertFalse(player.library_repeat_enabled())
+        self.assertIn(
+            "repeat is on",
+            command_handlers.try_handle_command("repeat music on").lower(),
+        )
+        self.assertTrue(player.library_repeat_enabled())
+
     def test_music_commands_work_without_developer_mode(self):
-        for name in ("music library", "stop music"):
+        for name in ("music library", "repeat music", "stop music"):
             entry = next(c for c in command_handlers.COMMANDS if c["name"] == name)
             self.assertFalse(entry["dev_only"], name)
 

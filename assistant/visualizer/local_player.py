@@ -174,10 +174,11 @@ def find_track(query):
     return None, [name for name, _ in contenders]
 
 class LocalPlayer:
-    """One output stream, one track at a time."""
+    """One output stream and a repeating, name-sorted local library."""
 
     def __init__(self):
         self._lock = threading.RLock()
+        self._transport_lock = threading.RLock()
         self._stream = None
         self._handle = None
         self._reader = None
@@ -191,6 +192,9 @@ class LocalPlayer:
         self._samplerate = 0
         self._volume = 1.0
         self._finished = threading.Event()
+        self._generation = 0
+        self._repeat_library = True
+        self._track_change_callback = None
 
     # -- state ------------------------------------------------------
 
@@ -236,10 +240,31 @@ class LocalPlayer:
             self._volume = max(0.0, min(1.0, value))
             return self._volume
 
+    def library_repeat_enabled(self):
+        """Whether a naturally finished track advances through the library."""
+        with self._lock:
+            return self._repeat_library
+
+    def set_library_repeat(self, enabled):
+        """Enable or disable automatic name-sorted, wraparound playback."""
+        with self._lock:
+            self._repeat_library = bool(enabled)
+            return self._repeat_library
+
+    def set_track_change_callback(self, callback):
+        """Receive automatic track changes without coupling playback to the UI."""
+        with self._lock:
+            self._track_change_callback = callback
+
     # -- transport --------------------------------------------------
 
     def play(self, name, path):
         """Load and start a file, replacing whatever was playing."""
+        with self._transport_lock:
+            return self._play_locked(name, path)
+
+    def _play_locked(self, name, path):
+        """Start one file while the caller owns the transport lock."""
         try:
             import sounddevice as sd
             import soundfile as sf
@@ -267,10 +292,13 @@ class LocalPlayer:
             self._samplerate = handle.samplerate
             self._blocks = queue.Queue(maxsize=QUEUE_BLOCKS)
             self._stop_reading = threading.Event()
-            self._finished.clear()
+            self._finished = threading.Event()
+            self._generation += 1
 
             channels = handle.channels
             samplerate = handle.samplerate
+            finished = self._finished
+            generation = self._generation
 
         self._reader = threading.Thread(
             target=self._read_ahead,
@@ -285,7 +313,7 @@ class LocalPlayer:
                 channels=channels,
                 blocksize=BLOCK_FRAMES,
                 callback=self._feed,
-                finished_callback=self._finished.set,
+                finished_callback=finished.set,
             )
             stream.start()
         except Exception as error:
@@ -297,6 +325,13 @@ class LocalPlayer:
         with self._lock:
             self._stream = stream
 
+        threading.Thread(
+            target=self._advance_after_finish,
+            args=(generation, finished),
+            name="local-music-auto-advance",
+            daemon=True,
+        ).start()
+
         return True
 
     def play_next(self):
@@ -307,29 +342,41 @@ class LocalPlayer:
         can still advance rather than forgetting its place between songs.
         This transport never falls through to Spotify or browser playback.
         """
-        tracks = available_tracks()
+        with self._transport_lock:
+            tracks = available_tracks()
 
-        if not tracks:
-            raise LocalPlaybackError(
-                "No local songs are available. Add audio files to the music "
-                "folder first."
-            )
+            if not tracks:
+                raise LocalPlaybackError(
+                    "No local songs are available. Add audio files to the "
+                    "music folder first."
+                )
 
-        with self._lock:
-            current_path = self._path
-            current_name = self._name
+            with self._lock:
+                current_path = self._path
+                current_name = self._name
 
-        if current_path is None and current_name is None:
-            raise LocalPlaybackError(
-                "No local song is active. Play one from the music library "
-                "before using Space to skip."
-            )
+            if current_path is None and current_name is None:
+                raise LocalPlaybackError(
+                    "No local song is active. Play one from the music library "
+                    "before using Space to skip."
+                )
 
-        if len(tracks) == 1:
-            raise LocalPlaybackError(
-                "There is only one song in the local music library."
-            )
+            next_name, next_path = self._successors(
+                tracks,
+                current_path,
+                current_name,
+            )[0]
+            self.play(next_name, next_path)
+            return next_name
 
+    @staticmethod
+    def _successors(tracks, current_path, current_name):
+        """
+        Return every track after the current one, wrapping to the beginning.
+
+        The current song comes last, so a one-track library repeats itself and
+        a bad next file can be skipped without stopping the rest of the list.
+        """
         normalized_path = (
             os.path.normcase(os.path.abspath(current_path))
             if current_path
@@ -352,13 +399,57 @@ class LocalPlayer:
                 break
 
         if current_index is None:
-            raise LocalPlaybackError(
-                "The current song is no longer in the local music library."
-            )
+            return list(tracks)
 
-        next_name, next_path = tracks[(current_index + 1) % len(tracks)]
-        self.play(next_name, next_path)
-        return next_name
+        split = (current_index + 1) % len(tracks)
+        return list(tracks[split:] + tracks[:split])
+
+    def _advance_after_finish(self, generation, finished):
+        """Advance once a track ends naturally; manual stop invalidates it."""
+        finished.wait()
+
+        with self._transport_lock:
+            with self._lock:
+                if (
+                    generation != self._generation
+                    or not self._repeat_library
+                    or self._paused
+                    or self._stream is None
+                ):
+                    return
+                current_path = self._path
+                current_name = self._name
+
+            tracks = available_tracks()
+            if not tracks:
+                return
+
+            last_error = None
+            for name, path in self._successors(
+                tracks,
+                current_path,
+                current_name,
+            ):
+                try:
+                    self._play_locked(name, path)
+                except LocalPlaybackError as error:
+                    last_error = error
+                    continue
+
+                self._notify_track_change(name, None)
+                return
+
+            self._notify_track_change(None, last_error)
+
+    def _notify_track_change(self, name, error):
+        with self._lock:
+            callback = self._track_change_callback
+
+        if callback is None:
+            return
+
+        with contextlib.suppress(Exception):
+            callback(name, error)
 
     def pause(self):
         with self._lock:
@@ -380,39 +471,44 @@ class LocalPlayer:
 
     def stop(self):
         """Tear everything down. Safe to call when nothing is playing."""
-        with self._lock:
-            stream, handle = self._stream, self._handle
-            reader, stopper = self._reader, self._stop_reading
-            blocks = self._blocks
-            self._stream = self._handle = self._reader = None
-            self._blocks = self._stop_reading = None
-            self._name = None
-            self._path = None
-            self._paused = False
-            self._frames_played = self._total_frames = self._samplerate = 0
+        with self._transport_lock:
+            with self._lock:
+                stream, handle = self._stream, self._handle
+                reader, stopper = self._reader, self._stop_reading
+                blocks = self._blocks
+                finished = self._finished
+                self._generation += 1
+                self._stream = self._handle = self._reader = None
+                self._blocks = self._stop_reading = None
+                self._name = None
+                self._path = None
+                self._paused = False
+                self._frames_played = self._total_frames = self._samplerate = 0
 
-        if stopper is not None:
-            stopper.set()
+            finished.set()
 
-        # Unblock a reader parked on a full queue so it can see the stop.
-        if blocks is not None:
-            try:
-                blocks.get_nowait()
-            except queue.Empty:
-                pass
+            if stopper is not None:
+                stopper.set()
 
-        if reader is not None and reader is not threading.current_thread():
-            reader.join(timeout=1.0)
+            # Unblock a reader parked on a full queue so it can see the stop.
+            if blocks is not None:
+                try:
+                    blocks.get_nowait()
+                except queue.Empty:
+                    pass
 
-        for closer in (stream, handle):
-            if closer is None:
-                continue
-            try:
-                closer.close()
-            except Exception:
-                pass
+            if reader is not None and reader is not threading.current_thread():
+                reader.join(timeout=1.0)
 
-        return stream is not None
+            for closer in (stream, handle):
+                if closer is None:
+                    continue
+                try:
+                    closer.close()
+                except Exception:
+                    pass
+
+            return stream is not None
 
     # -- internals --------------------------------------------------
 
