@@ -34,15 +34,18 @@ because GitHub cannot host it as one release asset.
 ## Downloading the correct package
 
 The complete beginner process is in
-[Installing on Windows](INSTALL_WINDOWS.md). In short, download these three
+[Installing on Windows](INSTALL_WINDOWS.md). In short, download these four
 files from the selected GitHub Release into the same folder:
 
 1. `TORMENT_NEXUS.zip.part01`
 2. `TORMENT_NEXUS.zip.part02`
-3. `REASSEMBLE_TORMENT_NEXUS.bat`
+3. `TORMENT_NEXUS_v0.1.0-beta.3_MUSIC_VISUALIZER_PATCH.zip`
+4. `INSTALL_TORMENT_NEXUS_BETA3_WITH_MUSIC_PATCH.bat`
 
-Run the helper, verify the new ZIP against the SHA-256 checksum in the release
-notes, extract the ZIP, and run `setup.bat`.
+Run the patched installer helper. It verifies the original Beta 3 ZIP,
+extracts it, applies the music visualizer repair, and starts the ordinary
+offline setup. `REASSEMBLE_TORMENT_NEXUS.bat` remains available for the manual
+archive-only route.
 
 GitHub's automatic **Source code (zip)** and **Source code (tar.gz)** downloads
 are for developers. They are not ready-to-run packages.
@@ -77,8 +80,10 @@ while the program was closed.
 Copy your own MP3, WAV, FLAC, or OGG files into `assistant\music`. Local songs
 are matched by filename with cautious tolerance for casual spelling.
 
-A successful local-song start is displayed instead of spoken so the voice does
-not cover the opening. In music mode:
+A successful local-song start opens music mode automatically and is displayed
+instead of spoken so the voice does not cover the opening. Each scene uses a
+different, heightened response to bass, beats, melody, treble, stereo movement,
+and waveform detail. In music mode:
 
 - scenes rotate every 2 minutes 45 seconds;
 - colours change every 20 seconds;

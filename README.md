@@ -25,7 +25,7 @@
 > **Want to use TORMENT_NEXUS on Windows? Do not use GitHub's green
 > `Code` button or its automatic `Source code` downloads.** Those files are
 > for developers and do not contain the AI model or self-contained Windows
-> runtime. Follow the Windows instructions below and download the three named
+> runtime. Follow the Windows instructions below and download the four named
 > release files.
 
 ## Installing the Windows beta
@@ -45,28 +45,33 @@ download a separate model.
 | Internet for the download | Setup and ordinary conversation work locally after the files are downloaded. |
 | A microphone only if you want to speak | Typed input and spoken replies still work without a microphone. |
 
-### Five installation steps
+### Four installation steps
 
 1. Open the
    [v0.1.0-beta.3 release page](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.1.0-beta.3)
    and expand **Assets** if the file list is hidden.
-2. Download all three of these files into the same folder:
+2. Download all four of these files into the same folder:
    - `TORMENT_NEXUS.zip.part01`
    - `TORMENT_NEXUS.zip.part02`
-   - `REASSEMBLE_TORMENT_NEXUS.bat`
-3. Double-click `REASSEMBLE_TORMENT_NEXUS.bat`. Wait for it to create
-   `TORMENT_NEXUS.zip`.
-4. Right-click `TORMENT_NEXUS.zip`, choose **Extract All**, and open the
-   extracted `TORMENT_NEXUS` folder. Do not run setup from inside the ZIP.
-5. Double-click `setup.bat`. When it finishes, launch **TORMENT_NEXUS** from
-   the new desktop shortcut.
+   - `TORMENT_NEXUS_v0.1.0-beta.3_MUSIC_VISUALIZER_PATCH.zip`
+   - `INSTALL_TORMENT_NEXUS_BETA3_WITH_MUSIC_PATCH.bat`
+3. Double-click `INSTALL_TORMENT_NEXUS_BETA3_WITH_MUSIC_PATCH.bat`. It checks
+   the original download, extracts the app, installs the visualizer repair,
+   and starts the normal offline setup. Leave the window open until it says
+   setup is complete.
+4. Launch **TORMENT_NEXUS** from the new desktop shortcut.
 
 Setup is offline and normally takes only a few minutes. It changes nothing in
 your system Python, PATH, or registry. Everything stays in the extracted
 folder, apart from the desktop shortcut.
 
-For checksum verification, Windows security messages, or anything that does
-not match these steps, use the
+Already installed Beta 3? Download only the music visualizer patch ZIP,
+extract it, close TORMENT_NEXUS, and double-click
+`APPLY_MUSIC_VISUALIZER_PATCH.bat`. It backs up the original files before
+repairing them.
+
+For the manual `REASSEMBLE_TORMENT_NEXUS.bat` route, checksum details, Windows
+security messages, or anything that does not match these steps, use the
 [complete Windows installation guide](docs/INSTALL_WINDOWS.md).
 
 ## Your first launch
@@ -158,9 +163,9 @@ Put your own MP3, WAV, FLAC, or OGG files in:
 assistant\music
 ```
 
-Then type `music library` or `play <part of the song name>`. Successful
-local-song starts are displayed silently so the voice does not talk over the
-opening.
+Then type `music library` or `play <part of the song name>`. Starting a local
+song automatically opens the full-screen visualizer. The confirmation is
+displayed silently so the voice does not talk over the opening.
 
 In music mode:
 
@@ -173,7 +178,9 @@ In music mode:
 
 Scenes rotate every 2 minutes 45 seconds, and colours change automatically
 every 20 seconds. Space affects local music only; it does not control Spotify
-or browser audio.
+or browser audio. Each scene gives different emphasis to bass, beats, melody,
+treble, stereo movement, and the real waveform for larger, more dramatic
+changes.
 
 ## Choose the right guide
 

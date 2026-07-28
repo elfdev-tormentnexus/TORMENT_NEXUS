@@ -31,6 +31,102 @@ _UI_ERROR_LOG = os.path.join(
     "logs",
     "ui_errors.log",
 )
+_VISUALIZER_OUTPUT_LOG = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "logs",
+    "visualizer_output.log",
+)
+
+
+class _VisualizerOutputGuard:
+    """
+    Keep library diagnostics from drawing over the full-screen visualizer.
+
+    The renderer deliberately writes through `_real_stdout`; ordinary Python
+    stdout/stderr are redirected to a local log only while music mode owns the
+    terminal. They are restored as soon as the mode closes.
+    """
+
+    encoding = "utf-8"
+    errors = "replace"
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._handle = None
+        self._previous_stdout = None
+        self._previous_stderr = None
+        self._started = False
+
+    @property
+    def active(self):
+        return self._started
+
+    def start(self):
+        if self.active:
+            return
+
+        try:
+            os.makedirs(os.path.dirname(_VISUALIZER_OUTPUT_LOG), exist_ok=True)
+            self._handle = open(
+                _VISUALIZER_OUTPUT_LOG,
+                "a",
+                encoding="utf-8",
+                buffering=1,
+            )
+        except OSError:
+            self._handle = None
+
+        self._previous_stdout = sys.stdout
+        self._previous_stderr = sys.stderr
+        sys.stdout = self
+        sys.stderr = self
+        self._started = True
+
+    def stop(self):
+        if not self.active:
+            return
+
+        if sys.stdout is self:
+            sys.stdout = self._previous_stdout
+        if sys.stderr is self:
+            sys.stderr = self._previous_stderr
+
+        self._previous_stdout = None
+        self._previous_stderr = None
+        self._started = False
+        handle, self._handle = self._handle, None
+        if handle is not None:
+            try:
+                handle.close()
+            except OSError:
+                pass
+
+    def write(self, text):
+        text = str(text or "")
+        if not text:
+            return 0
+
+        with self._lock:
+            if self._handle is not None:
+                try:
+                    self._handle.write(text)
+                except OSError:
+                    pass
+        return len(text)
+
+    def flush(self):
+        with self._lock:
+            if self._handle is not None:
+                try:
+                    self._handle.flush()
+                except OSError:
+                    pass
+
+    def isatty(self):
+        return False
+
+
+_visualizer_output_guard = _VisualizerOutputGuard()
 
 def write_raw(s):
     _real_stdout.write(s)
@@ -1764,14 +1860,25 @@ class LayeredDisplayEngine:
 
     @staticmethod
     def _blit(canvas):
-        """Push a finished canvas to the terminal in one write."""
-        buffer = []
+        """
+        Push a finished canvas in one write without triggering terminal wrap.
+
+        Writing the bottom-right cell makes some Windows terminals advance to
+        a new row and scroll the entire screen. Music mode made that look like
+        a jittering code stream beneath the animation.
+        """
+        buffer = ["\x1b[?7l"]
+        last_row = len(canvas) - 1
 
         for r_idx, row in enumerate(canvas):
             buffer.append(f"\x1b[{r_idx + 1};1H")
             cur_color = None
 
-            for cell in row:
+            # The final cell of the final row is intentionally untouched.
+            # Music mode never places content there, and avoiding it prevents
+            # hosts that auto-wrap at the right edge from scrolling.
+            visible_row = row[:-1] if r_idx == last_row and row else row
+            for cell in visible_row:
                 if cell.color != cur_color:
                     buffer.append(cell.color)
                     cur_color = cell.color
@@ -1780,6 +1887,7 @@ class LayeredDisplayEngine:
 
             buffer.append(RESET)
 
+        buffer.append("\x1b[?7h\x1b[H")
         write_raw("".join(buffer))
 
     # ------------------------------------------------------------
@@ -1819,7 +1927,7 @@ class LayeredDisplayEngine:
 
     def _draw_music(self, canvas, width, height):
         """Full-viewport visualiser. Replaces the header and chat log."""
-        features = (
+        captured_features = (
             self.music_audio.features()
             if self.music_audio is not None
             else {"bass": 0.0, "mid": 0.0, "treble": 0.0, "level": 0.0, "beat": 0.0}
@@ -1871,6 +1979,11 @@ class LayeredDisplayEngine:
         stage_h = max(1, height - 1)
 
         if self.music_visualizer is not None:
+            from visualizer.reactivity import shape_features
+            features = shape_features(
+                captured_features,
+                self._MUSIC_SCENES[self.music_scene_index],
+            )
             self.music_visualizer.step(delta, features, width, stage_h)
 
             for y, row in enumerate(
@@ -1882,6 +1995,8 @@ class LayeredDisplayEngine:
                 for x, cell in enumerate(row):
                     if cell and x < width:
                         canvas[y][x] = CanvasCell(cell[0], cell[1])
+        else:
+            features = captured_features
 
         self._draw_music_status(canvas, width, height, features)
 
@@ -1959,6 +2074,13 @@ class LayeredDisplayEngine:
 
     def stop(self):
         self.running = False
+
+        if self.music_audio is not None:
+            self.music_audio.stop()
+        self.music_audio = None
+        self.music_visualizer = None
+        self.music_mode = False
+        _visualizer_output_guard.stop()
 
         if (
             self.render_thread is not None
@@ -2764,9 +2886,9 @@ def cycle_music_volume(delta):
     return set_music_volume(music_volume_percent() + int(delta))
 
 
-def toggle_music_mode():
+def enter_music_mode():
     """
-    Enter or leave the visualiser. Returns a line to show the user.
+    Enter the visualizer without ever toggling an active session off.
 
     Audio capture and the visual field are created on entry and torn down on
     exit, so a session that never opens music mode pays nothing for it
@@ -2774,23 +2896,22 @@ def toggle_music_mode():
     device open.
     """
     if _engine.music_mode:
-        if _engine.music_audio is not None:
-            _engine.music_audio.stop()
+        return "Music mode already on."
 
-        _engine.music_audio = None
-        _engine.music_visualizer = None
-        _engine.music_mode = False
-        clear_screen()
-        return "Music mode off."
-
+    _visualizer_output_guard.start()
     try:
         from visualizer.audio_source import AudioSource
         _make_music_scene("radial tunnel", _engine._MUSIC_PALETTES[0][1])
     except Exception as error:
+        _visualizer_output_guard.stop()
         return f"Music mode unavailable: {error}"
 
     source = AudioSource()
-    started = source.start()
+    try:
+        started = source.start()
+    except Exception as error:
+        _visualizer_output_guard.stop()
+        return f"Music mode unavailable: {error}"
 
     palette_name, _palette = _engine._MUSIC_PALETTES[_engine.music_palette_index]
     _engine.music_audio = source if started else None
@@ -2828,6 +2949,28 @@ def toggle_music_mode():
         f"plays the next local song; {MUSIC_VOLUME_LABEL} "
         f"changes local-music volume; {MUSIC_TOGGLE_LABEL} exits."
     )
+
+
+def exit_music_mode():
+    """Leave the visualizer and restore normal terminal output."""
+    if not _engine.music_mode:
+        _visualizer_output_guard.stop()
+        return "Music mode is already off."
+
+    if _engine.music_audio is not None:
+        _engine.music_audio.stop()
+
+    _engine.music_audio = None
+    _engine.music_visualizer = None
+    _engine.music_mode = False
+    _visualizer_output_guard.stop()
+    clear_screen()
+    return "Music mode off."
+
+
+def toggle_music_mode():
+    """Enter or leave the full-screen visualizer."""
+    return exit_music_mode() if _engine.music_mode else enter_music_mode()
 
 
 def set_dev_mode(flag):

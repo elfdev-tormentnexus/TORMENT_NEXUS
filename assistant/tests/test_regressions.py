@@ -42,6 +42,7 @@ from voice import offline_voice
 from voice import session as voice_session
 from visualizer import local_player
 from visualizer import music_metadata
+from visualizer import reactivity
 from visualizer import spotify_control
 from visualizer.cube import CubeVisualizer
 from visualizer.radial import RadialVisualizer
@@ -2287,9 +2288,55 @@ class MusicVisualizerTests(unittest.TestCase):
     def test_original_radial_tunnel_remains_the_first_scene(self):
         self.assertEqual(ui._engine._MUSIC_SCENES[0], "radial tunnel")
 
+    def test_every_scene_lifts_quiet_audio_and_transients(self):
+        features = {
+            "bass": 0.18,
+            "mid": 0.22,
+            "treble": 0.25,
+            "level": 0.16,
+            "beat": 0.12,
+            "stereo_width": 0.20,
+            "pan": 0.15,
+            "waveform": (0.20, -0.20),
+            "spectrum": (0.10, 0.20, 0.30),
+        }
+
+        for scene_name in ui._engine._MUSIC_SCENES:
+            with self.subTest(scene=scene_name):
+                shaped = reactivity.shape_features(features, scene_name)
+                for name in ("bass", "mid", "treble", "level", "beat"):
+                    self.assertGreater(shaped[name], features[name])
+                self.assertGreater(
+                    max(shaped["spectrum"]),
+                    max(features["spectrum"]),
+                )
+                self.assertGreater(
+                    max(abs(value) for value in shaped["waveform"]),
+                    max(abs(value) for value in features["waveform"]),
+                )
+
+    def test_scene_profiles_emphasize_different_parts_of_the_music(self):
+        features = {
+            "bass": 0.25,
+            "mid": 0.25,
+            "treble": 0.25,
+            "level": 0.25,
+            "beat": 0.25,
+        }
+
+        radial = reactivity.shape_features(features, "radial tunnel")
+        cathedral = reactivity.shape_features(features, "spectrum cathedral")
+        reactor = reactivity.shape_features(features, "orbital reactor")
+        cube = reactivity.shape_features(features, "corrupt cube")
+
+        self.assertGreater(reactor["bass"], radial["bass"])
+        self.assertGreater(cube["treble"], cathedral["treble"])
+        self.assertGreater(cube["beat"], radial["beat"])
+
 
 class AudioModeUiTests(unittest.TestCase):
     def tearDown(self):
+        ui._visualizer_output_guard.stop()
         ui._engine.current_input = ""
         ui._engine.cycle_index = -1
         ui._engine.music_mode = False
@@ -2302,6 +2349,93 @@ class AudioModeUiTests(unittest.TestCase):
         ui._engine._music_scene_started_at = 0.0
         ui._engine._music_palette_started_at = 0.0
         ui.set_voice_mode(False)
+
+    def test_full_frame_never_writes_the_wrap_triggering_bottom_right_cell(self):
+        canvas = [
+            [ui.CanvasCell("a"), ui.CanvasCell("b")],
+            [ui.CanvasCell("c"), ui.CanvasCell("UNIQUE_BOTTOM_RIGHT")],
+        ]
+
+        with mock.patch.object(ui, "write_raw") as write:
+            ui.LayeredDisplayEngine._blit(canvas)
+
+        frame = write.call_args.args[0]
+        self.assertNotIn("UNIQUE_BOTTOM_RIGHT", frame)
+        self.assertIn("\x1b[?7l", frame)
+        self.assertIn("\x1b[?7h", frame)
+
+    def test_visualizer_output_guard_hides_noise_then_restores_streams(self):
+        guard = ui._VisualizerOutputGuard()
+        previous_stdout = sys.stdout
+        previous_stderr = sys.stderr
+
+        with tempfile.TemporaryDirectory() as folder, mock.patch.object(
+            ui,
+            "_VISUALIZER_OUTPUT_LOG",
+            os.path.join(folder, "visualizer_output.log"),
+        ):
+            try:
+                guard.start()
+                self.assertIs(sys.stdout, guard)
+                self.assertIs(sys.stderr, guard)
+                print("backend diagnostic")
+            finally:
+                guard.stop()
+
+            self.assertIs(sys.stdout, previous_stdout)
+            self.assertIs(sys.stderr, previous_stderr)
+            with open(
+                os.path.join(folder, "visualizer_output.log"),
+                encoding="utf-8",
+            ) as handle:
+                self.assertIn("backend diagnostic", handle.read())
+
+    def test_music_frame_receives_scene_specific_dramatic_features(self):
+        engine = ui.LayeredDisplayEngine()
+        engine.music_mode = True
+        engine.music_scene_index = 2
+        engine._music_scene_started_at = time.time()
+        engine._music_palette_started_at = time.time()
+        engine.music_audio = SimpleNamespace(
+            error=None,
+            features=lambda: {
+                "bass": 0.20,
+                "mid": 0.20,
+                "treble": 0.20,
+                "level": 0.20,
+                "beat": 0.10,
+            },
+        )
+        engine.music_visualizer = SimpleNamespace(
+            palette=engine._MUSIC_PALETTES[0][1],
+            step=mock.Mock(),
+            render=lambda width, height, _features: [
+                [None] * width for _ in range(height)
+            ],
+        )
+        canvas = [
+            [ui.CanvasCell() for _ in range(30)]
+            for _ in range(8)
+        ]
+
+        engine._draw_music(canvas, 30, 8)
+
+        shaped = engine.music_visualizer.step.call_args.args[1]
+        self.assertGreater(shaped["bass"], 0.20)
+        self.assertGreater(shaped["beat"], 0.10)
+
+    def test_enter_music_mode_never_toggles_an_active_visualizer_off(self):
+        engine = ui._engine
+        visualizer = SimpleNamespace()
+        audio = SimpleNamespace()
+        engine.music_mode = True
+        engine.music_visualizer = visualizer
+        engine.music_audio = audio
+
+        self.assertEqual(ui.enter_music_mode(), "Music mode already on.")
+        self.assertTrue(engine.music_mode)
+        self.assertIs(engine.music_visualizer, visualizer)
+        self.assertIs(engine.music_audio, audio)
 
     def test_live_input_reports_lines_and_escape_separately(self):
         ui.begin_input("AUDIO >")
@@ -2958,6 +3092,13 @@ class LocalMusicTests(unittest.TestCase):
         patcher = mock.patch.object(config, "MUSIC_LIBRARY_DIR", self.folder)
         patcher.start()
         self.addCleanup(patcher.stop)
+        visualizer = mock.patch.object(
+            ui,
+            "enter_music_mode",
+            return_value="Music mode on -- reacting to system audio.",
+        )
+        self.enter_music_mode = visualizer.start()
+        self.addCleanup(visualizer.stop)
         self.addCleanup(local_player.get_player().stop)
 
     def _add(self, filename):
@@ -3082,6 +3223,8 @@ class LocalMusicTests(unittest.TestCase):
 
         self.assertEqual(played.get("name"), "breakcore")
         self.assertIn("breakcore", result)
+        self.enter_music_mode.assert_called_once_with()
+        self.assertIn("Visualizer opened automatically", result)
 
     def test_abbreviated_local_title_never_reaches_spotify(self):
         self._add("i rly wanna stay at ur house.mp3")
@@ -3146,6 +3289,7 @@ class LocalMusicTests(unittest.TestCase):
 
         self.assertIn("MUSIC FAILED", result)
         self.assertFalse(voice_session.is_silent_reply(result))
+        self.enter_music_mode.assert_not_called()
 
     def test_unknown_name_falls_through_to_spotify(self):
         self._add("breakcore.mp3")
@@ -4321,6 +4465,15 @@ class DocumentationTests(unittest.TestCase):
             with self.subTest(document="README" if text is readme else "installer"):
                 self.assertIn("TORMENT_NEXUS.zip.part01", text)
                 self.assertIn("TORMENT_NEXUS.zip.part02", text)
+                self.assertIn(
+                    "TORMENT_NEXUS_v0.1.0-beta.3_"
+                    "MUSIC_VISUALIZER_PATCH.zip",
+                    text,
+                )
+                self.assertIn(
+                    "INSTALL_TORMENT_NEXUS_BETA3_WITH_MUSIC_PATCH.bat",
+                    text,
+                )
                 self.assertIn("REASSEMBLE_TORMENT_NEXUS.bat", text)
                 self.assertIn("Source code", text)
 

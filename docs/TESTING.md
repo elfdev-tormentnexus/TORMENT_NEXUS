@@ -30,9 +30,13 @@ Run `audio mode` again and confirm voice can be re-enabled.
 
 ## 4. Music and visualizer
 
-Play a local track, then test `music mode`. Confirm the colour palette changes
-after 20 seconds, Space advances to the next local song, and Ctrl+B exits.
-Confirm `stop` stops local playback.
+Play a local track and confirm the visualizer opens automatically without a
+scrolling or jittering diagnostic line beneath it. Check that quiet passages
+remain active and that bass, beat, melody, and treble changes produce obvious
+scene movement. Confirm the colour palette changes after 20 seconds, Space
+advances to the next local song, Left/Right changes scenes, and Ctrl+B exits.
+Confirm `music mode` can still open the visualizer manually and `stop` stops
+local playback.
 
 ## 5. Time awareness
 

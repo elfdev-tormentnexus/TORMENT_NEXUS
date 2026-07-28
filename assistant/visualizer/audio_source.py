@@ -59,6 +59,7 @@ class AudioSource:
         self.device_name = None
         self._thread = None
         self._stop = threading.Event()
+        self._ready = threading.Event()
         self._lock = threading.Lock()
         self._np = None
         self._buffer = None
@@ -101,6 +102,7 @@ class AudioSource:
 
         self.device_name = microphone.name
         self._stop.clear()
+        self._ready.clear()
         self._thread = threading.Thread(
             target=self._capture_loop,
             args=(microphone,),
@@ -108,9 +110,10 @@ class AudioSource:
         )
         self._thread.start()
 
-        # Surface a failure that happens immediately, rather than showing
-        # a silent visualiser and letting it look like the music is quiet.
-        self._thread.join(timeout=1.2)
+        # Wait only until the recorder either opens or reports an immediate
+        # failure. The old thread.join(timeout=1.2) always waited the full
+        # timeout because a healthy capture thread is intentionally long-lived.
+        self._ready.wait(timeout=1.2)
 
         if self.error:
             return False
@@ -157,6 +160,7 @@ class AudioSource:
                 channels=2,
                 blocksize=BLOCK,
             ) as recorder:
+                self._ready.set()
                 while not self._stop.is_set():
                     block = np.asarray(
                         recorder.record(numframes=BLOCK),
@@ -190,6 +194,7 @@ class AudioSource:
                             self._stereo_buffer[-count:] = stereo
         except Exception as error:
             self.error = f"System audio capture stopped: {error}"
+            self._ready.set()
 
     # -- analysis --------------------------------------------------------
 

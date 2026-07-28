@@ -21,16 +21,18 @@ and download:
 ```text
 TORMENT_NEXUS.zip.part01
 TORMENT_NEXUS.zip.part02
-REASSEMBLE_TORMENT_NEXUS.bat
+TORMENT_NEXUS_v0.1.0-beta.3_MUSIC_VISUALIZER_PATCH.zip
+INSTALL_TORMENT_NEXUS_BETA3_WITH_MUSIC_PATCH.bat
 ```
 
-Keep all three in the same folder and follow
+Keep all four in the same folder and follow
 [Installing on Windows](INSTALL_WINDOWS.md).
 
-## The reassembly helper says a part is missing
+## The patched installer says a file is missing
 
 - Confirm both `.part01` and `.part02` finished downloading.
-- Put both parts and `REASSEMBLE_TORMENT_NEXUS.bat` in the same folder.
+- Put both parts, the music visualizer patch ZIP, and
+  `INSTALL_TORMENT_NEXUS_BETA3_WITH_MUSIC_PATCH.bat` in the same folder.
 - Do not rename the files.
 - Check whether the browser added `(1)` or another suffix after a repeated
   download. Remove the incomplete duplicate and download the correct file
@@ -38,13 +40,29 @@ Keep all three in the same folder and follow
 - Make sure the files are not still represented by temporary browser download
   names.
 
-Run the helper again only after the filenames match the release exactly.
+Run the installer again only after all four filenames match the release
+exactly.
 
 ## The rebuilt ZIP will not open or its checksum is wrong
 
 One of the parts may be incomplete or damaged. Delete `TORMENT_NEXUS.zip`,
-download both parts again, rerun the helper, and repeat the checksum check.
-Do not run setup when the release checksum does not match.
+download both parts again, and rerun the patched installer. It checks the
+checksum automatically and stops before extraction when the package is
+damaged. Do not run setup when the release checksum does not match.
+
+## I already installed Beta 3 and only need the visualizer repair
+
+1. Close TORMENT_NEXUS.
+2. Download and extract
+   `TORMENT_NEXUS_v0.1.0-beta.3_MUSIC_VISUALIZER_PATCH.zip`.
+3. Double-click `APPLY_MUSIC_VISUALIZER_PATCH.bat`.
+4. If asked, choose the TORMENT_NEXUS folder containing
+   `start_assistant.bat`.
+
+The patch refuses unfamiliar file versions, saves the originals under
+`backups`, and does nothing if the same repair is already installed. To undo
+it, open the newest `backups\music_visualizer_patch_beta3_*` folder and
+double-click `RESTORE_ORIGINAL_FILES.bat`.
 
 ## Windows or security software blocks a file
 
@@ -158,7 +176,22 @@ Supported file types are MP3, WAV, FLAC, and OGG.
 Space advances local music only while the visualizer is in music mode. It does
 not control Spotify or browser playback.
 
-Type `music mode`, confirm a local song is active, and press Space again.
+Playing a local song should open music mode automatically. If the visualizer
+was closed manually, type `music mode`, confirm a local song is active, and
+press Space again.
+
+## Text, code, or diagnostics appear beneath the visualizer
+
+The current visualizer protects the terminal's bottom-right cell from automatic
+line wrapping and redirects background Python audio diagnostics to:
+
+```text
+assistant\logs\visualizer_output.log
+```
+
+That log is local and is not displayed over the animation. If the screen still
+scrolls or jitters, include the Windows terminal application, terminal size,
+active scene, and the final non-private lines of that log in a bug report.
 
 ## Text disappears at the right edge
 

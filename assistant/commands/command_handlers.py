@@ -1551,15 +1551,28 @@ def _play_local_track(query):
     except player.LocalPlaybackError as error:
         return f"MUSIC FAILED\n{'=' * 58}\n\n{error}"
 
+    visualizer_result = ui.enter_music_mode()
     _, total = player.get_player().position()
     status = f"Playing {name} (local)"
-    ui.set_music_status(status[:70])
+    hud_status = status
+    if "capture failed" in visualizer_result.lower():
+        hud_status += " | visualizer idle: capture unavailable"
+    ui.set_music_status(hud_status[:70])
 
     # Playback has already started. Speaking this confirmation now would talk
     # over the opening of the song, so audio mode displays it silently. Text
     # mode still receives an ordinary string-compatible result.
+    if visualizer_result == "Music mode already on.":
+        visualizer_note = "Visualizer is already open. Press Ctrl+B to leave it."
+    elif visualizer_result.startswith("Music mode unavailable"):
+        visualizer_note = visualizer_result
+    else:
+        visualizer_note = (
+            "Visualizer opened automatically. Press Ctrl+B to leave it."
+        )
     return voice_session.silent_reply(
-        f"MUSIC\n{'=' * 58}\n\n{status} - {_clock(total)}"
+        f"MUSIC\n{'=' * 58}\n\n{status} - {_clock(total)}\n\n"
+        f"{visualizer_note}"
     )
 
 
@@ -1686,7 +1699,7 @@ def handle_play_playlist(user_input):
     return result
 
 
-@command("play", "Play a local track, or fall back to Spotify by name",
+@command("play", "Play a local track and open its visualizer, or use Spotify",
          usage="play <track>", dev_only=False, group="music")
 def handle_play_track(user_input):
     if not _match_prefix(user_input, "play "):

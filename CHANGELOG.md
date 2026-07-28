@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Made every successful local `play <track>` request open the music visualizer
+  automatically.
+- Prevented terminal wrapping and background audio diagnostics from producing
+  a jittering code stream beneath the visualizer.
+- Added scene-specific response shaping for more dramatic bass, beat, melody,
+  treble, stereo, spectrum, and waveform movement.
+- Added a checksum-verified, reversible Beta 3 music visualizer patch and a
+  novice installer that applies it automatically to the original release ZIP.
 - Reorganized the GitHub landing page around a clear novice Windows install.
 - Added dedicated Windows installation, first-session, and troubleshooting
   guides.

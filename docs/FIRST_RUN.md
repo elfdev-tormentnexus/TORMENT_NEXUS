@@ -74,9 +74,11 @@ play <part of the song name>
 
 Song matching tolerates casual spelling when there is one clear local match.
 A successful local-song start is shown on screen instead of spoken, so the
-voice does not cover the opening lyrics.
+voice does not cover the opening lyrics. The visualizer opens automatically as
+soon as a local song starts.
 
-Type `music mode` to open the visualizer:
+Type `music mode` only when you want to open the visualizer without starting a
+new local song:
 
 | Key | Action |
 | --- | --- |
@@ -86,7 +88,10 @@ Type `music mode` to open the visualizer:
 | Ctrl+B | Exit the visualizer |
 
 The scene changes every 2 minutes 45 seconds. The colour palette changes every
-20 seconds. Space does not skip Spotify or browser audio.
+20 seconds. Space does not skip Spotify or browser audio. The scenes use
+different response profiles: bass expands the tunnel and reactor, spectrum
+detail raises the cathedral, and mids and treble drive the cube's motion and
+corruption.
 
 ## Reading long answers
 

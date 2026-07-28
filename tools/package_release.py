@@ -80,8 +80,11 @@ INCLUDE_FILES = [
     "docs/ARCHITECTURE.md",
     "docs/BETA_GUIDE.md",
     "docs/BRING_YOUR_OWN_GGUF.md",
+    "docs/FIRST_RUN.md",
+    "docs/INSTALL_WINDOWS.md",
     "docs/RELEASE_CHECKLIST.md",
     "docs/TESTING.md",
+    "docs/TROUBLESHOOTING.md",
     "LICENSES/QWEN_APACHE-2.0.txt",
     "setup/requirements.txt",
     "setup/requirements-voice.txt",
@@ -865,7 +868,8 @@ MUSIC AND VISUALIZER
     Open this TORMENT_NEXUS folder, then open assistant\music. Put your own
     MP3, WAV, FLAC, or OGG files there. Type "music library" or
     "play <part of the song name>". A successful start message is shown
-    instead of spoken, so the voice does not cover the opening lyrics.
+    instead of spoken, so the voice does not cover the opening lyrics. The
+    full-screen visualizer opens automatically for a local song.
 
     In music mode:
         Left/Right     change visualizer scene
@@ -874,8 +878,9 @@ MUSIC AND VISUALIZER
         Ctrl+B         exit music mode
 
     Scenes rotate every 2 minutes 45 seconds. Colours change automatically
-    every 20 seconds. Space affects local music only, never Spotify or a
-    browser.
+    every 20 seconds. Each scene reacts strongly to a different mix of bass,
+    beat, melody, treble, stereo movement, and waveform detail. Space affects
+    local music only, never Spotify or a browser.
 
 TIME AND RETURNING
     TORMENT_NEXUS reads this computer's local clock during each reply. It
