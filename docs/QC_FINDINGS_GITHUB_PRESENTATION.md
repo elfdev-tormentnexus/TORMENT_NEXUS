@@ -12,6 +12,41 @@ published v0.2.0-beta.6 release rather than against intent.
 
 Reviewed at commit `353913b`, release published 2026-07-28.
 
+## Status
+
+Updated 2026-07-28, after the fixes below landed.
+
+| # | Finding | Status |
+| --- | --- | --- |
+| 1 | README documents a stale install path | **fixed** — downloader first, manual path kept as a fallback, guard patches are now Step 4 in both README and `INSTALL_WINDOWS.md` |
+| 2 | Hero image invisible on light theme | **fixed** — hero is now `assets/sable_mark.png`; see the measurement note below |
+| 3 | Repository description contradicts the warning | **open** — a GitHub setting, not a file |
+| 4 | No custom social preview | **open** — `assets/social_preview.png` exists and measures 3.75:1 light / 5.05:1 dark, but must be uploaded in repository settings |
+| 5 | GitHub reports no licence | **fixed** — `LICENSE` added, stating the reservation and pointing at `RIGHTS.md`. Not a licence grant |
+| 6 | Release page buries the install instructions | **open** — edits published release body |
+| 7 | Topics under-describe the project | **open** — a GitHub setting, not a file |
+
+Findings 3, 4, 6 and 7 cannot be fixed from the repository. They need
+someone with write access to the GitHub project settings and release page.
+
+### Measurement note on finding 2
+
+`tools/icon_contrast.py` now distinguishes two cases that the original
+measurement conflated, because the naive metric condemns the replacement
+mark for the wrong reason.
+
+A **transparent-background glyph** floats directly on the page, so its own
+ink must clear 3:1 against both themes. That is the smiley's real failure:
+mean opaque colour `rgb(241, 224, 229)` at 1.27:1 against white.
+
+An **opaque slab** brings its own background, so the page never touches the
+ink. `assets/sable_mark.png` is 100% opaque and 93.6% of it is
+`rgb(9, 10, 15)`, which scores 1.00:1 against GitHub dark — but nothing asks
+a reader to distinguish the slab from the page. Its ink measures **14.94:1
+against its own field**, and the pink title reads at 5.84:1 against the dark
+theme and sits on a near-black slab on the light one. It is legible on both.
+Mean-opaque colour is simply the wrong question for that image.
+
 ---
 
 ## 1. The README documents an install path the release no longer uses [HIGH]

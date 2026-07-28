@@ -1,0 +1,34 @@
+NO PROJECT-WIDE LICENSE GRANT
+
+This file exists so that the absence of an open-source license is legible as
+a decision rather than an oversight. It is not a license, and it does not
+grant permission to anyone.
+
+TORMENT_NEXUS is source-visible. It is not offered under an open-source
+license. No general permission is granted by this project to copy, modify,
+redistribute, publish, sell, sublicense, or incorporate project-authored
+code, documentation, artwork, or other original material into another work.
+Rights normally reserved to each copyright holder remain reserved unless a
+specific file, or a later license, says otherwise.
+
+Viewing the repository through GitHub, and any cloning or downloading the
+platform technically permits, is not a project-wide grant to reuse or
+redistribute the material. You may inspect the source to understand the
+project, evaluate whether to run it, and prepare a responsible issue report,
+to the extent allowed by applicable law and the hosting platform's terms.
+
+If you need permission for another use, ask the repository owner and obtain a
+clear written grant before relying on it.
+
+Third-party components keep their own licenses and are not relicensed by this
+statement. This includes language and embedding models, voice models,
+llama.cpp, Python packages, DLLs, fonts, and other incorporated material,
+some of which carry restrictive or unresolved terms.
+
+The complete rights statement, including third-party terms, the Beta 6
+distribution decision, contributions, and the warranty position, is in
+RIGHTS.md. See also MODELS.md and THIRD_PARTY_NOTICES.md.
+
+This document states the repository's current permission boundary. It is not
+legal advice and does not limit rights that applicable law grants
+independently.

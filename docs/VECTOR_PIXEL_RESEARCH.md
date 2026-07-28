@@ -116,6 +116,24 @@ high-entropy, so the "just compress it instead" answer that defeats
 byte-to-pixel *fails here*. Against the naive baseline of storing floats,
 the quantised form is a genuine 4× improvement that costs 7e-05 of cosine.
 
+### Against zlib, stated directly
+
+"How does it do against just compressing it" is the first question anyone
+asks, and the table above answers it only by division. Stated outright,
+against the realistic baseline of zlib'd float32:
+
+| Form | vs float32 + zlib |
+| --- | --- |
+| quantised + zlib | 4.45× |
+| quantised, raw bytes | 3.73× |
+| **quantised PNG (SABLEVEC1)** | **3.59×** |
+
+So the shipped artifact is **3.6× smaller than zlib'd float32** — a real
+end-to-end number against the obvious alternative. Note where it sits in that
+table, though: the PNG is the *weakest* of the three quantised forms, not the
+strongest. The 3.6× is earned by quantisation and partly given back by the
+container. Both readings are the same finding from opposite ends.
+
 So the correct claim is narrow and defensible:
 
 > Embedding sets are wastefully stored as float32. Quantising to uint8 costs
@@ -183,7 +201,7 @@ plus 43 from the story. At that scale PQ with a useful codebook is expected
 to lose badly to plain uint8, and the technique only becomes interesting
 above roughly a thousand vectors.
 
-`scratchpad/pq_probe.py` implements the measurement — k-means per subspace,
+`tools/pq_probe.py` implements the measurement — k-means per subspace,
 size and mean-cosine at several (M, K) settings. **It was written and never
 executed.** No recall numbers exist. Do not cite any until it runs.
 
@@ -218,7 +236,96 @@ own tests.
 - Can retrieval run directly against the quantised form without
   dequantising? Integer cosine on uint8 would be faster, not just smaller.
 
-## 7. What this is not
+## 6a. The header does not record which model produced the vectors
+
+`SABLEVEC1` stores `dims`, `count`, `scale`, `low` and `layout` — everything
+needed to reconstruct the numbers, and nothing that says what they mean. The
+top of this document warns that changing the model, quantisation or pooling
+invalidates every figure here, but the container itself cannot express that
+warning, so a file carries no evidence of its own origin.
+
+That is tolerable while one process writes and reads its own cache. It
+becomes a real defect the moment a file is exchanged, because a receiver has
+no way to detect that the vectors came from a different embedder and cosine
+against its own vectors is meaningless rather than merely degraded — it
+fails silently, which is the failure mode this project treats as worst.
+
+Minimum fix: carry `model`, `pooling` and the embedder's file digest in the
+same `tEXt` JSON, and have the decoder refuse a mismatch rather than warn.
+Not implemented.
+
+## 7. Anchor sets — a rosetta stone between two models' spaces
+
+The question this line of work keeps circling: two agents built on different
+embedders cannot share vectors, because dimension 7 in one model has no
+relationship to dimension 7 in another. Same dimensionality does not imply
+same meaning. Cosine between vectors from different models is not degraded
+signal, it is noise. **A container format cannot fix this** — SABLEVEC1
+transports numbers faithfully and says nothing about what they mean, so
+shipping a file between two models makes their vectors equally readable and
+no more mutually intelligible than before.
+
+There is a technique that does address it, and it is published rather than
+ours. **Relative representations** (Moschella et al., *Relative
+representations enable zero-shot latent space communication*, ICLR 2023).
+The idea:
+
+1. Fix an ordered set of **anchor texts**, shared by both agents.
+2. Each model embeds the anchors in its own private space.
+3. Any vector is then re-expressed as its similarities to those anchors —
+   `[cos(v, a1), cos(v, a2), ... cos(v, aN)]` — instead of its own
+   coordinates.
+
+Both models now describe meaning in a coordinate system defined by *content
+they both saw*, not by axes neither can explain to the other. The rosetta
+stone analogy is exact rather than decorative: the stone worked because the
+same decree appeared in three scripts, and the anchors are the same texts in
+two vector languages.
+
+The older alternative is a **learned linear map** — Procrustes alignment on
+paired embeddings (Mikolov et al. 2013; Conneau et al. 2017 for the
+cross-lingual case). It works, but it must be fitted per model pair and
+needs paired data. Relative representations need no fitting, which is what
+makes them interesting for agents that meet without prior arrangement.
+
+### What it would cost, honestly
+
+- Dimensionality becomes N, the anchor count. The published work uses
+  hundreds; too few anchors and distinct meanings collapse together.
+- Anchors must span the domain they will be used on. Anchors drawn from one
+  subject give a distorted account of another.
+- It is an approximation, not an isomorphism. Expect retrieval quality below
+  each model's native performance — the gain is that cross-model comparison
+  becomes possible at all, not that it becomes free.
+- Quantising a relative representation is a second lossy step on top of the
+  first, and the two have not been measured together.
+
+### What the container would need
+
+Section 6a's fix is a precondition, not a separate task. A relative-
+representation file is meaningless without knowing what it is relative *to*,
+so the header must carry:
+
+```json
+{"magic": "SABLEVEC1", "space": "relative",
+ "anchors": "<sha256 of the ordered anchor texts>", "count_anchors": <N>,
+ "model": "<embedder id>", "pooling": "mean"}
+```
+
+A decoder should refuse to compare two files whose `anchors` digests differ,
+rather than returning a number that looks like a similarity.
+
+### Status
+
+**Not implemented and not measured.** Nothing in this document supports a
+claim that it works at this project's scale. A genuine test also needs a
+second embedding model — the project ships only `bge-small-en-v1.5` — so
+this cannot be evaluated against the current bundle alone. The cheapest
+honest first experiment is two different public embedders over one shared
+anchor set, measuring whether nearest-neighbour agreement survives the
+translation.
+
+## 8. What this is not
 
 It is not a compression advance, not a novel format, and not a way for a
 model to read meaning out of a picture. A projection to two dimensions is

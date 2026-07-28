@@ -1,5 +1,6 @@
 <p align="center">
-  <img src="assets/assistant_icon_animated.png" width="128" alt="TORMENT_NEXUS icon">
+  <img src="assets/sable_mark.png" width="520"
+       alt="SABLE — a dark mark reading SABLE above the words SCAN ME, with a thin data stripe along the bottom edge">
 </p>
 
 <h1 align="center">TORMENT_NEXUS</h1>
@@ -103,23 +104,57 @@ contains:
 | Internet for the initial download | Ordinary local conversation and the offline library work without it afterward. |
 | Microphone only if desired | Beta 6 starts in text mode, with microphone use off. |
 
-### Four steps
+### Five steps
 
 1. Open [GitHub Releases](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases),
    select `v0.2.0-beta.6`, expand **Assets**, and read its warning, manifest,
    checksums, model provenance, and known issues.
-2. Download
-   `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01` and every
-   consecutive later `.partNN` file, plus
-   `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat`. Keep them
-   together and do not rename them.
-3. Run the reassembler, verify the resulting
-   `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip` against the published
-   SHA-256, extract it, and run `setup.bat`.
-4. Launch the desktop shortcut. Before any model, microphone, activity
+2. Download the single file
+   `DOWNLOAD_TORMENT_NEXUS_v0.2.0-beta.6.bat` into an empty folder with room
+   to spare, and double-click it. It fetches all twelve release files,
+   verifies each one against its published SHA-256, and stops on any
+   mismatch. Nothing else needs downloading by hand.
+3. Run `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat`, verify the
+   resulting `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip` against the
+   published SHA-256, extract it, and run `setup.bat`.
+4. **Apply the two guard patches by hand.** Nothing does this for you. Move
+   the four files below into the extracted `TORMENT_NEXUS` folder — the one
+   containing `start_assistant.bat` — and double-click each installer. They
+   are independent and may be run in either order.
+
+   ```text
+   INSTALL_ASK_GUARD_PATCH.bat
+   TORMENT_NEXUS-v0.2.0-beta.6-ask-guard-patch.zip
+
+   INSTALL_COMMAND_GUARD_PATCH.bat
+   TORMENT_NEXUS-v0.2.0-beta.6-command-guard-patch.zip
+   ```
+
+   These replace manifest-hashed files, so an installed tree that has them
+   applied no longer matches the published archive checksum. That is
+   deliberate, and it is why the reassembler names them but refuses to run
+   them. The documentation patch is different — the reassembler applies that
+   one for you.
+5. Launch the desktop shortcut. Before any model, microphone, activity
    sampler, listener, or network-capable subsystem starts, the application
    displays its disclosure and requires the exact text `I UNDERSTAND`.
    Anything else closes the application without starting those components.
+
+<details>
+<summary>Fallback: download the parts by hand</summary>
+
+If the downloader cannot run — locked-down machine, blocked script host, or
+a proxy that mangles it — fetch
+`TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01` and every consecutive
+later `.partNN` file, plus
+`REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` and the four guard
+patch files above. Keep them together and do not rename them, then continue
+from step 3.
+
+</details>
+
+`INSTALL_INTERFACE_MODE.bat` and the 14B full-maintenance coder are separate
+optional add-ons. Neither is needed for a working install.
 
 Do not use GitHub’s green **Code** button or automatic **Source code**
 archives for this path. Those are developer source snapshots, not

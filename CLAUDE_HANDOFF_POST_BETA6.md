@@ -4,6 +4,19 @@ Written at the operator's request as usage ran short. Supersedes
 `CLAUDE_BETA6_HANDOFF.md` on every point where they disagree: that note was
 accurate when written and every blocker in it is now cleared.
 
+> **Update, later the same day.** Four things below are now stale.
+>
+> - **Queue item 2 is done.** `docs/VECTOR_PIXEL_RESEARCH.md` is the write-up.
+> - **`pq_probe.py` was not in the repository.** It only existed in a prior
+>   session's temp scratchpad and would have been lost to cleanup. Rescued to
+>   `tools/pq_probe.py`. Still never executed.
+> - **The 3.6× figure was in neither document.** It is
+>   `float32+zlib ÷ quantised PNG = 3.588×`, now stated outright in §3 of the
+>   research doc rather than left as a division for the reader.
+> - **QC findings 1, 2 and 5 are fixed** (README install path, hero image,
+>   `LICENSE`). Findings 3, 4, 6 and 7 are GitHub settings and the release
+>   page, which cannot be changed from the repository.
+
 ## State
 
 ```text

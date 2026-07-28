@@ -59,7 +59,26 @@ Exact sizes, hashes, provenance, behavior, and license status are recorded in
 
 ## Step 1: Download every Beta 6 part
 
-Open the Beta 6 release, expand **Assets**, and download:
+### The short way: one file
+
+Open the Beta 6 release, expand **Assets**, and download the single file:
+
+```text
+DOWNLOAD_TORMENT_NEXUS_v0.2.0-beta.6.bat
+```
+
+Put it in an empty folder on a drive with room to spare and double-click it.
+It fetches all twelve release files, verifies each one against its published
+SHA-256 as it goes, and stops on the first mismatch instead of leaving you
+with a corrupt archive. When it finishes, continue at Step 2.
+
+It downloads the two guard patches for you. It does **not** apply them —
+that is Step 4, and nothing else will prompt you.
+
+### The long way: by hand
+
+Use this if the downloader cannot run — a locked-down machine, a blocked
+script host, or a proxy that mangles it. Download:
 
 ```text
 TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01
