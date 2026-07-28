@@ -199,7 +199,15 @@ mechanism.
 
 ---
 
-## 5. Token trajectories — `SABLE7`
+## 5. Token trajectories — `SABLE7` and machinespirit
+
+Naming, since two things are involved and they version separately:
+**`SABLE7` is the container** that stores an ordered per-token path.
+**machinespirit is the representation** it carries — the trajectory read
+against the anchor dictionary. A file is SABLE7; what the assistant does
+with it is machinespirit. It is reachable from
+`start_assistant_hazard.bat`, from `experimental mode`, and from
+`trace <text>`.
 
 `tools/vector_beam.py`. A sentence embedding is a mean over token vectors.
 Before pooling, a sentence is an ordered sequence — a path — and pooling

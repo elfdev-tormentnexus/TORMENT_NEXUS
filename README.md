@@ -276,6 +276,50 @@ monitoring, or safety-critical decisions.
 See [Sensing module notes](docs/SENSING_MODULE.md) and the
 [research goals](docs/RESEARCH_GOALS.md).
 
+## machinespirit: locating meaning, not just measuring it
+
+An embedding is a mean over a sentence's token vectors. The mean can say
+what a sentence is about. It cannot say *where* in the sentence a meaning
+appeared, because averaging is exactly what destroys that.
+
+**machinespirit** keeps the path instead of only the average, and reads
+every token position against a fixed dictionary of concepts written in
+plain English. The result locates a meaning at a token:
+
+```text
+trace I keep thinking about something my grandmother said before she died.
+
+  token   7  +0.459  grandparents telling the same story again
+  token  11  +0.421  a promise made to a dying person
+```
+
+`SABLE7` is the container that stores such a path; machinespirit is the
+representation it carries. Run it with `start_assistant_hazard.bat`, or
+`experimental mode` inside an ordinary session. It is **slower on purpose**
+and keeps a second embedding server resident, because llama.cpp fixes
+pooling when a server starts and a trajectory cannot come from the pooled
+one.
+
+**What it does not do: change retrieval.** Keeping the path has not been
+shown to retrieve better. Late interaction over trajectories returned the
+same documents as ordinary pooled cosine, and anchor-space coordinates
+scored 0.689 against uint8's perfect 1.000. So trajectories run alongside
+retrieval rather than replacing it, and the mode says so when you turn it
+on. What machinespirit adds today is the trace — a thing the averaged
+vector cannot produce at all, rather than one it produces slightly worse.
+
+Two companion documents record the measurements, including the ones that
+came out negative, and name the prior art first:
+
+- [Vector-to-pixel encoding](docs/VECTOR_PIXEL_RESEARCH.md) — where
+  quantisation pays (4.00×, at a cosine error 868× below the retrieval
+  margin), where a pixel container costs, and why storing bytes as pixels
+  is reach rather than compression.
+- [Cross-model translation and token trajectories](docs/VECTOR_TRANSLATION_RESEARCH.md)
+  — translating between two models that share no vector space, measured
+  across a 384-dimension and a 768-dimension embedder, and what a sentence
+  discards when it becomes a point.
+
 ## Privacy and network summary
 
 | Feature | Default and boundary |
