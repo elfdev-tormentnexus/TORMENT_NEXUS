@@ -1,5 +1,9 @@
 # TORMENT_NEXUS beta testing
 
+This guide is for someone deliberately testing the beta. Ordinary users should
+start with [Installing on Windows](INSTALL_WINDOWS.md) and
+[Your first session](FIRST_RUN.md).
+
 Run the automated regression suite before and after a meaningful change:
 
 ```powershell
@@ -55,5 +59,10 @@ instead of awarding the bonus.
 ## Reporting a problem
 
 Include the command or prompt, the visible result, approximate timing, and the
-active mode: text, voice, music, visualizer, web, or hardware. Do not include
-credentials, private memories, or device pairing data.
+active mode: text, voice, music, visualizer, web, or hardware. Include the
+Windows version, amount of memory, and beta version when relevant.
+
+Do not include credentials, private memories, conversation history, addresses,
+or device pairing data. See the longer
+[troubleshooting and bug-report guide](TROUBLESHOOTING.md#how-to-write-a-useful-bug-report)
+for common problems and a novice-friendly checklist.

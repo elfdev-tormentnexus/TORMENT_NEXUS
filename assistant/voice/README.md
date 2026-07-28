@@ -1,60 +1,53 @@
-# Voice-first offline interface
+# Voice setup and controls
 
-TORMENT_NEXUS starts in audio mode by default. Audio mode accepts either typed or
-spoken turns and answers both through Piper.
-Typed input and Up/Down command cycling remain active while TORMENT_NEXUS listens,
-generates, synthesizes, and speaks; a completed message typed during an answer
-is queued for the next turn. Microphone input is optional, so typed-to-spoken
-conversation still works on a computer with no usable microphone.
+TORMENT_NEXUS starts in audio mode by default. Audio mode can accept typed or
+spoken messages and can read answers aloud. A microphone is optional: typed
+input and spoken replies still work when no microphone is available.
 
-The default `en_US-hfc_female-medium` Piper model supplies articulation and
-the feminine source timbre. Ordinary replies then use a dry, fixed-carrier
-vocoder: it keeps Piper's vocal-envelope information while constraining pitch
-into a deliberately cold machine register. There is no actor recording,
-echo, chorus, delay, rhythmic gate, or sampled dialogue in the path.
+## Everyday controls
 
-An additional cadence pass finds low-energy seams between syllable groups and
-alternates through asymmetric upward pitch steps. Each group is read at a
-slightly different speed, so pitch and formants move together without spectral
-reconstruction. This produces deliberate low/high machine inflections while
-keeping every step at or above the feminine source register. No reference
-voice recording is downloaded, copied, or stored.
+Use these commands inside TORMENT_NEXUS:
 
-Type `sing daisy bell` from either terminal mode. The performance begins with
-the public-domain 1892 chorus, continues through a short instrumental bridge,
-and finishes with an original answering chorus whose machine perspective stays
-inside the song's period imagery:
+```text
+audio mode        turn listening and spoken replies on
+text mode         turn listening and spoken replies off
+voice status      show voice, model, and microphone readiness
+```
 
-> Dear one, dear one, here is my answer true.  
-> I'm half dreaming, thinking the whole night through.  
-> It need not be a grand marriage,  
-> nor a fine horse and carriage.  
-> But we can ride, side by side,  
-> on a bright machine built for two.
+The older `voice mode` and `exit audio` commands remain aliases. Press Escape
+to cancel current listening or speech.
 
-Both sections use fixed note and syllable timing, a pitch-locked singing
-carrier, and a generated 66-measure computer-organ waltz. The backing uses
-oscillators—no historical recording or music sample is included. The
-approximately 83-second performance is cached at
-`models/voice/cache/daisy_bell_machine_v7.wav`. Building the first performance
-takes longer; later performances play immediately.
+Typing remains available while the assistant listens, generates, or speaks. A
+completed message typed during an answer is queued for the next turn.
 
-The microphone path is half-duplex: TORMENT_NEXUS closes its microphone before
-playing a reply so it cannot transcribe its own speaker. Press **Escape** or
-type `text mode` at any point to return to the standard terminal. `exit audio`
-is retained as an alias. Type `audio mode` to return; the older `voice mode`
-command remains an alias for it.
+## Ready-to-run Windows beta
 
-## One-time setup on Windows
+The packaged Windows beta already contains its voice dependencies and model
+files. Run the package's top-level `setup.bat`; do **not** run the separate
+source voice installer.
 
-Run `setup_voice.bat` from the project folder. It installs the Python voice
-packages and downloads approximately 180 MiB of speech models into
-`models/voice`. After it finishes, restart the assistant; it will enter audio
-mode automatically. Type `voice status` whenever you want a setup report.
+If you turned speech off with `text mode`, type `audio mode` whenever you want
+it back. See [Troubleshooting](../../docs/TROUBLESHOOTING.md) for microphone,
+unexpected speech, or missing-device help.
 
-## One-time setup on Raspberry Pi OS (64-bit)
+## Source checkout setup on Windows
 
-Install PortAudio, then run the same Python setup:
+The instructions in this section are only for developers using a Git clone.
+From the project folder, run:
+
+```text
+setup\setup_voice.bat
+```
+
+It installs the source checkout's voice dependencies and downloads the
+recognition and speech models under `models\voice`. Internet access is needed
+for this one-time source setup. Restart the assistant afterward and type
+`voice status`.
+
+## Source checkout setup on Raspberry Pi OS
+
+Raspberry Pi voice setup is an advanced and experimental path. On 64-bit
+Raspberry Pi OS, install PortAudio and then run the voice setup:
 
 ```sh
 sudo apt update
@@ -62,57 +55,76 @@ sudo apt install -y libportaudio2 portaudio19-dev
 python3 assistant/voice/setup_voice.py
 ```
 
-The speech recognition, language model, and speech synthesis are all local
-after this download. No cloud speech account or API key is used.
+After the models are downloaded, speech recognition and synthesis run locally.
+No cloud speech account or API key is used.
 
-The default speaking voice is `en_US-hfc_female-medium`. To try another Piper
-voice later, download it into `models/voice/piper` and set
-`TORMENT_NEXUS_PIPER_VOICE` to its filename without `.onnx`; no retraining of Qwen
-is needed. The HFC female dataset uses CC BY-NC-SA 4.0 terms; review those
-terms before distributing its model file.
-
-The overall machine treatment defaults to 94% strength. To make it milder, set
-`TORMENT_NEXUS_ROBOT_STRENGTH` to a value from `0.0` to `1.0` before launching.
-Set `TORMENT_NEXUS_ROBOT_VOICE=0` to hear unprocessed Piper output.
-
-The stepped cadence defaults to 88% strength. Its timing holds speech groups
-for roughly 0.32 seconds and moves through asymmetric low/high plateaus before
-settling lower at the end of a phrase. This gives the voice its machine-like
-inflection while the vocoder preserves the HFC model's feminine envelope. Set
-`TORMENT_NEXUS_CADENCE_STRENGTH` from `0.0` to `1.0` to tune how far its alternating
-pitch offsets move. Set it to `0` to retain the clean feminine voice without the
-added cadence.
-
-`TORMENT_NEXUS_ROBOT_FORMANT_SHIFT` applies to both ordinary speech and Daisy Bell.
-Ordinary speech uses a 1.50 timing scale and a deliberate break between
-sentences; the spoken path is intentionally flatter than the sung one.
-
-To override the voice-first startup for a particular launch, set
-`TORMENT_NEXUS_START_IN_VOICE_MODE=0`. This does not remove audio mode; type
-`audio mode` whenever you want to enter it.
-
-The Whisplay HAT's WM8960 audio device must be visible to ALSA before voice
-mode can use its microphones and speaker. Complete the HAT maker's current
-driver/setup steps after the hardware arrives, then confirm the devices with:
+The Whisplay HAT audio device must be visible to ALSA before its microphone and
+speaker can be used. Follow the hardware maker's current driver instructions,
+then confirm that Linux can see the devices:
 
 ```sh
 arecord -l
 aplay -l
 ```
 
-By default, audio mode uses the operating system's default input and output.
-To select a particular device, set either variable before launching:
+## How the default machine voice works
+
+The default `en_US-hfc_female-medium` Piper model provides articulation and the
+source timbre. TORMENT_NEXUS then applies a dry machine treatment and stepped
+cadence. The speaking path does not contain an actor recording, sampled
+dialogue, echo, chorus, delay, or cloud voice service.
+
+The microphone path is half-duplex: the application closes its microphone
+before playing a reply so that it does not transcribe its own speaker.
+
+## Daisy Bell
+
+Type:
+
+```text
+sing daisy bell
+```
+
+The performance uses fixed note and syllable timing with a generated
+computer-organ backing. No historical recording or music sample is included.
+Its generated cache filename begins with `daisy_bell_machine_v10_` and includes
+the current mix and voice settings, preventing an older singer configuration
+from being reused accidentally.
+
+The first performance takes longer to build. Later performances can use the
+local cache.
+
+## Advanced voice configuration
+
+These environment variables are optional developer controls. Ordinary Windows
+beta users do not need them.
+
+| Variable | Purpose |
+| --- | --- |
+| `TORMENT_NEXUS_START_IN_VOICE_MODE=0` | Start one launch in text mode. Audio mode remains available. |
+| `TORMENT_NEXUS_PIPER_VOICE` | Select another locally installed Piper voice by filename without `.onnx`. |
+| `TORMENT_NEXUS_PIPER_SPEAKER` | Select a speaker number for a multi-speaker Piper model. |
+| `TORMENT_NEXUS_ROBOT_VOICE=0` | Use the unprocessed Piper output. |
+| `TORMENT_NEXUS_ROBOT_STRENGTH` | Set overall machine treatment from `0.0` to `1.0`. |
+| `TORMENT_NEXUS_CADENCE_STRENGTH` | Set stepped cadence strength from `0.0` to `1.0`. |
+| `TORMENT_NEXUS_ROBOT_FORMANT_SHIFT` | Adjust the formant treatment used by speech and Daisy Bell. |
+| `TORMENT_NEXUS_INPUT_DEVICE` | Select an input device name or numeric index. |
+| `TORMENT_NEXUS_OUTPUT_DEVICE` | Select an output device name or numeric index. |
+| `TORMENT_NEXUS_INPUT_CHANNELS` | Set the input channel count; some HATs expose two-channel capture. |
+
+On Windows Command Prompt, set a value for the current launch like this:
+
+```bat
+set "TORMENT_NEXUS_INPUT_DEVICE=device name or numeric index"
+start_assistant.bat
+```
+
+On Linux:
 
 ```sh
 export TORMENT_NEXUS_INPUT_DEVICE="device name or numeric index"
-export TORMENT_NEXUS_OUTPUT_DEVICE="device name or numeric index"
+./setup/start_assistant.sh
 ```
 
-On Windows, use `set "TORMENT_NEXUS_INPUT_DEVICE=..."` in a Command Prompt instead.
-If the Whisplay driver exposes only a two-channel capture stream, also set
-`TORMENT_NEXUS_INPUT_CHANNELS=2`; audio mode averages the two microphones before
-recognition.
-
-The `voice status` command reports device or model problems without entering a
-broken listening loop. A missing input device is reported as a microphone
-limitation rather than a fatal error when typed-to-spoken mode is still ready.
+The HFC female Piper dataset uses CC BY-NC-SA 4.0 terms. Review its included
+model card and license before redistributing the voice model.

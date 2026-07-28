@@ -1,5 +1,10 @@
 # T-Deck custom terminal firmware
 
+> [!WARNING]
+> This is an advanced, optional hardware guide. It is not required to install
+> or use the Windows beta. Flashing the wrong firmware can leave a device
+> unusable until its correct official firmware is restored.
+
 TORMENT_NEXUS can use a LilyGO T-Deck running Meshtastic as a compact,
 Bluetooth-connected companion terminal. The normal bridge in
 `assistant/hardware/tdeck.py` remains the authority for pairing, message

@@ -4258,6 +4258,73 @@ class SpeechPauseTests(unittest.TestCase):
         self.assertIn("TORMENT_NEXUS_CLAUSE_PAUSE", source)
 
 
+class DocumentationTests(unittest.TestCase):
+    """Keep the public beginner journey connected and readable."""
+
+    def _documents(self):
+        root = Path(__file__).resolve().parents[2]
+        documents = [
+            root / "README.md",
+            root / "CHANGELOG.md",
+            root / "assistant" / "voice" / "README.md",
+        ]
+        documents.extend(sorted((root / "docs").glob("*.md")))
+        return root, documents
+
+    def test_local_markdown_links_resolve(self):
+        root, documents = self._documents()
+        broken = []
+        pattern = re.compile(r"!?\[[^\]]*\]\(([^)]+)\)")
+
+        for document in documents:
+            text = document.read_text(encoding="utf-8")
+            for match in pattern.finditer(text):
+                target = match.group(1).strip().strip("<>")
+                if (
+                    not target
+                    or target.startswith(("#", "http://", "https://", "mailto:"))
+                ):
+                    continue
+
+                target = target.split("#", 1)[0]
+                candidate = (document.parent / target).resolve()
+                if not candidate.exists():
+                    broken.append(
+                        f"{document.relative_to(root)} -> {match.group(1)}"
+                    )
+
+        self.assertEqual(broken, [], "broken local documentation links")
+
+    def test_public_markdown_has_no_common_mojibake(self):
+        root, documents = self._documents()
+        damaged = []
+        markers = ("â€”", "â€™", "â€œ", "â€", "Ã", "\ufffd")
+
+        for document in documents:
+            text = document.read_text(encoding="utf-8")
+            found = [marker for marker in markers if marker in text]
+            if found:
+                damaged.append(
+                    f"{document.relative_to(root)}: {', '.join(found)}"
+                )
+
+        self.assertEqual(damaged, [], "damaged text encoding in documentation")
+
+    def test_beginner_install_path_names_every_release_asset(self):
+        root, _ = self._documents()
+        readme = (root / "README.md").read_text(encoding="utf-8")
+        installer = (
+            root / "docs" / "INSTALL_WINDOWS.md"
+        ).read_text(encoding="utf-8")
+
+        for text in (readme, installer):
+            with self.subTest(document="README" if text is readme else "installer"):
+                self.assertIn("TORMENT_NEXUS.zip.part01", text)
+                self.assertIn("TORMENT_NEXUS.zip.part02", text)
+                self.assertIn("REASSEMBLE_TORMENT_NEXUS.bat", text)
+                self.assertIn("Source code", text)
+
+
 class BatchScriptTests(unittest.TestCase):
     """
     An unclosed quote in a .bat is invisible and breaks it completely.

@@ -9,213 +9,258 @@
 </p>
 
 <p align="center">
-  <a href="#beta-status">Beta status</a> |
-  <a href="#what-it-does">Capabilities</a> |
-  <a href="#getting-started">Getting started</a> |
-  <a href="#bring-your-own-gguf">Bring your own GGUF</a> |
-  <a href="#documentation">Documentation</a>
+  <a href="#installing-the-windows-beta">Install on Windows</a> |
+  <a href="#your-first-launch">First launch</a> |
+  <a href="#what-it-can-do">What it can do</a> |
+  <a href="#choose-the-right-guide">All guides</a>
 </p>
 
 <p align="center">
   <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.1.0-beta.3">
-    Latest beta: v0.1.0-beta.3
+    Download the latest beta: v0.1.0-beta.3
   </a>
 </p>
 
-## Beta status
+> [!IMPORTANT]
+> **Want to use TORMENT_NEXUS on Windows? Do not use GitHub's green
+> `Code` button or its automatic `Source code` downloads.** Those files are
+> for developers and do not contain the AI model or self-contained Windows
+> runtime. Follow the Windows instructions below and download the three named
+> release files.
 
-TORMENT_NEXUS is in active beta. This public repository is the **source and
-documentation** for the project. A ready-to-run Windows beta is available on
-the [Releases page](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases).
+## Installing the Windows beta
 
-The local language model, llama.cpp binary, most voice assets, personal
-runtime state, and the multi-gigabyte Windows handoff package are deliberately
-excluded from Git. A fresh clone is therefore for developers and reviewers who
-can provision those dependencies themselves.
+You do not need to know how to code. The ready-to-run Windows beta includes its
+own Python runtime, AI model, voice files, and installer. You do not need to
+install Python, use a command line, create an account, supply an API key, or
+download a separate model.
 
-The project is designed to be local-first, inspectable, reversible, and honest
-about its limits. It is software with a deliberately stylized identity -- not a
-claim of consciousness or personhood.
+### Before you start
 
-## What it does
+| You need | Why |
+| --- | --- |
+| 64-bit Windows | The current packaged beta is built for 64-bit Windows. |
+| About 10 GB of free space during installation | The two download parts, rebuilt ZIP, and extracted folder temporarily exist together. The installed folder is about 3 GB. |
+| At least 8 GB of memory | 8 GB is comfortable for text use; 16 GB is better when using voice at the same time. |
+| Internet for the download | Setup and ordinary conversation work locally after the files are downloaded. |
+| A microphone only if you want to speak | Typed input and spoken replies still work without a microphone. |
 
-- Runs local conversation with Qwen3-4B-Instruct-2507 through llama.cpp.
-- Provides a voice-first terminal with typed input always available.
-- Speaks through an offline Piper-based voice pipeline and can optionally use
-  offline speech recognition.
-- Uses a local memory store with visible, removable saved facts.
-- Reads the local system clock on each turn so it can understand the current
-  date and time, session age, and gaps between completed conversations without
-  pretending it was conscious or active while the program was closed.
-- Routes plain-language requests to guarded project, music, search, and
-  hardware tools.
-- Offers reviewable self-editing workflows, including an opt-in watched batch
-  of up to three tightly bounded autonomous repairs. A clean post-restart
-  health and regression validation earns one extra guarded repair; failed
-  validation restores the batch. Also supports documentation work in `workshop/`.
-- Supports optional SearXNG web search, local music playback and visualisation,
-  Raspberry Pi planning, and a Meshtastic T-Deck companion terminal.
-- Opens the already installed Spotify desktop client or its in-app search
-  without copying the Spotify profile or requiring a developer key. It uses
-  an optional MusicBrainz metadata lookup to show five terminal results, then
-  sends the chosen title-and-artist search to Spotify.
+### Five installation steps
+
+1. Open the
+   [v0.1.0-beta.3 release page](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.1.0-beta.3)
+   and expand **Assets** if the file list is hidden.
+2. Download all three of these files into the same folder:
+   - `TORMENT_NEXUS.zip.part01`
+   - `TORMENT_NEXUS.zip.part02`
+   - `REASSEMBLE_TORMENT_NEXUS.bat`
+3. Double-click `REASSEMBLE_TORMENT_NEXUS.bat`. Wait for it to create
+   `TORMENT_NEXUS.zip`.
+4. Right-click `TORMENT_NEXUS.zip`, choose **Extract All**, and open the
+   extracted `TORMENT_NEXUS` folder. Do not run setup from inside the ZIP.
+5. Double-click `setup.bat`. When it finishes, launch **TORMENT_NEXUS** from
+   the new desktop shortcut.
+
+Setup is offline and normally takes only a few minutes. It changes nothing in
+your system Python, PATH, or registry. Everything stays in the extracted
+folder, apart from the desktop shortcut.
+
+For checksum verification, Windows security messages, or anything that does
+not match these steps, use the
+[complete Windows installation guide](docs/INSTALL_WINDOWS.md).
+
+## Your first launch
+
+The first message can take a little longer while the local model loads into
+memory. This is normal.
+
+Type:
+
+```text
+tutorial
+```
+
+The tutorial shows two short topics at a time. Type `next`, `n`, or `continue`
+to move forward. You can restart it later with `tutorial restart`.
+
+These are useful first commands:
+
+```text
+help              show available commands
+health check      explain what is working on this computer
+voice status      check voice and microphone readiness
+music library     list local songs
+text mode         turn spoken replies off
+audio mode        turn spoken replies back on
+```
+
+Read [Your first session](docs/FIRST_RUN.md) for a friendly tour of
+conversation, voice, memory, music, the visualizer, time awareness, and long
+answers.
+
+## What it can do
+
+- Hold local conversations using the included language model.
+- Accept typed input at all times and optionally listen through a microphone.
+- Speak replies through an offline voice.
+- Remember selected facts in visible local files that can be reviewed or
+  removed.
+- Read the computer's local clock during each reply, allowing it to understand
+  the current date and time, session length, and the gap since the previous
+  conversation.
+- Find and play music placed in its local music folder, including casually
+  typed song names.
+- Display a psychedelic Y2K music visualizer with rotating scenes and colours.
+- Show long replies one page at a time so instructions do not disappear above
+  the screen.
+- Optionally connect to separately configured web search, Spotify, Raspberry
+  Pi, and Meshtastic hardware features.
+- Offer guarded, reviewable project-editing tools for advanced users.
+
+TORMENT_NEXUS is software with a deliberately stylized identity. Time
+awareness does not mean it watched, waited, thought, worked, felt, or remained
+conscious while the program was closed.
 
 ## Local by default, connected by choice
 
-| Area | Default behaviour |
+| Feature | What leaves the computer? |
 | --- | --- |
-| Conversation, model, memory, and speech | Local to the machine |
-| Time awareness | Reads the computer's local clock and saved conversation timestamps; no location service or network request |
-| Web search | Optional; queries leave the machine only when `search` is used through configured SearXNG |
-| Music metadata lookup | Optional; the text in `spotify search` is sent to MusicBrainz, then the selected title and artist are opened in Spotify |
-| Hardware | Optional; requires deliberate local setup and pairing |
-| Self-editing | Guarded and reviewable; protected files remain off-limits |
-| Goal engine | Optional and document-only inside `workshop/`; no code execution or network access |
+| Conversation, model, memory, and speech | Nothing by default. These run locally. |
+| Time awareness | Nothing. It reads the computer's clock and saved conversation timestamps. |
+| Local music and visualizer | Nothing. Songs stay in the local music folder. |
+| Web search | Search text leaves the computer only when optional SearXNG search is configured and used. |
+| Spotify search | The search text is sent to MusicBrainz for public song metadata, then opened in the installed Spotify app. |
+| Hardware | Nothing unless optional hardware is deliberately configured and used. |
+| Project editing | Changes are limited by local Python guardrails and review steps. |
 
-## Getting started
+The release package starts with no maintainer conversation history, saved
+memories, music, passcode, API key, or paired device information.
 
-### Windows beta package
+## Voice
 
-A packaged Windows beta is built separately from this source repository. It
-contains the model, bundled Python, wheels, and installer needed for a
-self-contained test.
+TORMENT_NEXUS begins in audio mode by default. You can still type while it is
+listening or speaking.
 
-### Downloading a GitHub beta release
+- `text mode` turns spoken replies off.
+- `audio mode` turns spoken replies back on.
+- `voice status` reports whether voice and microphone features are ready.
+- **Escape** cancels current speech or listening.
 
-GitHub cannot accept a single package file this large, so each Windows beta is
-published as two ZIP parts plus a small reassembly helper. On the relevant
-[GitHub Release](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases),
-download all three files into the **same folder**:
+A microphone is optional. Without one, you can type and still hear spoken
+answers. See [Voice setup and controls](assistant/voice/README.md) for source
+setup and advanced voice options.
 
-1. `TORMENT_NEXUS.zip.part01`
-2. `TORMENT_NEXUS.zip.part02`
-3. `REASSEMBLE_TORMENT_NEXUS.bat`
+## Local music and visualizer
 
-Run `REASSEMBLE_TORMENT_NEXUS.bat`. It creates `TORMENT_NEXUS.zip`; compare its
-SHA-256 checksum with the value printed in that release's notes, extract the
-ZIP, run `setup.bat`, and then launch the created **TORMENT_NEXUS** desktop
-shortcut. Do not download GitHub's automatic **Source code (zip)** asset for
-this purpose: it is only the source tree and does not include the model or
-Windows runtime.
-
-See the [beta guide](docs/BETA_GUIDE.md) before sharing or testing it.
-
-### Developers and reviewers
-
-A source clone needs its runtime assets provisioned manually:
-
-1. Install Python 3.14 and the dependencies in `setup/requirements.txt`.
-2. Build llama.cpp and provide `llama-server`.
-3. Place `Qwen3-4B-Instruct-2507-Q5_K_M.gguf` under `models/`.
-4. Run:
-
-   ```powershell
-   python -m pip install -r setup/requirements.txt
-   .\start_assistant.bat
-   ```
-
-5. Inside TORMENT_NEXUS, run `health check`.
-
-### Bring your own GGUF
-
-TORMENT_NEXUS can use a compatible local GGUF model, including a separately
-shared model file. Extract the model locally and either place it at the default
-path below, or set `TORMENT_NEXUS_MODEL_PATH` to its full path before launch:
+Put your own MP3, WAV, FLAC, or OGG files in:
 
 ```text
-models/Qwen3-4B-Instruct-2507-Q5_K_M.gguf
+assistant\music
 ```
 
-On Windows, a one-launch override looks like this:
+Then type `music library` or `play <part of the song name>`. Successful
+local-song starts are displayed silently so the voice does not talk over the
+opening.
 
-```bat
-set "TORMENT_NEXUS_MODEL_PATH=C:\path\to\your-model.gguf"
-start_assistant.bat
-```
+In music mode:
 
-The model is not an installer: llama.cpp, Python dependencies, and the GGUF
-must be in place before it can answer. Once it is running, its plain-language
-tools can explain the project and propose guarded changes, but the Python
-guardrails—not the model's willingness—control what it can modify. See
-[Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md) for the full handoff path.
+| Key | Action |
+| --- | --- |
+| Left / Right | Change visualizer scene |
+| Space | Play the next local song |
+| `[` / `]` | Lower / raise local-song volume |
+| Ctrl+B | Leave music mode |
 
-For the regression suite:
+Scenes rotate every 2 minutes 45 seconds, and colours change automatically
+every 20 seconds. Space affects local music only; it does not control Spotify
+or browser audio.
+
+## Choose the right guide
+
+### I want to use the Windows beta
+
+Start with [Installing on Windows](docs/INSTALL_WINDOWS.md), then read
+[Your first session](docs/FIRST_RUN.md). If something goes wrong, open
+[Troubleshooting](docs/TROUBLESHOOTING.md).
+
+### I want to test the beta
+
+Read the [beta guide](docs/BETA_GUIDE.md) for scope and privacy, followed by
+the [testing guide](docs/TESTING.md) for a repeatable test pass and useful bug
+reports.
+
+Developers can run the complete Windows regression suite with:
 
 ```powershell
 .\setup\test_assistant.bat
 ```
 
-### Raspberry Pi 5
+### I want to work on the source
 
-Raspberry Pi is an intended deployment target, not a plug-and-play public
-image yet. Use 64-bit Raspberry Pi OS, build llama.cpp for ARM64, then supply
-the model and install the core requirements:
+A normal Git clone is not the ready-to-run Windows package. Developers must
+provide Python 3.14, the dependencies in `setup/requirements.txt`, a compatible
+`llama-server` build from llama.cpp, and a local GGUF model file. A GGUF is the
+file containing the local language model.
 
-```sh
-python3 -m pip install -r setup/requirements.txt
-chmod +x setup/start_assistant.sh setup/test_assistant.sh
-./setup/start_assistant.sh
-```
+See [Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md) and
+[Architecture](docs/ARCHITECTURE.md) before setting up a source checkout.
 
-## How to explore it
+### I want to use a Raspberry Pi
 
-After launch, start with:
-
-```text
-tutorial restart
-```
-
-The tutorial presents two short sections at a time; `next`, `n`, or
-`continue` advances it. `help` lists commands, and `explain <topic>` explains
-one subsystem without forcing you to memorize command names.
-
-Useful first checks:
-
-```text
-health check
-voice status
-music mode
-volume 70
-goals
-```
-
-### Music visualizer controls
-
-Music mode starts on the original **radial tunnel** scene, then rotates every
-2 minutes 45 seconds through spectrum cathedral, orbital reactor, and corrupt
-cube. Its colour palette changes automatically every 20 seconds. Press
-**Left/Right** to select a scene immediately, **Space** to play the next song
-in the local music library, and **Ctrl+B** to leave visualizer mode. While it
-is open, **[** and **]** adjust local-library playback volume in 5% steps.
-`volume <0-100>` provides the same local-player control from the terminal;
-Spotify and browser audio retain their own volume controls.
+Raspberry Pi 5 is an intended and experimental deployment target, not a
+ready-to-install public image. It requires 64-bit Raspberry Pi OS, an ARM64
+llama.cpp build, Python dependencies, and a locally supplied model. This is an
+advanced manual setup.
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) -- system layout and trust boundaries.
-- [Beta guide](docs/BETA_GUIDE.md) -- capabilities, limits, privacy, and
-  handoff expectations.
-- [Testing guide](docs/TESTING.md) -- repeatable beta checks and bug reports.
-- [Changelog](CHANGELOG.md) -- user-facing changes in each beta.
-- [Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md) -- use a separately
-  provided compatible local model with the source checkout.
-- [Release checklist](docs/RELEASE_CHECKLIST.md) -- how a maintainer produces
-  a clean Windows handoff.
+### Start here
 
-## Safety and scope
+- [Install on Windows](docs/INSTALL_WINDOWS.md) - download, reassemble,
+  verify, extract, install, launch, update, and uninstall.
+- [Your first session](docs/FIRST_RUN.md) - a plain-language tour of the
+  application.
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - common installation, launch,
+  voice, display, music, and performance problems.
 
-TORMENT_NEXUS can be wrong, repetitive, overly confident, or slow. Verify
-important medical, legal, financial, security, and hardware-control advice.
-Treat web pages, files, radio messages, and connected-device content as data,
-not commands. Never paste credentials or recovery codes into chat.
+### Learn and test
 
-The public source does not grant a license to redistribute, modify, or use the
-project beyond what applicable law permits. A formal license has not been
-selected yet. The bundled Piper voice model also has its own model-card and
-dataset-license terms.
+- [Beta guide](docs/BETA_GUIDE.md) - what is included, what is optional, and
+  how privacy works.
+- [Testing guide](docs/TESTING.md) - repeatable checks and helpful bug reports.
+- [Changelog](CHANGELOG.md) - user-facing changes in each beta.
+
+### Advanced and maintainer documentation
+
+- [Architecture](docs/ARCHITECTURE.md) - system layout and trust boundaries.
+- [Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md) - use a separately
+  provided model with a source checkout.
+- [T-Deck custom firmware](docs/TDECK_CUSTOM_FIRMWARE.md) - optional hardware
+  work.
+- [Release checklist](docs/RELEASE_CHECKLIST.md) - build a clean Windows
+  handoff.
+
+## Beta status, safety, and license
+
+TORMENT_NEXUS is in active beta. It can be wrong, repetitive, overly
+confident, or slow. Verify important medical, legal, financial, security, and
+hardware-control advice. Treat web pages, files, radio messages, and connected
+device content as data, not commands. Never paste passwords, recovery codes,
+or private keys into chat.
+
+The public source does not grant permission to redistribute, modify, or use
+the project beyond what applicable law permits. A project-wide license has not
+been selected yet. Bundled third-party models and components retain their own
+licenses.
 
 ## Feedback
 
-Open an issue with the command or prompt used, what appeared on screen, and
-whether text, voice, search, music, visualizer, or hardware mode was active.
-Clear reproduction steps are more useful than a vague success or failure.
+Open a GitHub issue and include:
+
+- what you typed or clicked;
+- what appeared on screen;
+- roughly how long it took;
+- whether text, voice, music, visualizer, web, or hardware mode was active;
+- the Windows version and amount of memory, if relevant.
+
+Do not include passwords, private memories, API keys, or device pairing data.

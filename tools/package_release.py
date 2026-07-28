@@ -811,13 +811,29 @@ WHAT THIS IS
     Conversation, memory, and speech work locally after installation. Optional
     web search and hardware features need deliberate separate setup.
 
+WHAT YOU NEED
+    - 64-bit Windows
+    - About 3 GB for this extracted folder
+    - At least 8 GB of RAM; 16 GB is better with voice enabled
+    - A microphone only if you want to speak; typed input works without one
+
+    The full download, rebuilt ZIP, and extracted folder can temporarily use
+    about 10 GB together. You may delete the download parts and ZIP after the
+    installation works.
+
 INSTALLING
-    1. Extract this whole archive somewhere with at least 7 GB free.
-       (Keep the folder together - setup needs everything beside it.)
-    2. Run setup.bat
-    3. Launch "TORMENT_NEXUS" from your desktop.
+    1. Right-click the ZIP and choose "Extract All". Do not run setup while
+       viewing files inside the ZIP.
+    2. Open the extracted TORMENT_NEXUS folder. Keep everything together:
+       setup needs the neighbouring assistant, models, and python folders.
+    3. Run setup.bat
+    4. Launch "TORMENT_NEXUS" from your desktop.
 
     Setup takes a couple of minutes and needs no internet.
+
+    If the desktop shortcut could not be created, double-click
+    start_assistant.bat in this folder. If this folder is moved or renamed
+    later, run setup.bat again to recreate the shortcut.
 
 WHAT IT TOUCHES
     Nothing outside this folder, plus one desktop shortcut. It does not use
@@ -846,9 +862,10 @@ VOICE
     voice back. Typing still works when no microphone is available.
 
 MUSIC AND VISUALIZER
-    Put your own MP3, WAV, FLAC, or OGG files in assistant\music, then type
-    "music library" or "play <track>". A successful start message is shown
-    instead of spoken, so the voice does not cover the opening.
+    Open this TORMENT_NEXUS folder, then open assistant\music. Put your own
+    MP3, WAV, FLAC, or OGG files there. Type "music library" or
+    "play <part of the song name>". A successful start message is shown
+    instead of spoken, so the voice does not cover the opening lyrics.
 
     In music mode:
         Left/Right     change visualizer scene
@@ -875,6 +892,15 @@ THE GLITCHING ICON (optional)
     tools\start_glitch.bat makes the desktop icon corrupt itself now and
     then. tools\stop_glitch.bat stops it and restores the normal icon. It is
     off unless you start it, and it does not survive a reboot.
+
+UPDATING LATER
+    Install a newer beta in a new folder instead of extracting it over this
+    one. Keep this folder as a backup until the new version launches. Local
+    songs are in assistant\music. Private conversation and memory files are
+    under assistant\memory; never upload them in a public bug report.
+
+UNINSTALLING
+    Close TORMENT_NEXUS, delete this folder, and delete the desktop shortcut.
 
 PRIVACY
     This package contains no conversation history, memories, developer

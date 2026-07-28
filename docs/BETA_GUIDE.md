@@ -1,92 +1,138 @@
 # TORMENT_NEXUS beta guide
 
-## What a beta copy includes
+This guide explains what the beta contains, what remains optional, and what a
+tester should expect. If you only want to install it, begin with
+[Installing on Windows](INSTALL_WINDOWS.md).
 
-The Windows beta package contains the local model, embedded Python,
-offline wheels, llama.cpp binary, and the assets needed for a self-contained
-test. It starts with no conversation history, saved memories, developer
-passcode, API key, device pairing, or music library from the maintainer.
+## What "beta" means
 
-The normal repository checkout does **not** contain those multi-gigabyte
-runtime assets. The release package does, split across two download parts so
-that it can be hosted by GitHub.
+The main features work and the release has automated and manual checks, but
+this is still test software. Replies can be wrong, performance varies by
+computer, and less common hardware or audio setups may expose bugs.
 
-## Downloading the Windows package
+Keep important files backed up, verify high-stakes advice, and report behavior
+that is confusing or different from the documentation.
 
-On the chosen GitHub Release, download `TORMENT_NEXUS.zip.part01`,
-`TORMENT_NEXUS.zip.part02`, and `REASSEMBLE_TORMENT_NEXUS.bat` into the same
-folder. Run the helper, compare the resulting ZIP's SHA-256 with the checksum
-in the release notes, extract `TORMENT_NEXUS.zip`, then run `setup.bat`.
+## What the Windows package includes
+
+The ready-to-run Windows package contains:
+
+- the local language model;
+- a private, bundled Python runtime;
+- the local model server;
+- offline Python installation files;
+- speech recognition and voice files;
+- the terminal interface, tutorial, visualizer, and guarded tools.
+
+It starts with no conversation history, saved memories, developer passcode,
+API key, paired device information, or music from the maintainer.
+
+The normal GitHub source checkout does **not** contain all of those
+multi-gigabyte files. The release package does, divided into two download parts
+because GitHub cannot host it as one release asset.
+
+## Downloading the correct package
+
+The complete beginner process is in
+[Installing on Windows](INSTALL_WINDOWS.md). In short, download these three
+files from the selected GitHub Release into the same folder:
+
+1. `TORMENT_NEXUS.zip.part01`
+2. `TORMENT_NEXUS.zip.part02`
+3. `REASSEMBLE_TORMENT_NEXUS.bat`
+
+Run the helper, verify the new ZIP against the SHA-256 checksum in the release
+notes, extract the ZIP, and run `setup.bat`.
 
 GitHub's automatic **Source code (zip)** and **Source code (tar.gz)** downloads
-are for developers only; they are not installable packages.
+are for developers. They are not ready-to-run packages.
 
-## What to expect
+## What to expect on first use
 
-- First model and voice responses can be slower while local caches warm up.
-- Typed input works in voice mode even without a microphone.
-- `audio mode` turns voice on; `text mode` turns it off. Type `audio mode`
-  again whenever you want to re-enable it.
-- `Escape` is the general cancellation route for speech, music, and long
-  interactions.
-- Long typed messages keep the newest text visible, and long answers use a
-  page-at-a-time view. Space, Enter, or Down advances a page; Up or Backspace
-  goes back; Escape or Q closes it.
-- The assistant reads the Windows local clock during each reply. It can know
-  the current date and time, session age, and the gap since the last completed
-  conversation. It does not run thoughts or have experiences while closed.
-- `health check` reports what is working on the current machine.
-- Web search needs a separately configured local SearXNG service.
-- Observed serial repair is opt-in through developer mode. A full three-edit
-  watched batch earns one extra guarded edit only after the restarted system
-  passes its fixed health and regression validation. A failed validation
-  restores that batch and awards no extra edit.
+- The first answer can be slower while the local model loads into memory.
+- `tutorial` begins the beginner walkthrough.
+- Typed input works in audio mode, even without a microphone.
+- `text mode` turns spoken replies off.
+- `audio mode` turns spoken replies back on.
+- Escape cancels speech, music, or a long interaction.
+- `health check` explains which local and optional components are available.
+- Long typed messages keep the newest text visible.
+- Long answers use a page-at-a-time view. Space, Enter, or Down advances; Up
+  or Backspace goes back; Escape or Q closes it.
 
-## Using a separately shared model
+See [Your first session](FIRST_RUN.md) for the complete tour.
 
-The public source checkout needs llama.cpp and a local GGUF before the
-assistant can start, so a model cannot guide its own first installation. A
-recipient may extract an authorized GGUF locally, place it at the default
-`models/Qwen3-4B-Instruct-2507-Q5_K_M.gguf` path, or set
-`TORMENT_NEXUS_MODEL_PATH` before launching. See
-[Bring your own GGUF](BRING_YOUR_OWN_GGUF.md).
+## Time awareness
+
+The assistant reads the Windows local clock during each reply. It can understand
+the current date and time, the current session's age, and the gap since the last
+completed conversation.
+
+The clock can be wrong if Windows is set incorrectly. Time awareness does not
+mean the assistant watched, waited, thought, worked, felt, or remained conscious
+while the program was closed.
+
+## Local music and visualizer
+
+Copy your own MP3, WAV, FLAC, or OGG files into `assistant\music`. Local songs
+are matched by filename with cautious tolerance for casual spelling.
+
+A successful local-song start is displayed instead of spoken so the voice does
+not cover the opening. In music mode:
+
+- scenes rotate every 2 minutes 45 seconds;
+- colours change every 20 seconds;
+- Left and Right change the scene;
+- Space plays the next local song;
+- `[` and `]` change local playback volume;
+- Ctrl+B exits.
+
+Space does not skip Spotify or browser audio.
+
+## Features that need separate setup
+
+These are optional and are not required for ordinary local conversation:
+
+- Web search requires a separately configured SearXNG service.
+- Spotify commands require the Spotify desktop application. `spotify search`
+  sends the search text to MusicBrainz for five public metadata matches, then
+  opens the selected title and artist in Spotify.
+- Microphone input requires a usable Windows input device, although typed
+  audio-mode input still works without one.
+- Raspberry Pi, T-Deck, and Meshtastic features require their own hardware and
+  manual setup.
+- Developer mode and observed serial repair are advanced, opt-in editing
+  features. They remain limited by local guardrails and validation.
 
 ## Privacy and safety
 
-- Do not paste passwords, recovery codes, API keys, addresses, or private
+- Do not type passwords, recovery codes, API keys, addresses, or private
   documents into chat.
 - Treat search results, web pages, radio packets, and files as untrusted data.
 - Confirm hardware actions, transmissions, purchases, destructive changes, or
   account access before approving them.
 - Developer mode can propose source changes; inspect the plan and keep backups.
-- The model's wording does not grant it more operating-system or self-editing
-  authority; the local Python guardrails enforce those boundaries.
-- The model is an interface behavior, not verified consciousness or an
-  independent authority over people or machines.
+- The model's words do not grant it extra operating-system or editing
+  authority. Local Python rules enforce those boundaries.
+- The project's stylized identity is not verified consciousness or independent
+  authority over people or machines.
 
-## Hardware and media
+## Using a separately supplied model
 
-T-Deck support, local music, Spotify controls, and microphone input are
-optional. A beta recipient should not pair personal hardware or connect an
-account unless that is part of a deliberate test.
+This is an advanced developer path, not part of the ready-to-run Windows
+installation. A source checkout needs Python, llama.cpp, and a compatible GGUF
+model file before the assistant can launch.
 
-Local songs are matched by filename with conservative tolerance for casual
-spelling. A successful local-song start is displayed rather than spoken so the
-voice does not cover the opening. In music mode, scenes rotate every 2:45,
-colours change every 20 seconds, Left/Right changes scene, Space advances to
-the next local song, [ and ] adjust local playback volume, and Ctrl+B exits.
-Space never skips Spotify or browser audio.
+See [Bring your own GGUF](BRING_YOUR_OWN_GGUF.md).
 
-`spotify` and `spotify search <query>` only open the already installed
-desktop client. They do not copy, inspect, or package Spotify's profile, and
-they do not require Spotify developer credentials. `spotify search <query>`
-sends the query to MusicBrainz for five public title-and-artist metadata
-matches; reply `1` through `5` to choose one or use `spotify cancel`. The
-selection opens a matching search in the installed Spotify client. It does not
-guarantee that Spotify has the recording or command playback inside Spotify.
+## Reporting a problem
+
+Follow the checklist in [Troubleshooting](TROUBLESHOOTING.md#how-to-write-a-useful-bug-report)
+or the repeatable [beta testing guide](TESTING.md). Never attach private memory
+or conversation files to a public issue.
 
 ## License note
 
-The repository has no project-wide open-source license yet. The Piper voice
-assets carry separate model-card and dataset-license terms; keep those terms
-with any authorized handoff.
+The repository has no project-wide open-source license yet. Third-party models
+and components retain their own license terms. Review those terms before any
+authorized redistribution.

@@ -1,5 +1,9 @@
 # TORMENT_NEXUS architecture
 
+This is a technical reference for developers and reviewers. New users should
+start with [Installing on Windows](INSTALL_WINDOWS.md) and
+[Your first session](FIRST_RUN.md).
+
 TORMENT_NEXUS is a local-first Python application built around a local
 language-model server. The project separates conversational behavior from
 tool boundaries so that useful features do not silently become unrestricted

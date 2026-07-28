@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- Reorganized the GitHub landing page around a clear novice Windows install.
+- Added dedicated Windows installation, first-session, and troubleshooting
+  guides.
+- Clearly separated ready-to-run users, beta testers, source developers,
+  custom-model users, and experimental Raspberry Pi work.
+- Explained download parts, checksum verification, extraction, shortcut
+  recovery, disk and memory needs, voice re-enabling, local music, paging, and
+  time awareness in plain language.
+- Aligned the beta, testing, architecture, model, voice, release, and packaged
+  installer documentation with the new beginner path.
+
 ## v0.1.0-beta.3 — 2026-07-27
 
 This is the final beta build published on July 27, 2026.

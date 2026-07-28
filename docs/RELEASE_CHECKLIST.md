@@ -1,5 +1,8 @@
 # TORMENT_NEXUS release checklist
 
+This is a maintainer document, not an installation guide. Windows users should
+follow [Installing on Windows](INSTALL_WINDOWS.md).
+
 The Windows handoff is built from a clean source tree and intentionally keeps
 personal runtime state out of the archive.
 
@@ -25,9 +28,17 @@ personal runtime state out of the archive.
 5. For GitHub Releases, split `dist/TORMENT_NEXUS.zip` into assets smaller
    than 2 GiB and upload the parts alongside `REASSEMBLE_TORMENT_NEXUS.bat`.
    Put the required filenames and full ZIP checksum in the release notes.
+6. Confirm the current release link and filenames in `README.md`,
+   `docs/INSTALL_WINDOWS.md`, and `docs/TROUBLESHOOTING.md`.
+7. Read the packaged `README.txt` from a beginner's perspective and confirm
+   its disk-space, first-launch, shortcut fallback, voice, music, and uninstall
+   instructions still match the build.
 
 Recipients must download every part into one folder, run the helper, validate
 the reassembled ZIP checksum, then extract and run `setup.bat`.
+
+Allow for about 10 GB of temporary free space when the two parts, reconstructed
+ZIP, and roughly 3 GB extracted folder are on the same drive.
 
 Do not test `setup.bat` inside the final staged package and then send that same
 folder. Installer testing creates local runtime artifacts; rebuild and verify a
