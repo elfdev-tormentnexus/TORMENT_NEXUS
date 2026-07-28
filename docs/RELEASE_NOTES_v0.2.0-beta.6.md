@@ -104,7 +104,7 @@ Download these assets into one folder:
 1. `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01` through `.part06` —
    all six are required
 2. `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat`
-3. `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` — 18 KB, optional but
+3. `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` — 22 KB, optional but
    recommended
 4. `TORMENT_NEXUS-v0.2.0-beta.6-ask-guard-patch.zip` and
    `INSTALL_ASK_GUARD_PATCH.bat` — 30 KB, recommended, and **applied by hand
@@ -167,7 +167,7 @@ the first value automatically; the rest are for verifying individual downloads.
 | `.zip.part05` | 2,080,374,784 | `B74AA7B6147C463F4269DC6ACDD4D3781711C66560D6EBBAE7B1002B6F06E789` |
 | `.zip.part06` | 1,978,832,443 | `A346A56A148A7EAE8BFA55F284DDC3028518DDB90E10EC2E730F1236448B236B` |
 | `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` | 4,796 | `90FB1C8FF448D70AF7C155B0735747D7E5D8BDDC1F31C2A7D17CA45E9DFF5E7F` |
-| `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` | 18,056 | `2CD4EFB6BB6F965A25176AD3014D47A1F12C88684F84D449C358ABBC40B87276` |
+| `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` | 22,257 | `F3D3745C5CDBAB1505A5EE910F27B2135872FB8DD58EEC61A91BD188351E4053` |
 
 ### Optional interface-mode add-on
 

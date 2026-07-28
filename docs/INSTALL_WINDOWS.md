@@ -66,7 +66,14 @@ TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01
 TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part02
 ...every later consecutive part shown...
 REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat
+TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip
+INSTALL_ASK_GUARD_PATCH.bat
+TORMENT_NEXUS-v0.2.0-beta.6-ask-guard-patch.zip
 ```
+
+The last three are small and optional. The documentation patch is applied for
+you by the reassembler. The two `ask-guard` files are **not** — they are
+Step 4 below, and nothing prompts you for them.
 
 Keep all files together, normally in **Downloads**. Do not rename them. A
 `.partNN` file is a piece of one ZIP and cannot be opened independently.
@@ -133,7 +140,40 @@ If Windows or security software blocks a file:
 
 See [Troubleshooting](TROUBLESHOOTING.md) before creating an exception.
 
-## Step 4: Read and acknowledge the first-launch notice
+## Step 4: Apply the /ask guard patch by hand
+
+Do this once setup has finished. Nothing reminds you except the last screen
+of the reassembler and this step.
+
+Move both files **into** the extracted `TORMENT_NEXUS` folder — the one
+containing `start_assistant.bat` — and double-click the installer:
+
+```text
+INSTALL_ASK_GUARD_PATCH.bat
+TORMENT_NEXUS-v0.2.0-beta.6-ask-guard-patch.zip
+```
+
+It verifies the payload, checks that `assistant\main.py` is the file Beta 6
+shipped, keeps the original as `assistant\main.py.pre-ask-guard`, and applies
+the change. If it finds a `main.py` it does not recognise, it stops without
+touching anything rather than overwriting work you have done.
+
+The patch corrects the read-only agent interface, which used to answer vague
+questions about past conversations with a confident account of exchanges that
+never happened. The fix landed after the archive was built, so it ships
+separately instead of forcing a 12 GB rebuild.
+
+**Why this one is manual.** The documentation patch replaces documentation
+only, which is what lets the release claim an installed tree still matches
+the published archive checksum. This patch replaces a file the release
+manifest hashes, so applying it makes your installation diverge from that
+checksum deliberately. That is your decision to make, not one the installer
+should make quietly on your behalf.
+
+Skipping it is safe. It affects only the optional agent interface, which
+stays off unless you turn it on.
+
+## Step 5: Read and acknowledge the first-launch notice
 
 Launch the **TORMENT_NEXUS** desktop shortcut, or run
 `start_assistant.bat` from the extracted folder if the shortcut was not

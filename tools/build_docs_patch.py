@@ -28,6 +28,11 @@ FILES = {
     "CHANGELOG.md": "TORMENT_NEXUS/CHANGELOG.md",
     os.path.join("docs", "RELEASE_NOTES_v0.2.0-beta.6.md"):
         "TORMENT_NEXUS/docs/RELEASE_NOTES_v0.2.0-beta.6.md",
+    # The install guide gained the hand-applied /ask guard patch as a step.
+    # A bundled copy that stops at setup.bat would leave every offline reader
+    # unaware of the one step nothing else prompts for.
+    os.path.join("docs", "INSTALL_WINDOWS.md"):
+        "TORMENT_NEXUS/docs/INSTALL_WINDOWS.md",
 }
 
 MARKER = "TORMENT_NEXUS/docs/BETA6_DOCS_PATCH.txt"
