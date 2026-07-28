@@ -7,11 +7,20 @@ claim is that it shows the retrieval this project actually performs. Feeding
 it a richer representation than the retrieval uses would draw an accurate
 picture of a system that is not running.
 
-That also makes the failure mode visible rather than described: retrieval is
-literal word overlap, so a memory phrased "the T-Deck mesh transmitter" shares
-no token with a question about "the radio" and is filtered out before ranking
-ever happens. Those memories have no neighbours to be pulled toward, and the
-projection strands them at the edge of the cloud where they can be counted.
+That also makes the failure mode visible rather than described: the overlap
+half of retrieval is literal word matching, so a memory phrased "the T-Deck
+mesh transmitter" shares no token with a question about "the walkie talkie"
+and that half filters it out before ranking ever happens. Those memories
+have no neighbours to be pulled toward, and the projection strands them at
+the edge of the cloud where they can be counted.
+
+Since retrieval became hybrid (memory_logic.select_relevant with a query
+vector), the call site in main.py prefers projecting the real semantic
+embeddings whenever every active memory has one -- the same honesty rule
+pointing the other way. The hashed vectors below remain the truthful
+picture of the overlap half, and the fallback whenever the embedder is
+absent. isolated() keeps counting what overlap alone cannot reach, which
+is now the population the semantic half exists to rescue.
 
 Tokens are hashed into a fixed number of buckets rather than given a column
 each. A column per token makes the projection's cost grow with how much the
@@ -52,6 +61,34 @@ def vectors(memories, dimensions=DIMENSIONS):
             vector = [value / length for value in vector]
 
         built.append(vector)
+
+    return built
+
+
+def compact_semantic(vectors, dimensions=DIMENSIONS):
+    """
+    Fixed signed projection of real embeddings into the panel's fast width.
+
+    This is a visual projection only; retrieval still uses the complete
+    embedding. A deterministic sign and bucket per input dimension preserves
+    neighbourhoods far better than truncating the first 64 values, while
+    avoiding the panel's measured one-second 384-dimensional projection.
+    """
+    built = []
+
+    for source in vectors:
+        target = [0.0] * dimensions
+
+        for index, value in enumerate(source or []):
+            mixed = zlib.crc32(str(index).encode("ascii"))
+            bucket = mixed % dimensions
+            sign = -1.0 if mixed & 0x80000000 else 1.0
+            target[bucket] += sign * float(value)
+
+        length = sum(value * value for value in target) ** 0.5
+        if length:
+            target = [value / length for value in target]
+        built.append(target)
 
     return built
 

@@ -186,6 +186,14 @@ HISTORY_FILE = os.path.join(ASSISTANT_ROOT, "memory", "conversation_history.txt"
 # gitignored and carries a DENY_PATTERNS entry so it cannot reach a release.
 ACTIVITY_FILE = os.path.join(ASSISTANT_ROOT, "memory", "activity_log.jsonl")
 
+# Consent is separate from the observations themselves. A fresh installation
+# has no file and therefore starts off; an operator who explicitly enables
+# activity awareness keeps that choice across restarts until `activity off`.
+ACTIVITY_CONSENT_FILE = os.path.join(
+    ASSISTANT_ROOT,
+    ".activity_consent.json",
+)
+
 # Observations older than this are dropped on load and on write. Long enough
 # to notice a pattern across a fortnight, short enough that it is not a
 # permanent record of everything ever done on this computer.
@@ -215,6 +223,107 @@ PROMPT_CACHE_DIR = (
     os.environ.get("TORMENT_NEXUS_PROMPT_CACHE_DIR", "").strip()
     or os.path.join(ASSISTANT_ROOT, "cache", "prompt")
 )
+
+# ------------------------------------------------------------------
+# Semantic retrieval
+#
+# Memory retrieval here has always been literal word overlap, and the
+# project has been honest about the cost: a memory phrased "the T-Deck mesh
+# transmitter" shares no token with a question about "the radio", so it is
+# discarded before ranking ever happens. memory_vectors.isolated() exists to
+# count exactly those, and /memory/search labels its own results
+# "word-overlap" so an empty answer reads as the finding rather than a fault.
+#
+# A second, tiny GGUF served by the same llama-server binary closes that gap
+# without replacing what already works. Word overlap is good at the thing
+# small embedders are bad at -- exact identifiers like Q5_K_M, 4090, PiSugar
+# -- so the two are combined rather than swapped.
+#
+# There is no default model file, and no download. Absent one, every path
+# below degrades to the old behaviour rather than erroring: this must stay
+# true, because the Pi target has 8GB shared with a 4.6GB director and the
+# operator decides what else gets resident.
+EMBED_MODEL_PATH = os.environ.get("TORMENT_NEXUS_EMBED_MODEL_PATH", "").strip()
+
+if not EMBED_MODEL_PATH:
+    _embed_default = os.path.join(
+        PROJECT_HOME,
+        "models",
+        "embedding",
+        "bge-small-en-v1.5-q8_0.gguf",
+    )
+    EMBED_MODEL_PATH = _embed_default if os.path.isfile(_embed_default) else ""
+
+# 8080 is the director and 8081 is SearXNG, so this is the next one free.
+EMBED_SERVER_URL = (
+    os.environ.get("TORMENT_NEXUS_EMBED_SERVER_URL", "").strip()
+    or "http://127.0.0.1:8082"
+).rstrip("/")
+_EMBED_PARSED = urlparse(EMBED_SERVER_URL)
+EMBED_SERVER_HOST = _EMBED_PARSED.hostname or "127.0.0.1"
+
+try:
+    EMBED_SERVER_PORT = _EMBED_PARSED.port or 8082
+except ValueError:
+    EMBED_SERVER_PORT = 8082
+
+# The operator can switch this off even with a model present, because a
+# second resident model is a memory decision and not only a feature one.
+EMBED_ENABLED = (
+    bool(EMBED_MODEL_PATH)
+    and os.environ.get("TORMENT_NEXUS_EMBED", "1").strip().lower()
+    not in {"0", "false", "off", "no"}
+)
+
+# Embeddings are computed once per memory and reused forever, so the cache
+# is the thing that keeps this off the chat path entirely. It is keyed by
+# model identity as well as text: swapping the embedder must not silently
+# leave the old model's geometry in place, because nothing downstream could
+# tell that the numbers no longer mean the same thing.
+EMBED_CACHE_FILE = os.path.join(ASSISTANT_ROOT, "cache", "embeddings.json")
+
+# How alike a zero-word-overlap memory must be to the question before
+# semantic similarity is even eligible for automatic prompt injection.
+#
+# The original five-pair probe suggested 0.38, but a broader 30-pair audit
+# showed that threshold admitted many unrelated memories. Automatic
+# retrieval now requires at least 0.55 *and* a 0.06 lead over the runner-up,
+# and it contributes at most one semantic-only memory. Explicit searches use
+# a separately labelled best-first ranking. Recalibrate both requirements if
+# the embedding model changes; the geometry belongs to the model.
+try:
+    EMBED_MIN_COSINE = max(
+        0.0,
+        min(1.0, float(os.environ.get("TORMENT_NEXUS_EMBED_MIN_COSINE", "0.55"))),
+    )
+except ValueError:
+    EMBED_MIN_COSINE = 0.55
+
+# A small embedder answers in single-digit milliseconds on CPU, but the
+# request still crosses a socket. This bounds a stall rather than allowing
+# a wedged server to hold up a reply.
+try:
+    EMBED_TIMEOUT_SECONDS = max(
+        0.5,
+        min(30.0, float(os.environ.get("TORMENT_NEXUS_EMBED_TIMEOUT", "6"))),
+    )
+except ValueError:
+    EMBED_TIMEOUT_SECONDS = 6.0
+
+# Conversation history is written for the prompt's trailing-slice budget,
+# not for recall. Embedding whole exchanges makes "what did we decide about
+# the packager" answerable from a file that is currently write-only.
+HISTORY_RECALL_ENABLED = (
+    os.environ.get("TORMENT_NEXUS_HISTORY_RECALL", "1").strip().lower()
+    not in {"0", "false", "off", "no"}
+)
+try:
+    HISTORY_RECALL_LIMIT = max(
+        0,
+        min(5, int(os.environ.get("TORMENT_NEXUS_HISTORY_RECALL_LIMIT", "2"))),
+    )
+except ValueError:
+    HISTORY_RECALL_LIMIT = 2
 
 # Audio files here play with no network, no account, and no Spotify.
 # Whatever is dropped in becomes a track named after its filename.
@@ -383,7 +492,7 @@ LLAMA_CACHE_RAM_MB = _bounded_int_env(
 # device-name string; leaving them blank uses the operating system defaults.
 VOICE_MODEL_ROOT = os.path.join(PROJECT_HOME, "models", "voice")
 VOICE_ON_STARTUP = (
-    os.environ.get("TORMENT_NEXUS_START_IN_VOICE_MODE", "1").strip().lower()
+    os.environ.get("TORMENT_NEXUS_START_IN_VOICE_MODE", "0").strip().lower()
     not in {"0", "false", "off", "no", "text"}
 )
 VOICE_ASR_DIR = os.path.join(
@@ -658,6 +767,18 @@ except ValueError:
 # closing on a timer alone, means the machine is never reclaimed out
 # from under someone who simply went quiet for a while.
 #
+# Echo every read-only agent-interface call into the chat area as it
+# happens. On by default: the interface is already token-gated, host-checked
+# and logged to agent_api.jsonl, and being able to watch it live is the
+# difference between an audit trail you could read and one you do. Set
+# TORMENT_NEXUS_AGENT_WATCH=0 for a quiet transcript during a long agent
+# session; the log is written either way.
+AGENT_WATCH = (
+    os.environ.get("TORMENT_NEXUS_AGENT_WATCH", "1").strip().lower()
+    not in {"0", "false", "off", "no"}
+)
+
+
 # Set TORMENT_NEXUS_IDLE_CHECKIN=0 to disable both the prompt and the exit.
 IDLE_CHECKIN_ENABLED = (
     os.environ.get("TORMENT_NEXUS_IDLE_CHECKIN", "1").strip().lower()

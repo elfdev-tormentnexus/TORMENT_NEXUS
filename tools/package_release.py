@@ -58,6 +58,9 @@ PACKAGE_NAME = "TORMENT_NEXUS"
 STAGE = os.path.join(DIST, PACKAGE_NAME)
 CACHE = os.path.join(DIST, ".cache")
 MANIFEST_NAME = "RELEASE_MANIFEST.json"
+RELEASE_VERSION = "v0.2.0-beta.6"
+ARCHIVE_STEM = f"{PACKAGE_NAME}-{RELEASE_VERSION}-windows-x64"
+ARCHIVE_NAME = f"{ARCHIVE_STEM}.zip"
 
 # GitHub rejects a release asset over 2 GiB. The margin covers the difference
 # between the API's accounting and ours, and costs nothing.
@@ -66,12 +69,35 @@ MAX_ASSET_BYTES = 2 * 1024**3 - 64 * 1024**2
 # This helper is generated from the actual number of split parts. A hand-made
 # helper once knew about only two parts; a later part would then be silently
 # omitted and leave every recipient with a corrupt archive.
-REASSEMBLER_NAME = "REASSEMBLE_TORMENT_NEXUS.bat"
+REASSEMBLER_NAME = f"REASSEMBLE_{ARCHIVE_STEM}.bat"
 
 PYTHON_VERSION = "3.14.6"
 EMBED_URL = (f"https://www.python.org/ftp/python/{PYTHON_VERSION}"
              f"/python-{PYTHON_VERSION}-embed-amd64.zip")
 GET_PIP_URL = "https://bootstrap.pypa.io/get-pip.py"
+WHEEL_CACHE = os.path.join(
+    CACHE,
+    f"wheels-cp{PYTHON_VERSION.replace('.', '')}-win_amd64",
+)
+WHEEL_CACHE_MANIFEST = os.path.join(WHEEL_CACHE, "SHA256SUMS.json")
+
+MODEL_ARTIFACTS = (
+    {
+        "role": "director",
+        "identity": "Qwen3-4B-Abliterated-Q8_0",
+        "path": "models/Qwen3-4B-abliterated-bf16_q8_0.gguf",
+    },
+    {
+        "role": "autonomous-coder",
+        "identity": "Qwen2.5-Coder-7B-Abliterated-Q8_0",
+        "path": "models/Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf",
+    },
+    {
+        "role": "semantic-embedding",
+        "identity": "bge-small-en-v1.5-q8_0",
+        "path": "models/embedding/bge-small-en-v1.5-q8_0.gguf",
+    },
+)
 
 # Only these are copied. Everything else is left behind on purpose.
 INCLUDE_DIRS = [
@@ -82,6 +108,14 @@ INCLUDE_DIRS = [
     ("models/voice/sherpa-onnx-moonshine-tiny-en-int8",
      "models/voice/sherpa-onnx-moonshine-tiny-en-int8"),
 ]
+
+# Source code is packaged from Git's tracked-file inventory, not by walking
+# the working directory.  A private runtime file can be intentionally ignored
+# by Git (and therefore leave ``git status`` clean); recursively copying the
+# directory would still publish it.  Runtime/vendor trees below are explicit
+# release inputs and remain recursive because many of their generated binary
+# files are not represented in this repository's index.
+TRACKED_ONLY_DIRS = {"assistant"}
 
 INCLUDE_FILES = [
     # The project's own documentation, not just the installer's README.
@@ -99,7 +133,20 @@ INCLUDE_FILES = [
     "docs/TROUBLESHOOTING.md",
     "docs/WIFI_SENSING_EXPERIMENT.md",
     "docs/WIFI_SENSING_NEXT_STEP.md",
+    "docs/AGENT_INTERFACE.md",
+    "docs/CAPABILITIES_AND_LIMITS.md",
+    "docs/OFFLINE_KNOWLEDGE.md",
+    "docs/RELEASE_NOTES_v0.2.0-beta.6.md",
+    "docs/RESEARCH_GOALS.md",
+    "docs/RESEARCH_ROADMAP.md",
+    "docs/SEMANTIC_AND_AGENT_BRIDGES.md",
+    "docs/SENSING_MODULE.md",
+    "docs/TDECK_CUSTOM_FIRMWARE.md",
+    "LICENSES/AGPL-3.0.txt",
+    "LICENSES/BGE_SMALL_EN_V1.5_NOTICE.txt",
+    "LICENSES/LLAMA_CPP_MIT.txt",
     "LICENSES/QWEN_APACHE-2.0.txt",
+    "LICENSES/SILERO_VAD_MIT.txt",
     "setup/requirements.txt",
     "setup/requirements-voice.txt",
     "setup/requirements-hardware.txt",
@@ -107,8 +154,10 @@ INCLUDE_FILES = [
     "start_assistant.bat",
     "start_maintenance_coder.bat",
     "start_autonomous_self_heal.bat",
+    "start_full_maintenance_coder.bat",
     "setup/test_assistant.bat",
     "tools/glitch_icon.py",
+    "tools/package_model_pack.py",
     "tools/package_release.py",
     "tools/wifi_sense_collector.py",
     "tools/reassemble_release_parts.bat",
@@ -116,10 +165,57 @@ INCLUDE_FILES = [
     "tools/stop_glitch.bat",
     "assets/assistant_icon.ico",
     "assets/assistant_icon_animated.gif",
+    "assets/assistant_icon_animated.png",
     "models/Qwen3-4B-abliterated-bf16_q8_0.gguf",
     "models/Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf",
+    "models/embedding/bge-small-en-v1.5-q8_0.gguf",
     "models/voice/silero_vad.onnx",
 ]
+
+# Disclosure and community files are release inputs once they exist, but a
+# branch that has not introduced one yet should not fail solely because of a
+# future-facing filename. All other INCLUDE_FILES are mandatory.
+OPTIONAL_ROOT_DOCUMENTS = (
+    "SAFETY.md",
+    "PRIVACY.md",
+    "MODELS.md",
+    "MODEL_DISCLOSURE.md",
+    "MODELS_AND_RISKS.md",
+    "THIRD_PARTY_NOTICES.md",
+    "NOTICES.md",
+    "RIGHTS.md",
+    "USER_RIGHTS.md",
+    "PROJECT_RIGHTS.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "LICENSE",
+    "LICENSE.md",
+    "NOTICE",
+)
+_root_disclosure_names = {
+    name for name in OPTIONAL_ROOT_DOCUMENTS
+    if os.path.isfile(os.path.join(ROOT, name))
+}
+for _name in os.listdir(ROOT):
+    _upper = _name.upper()
+    if (
+        os.path.isfile(os.path.join(ROOT, _name))
+        and _name.lower().endswith((".md", ".txt"))
+        and any(
+            marker in _upper
+            for marker in (
+                "SAFETY",
+                "PRIVACY",
+                "MODEL",
+                "NOTICE",
+                "RIGHTS",
+                "CONTRIBUT",
+                "SECURITY",
+            )
+        )
+    ):
+        _root_disclosure_names.add(_name)
+INCLUDE_FILES.extend(sorted(_root_disclosure_names))
 
 # Never ship these. Checked again by --verify against the built package.
 #
@@ -159,10 +255,39 @@ DENY_PATTERNS = [
     # credential; shipping it would hand a recipient a live one.
     "*.agent_token",
     ".agent_token",
+    # Owner-supplied cloud API keys for the opt-in escalation bridge --
+    # billing credentials for external accounts.
+    "*.anthropic_api_key",
+    ".anthropic_api_key",
+    "*.openai_api_key",
+    ".openai_api_key",
+    # Per-install acknowledgement and consent records. Shipping either one
+    # could make a fresh copy inherit decisions made on the build machine.
+    "*.safety_acknowledgement.json",
+    ".safety_acknowledgement.json",
+    "*.activity_consent.json",
+    ".activity_consent.json",
     "*.tutorial_state.json",
     "*/memory/chosen_name.json",
     "*/logs/*",
     "*/cache/prompt/*",
+    # Embedding vectors are derived from the operator's memories and
+    # conversation history; they are as private as their sources.
+    "*/cache/embeddings.json*",
+    # Loudness measurements are keyed by absolute path, so the cache is a
+    # list of the operator's music files and where they live -- the same
+    # material assistant/music/* is excluded for.
+    "*/cache/track_loudness.json*",
+    # The offline knowledge engine may ship an empty schema and curated
+    # project references, never the operator's imported documents or the
+    # derived search database built from them.
+    "*/knowledge/user/*",
+    "*/knowledge/user_library/*",
+    "*/knowledge/imports/*",
+    "*/knowledge/uploads/*",
+    "*/knowledge/cache/*",
+    "*/knowledge/*.db*",
+    "*/knowledge/*.sqlite*",
     "*__pycache__*",
     "*.pyc",
     "*.pyo",
@@ -182,7 +307,17 @@ PRIVATE_RUNTIME_BASENAMES = {
     ".tdeck_ble_pin",
     ".spotify_token",
     ".agent_token",
+    ".anthropic_api_key",
+    ".openai_api_key",
+    ".safety_acknowledgement.json",
+    ".activity_consent.json",
     ".tutorial_state.json",
+    # Derived from memories and conversation history, so private like them.
+    "embeddings.json",
+    # Keyed by absolute path, so it enumerates the operator's music library
+    # and its location -- the same material assistant/music/* is kept out
+    # of a release for.
+    "track_loudness.json",
     # Window titles name documents, pages and conversations. The deny
     # comment above calls this at least as revealing as the conversation
     # history, and that file is in this set -- so this one belongs here too.
@@ -191,6 +326,12 @@ PRIVATE_RUNTIME_BASENAMES = {
     "conversation_history.txt",
     "memories.json",
     "wifi_sensing_status.json",
+    "knowledge.db",
+    "knowledge.sqlite",
+    "knowledge.sqlite3",
+    "library.db",
+    "library.sqlite",
+    "library.sqlite3",
 }
 
 # Unused alternate voices. The tuned pipeline only uses hfc_female, and
@@ -232,44 +373,309 @@ def denied(relpath):
     )
 
 
-def copy_tree(src, dst, report):
-    if not os.path.isdir(src):
-        report.append(f"  MISSING dir  {src}")
-        return 0, 0
+class ReleaseBuildError(RuntimeError):
+    """A release invariant failed before a sendable artifact was produced."""
 
-    copied = skipped = 0
+
+SOURCE_STATE = {
+    "commit": "unknown",
+    "dirty": True,
+    "working_tree_sha256": None,
+}
+
+
+def _git(args):
+    return subprocess.run(
+        ["git", *args],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
+def _path_is_within(path, parent):
+    """Return whether *path* resolves at or below *parent*."""
+    try:
+        path = os.path.normcase(os.path.realpath(path))
+        parent = os.path.normcase(os.path.realpath(parent))
+        return os.path.commonpath((path, parent)) == parent
+    except ValueError:
+        # Different Windows drives cannot overlap.
+        return False
+
+
+def _configured_private_paths():
+    """Yield configured operator-owned knowledge paths without importing it."""
+    for variable, kind in (
+        ("TORMENT_NEXUS_KNOWLEDGE_DIR", "directory"),
+        ("TORMENT_NEXUS_KNOWLEDGE_DB", "database"),
+    ):
+        raw = os.environ.get(variable, "").strip()
+        if not raw:
+            continue
+
+        expanded = os.path.expanduser(os.path.expandvars(raw))
+        # The knowledge library currently accepts relative paths.  Its
+        # launchers run from the project root, while a developer can invoke
+        # this packager from another working directory.  Check both plausible
+        # resolutions so changing the invocation directory cannot turn a
+        # refusal into a leak.
+        candidates = {
+            os.path.realpath(os.path.abspath(expanded)),
+            os.path.realpath(os.path.join(ROOT, expanded)),
+        }
+        for path in sorted(candidates):
+            yield variable, kind, path
+
+
+def _validate_configured_private_paths():
+    """Refuse a build whose custom knowledge storage overlaps its inputs."""
+    include_dirs = [
+        os.path.join(ROOT, rel.replace("/", os.sep))
+        for rel, _ in INCLUDE_DIRS
+    ]
+    include_files = [
+        os.path.join(ROOT, rel.replace("/", os.sep))
+        for rel in INCLUDE_FILES
+    ]
+
+    for variable, kind, private_path in _configured_private_paths():
+        if kind == "directory":
+            overlap = any(
+                _path_is_within(private_path, source)
+                or _path_is_within(source, private_path)
+                for source in include_dirs
+            ) or any(
+                _path_is_within(source, private_path)
+                for source in include_files
+            )
+        else:
+            overlap = any(
+                _path_is_within(private_path, source)
+                for source in include_dirs
+            ) or any(
+                os.path.normcase(os.path.realpath(source))
+                == os.path.normcase(private_path)
+                for source in include_files
+            )
+
+        if overlap:
+            raise ReleaseBuildError(
+                f"{variable} points {kind} storage inside the release "
+                "input tree; move it outside the project or unset the "
+                "variable before packaging"
+            )
+
+
+def _tracked_files_under(src_rel):
+    """Return tracked files below *src_rel*, refusing unsafe fallbacks."""
+    normalized_root = src_rel.replace("\\", "/").strip("/")
+    result = _git([
+        "ls-files",
+        "--cached",
+        "-z",
+        "--",
+        normalized_root,
+    ])
+    if result.returncode:
+        detail = (result.stderr or "").strip().splitlines()
+        suffix = f": {detail[0]}" if detail else ""
+        raise ReleaseBuildError(
+            "Git's tracked-file inventory is unavailable for "
+            f"{normalized_root}; refusing to recursively copy private or "
+            f"untracked files{suffix}"
+        )
+
+    tracked = [
+        item.replace("\\", "/")
+        for item in result.stdout.split("\0")
+        if item
+    ]
+    if not tracked:
+        raise ReleaseBuildError(
+            f"Git returned no tracked files for {normalized_root}; "
+            "refusing to use a recursive-copy fallback"
+        )
+
+    source_root = os.path.join(
+        ROOT,
+        normalized_root.replace("/", os.sep),
+    )
+    prefix = normalized_root + "/"
+    for rel in sorted(set(tracked)):
+        if not rel.startswith(prefix) or os.path.isabs(rel):
+            raise ReleaseBuildError(
+                f"Git returned an invalid tracked path for {normalized_root}"
+            )
+
+        full = os.path.join(ROOT, rel.replace("/", os.sep))
+        if not os.path.isfile(full):
+            raise ReleaseBuildError(
+                f"tracked release input is missing or not a file: {rel}"
+            )
+        if os.path.islink(full) or not _path_is_within(full, source_root):
+            raise ReleaseBuildError(
+                f"tracked release input escapes through a link: {rel}"
+            )
+
+        yield rel, full
+
+
+def _directory_source_files(src_rel):
+    """Yield ``(repository-relative path, full path)`` for one input tree."""
+    normalized_root = src_rel.replace("\\", "/").strip("/")
+    src = os.path.join(ROOT, normalized_root.replace("/", os.sep))
+    if not os.path.isdir(src):
+        raise ReleaseBuildError(
+            f"required directory is missing: {normalized_root}"
+        )
+
+    if normalized_root in TRACKED_ONLY_DIRS:
+        yield from _tracked_files_under(normalized_root)
+        return
 
     for folder, dirs, files in os.walk(src):
         dirs[:] = [d for d in dirs if d != "__pycache__"]
-
         for name in files:
             full = os.path.join(folder, name)
-            rel = os.path.relpath(full, ROOT)
+            rel = os.path.relpath(full, ROOT).replace("\\", "/")
+            yield rel, full
 
+
+def source_state():
+    """Return a content-free identity for the source snapshot.
+
+    The status text itself can name private, untracked files, so only its
+    digest enters the manifest. A clean release records the commit and
+    ``dirty: false``; an explicitly allowed development build records that it
+    was dirty without publishing the paths that made it so.
+    """
+    commit_result = _git(["rev-parse", "HEAD"])
+    status_result = _git([
+        "status",
+        "--porcelain=v1",
+        "--untracked-files=all",
+    ])
+
+    if commit_result.returncode or status_result.returncode:
+        return {
+            "commit": "unknown",
+            "dirty": True,
+            "working_tree_sha256": None,
+        }
+
+    status = status_result.stdout
+    return {
+        "commit": commit_result.stdout.strip(),
+        "dirty": bool(status.strip()),
+        "working_tree_sha256": hashlib.sha256(
+            status.encode("utf-8")
+        ).hexdigest(),
+    }
+
+
+def require_release_source(allow_dirty, report):
+    state = source_state()
+
+    if state["commit"] == "unknown" and not allow_dirty:
+        raise ReleaseBuildError(
+            "the source commit could not be identified; use a Git checkout "
+            "or --allow-dirty for a clearly marked development build"
+        )
+
+    if state["dirty"] and not allow_dirty:
+        raise ReleaseBuildError(
+            "the working tree is not clean; commit or remove every intended "
+            "source change before a final build, or use --allow-dirty only "
+            "for a non-release development package"
+        )
+
+    label = state["commit"]
+    if state["dirty"]:
+        label += " (DIRTY development snapshot)"
+    report.append(f"  source {label}")
+    return state
+
+
+def _included_source_files():
+    """Yield every source file the whitelist would copy."""
+    seen = set()
+    _validate_configured_private_paths()
+
+    for src_rel, _ in INCLUDE_DIRS:
+        for rel, full in _directory_source_files(src_rel):
+            name = os.path.basename(full)
             if denied(rel) or name in SKIP_NAMES:
-                skipped += 1
                 continue
 
-            target = os.path.join(dst, os.path.relpath(full, src))
-            os.makedirs(os.path.dirname(target), exist_ok=True)
+            normalized = rel.replace("\\", "/")
+            if normalized not in seen:
+                seen.add(normalized)
+                yield normalized, full
 
-            # A locked file must never be silently omitted: that ships a
-            # package missing pieces nobody notices until it fails on
-            # someone else's machine. Retry briefly, then record it so the
-            # build can refuse to continue.
-            for attempt in range(3):
-                try:
-                    shutil.copy2(full, target)
-                    copied += 1
-                    break
-                except PermissionError:
-                    if attempt == 2:
-                        LOCKED.append(rel)
-                    else:
-                        time.sleep(0.4 * (attempt + 1))
-                except OSError as error:
-                    LOCKED.append(f"{rel} ({error})")
-                    break
+    for rel in INCLUDE_FILES:
+        full = os.path.join(ROOT, rel.replace("/", os.sep))
+        if not os.path.isfile(full):
+            raise ReleaseBuildError(f"required file is missing: {rel}")
+        if denied(rel):
+            raise ReleaseBuildError(
+                f"required file is also denylisted: {rel}"
+            )
+
+        normalized = rel.replace("\\", "/")
+        if normalized not in seen:
+            seen.add(normalized)
+            yield normalized, full
+
+
+def input_snapshot():
+    """Cheaply identify every release input before and after staging."""
+    snapshot = {}
+
+    for rel, full in _included_source_files():
+        stat = os.stat(full)
+        snapshot[rel] = (stat.st_size, stat.st_mtime_ns)
+
+    return snapshot
+
+
+def copy_tree(src, dst, report, src_rel=None):
+    if not os.path.isdir(src):
+        raise ReleaseBuildError(f"required directory is missing: {src}")
+
+    copied = skipped = 0
+
+    if src_rel is None:
+        src_rel = os.path.relpath(src, ROOT).replace("\\", "/")
+
+    for rel, full in _directory_source_files(src_rel):
+        name = os.path.basename(full)
+        if denied(rel) or name in SKIP_NAMES:
+            skipped += 1
+            continue
+
+        target = os.path.join(dst, os.path.relpath(full, src))
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+
+        # A locked file must never be silently omitted: that ships a
+        # package missing pieces nobody notices until it fails on
+        # someone else's machine. Retry briefly, then record it so the
+        # build can refuse to continue.
+        for attempt in range(3):
+            try:
+                shutil.copy2(full, target)
+                copied += 1
+                break
+            except PermissionError:
+                if attempt == 2:
+                    LOCKED.append(rel)
+                else:
+                    time.sleep(0.4 * (attempt + 1))
+            except OSError as error:
+                LOCKED.append(f"{rel} ({error})")
+                break
 
     return copied, skipped
 
@@ -302,6 +708,11 @@ def _rmtree_stubborn(path, attempts=6):
 
 
 def stage(report):
+    # Validate the complete whitelist before removing a previously good stage.
+    # A missing model or document is a failed build, never a warning buried in
+    # several hundred copy lines.
+    list(_included_source_files())
+
     if os.path.isdir(STAGE):
         _rmtree_stubborn(STAGE)
     os.makedirs(STAGE)
@@ -311,7 +722,7 @@ def stage(report):
     for src_rel, dst_rel in INCLUDE_DIRS:
         src = os.path.join(ROOT, src_rel.replace("/", os.sep))
         dst = os.path.join(STAGE, dst_rel.replace("/", os.sep))
-        copied, skipped = copy_tree(src, dst, report)
+        copied, skipped = copy_tree(src, dst, report, src_rel=src_rel)
         total_copied += copied
         total_skipped += skipped
         report.append(f"  {src_rel:52s} {copied:5d} files"
@@ -320,8 +731,7 @@ def stage(report):
     for rel in INCLUDE_FILES:
         src = os.path.join(ROOT, rel.replace("/", os.sep))
         if not os.path.isfile(src):
-            report.append(f"  MISSING file {rel}")
-            continue
+            raise ReleaseBuildError(f"required file is missing: {rel}")
         dst = os.path.join(STAGE, rel.replace("/", os.sep))
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copy2(src, dst)
@@ -337,10 +747,16 @@ def stage(report):
     return total_copied, total_skipped
 
 
-def fetch(url, dest, report):
+def fetch(url, dest, report, allow_download=True):
     if os.path.isfile(dest) and os.path.getsize(dest) > 0:
         report.append(f"  cached  {os.path.basename(dest)}")
         return True
+
+    if not allow_download:
+        report.append(
+            f"  MISSING cached download {os.path.basename(dest)}"
+        )
+        return False
 
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     try:
@@ -356,13 +772,23 @@ def fetch(url, dest, report):
         return False
 
 
-def bundle_python(report):
+def bundle_python(report, skip_download=False):
     embed_zip = os.path.join(CACHE, os.path.basename(EMBED_URL))
     get_pip = os.path.join(CACHE, "get-pip.py")
 
-    if not fetch(EMBED_URL, embed_zip, report):
+    if not fetch(
+        EMBED_URL,
+        embed_zip,
+        report,
+        allow_download=not skip_download,
+    ):
         return False
-    if not fetch(GET_PIP_URL, get_pip, report):
+    if not fetch(
+        GET_PIP_URL,
+        get_pip,
+        report,
+        allow_download=not skip_download,
+    ):
         return False
 
     target = os.path.join(STAGE, "python")
@@ -389,14 +815,104 @@ def bundle_python(report):
     return True
 
 
-def bundle_wheels(report):
-    wheels = os.path.join(STAGE, "wheels")
-    os.makedirs(wheels, exist_ok=True)
+def _wheel_files(folder):
+    return sorted(
+        name for name in os.listdir(folder)
+        if name.endswith((".whl", ".zip"))
+        and os.path.isfile(os.path.join(folder, name))
+    )
+
+
+def _write_wheel_cache_manifest(folder):
+    files = [
+        {
+            "name": name,
+            "bytes": os.path.getsize(os.path.join(folder, name)),
+            "sha256": _hash_file(os.path.join(folder, name)),
+        }
+        for name in _wheel_files(folder)
+    ]
+    payload = {
+        "format": 1,
+        "python": PYTHON_VERSION,
+        "platform": "win_amd64",
+        "files": files,
+    }
+    path = os.path.join(folder, os.path.basename(WHEEL_CACHE_MANIFEST))
+    with open(path, "w", encoding="utf-8", newline="\n") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+
+
+def _verify_wheel_cache(report):
+    if not os.path.isdir(WHEEL_CACHE):
+        report.append(f"  MISSING wheel cache {WHEEL_CACHE}")
+        return False
+
+    manifest = os.path.join(
+        WHEEL_CACHE,
+        os.path.basename(WHEEL_CACHE_MANIFEST),
+    )
+    try:
+        with open(manifest, "r", encoding="utf-8") as source:
+            payload = json.load(source)
+    except (OSError, json.JSONDecodeError) as error:
+        report.append(f"  invalid wheel cache manifest: {error}")
+        return False
+
+    entries = payload.get("files")
+    if (
+        payload.get("format") != 1
+        or payload.get("python") != PYTHON_VERSION
+        or payload.get("platform") != "win_amd64"
+        or not isinstance(entries, list)
+    ):
+        report.append("  wheel cache manifest does not match this release")
+        return False
+
+    expected = set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            report.append("  malformed wheel cache entry")
+            return False
+        name = entry.get("name")
+        if (
+            not isinstance(name, str)
+            or name != os.path.basename(name)
+            or not name.endswith((".whl", ".zip"))
+        ):
+            report.append(f"  unsafe wheel cache entry: {name!r}")
+            return False
+
+        path = os.path.join(WHEEL_CACHE, name)
+        expected.add(name)
+        if not os.path.isfile(path):
+            report.append(f"  cached wheel is missing: {name}")
+            return False
+        if os.path.getsize(path) != entry.get("bytes"):
+            report.append(f"  cached wheel size mismatch: {name}")
+            return False
+        if _hash_file(path) != entry.get("sha256"):
+            report.append(f"  cached wheel hash mismatch: {name}")
+            return False
+
+    actual = set(_wheel_files(WHEEL_CACHE))
+    if actual != expected or not actual:
+        report.append("  wheel cache contents do not match its manifest")
+        return False
+
+    report.append(f"  verified cached wheels ({len(actual)} files)")
+    return True
+
+
+def _download_wheel_cache(report):
+    os.makedirs(CACHE, exist_ok=True)
+    temporary = tempfile.mkdtemp(prefix=".wheels-", dir=CACHE)
 
     reqs = [os.path.join(ROOT, "setup", "requirements-release-windows.txt")]
 
     command = [sys.executable, "-m", "pip", "download",
-               "--dest", wheels,
+               "--dest", temporary,
                "--only-binary", ":all:",
                "--python-version", ".".join(PYTHON_VERSION.split(".")[:2]),
                "--platform", "win_amd64",
@@ -405,16 +921,55 @@ def bundle_wheels(report):
         command += ["-r", req]
     command += ["pip", "setuptools", "wheel"]
 
-    result = subprocess.run(command, capture_output=True, text=True)
+    try:
+        result = subprocess.run(command, capture_output=True, text=True)
 
-    if result.returncode != 0:
-        report.append("  pip download FAILED:")
-        report.append("  " + result.stderr.strip()[-900:])
+        if result.returncode != 0:
+            report.append("  pip download FAILED:")
+            report.append("  " + result.stderr.strip()[-900:])
+            return False
+
+        if not _wheel_files(temporary):
+            report.append("  pip download produced no wheels")
+            return False
+
+        _write_wheel_cache_manifest(temporary)
+        if os.path.isdir(WHEEL_CACHE):
+            _rmtree_stubborn(WHEEL_CACHE)
+        os.replace(temporary, WHEEL_CACHE)
+        temporary = None
+        report.append("  refreshed the verified wheel cache")
+        return True
+    finally:
+        if temporary and os.path.isdir(temporary):
+            shutil.rmtree(temporary, ignore_errors=True)
+
+
+def bundle_wheels(report, skip_download=False):
+    wheels = os.path.join(STAGE, "wheels")
+    os.makedirs(wheels, exist_ok=True)
+
+    if not skip_download and not _download_wheel_cache(report):
+        return False
+    if not _verify_wheel_cache(report):
+        if skip_download:
+            report.append(
+                "  --skip-download requires a complete verified wheel cache"
+            )
         return False
 
-    count = len([n for n in os.listdir(wheels) if n.endswith((".whl", ".zip"))])
-    size = sum(os.path.getsize(os.path.join(wheels, n))
-               for n in os.listdir(wheels)) / 1e6
+    names = _wheel_files(WHEEL_CACHE)
+    for name in names:
+        shutil.copy2(
+            os.path.join(WHEEL_CACHE, name),
+            os.path.join(wheels, name),
+        )
+
+    count = len(names)
+    size = sum(
+        os.path.getsize(os.path.join(wheels, name))
+        for name in names
+    ) / 1e6
     report.append(f"  {count} wheels ({size:.0f} MB)")
     return True
 
@@ -570,14 +1125,15 @@ def _hash_parts(paths):
     return total, digest.hexdigest()
 
 
-def _write_reassembler(part_paths, target):
+def _write_reassembler(part_paths, target, archive_sha256):
     """Generate a batch helper for exactly these parts, with CRLF endings."""
     names = [os.path.basename(path) for path in part_paths]
     lines = [
         "@echo off",
         "setlocal",
         'set "HERE=%~dp0"',
-        f'set "ZIP=%HERE%{PACKAGE_NAME}.zip"',
+        f'set "ZIP=%HERE%{ARCHIVE_NAME}"',
+        f'set "EXPECTED={archive_sha256.upper()}"',
         "",
         "REM The closing quote matters. Without it the variable expands and the",
         "REM opening \"(\" is swallowed into the quoted filename, so cmd loses the",
@@ -605,14 +1161,30 @@ def _write_reassembler(part_paths, target):
         "echo Reassembling the complete beta package...",
         f'copy /b {copy_sources} "%ZIP%" >nul',
         "if errorlevel 1 (",
-        f"    echo Could not create {PACKAGE_NAME}.zip.",
+        f"    echo Could not create {ARCHIVE_NAME}.",
         "    pause",
         "    exit /b 1",
         ")",
         "",
         "echo.",
-        "echo Complete: %ZIP%",
-        "echo Verify the SHA-256 shown in the GitHub Release notes, then extract the ZIP and run setup.bat.",
+        "echo Verifying the complete archive...",
+        'set "ACTUAL="',
+        "for /f \"skip=1 tokens=* delims=\" %%H in ('certutil -hashfile \"%ZIP%\" SHA256') do (",
+        '    if not defined ACTUAL set "ACTUAL=%%H"',
+        ")",
+        'set "ACTUAL=%ACTUAL: =%"',
+        'if /i not "%ACTUAL%"=="%EXPECTED%" (',
+        "    echo.",
+        "    echo CHECKSUM MISMATCH - the joined ZIP is not this release.",
+        "    echo Expected: %EXPECTED%",
+        "    echo Actual:   %ACTUAL%",
+        '    del "%ZIP%" >nul 2>&1',
+        "    pause",
+        "    exit /b 1",
+        ")",
+        "",
+        "echo Verified: %ZIP%",
+        "echo Right-click the ZIP, choose Extract All, then run setup.bat.",
         "pause",
         "",
     ))
@@ -626,12 +1198,13 @@ def _write_reassembler(part_paths, target):
 
 def split(report):
     """Cut the release ZIP into upload-sized parts and prove they rejoin."""
-    archive = os.path.join(DIST, f"{PACKAGE_NAME}.zip")
+    archive = os.path.join(DIST, ARCHIVE_NAME)
     if not os.path.isfile(archive):
         report.append(f"  MISSING archive  {archive}")
         return False
 
     archive_size = os.path.getsize(archive)
+    archive_hash = _hash_file(archive)
     part_count = max(1, (archive_size + MAX_ASSET_BYTES - 1) // MAX_ASSET_BYTES)
     part_paths = [
         archive + f".part{number:02d}"
@@ -663,10 +1236,14 @@ def split(report):
                             remaining -= len(block)
 
             temporary_reassembler = os.path.join(temporary, REASSEMBLER_NAME)
-            _write_reassembler(temporary_parts, temporary_reassembler)
+            _write_reassembler(
+                temporary_parts,
+                temporary_reassembler,
+                archive_hash,
+            )
 
             joined_size, joined_hash = _hash_parts(temporary_parts)
-            if joined_size != archive_size or joined_hash != _hash_file(archive):
+            if joined_size != archive_size or joined_hash != archive_hash:
                 report.append(
                     "  REFUSING TO SPLIT - generated parts do not rejoin "
                     "to the source archive."
@@ -709,7 +1286,7 @@ def split(report):
 
 def discard_stage(report):
     """Remove a rebuildable staged package only after its archive is present."""
-    archive = os.path.join(DIST, f"{PACKAGE_NAME}.zip")
+    archive = os.path.join(DIST, ARCHIVE_NAME)
     if not os.path.isfile(archive):
         report.append(
             f"  REFUSING TO DISCARD STAGE - archive is missing: {archive}"
@@ -735,7 +1312,7 @@ def discard_stage(report):
     return True
 
 
-def write_manifest(report):
+def write_manifest(report, source=None):
     """Record every shipped file so a handoff can be checked later."""
     entries = []
 
@@ -753,10 +1330,34 @@ def write_manifest(report):
                 "sha256": _hash_file(full),
             })
 
+    by_path = {entry["path"]: entry for entry in entries}
+    models = []
+    for artifact in MODEL_ARTIFACTS:
+        entry = by_path.get(artifact["path"])
+        if not entry:
+            raise ReleaseBuildError(
+                f"required model is absent from the staged package: "
+                f"{artifact['path']}"
+            )
+        models.append({
+            **artifact,
+            "bytes": entry["bytes"],
+            "sha256": entry["sha256"],
+        })
+
+    source = dict(source or SOURCE_STATE)
     payload = {
-        "format": 1,
+        "format": 2,
         "package": PACKAGE_NAME,
+        "release_version": RELEASE_VERSION,
+        "archive": ARCHIVE_NAME,
         "generated_utc": datetime.now(timezone.utc).isoformat(),
+        "source": {
+            "commit": source.get("commit", "unknown"),
+            "dirty": bool(source.get("dirty", True)),
+            "working_tree_sha256": source.get("working_tree_sha256"),
+        },
+        "models": models,
         "files": entries,
     }
     path = os.path.join(STAGE, MANIFEST_NAME)
@@ -778,7 +1379,7 @@ def _verify_manifest(report, problems):
         with open(path, "r", encoding="utf-8") as source:
             payload = json.load(source)
         entries = payload.get("files")
-        if payload.get("format") != 1 or not isinstance(entries, list):
+        if payload.get("format") != 2 or not isinstance(entries, list):
             raise ValueError("unsupported manifest format")
     except (OSError, ValueError, TypeError, json.JSONDecodeError) as error:
         problems.append(f"invalid {MANIFEST_NAME}: {error}")
@@ -817,6 +1418,70 @@ def _verify_manifest(report, problems):
         problems.append(f"manifest missing file: {rel}")
     for rel in sorted(listed - actual):
         problems.append(f"manifest lists absent file: {rel}")
+
+    if payload.get("package") != PACKAGE_NAME:
+        problems.append("manifest package name does not match this build")
+    if payload.get("release_version") != RELEASE_VERSION:
+        problems.append("manifest release version does not match this build")
+    if payload.get("archive") != ARCHIVE_NAME:
+        problems.append("manifest archive name does not match this build")
+
+    source = payload.get("source")
+    if not isinstance(source, dict):
+        problems.append("manifest source identity is missing")
+    else:
+        commit = source.get("commit")
+        dirty = source.get("dirty")
+        tree_hash = source.get("working_tree_sha256")
+        if not isinstance(commit, str) or not commit:
+            problems.append("manifest source commit is invalid")
+        if not isinstance(dirty, bool):
+            problems.append("manifest source dirty state is invalid")
+        if tree_hash is not None and (
+            not isinstance(tree_hash, str) or len(tree_hash) != 64
+        ):
+            problems.append("manifest working-tree fingerprint is invalid")
+        report.append(
+            f"  source identity: {commit or 'unknown'}"
+            + (" (dirty development build)" if dirty else " (clean)")
+        )
+
+    model_entries = payload.get("models")
+    expected_models = {
+        artifact["path"]: artifact for artifact in MODEL_ARTIFACTS
+    }
+    found_models = {}
+    if not isinstance(model_entries, list):
+        problems.append("manifest model inventory is missing")
+    else:
+        for model in model_entries:
+            if not isinstance(model, dict):
+                problems.append(f"invalid model inventory entry: {model!r}")
+                continue
+            rel = model.get("path")
+            if not isinstance(rel, str) or rel not in expected_models:
+                problems.append(f"unexpected model inventory path: {rel!r}")
+                continue
+            found_models[rel] = model
+            expected = expected_models[rel]
+            listed_file = next(
+                (
+                    entry for entry in entries
+                    if isinstance(entry, dict) and entry.get("path") == rel
+                ),
+                None,
+            )
+            if model.get("role") != expected["role"]:
+                problems.append(f"model role mismatch: {rel}")
+            if model.get("identity") != expected["identity"]:
+                problems.append(f"model identity mismatch: {rel}")
+            if not listed_file or model.get("sha256") != listed_file.get("sha256"):
+                problems.append(f"model hash does not match file manifest: {rel}")
+            if not listed_file or model.get("bytes") != listed_file.get("bytes"):
+                problems.append(f"model size does not match file manifest: {rel}")
+
+    for rel in sorted(set(expected_models) - set(found_models)):
+        problems.append(f"manifest model inventory is missing: {rel}")
 
     report.append(
         f"  manifest checked: {len(listed)} listed, {len(actual)} present"
@@ -888,6 +1553,11 @@ if not exist "%~dp0models\Qwen3-4B-abliterated-bf16_q8_0.gguf" (
 )
 if not exist "%~dp0models\Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf" (
     echo   ERROR: the 7B autonomous coder model is missing from this package.
+    pause
+    exit /b 1
+)
+if not exist "%~dp0models\embedding\bge-small-en-v1.5-q8_0.gguf" (
+    echo   ERROR: the semantic embedding model is missing from this package.
     pause
     exit /b 1
 )
@@ -1179,7 +1849,11 @@ def main():
                         help="with --split, remove the verified rebuildable "
                              "stage folder before making parts")
     parser.add_argument("--skip-download", action="store_true",
-                        help="reuse cached Python and wheels")
+                        help="use only the verified cached Python downloads "
+                             "and wheel set; fail if that cache is incomplete")
+    parser.add_argument("--allow-dirty", action="store_true",
+                        help="permit an explicitly marked dirty development "
+                             "snapshot; never use for a published release")
     parser.add_argument("--verify-only", action="store_true",
                         help="re-check an existing build")
     parser.add_argument("--sanitize", action="store_true",
@@ -1192,6 +1866,10 @@ def main():
         parser.error("--split is a separate action; archive or verify first")
     if args.discard_stage and not args.split:
         parser.error("--discard-stage requires --split")
+    if args.allow_dirty and (
+        args.split or args.verify_only or args.sanitize
+    ):
+        parser.error("--allow-dirty applies only when building a new package")
 
     report = []
 
@@ -1227,9 +1905,19 @@ def main():
             return 1
 
         if args.sanitize:
+            source = source_state()
+            manifest_path = os.path.join(STAGE, MANIFEST_NAME)
+            try:
+                with open(manifest_path, "r", encoding="utf-8") as handle:
+                    previous = json.load(handle).get("source")
+                if isinstance(previous, dict):
+                    source = previous
+            except (OSError, AttributeError, json.JSONDecodeError):
+                pass
+
             print("Sanitizing...")
             sanitize(report)
-            write_manifest(report)
+            write_manifest(report, source=source)
             print("\n".join(report))
             report.clear()
             print()
@@ -1250,11 +1938,42 @@ def main():
 
     os.makedirs(CACHE, exist_ok=True)
 
+    try:
+        source_before = require_release_source(args.allow_dirty, report)
+        inputs_before = input_snapshot()
+    except (OSError, ReleaseBuildError) as error:
+        print("REFUSING TO BUILD:")
+        print(f"  {error}")
+        return 1
+
+    print("Checking source snapshot...")
+    print("\n".join(report))
+    report.clear()
+    print()
+
+    LOCKED.clear()
     print("Staging files...")
-    copied, withheld = stage(report)
+    try:
+        copied, withheld = stage(report)
+        inputs_after = input_snapshot()
+        source_after = source_state()
+    except (OSError, ReleaseBuildError) as error:
+        print("\n".join(report))
+        print("\nREFUSING TO SHIP:")
+        print(f"  {error}")
+        return 1
+
     print("\n".join(report))
     report.clear()
     print(f"  -> {copied} files copied, {withheld} withheld by the denylist\n")
+
+    if inputs_before != inputs_after or source_before != source_after:
+        print("REFUSING TO SHIP - release inputs changed while staging.")
+        print("Stop other editors and build again from one frozen snapshot.")
+        return 1
+
+    global SOURCE_STATE
+    SOURCE_STATE = source_before
 
     if LOCKED:
         print(f"REFUSING TO SHIP - {len(LOCKED)} file(s) were locked and "
@@ -1267,7 +1986,7 @@ def main():
         return 1
 
     print("Bundling Python...")
-    if not bundle_python(report):
+    if not bundle_python(report, skip_download=args.skip_download):
         print("\n".join(report))
         return 1
     print("\n".join(report))
@@ -1275,7 +1994,7 @@ def main():
     print()
 
     print("Downloading wheels...")
-    if not bundle_wheels(report):
+    if not bundle_wheels(report, skip_download=args.skip_download):
         print("\n".join(report))
         return 1
     print("\n".join(report))
@@ -1295,7 +2014,12 @@ def main():
     print()
 
     print("Writing release manifest...")
-    write_manifest(report)
+    try:
+        write_manifest(report, source=source_before)
+    except ReleaseBuildError as error:
+        print("\n".join(report))
+        print(f"\nREFUSING TO SHIP - {error}")
+        return 1
     print("\n".join(report))
     report.clear()
     print()
@@ -1319,7 +2043,7 @@ def main():
 
     if args.archive:
         print("\nArchiving (this takes a while at this size)...")
-        base = os.path.join(DIST, PACKAGE_NAME)
+        base = os.path.join(DIST, ARCHIVE_STEM)
         path = shutil.make_archive(base, "zip", DIST, PACKAGE_NAME)
         print(f"Archive: {path} ({os.path.getsize(path)/1e9:.2f} GB)")
 

@@ -1,152 +1,185 @@
-# TORMENT_NEXUS beta guide
+# TORMENT_NEXUS Beta 6 guide
 
-This guide explains what the beta contains, what remains optional, and what a
-tester should expect. If you only want to install it, begin with
-[Installing on Windows](INSTALL_WINDOWS.md).
+This guide explains what Beta 6 contains, what its defaults mean, and which
+features are ordinary, optional, experimental, planned, or failed.
 
-## What "beta" means
+New users should begin with [Installing on Windows](INSTALL_WINDOWS.md) and
+[Your first session](FIRST_RUN.md).
 
-The main features work and the release has automated and manual checks, but
-this is still test software. Replies can be wrong, performance varies by
-computer, and less common hardware or audio setups may expose bugs.
+## What “beta” means
 
-Keep important files backed up, verify high-stakes advice, and report behavior
-that is confusing or different from the documentation.
+The main application has automated and manual checks, but it remains
+experimental:
 
-## What the Windows package includes
+- language-model replies can be false, harmful, repetitive, or overly
+  confident;
+- model and dependency behavior varies by hardware;
+- less common audio, terminal, Bluetooth, and radio setups may expose bugs;
+- advanced editing paths can change files;
+- functional regressions do not certify content safety, legality, security,
+  or fitness for high-stakes use.
 
-The ready-to-run Windows package contains:
+Keep backups, use a standard Windows account, and verify important answers.
 
-- the Q8 director and on-demand 7B autonomous-coder models;
-- a private, bundled Python runtime;
-- the local model server;
-- offline Python installation files;
-- speech recognition and voice files;
-- the terminal interface, tutorial, visualizer, and guarded tools.
+## The complete Windows release is model-bearing
 
-It starts with no conversation history, saved memories, developer passcode,
-API key, paired device information, or music from the maintainer.
+The ready-to-run Beta 6 archive contains the actual local model weights:
 
-The normal GitHub source checkout does **not** contain all of those
-multi-gigabyte files. The release package does, divided into GitHub-sized
-download parts because GitHub cannot host it as one release asset.
+- abliterated Qwen3 4B Q8 director;
+- abliterated Qwen2.5-Coder 7B Q8 maintenance coder;
+- BGE small English v1.5 Q8 embeddings;
+- Moonshine, Silero, and Piper voice artifacts.
 
-## Downloading the correct package
+It also contains a private Python runtime, llama.cpp binaries, offline
+dependencies, built-in practical-reference cards, the terminal interface,
+visualizer, documentation, and guarded tools.
 
-The complete beginner process is in
-[Installing on Windows](INSTALL_WINDOWS.md). In short, download every
-consecutive `TORMENT_NEXUS.zip.partNN` file from the selected GitHub Release,
-starting at `TORMENT_NEXUS.zip.part01`, plus
-`REASSEMBLE_TORMENT_NEXUS.bat`, into the same folder.
-Run `REASSEMBLE_TORMENT_NEXUS.bat` to join the parts into a single
-`TORMENT_NEXUS.zip`, check it against the SHA-256 fingerprint in the release
-notes, then extract it and run `setup.bat`.
+This is not a sanitized edition. Read [Safety](../SAFETY.md),
+[Models](../MODELS.md), and
+[Third-party notices](../THIRD_PARTY_NOTICES.md). The source repository has
+no project-wide reuse license; see [Rights](../RIGHTS.md).
 
-GitHub's automatic **Source code (zip)** and **Source code (tar.gz)** downloads
-are for developers. They are not ready-to-run packages.
+GitHub’s automatic source archives are developer snapshots and are not the
+complete package.
 
-## What to expect on first use
+## First launch is an explicit boundary
 
-- The first answer can be slower while the local model loads into memory.
-- `tutorial` begins the beginner walkthrough.
-- Typed input works in audio mode, even without a microphone.
-- `text mode` turns spoken replies off.
-- `audio mode` turns spoken replies back on.
-- Escape cancels speech, music, or a long interaction.
-- `health check` explains which local and optional components are available.
-- Long typed messages keep the newest text visible.
-- Long answers use a page-at-a-time view. Space, Enter, or Down advances; Up
-  or Backspace goes back; Escape or Q closes it.
+Before model loading, microphone setup, listeners, activity sampling, or
+network-capable subsystems, the application displays its disclosure.
+Continuation requires the exact text:
 
-See [Your first session](FIRST_RUN.md) for the complete tour.
+```text
+I UNDERSTAND
+```
 
-## Time awareness
+Declining starts none of those components.
 
-The assistant reads the Windows local clock during each reply. It can understand
-the current date and time, the current session's age, and the gap since the last
-completed conversation.
+A fresh installation then begins with text mode and activity awareness off.
+Cloud escalation, the local agent API, autonomous startup editing, and
+experimental sensing are also off.
 
-The clock can be wrong if Windows is set incorrectly. Time awareness does not
-mean the assistant watched, waited, thought, worked, felt, or remained conscious
-while the program was closed.
+## Capability status
 
-## Local music and visualizer
+| Capability | Status | Important limit |
+| --- | --- | --- |
+| Local text conversation | Implemented | Uses an abliterated 4B model; output is not safety-filtered or guaranteed true. |
+| Offline voice | Implemented, opt-in | `audio mode` initializes listening/speech; microphone is off initially. |
+| Durable memory | Implemented | Local, inspectable, bounded files; not encrypted. |
+| Semantic memory rescue | Implemented, conservative | Automatic chat adds at most one unambiguous zero-overlap result. |
+| Older-conversation recall | Implemented, conservative | Requires a clear request about earlier conversation and returns at most one result. |
+| Offline manuals and cards | Implemented | Automatic use requires lexical evidence; explicit semantic results are candidates. |
+| Time awareness | Implemented | Reads timestamps; not hidden experience. |
+| Activity awareness | Implemented, opt-in | Window titles are private; `activity off` deletes retained observations. |
+| Local music/visualizer | Implemented | Operator supplies media; release package does not contain personal music. |
+| Web search | Optional | Queries leave through the configured search service. |
+| Cloud escalation | Optional, explicit | Sends only the typed escalation question to the provider. |
+| Agent API and `/ask` | Experimental, opt-in | Loopback and bearer-token protected; read access can still disclose data. |
+| Guarded self-maintenance | Advanced/experimental | Application rules are not an OS sandbox. |
+| T-Deck/Meshtastic | Optional hardware | Bluetooth/LoRa messages leave the PC and may reach mesh peers. |
+| LD2450 radar | Active, pending hardware | Movement/trajectory only; not sight, identity, or reliable occupancy. |
+| Desktop Wi-Fi occupancy proxy | Failed/archived | Measured the adapter/traffic rather than the room. |
+| Raspberry Pi image | Planned/unverified | No ready-to-install public Pi image. |
 
-Copy your own MP3, WAV, FLAC, or OGG files into `assistant\music`. Local songs
-are matched by filename with cautious tolerance for casual spelling.
+The detailed matrix is in
+[Capabilities and limits](CAPABILITIES_AND_LIMITS.md).
 
-A successful local-song start opens music mode automatically and is displayed
-instead of spoken so the voice does not cover the opening. Each scene uses a
-different, heightened response to bass, beats, melody, treble, stereo movement,
-and waveform detail. In music mode:
+## Offline knowledge
 
-- there are ten scenes, starting with a black-glass aqua player display and
-  rotating every 2 minutes 45 seconds; a full pass takes about 28 minutes;
-- acid lattice is an original acid-green triangulated mesh with jagged voids
-  and beat fracture bursts, inspired by the supplied video's visual language
-  without using footage;
-- colours change every 20 seconds;
-- Left and Right change the scene;
-- Space plays the next local song;
-- finished local songs advance automatically, with the last wrapping to the
-  first; `repeat music on` and `repeat music off` control this;
-- `[` and `]` change local playback volume;
-- Ctrl+B exits.
+Beta 6 includes eight built-in reference cards centered on Canadian emergency
+preparedness, fire/carbon-monoxide response, food/water safety, chemicals,
+outages, severe weather, navigation, communications, and the limits of
+offline material.
 
-Space does not skip Spotify or browser audio.
+The private user library accepts:
 
-## Features that need separate setup
+```text
+.txt .md .rst .html .htm .json .csv .pdf .epub .docx
+```
 
-These are optional and are not required for ordinary local conversation:
+Text-based PDFs use the bundled `pypdf`; scanned PDFs require OCR. Imported
+files are copied into `assistant\knowledge\user_library` and indexed in a
+local SQLite FTS database.
 
-- Web search requires a separately configured SearXNG service.
-- Spotify commands require the Spotify desktop application. `spotify search`
-  sends the search text to MusicBrainz for five public metadata matches, then
-  opens the selected title and artist in Spotify.
-- Microphone input requires a usable Windows input device, although typed
-  audio-mode input still works without one.
-- Raspberry Pi, T-Deck, and Meshtastic features require their own hardware and
-  manual setup.
-- Developer mode and observed serial repair are advanced, opt-in editing
-  features. They remain limited by local guardrails and validation.
+Automatic chat retrieval requires a real word match. Vectors only rerank
+lexical results. Explicit `library search` and the authenticated
+`/knowledge/search` endpoint may include semantic-only candidates, labeled
+as such.
 
-## Privacy and safety
+An offline passage can be outdated, incomplete, from another jurisdiction, or
+wrongly interpreted. It cannot verify live emergencies, changing law,
+recalls, weather, prices, product revisions, or professional advice.
 
-- It watches the computer's activity by default: every twenty seconds it
-  notes which application is in front, that window's title, how long since
-  you touched the keyboard, and the machine's load. Window titles often name
-  the file you have open or the page you are reading. This is kept in
-  `assistant\memory\activity_log.jsonl` for two weeks, never leaves the
-  computer, and is excluded from the release package. Type `activity` to see
-  what it has noticed, `activity off` to stop it, and `activity forget` to
-  delete the history. Attach nothing from that file to a bug report.
-- Do not type passwords, recovery codes, API keys, addresses, or private
-  documents into chat.
-- Treat search results, web pages, radio packets, and files as untrusted data.
-- Confirm hardware actions, transmissions, purchases, destructive changes, or
-  account access before approving them.
-- Developer mode can propose source changes; inspect the plan and keep backups.
-- The model's words do not grant it extra operating-system or editing
-  authority. Local Python rules enforce those boundaries.
-- The project's stylized identity is not verified consciousness or independent
-  authority over people or machines.
+See [Offline knowledge](OFFLINE_KNOWLEDGE.md).
 
-## Using a separately supplied model
+## Memory and vector policy
 
-This is an advanced developer path, not part of the ready-to-run Windows
-installation. A source checkout needs Python, llama.cpp, and a compatible GGUF
-model file before the assistant can launch.
+Automatic memory injection follows a conservative split:
 
-See [Bring your own GGUF](BRING_YOUR_OWN_GGUF.md).
+- exact-token matches remain primary;
+- at most one zero-overlap semantic result may be added;
+- it must score at least `0.55`;
+- it must lead the next semantic candidate by at least `0.06`;
+- greetings, acknowledgements, and capability pleasantries retrieve nothing.
 
-## Reporting a problem
+Explicit memory search uses cosine best-first without recency or confidence
+mixing. Results are candidates, not verified facts.
 
-Follow the checklist in [Troubleshooting](TROUBLESHOOTING.md#how-to-write-a-useful-bug-report)
-or the repeatable [beta testing guide](TESTING.md). Never attach private memory
-or conversation files to a public issue.
+History recall runs only for clear earlier-conversation intent. It returns at
+most one result whose score is at least `0.60` and whose lead is at least
+`0.06`. Long exchanges preserve their beginning and conclusion around a
+visible clipping marker.
 
-## License note
+The embedding server is local and loopback-only by default. Private query
+vectors use a bounded in-memory cache and are not serialized. Persistent
+memory/history vectors are private derived data stored in the embedding
+cache.
 
-The repository has no project-wide open-source license yet. Third-party models
-and components retain their own license terms. Review those terms before any
-authorized redistribution.
+## Privacy defaults and stored data
+
+- Text mode begins on; microphone listening begins off.
+- Activity awareness begins off. `activity on` persists opt-in.
+  `activity off` persists the off state and deletes the local activity log.
+- Conversation history is capped to the latest 20,000 characters.
+- Durable memories are capped at 500 entries.
+- Imported reference documents, extracted chunks, and their vectors remain
+  inside the installation.
+- Local files and tokens are not encrypted by the project.
+- Release packaging is intended to exclude personal memory, history,
+  activity, imported manuals, indexes, keys, pairing data, logs, and music.
+
+See [Privacy](../PRIVACY.md) for paths and deletion instructions.
+
+## Connected features
+
+Connected features are not necessary for local conversation:
+
+- SearXNG or Brave can supply current search evidence.
+- `spotify search` sends search text to MusicBrainz and then opens Spotify.
+- Cloud escalation is disabled until both an environment opt-in and provider
+  key exist.
+- A custom model or embedding URL can receive prompts, context, memory,
+  history, queries, or document text.
+- The agent API is disabled until explicitly enabled.
+- Bluetooth and LoRa hardware cross physical and radio boundaries.
+
+Search results, retrieved documents, model responses, and radio messages are
+untrusted data, not commands.
+
+## Research versus product claims
+
+The [research goals](RESEARCH_GOALS.md) describe open questions, not promised
+capabilities. Sycophancy, entropy, persona drift, sensing, Pi power/thermal
+behavior, and self-governance are experiments until measured.
+
+The project deliberately keeps negative results. The failed Wi-Fi proxy is
+documented because thresholds must not be tuned into agreement.
+
+## Reporting
+
+Use [Testing](TESTING.md) for a repeatable pass and
+[Troubleshooting](TROUBLESHOOTING.md) for common failures.
+
+Do not attach conversations, memories, imported manuals, knowledge databases,
+activity logs, keys, tokens, passcodes, pairing information, or personal
+paths. Security-boundary failures belong in the private process described by
+[Security](../SECURITY.md).

@@ -30,6 +30,10 @@ class DatastreamVisualizer:
     def __init__(self, palette):
         self.palette = tuple(palette)
         self.time = 0.0
+        # Wall-clock seconds for the slow strata. Deliberately not scaled by
+        # audio: a reference that speeds up with the music is not a
+        # reference. See visualizer/anchor.py for the same idea elsewhere.
+        self.slow = 0.0
         self.pulse = 0.0
         self.glitch = 0.0
         self.bass = 0.0
@@ -64,6 +68,7 @@ class DatastreamVisualizer:
         self.mid += (mid - self.mid) * response
         self.treble += (treble - self.treble) * response
         self.time += dt * (0.60 + self.mid * 0.95 + self.treble * 0.35)
+        self.slow += dt
         self.pulse = max(beat, self.pulse * math.exp(-dt * 4.8))
 
         if beat > 0.14 and beat > self._previous_beat + 0.045:
@@ -158,7 +163,12 @@ class DatastreamVisualizer:
         # A low data horizon turns the live spectrum into a dense city of code
         # below the rain. It is subtle until music is present, then expands
         # strongly with bass and beats.
-        floor = int(round(height * 0.79))
+        #
+        # It stands on the last row. At height * 0.79 it stood six rows up on
+        # a 34-row stage, so the city floated with a band of unused terminal
+        # beneath it and read as a bar across the middle rather than as
+        # ground the rain was falling towards.
+        floor = height - 1
         horizon_height = np.maximum(
             1,
             np.rint(
@@ -174,6 +184,31 @@ class DatastreamVisualizer:
             strength,
             np.where(horizon, horizon_strength, 0.0),
         )
+
+        # Slow strata drifting down behind the rain. The curtain's speed is
+        # entirely treble-driven, so without a fixed reference a fast
+        # passage and a slow one both just read as "falling". These bands
+        # move on wall-clock time alone and give the fall a rate.
+        #
+        # Built here rather than through visualizer.anchor because this
+        # scene composes cells, not braille subpixels: one row is one
+        # terminal line, so the raster-width problem anchor.lines() solves
+        # cannot arise.
+        strata = np.exp(
+            -(
+                (
+                    (rows - self.slow * 1.15 + np.sin(x * 2.1) * 1.6)
+                    % 9.0
+                    - 4.5
+                )
+                / 1.05
+            ) ** 2
+        )
+        # Cells below 0.065 are dropped entirely by _to_cells, so this sits
+        # just clear of that floor. At 0.22 the strata rendered as solid
+        # glyph bands and became the loudest thing on screen in silence,
+        # which is the opposite of an anchor's job.
+        strength = np.maximum(strength, strata * (0.105 + level * 0.05))
 
         # A narrow scan-lane is the actual "corruption" event: it sweeps the
         # code field on a transient and fades immediately, rather than hiding

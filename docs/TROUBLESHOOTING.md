@@ -6,223 +6,270 @@ Start with:
 health check
 ```
 
-That command explains which local and optional parts are available. If the
-application will not open, use the installation and launch sections below.
+That command reports which local and optional components are ready. Beta 6 is
+experimental and its bundled language models are abliterated. A fluent answer
+is not proof that it is correct or safe; read [Safety](../SAFETY.md) before
+following consequential advice or running generated code.
 
-## I downloaded a ZIP but there is no working installer
+## Download and installation
 
-You probably downloaded GitHub's automatic **Source code (zip)** file. It does
-not include the AI model or self-contained Windows runtime.
+### I downloaded a ZIP but there is no working installer
 
-Return to the
-[v0.2.0-beta.5 release](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.2.0-beta.5)
-and download every consecutive release part, starting at `part01`, plus:
-
-```text
-REASSEMBLE_TORMENT_NEXUS.bat
-```
-
-Keep every file in the same folder and follow
-[Installing on Windows](INSTALL_WINDOWS.md).
-
-## The reassembly helper says a file is missing
-
-- Confirm every consecutive `.partNN` file in the release finished downloading.
-- Put every part and `REASSEMBLE_TORMENT_NEXUS.bat` in the same folder.
-- Do not rename the files.
-- Check whether the browser added `(1)` or another suffix after a repeated
-  download. Remove the incomplete duplicate and download the correct file
-  again.
-- Make sure the files are not still represented by temporary browser download
-  names.
-
-Run the helper again only after every filename matches the release exactly.
-
-## The rebuilt ZIP will not open or its checksum is wrong
-
-One of the parts may be incomplete or damaged. Delete `TORMENT_NEXUS.zip`,
-download every part again, and rerun `REASSEMBLE_TORMENT_NEXUS.bat`. Compare
-the rebuilt ZIP against the SHA-256 fingerprint in the release notes before
-extracting. Do not run setup when the release checksum does not match.
-
-## Windows or security software blocks a file
-
-Confirm all of the following before doing anything else:
-
-- the files came from the official TORMENT_NEXUS GitHub release;
-- the rebuilt ZIP's SHA-256 matches the release notes;
-- the filenames have not been changed;
-- the files were not forwarded through an untrusted source.
-
-Do not bypass workplace or school security policy. If a managed computer blocks
-the package, use a personal test computer or ask its administrator to inspect
-the release and checksum.
-
-## Setup cannot find files
-
-Make sure you used **Extract All** and opened the extracted folder. Running
-`setup.bat` from the ZIP preview prevents it from seeing neighbouring files.
-
-The same folder as `setup.bat` should also contain `assistant`, `models`,
-`python`, and `start_assistant.bat`.
-
-Do not move individual files out of the installation folder.
-
-## Setup finished but there is no desktop shortcut
-
-Open the extracted TORMENT_NEXUS folder and double-click:
+GitHub's green **Code** button and automatic **Source code** archives do not
+contain the models or private Windows runtime. Open
+[GitHub Releases](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases),
+select `v0.2.0-beta.6`, and download every consecutive file named:
 
 ```text
-start_assistant.bat
+TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.partNN
 ```
 
-The application is still usable if shortcut creation failed. Keep
-`start_assistant.bat` inside the installation folder.
+Also download:
 
-## The desktop shortcut stopped working
+```text
+REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat
+```
 
-The shortcut points to the folder where setup was originally run. It stops
-working if that folder is moved, renamed, or deleted.
+The release is the full model-bearing build, including the abliterated
+director and maintenance models. It is not a sanitized or model-free client.
+Read the warning and [model provenance](../MODELS.md) before downloading.
 
-1. Open the current TORMENT_NEXUS folder.
-2. Confirm `start_assistant.bat` launches the application.
-3. Run `setup.bat` again to recreate the shortcut for the current location.
+### The reassembler says a part is missing
 
-If `start_assistant.bat` also fails, keep the terminal window open and include
-its final error lines in a bug report. Remove personal paths or private data
-before posting screenshots.
+- Keep the helper and every consecutive `.partNN` file in one folder.
+- Do not rename any file.
+- Remove browser-added suffixes such as `(1)` by redownloading the correctly
+  named asset; do not guess which duplicate is complete.
+- Confirm each browser download has finished and is no longer temporary.
 
-## The first answer is slow
+Run the helper only after the names exactly match the release assets.
 
-The local model loads into memory on the first message. Later messages are
-normally faster. Closing the application releases that memory, so a new
-session must load it again.
+### The rebuilt ZIP will not open or its checksum is wrong
 
-Close other memory-heavy applications if Windows is struggling. The bundled Q8
-director and 7B coder need at least 16 GB of memory; more leaves more room for
-voice and other applications.
+Do not run setup. Redownload the parts, rebuild
+`TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip`, and compare its SHA-256 with
+the release manifest:
 
-## I turned voice off and cannot turn it back on
+```powershell
+Get-FileHash .\TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip -Algorithm SHA256
+```
 
-Type:
+The value must match character for character. Security software or a managed
+computer may block an unfamiliar archive. Do not bypass organizational
+policy; use a personal test computer or ask its administrator to inspect it.
+
+### Setup cannot find files
+
+Use **Extract All** first. Running `setup.bat` inside the ZIP preview prevents
+it from finding adjacent files. In the extracted folder, keep `assistant`,
+`models`, `python`, `start_assistant.bat`, and `setup.bat` together.
+
+### The shortcut is missing or stopped working
+
+Run `start_assistant.bat` from the extracted installation folder. If that
+works, rerun `setup.bat` to recreate the shortcut. A shortcut made before the
+folder was moved or renamed will still point to the old location.
+
+## First launch and safe defaults
+
+### The application exits at the first warning
+
+Before the model, microphone, activity sampler, listeners, or
+network-capable subsystems start, Beta 6 requires this exact text:
+
+```text
+I UNDERSTAND
+```
+
+Capitalization and spaces matter. Anything else exits safely. If the exact
+text is rejected or the acknowledgement cannot be saved, make sure the
+installation folder is writable by your standard Windows account. Do not run
+as Administrator to work around a permissions problem.
+
+The acknowledgement is a disclosure receipt, not proof that later model
+output is safe. Deleting `assistant\.safety_acknowledgement.json` while the
+application is closed displays the warning again.
+
+### It starts in text mode
+
+That is the Beta 6 default. The microphone is not initialized until you opt
+in:
 
 ```text
 audio mode
 ```
 
-Use `text mode` to turn spoken replies off again. `voice status` shows whether
-speech and microphone components are ready.
+Use `text mode` to turn spoken interaction off and `voice status` to inspect
+the offline speech components.
 
-## There is no microphone, or speech recognition is not working
+### Activity awareness says it is off
 
-Typed input still works in audio mode, and replies can still be spoken.
-
-- Type `voice status`.
-- Check the Windows microphone privacy and input-device settings.
-- Make sure another application is not holding the microphone exclusively.
-- Press Escape once to cancel a stuck listening state, then try again.
-- Use `text mode` if you want to continue without speech.
-
-The ready-to-run Windows beta already includes its voice assets. The separate
-voice setup script is for source checkouts, not the normal packaged install.
-
-## The assistant spoke unexpectedly
-
-Unsolicited idle attention messages are visual-only by default. Local-song
-start confirmations are also visual-only.
-
-Use `text mode` to disable spoken replies completely. If speech still occurs
-without a submitted prompt, note what was on screen, the active mode, and the
-approximate idle time in a bug report.
-
-## The voice talks over the beginning of a local song
-
-Current local-song starts should be confirmed on screen without speech. Confirm
-that the song is inside `assistant\music` and was started as local music rather
-than through Spotify or a browser.
-
-If it still happens, report the exact request and whether `music mode` was
-active.
-
-## A local song is not found
-
-1. Put the audio file in `assistant\music` inside the current installation.
-2. Type `music library` to confirm it appears.
-3. Try a distinctive part of the filename rather than a very short word.
-4. If several files have similar names, use more of the title.
-
-Supported file types are MP3, WAV, FLAC, and OGG.
-
-## Space does not play the next song
-
-Space advances local music only while the visualizer is in music mode. It does
-not control Spotify or browser playback.
-
-Playing a local song should open music mode automatically. If the visualizer
-was closed manually, type `music mode`, confirm a local song is active, and
-press Space again.
-
-## Local music stops instead of continuing through the library
-
-Type `repeat music`. Local-library repeat is on by default. If it reports off,
-type `repeat music on`.
-
-Tracks play in filename order. When one finishes, the next starts
-automatically; after the last filename, playback returns to the first. A file
-that cannot be decoded is skipped so one damaged addition does not stop the
-rest of the library.
-
-## Text, code, or diagnostics appear beneath the visualizer
-
-The current visualizer protects the terminal's bottom-right cell from automatic
-line wrapping and redirects background Python audio diagnostics to:
+That is also the default. To opt in:
 
 ```text
-assistant\logs\visualizer_output.log
+activity on
 ```
 
-That log is local and is not displayed over the animation. If the screen still
-scrolls or jitters, include the Windows terminal application, terminal size,
-active scene, and the final non-private lines of that log in a bug report.
+When enabled, it samples foreground application/title and basic system state
+about every 20 seconds and retains a local log for at most 14 days by
+default. Window titles can reveal private filenames, pages, and previews.
 
-## Text disappears at the right edge
+```text
+activity off
+```
 
-The current beta keeps the newest part of a long typed message visible. If it
-does not:
+stops sampling, persists the off choice, and deletes the retained in-memory
+and on-disk activity log.
 
-- confirm you are running v0.2.0-beta.1;
-- avoid resizing the terminal while actively typing;
-- note the terminal width and exact input in a bug report.
+```text
+activity forget
+```
 
-## A long answer disappears above the screen
+deletes existing observations without changing whether sampling is on.
 
-The current beta opens a page-at-a-time view for long replies:
+## Models, speed, and memory
 
-- Space, Enter, or Down moves forward;
-- Up or Backspace moves backward;
-- Escape or Q closes the page view.
+### The first answer is slow
 
-If normal Windows terminal scrolling is needed afterward, use its standard
-scroll bar or scroll gesture.
+The local director loads into memory on the first request. Later requests are
+usually faster. Closing the application releases that memory. The full Q8
+director, on-demand 7B coder, voice stack, and embedding model need at least
+16 GB RAM; close other memory-heavy programs if Windows is paging.
 
-## Time or elapsed-time information is wrong
+### The assistant gives a confident or disturbing answer
 
-TORMENT_NEXUS uses the Windows local clock. Check the Windows date, time, time
-zone, and automatic time synchronization settings.
+The shipped models have weakened learned refusals and can be confidently
+wrong, explicit, biased, manipulative, insecure, or harmful. Stop the action,
+do not execute unreviewed code, and verify important claims against an
+authoritative source. Application tool restrictions do not filter every
+sentence. See [Safety](../SAFETY.md) and
+[Capabilities and limits](CAPABILITIES_AND_LIMITS.md).
 
-It should not claim that it watched, waited, thought, worked, or felt anything
-while closed. Report such a claim with the exact prompt and reply.
+### Semantic recall is unavailable
 
-## How to write a useful bug report
+Ordinary word-overlap memory and offline-library search still work if the
+embedding service is unavailable. Check `health check`, confirm the bundled
+BGE model is present, and restart the application. Conservative thresholds
+intentionally return no result when evidence is weak or ambiguous.
 
-Include:
+## Offline knowledge library
 
-- what you typed or clicked;
-- what you expected;
-- what actually happened;
-- roughly how long it took;
-- whether text, audio, music, visualizer, web, or hardware mode was active;
-- the Windows version, amount of memory, and beta version when relevant.
+### A manual does not appear
 
-Do not include passwords, private memories, conversation history, API keys,
-addresses, or device pairing information.
+Check:
+
+```text
+library status
+library sources
+```
+
+Adding, removing, and rebuilding documents require developer mode:
+
+```text
+library add "C:\path\to\manual.pdf"
+library rebuild
+```
+
+Imports are copied into `assistant\knowledge\user_library`; editing the
+original later does not edit the copy. Indexing runs locally and may take
+time for a large folder.
+
+### A PDF returns little or no text
+
+Beta 6 uses `pypdf` and can extract text-based PDFs. A scanned, photographed,
+encrypted, or unusually encoded PDF may need OCR or conversion before import.
+Do not assume an empty search means the information is absent from the page
+images.
+
+### Search does not find a paraphrase automatically
+
+That restraint is intentional. Automatic prompt injection requires a real
+full-text word match; embeddings can only rerank those lexical hits. An
+explicit search can explore more widely:
+
+```text
+library search <words>
+```
+
+Semantic-only results are labeled `semantic-candidate`. Treat the label as a
+lead to inspect, not as proof that the passage answers the question.
+
+### The library index is damaged or stale
+
+Close other copies of the application, enter developer mode, and use
+`library rebuild`. If that still fails, close the application, back up any
+private imported documents you want to keep, remove
+`assistant\knowledge\library.sqlite3`, and rebuild. Do not publish the
+database: it contains extracted document text and metadata.
+
+See [Offline knowledge](OFFLINE_KNOWLEDGE.md) for supported formats and
+limits.
+
+## Voice, music, and interface
+
+### Speech recognition is not working
+
+- Type `voice status`.
+- Check Windows microphone privacy and input-device settings.
+- Make sure another application is not holding the microphone exclusively.
+- Press Escape once to cancel a stuck listening state.
+- Continue in `text mode` if speech remains unavailable.
+
+The packaged beta already includes its voice assets. Voice setup scripts are
+for source checkouts.
+
+### The visualizer is blank or slow
+
+Try a smaller window, close GPU-heavy applications, and test a local MP3,
+WAV, FLAC, or OGG file from `assistant\music`. Driver-specific rendering
+failures should not affect typed chat.
+
+### Spotify or web search does not work
+
+These are optional connected features. Local chat and the offline library do
+not require them. Spotify needs its own application/account configuration.
+Web search needs a reachable configured SearXNG or Brave service and sends a
+derived query outside the application. See [Privacy](../PRIVACY.md).
+
+## Experimental agent interface
+
+### The endpoint returns 404
+
+The interface is off by default. Start the application with
+`TORMENT_NEXUS_AGENT_API=1`; it binds only to `127.0.0.1:8099`.
+
+### The endpoint returns 401
+
+Supply the exact bearer token from `assistant\.agent_token`. Treat it as a
+secret: authenticated routes can expose private memory and library results.
+Do not put the service on a public interface or paste the token into reports.
+
+### `/ask` is busy or cancelled
+
+The human operator has priority. `/ask` yields when the interactive session
+needs the director, returns at most a short answer, and cannot see the live
+chat. Retry later rather than creating a request loop. See
+[Agent interface](AGENT_INTERFACE.md).
+
+## Experimental sensing
+
+The Intel AX211 desktop Wi-Fi proxy experiment failed because it measured
+adapter and traffic behavior rather than reliable room state. It is not a
+setup problem to tune around.
+
+The active next experiment is an HLK-LD2450 24 GHz movement radar over USB
+TTL, pending hardware. It is not sight, identification, or reliable proof of
+occupancy. Do not use any sensing path for alarms, access control, covert
+monitoring, or safety decisions. See [Sensing module notes](SENSING_MODULE.md).
+
+## Reporting a problem
+
+Include the Beta 6 version, Windows version, launch method, command that
+failed, expected result, and a minimal synthetic reproduction. Remove user
+paths and never attach conversations, memories, imported documents, library
+databases, activity logs, model/API keys, bearer tokens, passcodes, pairing
+data, or private window titles.
+
+Use [Security](../SECURITY.md) for a possible authentication, containment, or
+data-disclosure flaw. Use [Contributing](../CONTRIBUTING.md) for ordinary
+bugs.

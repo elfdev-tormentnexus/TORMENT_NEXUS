@@ -1,110 +1,162 @@
-# TORMENT_NEXUS beta testing
+# Testing Beta 6
 
-This guide is for someone deliberately testing the beta. Ordinary users should
-start with [Installing on Windows](INSTALL_WINDOWS.md) and
-[Your first session](FIRST_RUN.md).
+Testing is part of the safety boundary, but it is not a safety certification.
+Passing tests can show that an application rule behaves as coded; it cannot
+prove that an abliterated model is truthful, unbiased, lawful, secure, or
+appropriate for a high-stakes use.
 
-Run the automated regression suite before and after a meaningful change:
+Run the automated suite from a source checkout:
 
 ```powershell
 .\setup\test_assistant.bat
 ```
 
-Then use this short manual pass on the target machine.
+Review the complete result. Do not publish a fixed test count: it changes as
+the project evolves. A release candidate should have zero failures and no
+unexpected skipped safety-boundary tests.
 
-## 1. Startup and core conversation
+## Clean-state first-launch test
 
-Launch TORMENT_NEXUS, wait for the input prompt, and ask a normal question.
-Note startup stutter, first-response delay, and whether typing remains usable.
+Use a disposable copy without personal data.
 
-## 2. Tutorial and commands
+1. Confirm no acknowledgement state exists.
+2. Launch and verify that the disclosure appears before model loading,
+   microphone access, activity sampling, listeners, or network-capable
+   subsystems.
+3. Enter anything except the exact `I UNDERSTAND`; verify the application
+   exits without starting them.
+4. Launch again, enter the exact text, and verify acknowledgement is recorded.
+5. Relaunch and verify the disclosure is not repeated.
+6. Confirm the ordinary session begins in text mode with activity awareness
+   off.
 
-Run `tutorial restart`. It should present two sections at a time. Use `next`,
-`n`, or `continue` to advance. Try `help` and `explain voice`.
+Do not use a real memory folder, API key, or imported manual for this test.
 
-## 3. Voice and cancellation
+## Privacy-default test
 
-Run `audio mode`, type a short message, then use `text mode` or Escape. If a
-microphone is unavailable, typed audio-mode input should still produce speech.
-Run `audio mode` again and confirm voice can be re-enabled.
+- Confirm no microphone is opened before `audio mode`.
+- Confirm `activity on` persists the opt-in and begins sampling.
+- Confirm `activity forget` deletes current observations without changing the
+  enabled state.
+- Confirm `activity off` stops sampling, persists off, and deletes
+  `assistant\memory\activity_log.jsonl`.
+- Restart and confirm activity remains off.
+- Confirm optional agent, escalation, autonomous editing, and sensing paths
+  remain disabled without their explicit settings.
 
-## 4. Music and visualizer
+Review [Privacy](../PRIVACY.md) before testing with real documents or
+activity.
 
-Play a local track and confirm the visualizer opens automatically without a
-scrolling or jittering diagnostic line beneath it. Check that quiet passages
-remain active and that bass, beat, melody, and treble changes produce obvious
-scene movement. Confirm the colour palette changes after 20 seconds, Space
-advances to the next local song, Left/Right changes scenes, and Ctrl+B exits.
+## Conversation and semantic retrieval
 
-Press Right through all ten scenes and confirm each one draws: aqua player,
-radial tunnel, spectrum cathedral, orbital reactor, corrupt cube, neon
-horizon, plasma flow, datastream rain, wormhole, and acid lattice. The aqua
-player should show a glossy bezel, oscilloscope, gel meter, and an obvious
-flash on a kick.
-The datastream rain should look like a layered falling-code curtain with a
-low spectrum horizon; a kick should create only a brief scan-fault sweep, not
-turn the entire scene into permanent static.
-Acid lattice should show an original acid-green triangulated mesh with jagged
-voids and brief beat fracture bursts, not a copied video frame or footage.
-Resize the terminal while a scene is running and confirm it reflows without an
-exception or leftover columns.
+Test both positive and negative cases:
 
-## 4b. Voice delivery and the reactive face
+- exact terms, filenames, identifiers, and word-overlap memories remain
+  reliable;
+- greetings and acknowledgements do not trigger semantic retrieval;
+- automatic zero-word-overlap memory contributes at most one item and only
+  at cosine `>= 0.55` with a `>= 0.06` margin over the runner-up;
+- ambiguous or unrelated queries return no semantic memory;
+- explicit memory search ranks candidates by cosine rather than silently
+  mixing recency or confidence;
+- earlier-conversation recall runs only for clear recall intent, returns at
+  most one item, and requires cosine `>= 0.60` plus a `>= 0.06` margin;
+- a long persisted exchange preserves both its beginning and end around the
+  visible clipping marker;
+- stopping the embedding server leaves lexical behavior working.
 
-Speak a few sentences and confirm each one ends lower than it began rather
-than rising into its full stop, and that consecutive sentences do not all sit
-at the same pitch. In voice mode, confirm the face is still between words and
-breaks apart on stressed syllables rather than churning at a constant rate.
+The bundled BGE model is deliberately evaluated with project-selected mean
+pooling. Upstream examples commonly use CLS pooling, so any embedding-model
+or runtime change requires fresh measurements rather than inherited
+thresholds. See [Semantic retrieval](SEMANTIC_AND_AGENT_BRIDGES.md).
 
-Run `sing daisy bell` and confirm the tune plays on its own for about a
-minute before the singing starts, and that the opening "Daisy, Daisy"
-articulates instead of smearing.
+## Offline knowledge
 
-## 4c. Activity awareness
+In a disposable library:
 
-Type `activity` and confirm it reports the application actually in front.
-Leave the keyboard for six minutes and confirm it reports you as away rather
-than counting that time as use. Confirm `activity off` clears it, `activity
-on` resumes, and `activity forget` deletes
-`assistant\memory\activity_log.jsonl`. Restart and confirm what it noticed
-earlier is still there. Confirm the file never appears in `git status`.
-Confirm `music mode` can still open the visualizer manually and `stop` stops
-local playback.
+1. Check that the eight built-in practical-reference cards are present.
+2. Import representative `.txt`, `.md`, `.rst`, `.html`, `.json`, `.csv`,
+   text PDF, `.epub`, and `.docx` files.
+3. Confirm imports are copied to the private shelf and indexed locally.
+4. Verify automatic context requires a lexical match.
+5. Verify embeddings only rerank those automatic lexical hits.
+6. Verify explicit `library search` can return a semantic-only result and
+   labels it `semantic-candidate`.
+7. Verify an unrelated query returns no confident answer.
+8. Import an image-only PDF and confirm the documentation accurately warns
+   that OCR is required.
+9. Remove and rebuild sources in developer mode; verify no stale extracted
+   text remains.
 
-Let a short local song finish and confirm the next filename starts
-automatically. Confirm the final filename wraps to the first. Then confirm
-`repeat music off` stops after the current song and `repeat music on` restores
-continuous library playback.
+Use synthetic documents. Imported files, the SQLite index, extracted text,
+and vectors are private runtime data and must not enter a release.
 
-## 5. Time awareness
+## Voice, media, and interface
 
-Ask for the current local time and date, then close and reopen the app after a
-short gap. It should understand the elapsed time without claiming it watched,
-waited, thought, worked, or felt anything while closed. A deliberately wrong
-Windows clock should affect the answer honestly rather than being hidden.
+- Start in text mode and verify `audio mode`, `text mode`, and `voice status`.
+- Verify speech recognition, cancellation, and spoken replies on an ordinary
+  Windows account.
+- Play local MP3, WAV, FLAC, and OGG files and verify the visualizer remains
+  responsive.
+- Confirm local-song startup does not produce an unwanted spoken
+  confirmation.
+- Exercise long-output pagination and cancellation.
+- Confirm no feature silently enables activity sampling or networking.
 
-## 6. Boundaries and integrations
+## Agent-interface tests
 
-Try `health check`, optional `search <query>`, and -- only if deliberately
-configured -- T-Deck commands. Check that unavailable services fail clearly rather
-than freezing the interface.
+With the interface disabled, confirm `127.0.0.1:8099` is unavailable. Then
+enable it only in a disposable session and test:
 
-## 7. Observed serial repair (developer test only)
+- bearer authentication and Host-header rejection;
+- `/health`, `/state`, `/entropy`, `/files/editable`;
+- `/memory/search` and `/knowledge/search`, including result labels;
+- `/ask` answer length, busy/cancel behavior, and human-session priority;
+- `/ask` receives stable persona/core-memory context but not the live chat,
+  does not append conversation history, and does not extract memory;
+- every call produces metadata-only audit output;
+- no route binds outside loopback or edits project state.
 
-In developer mode, run `autonomous serial on`, then `run autonomous cycle`.
-Watch the status updates. It may apply no more than three small allowlisted
-edits, then reload. If all three apply, the restart performs a health and
-regression validation before one possible bonus edit; the bonus restarts and
-validates once more. Confirm a failed validation restores the recorded batch
-instead of awarding the bonus.
+Never include the token or returned private text in test logs. See
+[Agent interface](AGENT_INTERFACE.md).
 
-## Reporting a problem
+## Connected and hardware tests
 
-Include the command or prompt, the visible result, approximate timing, and the
-active mode: text, voice, music, visualizer, web, or hardware. Include the
-Windows version, amount of memory, and beta version when relevant.
+Network and hardware tests require explicit consent and separate test data.
 
-Do not include credentials, private memories, conversation history, addresses,
-or device pairing data. See the longer
-[troubleshooting and bug-report guide](TROUBLESHOOTING.md#how-to-write-a-useful-bug-report)
-for common problems and a novice-friendly checklist.
+- Verify search announces and uses only the configured backend.
+- Verify escalation sends exactly the explicit question and no history,
+  memory, persona, or system prompt.
+- Verify a custom model or embedding URL is treated as remote and receives
+  only the intended data.
+- Test T-Deck/LoRa only on authorized channels and regions.
+- Treat the failed AX211 Wi-Fi proxy as an archived negative result.
+- Test the planned LD2450 only as a motion/trajectory sensor, never as
+  identity, camera-like sight, or proof of occupancy.
+
+## Release-package acceptance
+
+Before publishing any Beta 6 asset:
+
+- build from the intended clean commit and record it in the manifest;
+- verify archive and part hashes;
+- verify the exact asset names and reassembly helper;
+- inventory the bundled model/runtime versions and compare hashes with
+  [Models](../MODELS.md);
+- confirm the full-model warning appears before download/install directions;
+- verify the archive contains no keys, tokens, passcodes, acknowledgements,
+  activity-consent state, conversation history, memories, embedding cache,
+  imported library, SQLite knowledge index, activity log, personal music,
+  logs, recovery material, or local paths;
+- extract on a clean Windows account, run setup, and repeat the clean-state
+  first-launch test;
+- inspect [Third-party notices](../THIRD_PARTY_NOTICES.md) and
+  [Rights and reuse](../RIGHTS.md) before redistribution.
+
+## Reporting results
+
+Record the commit, Windows build, CPU/RAM, launch profile, exact input,
+expected result, actual result, and whether optional services were enabled.
+Use synthetic content and redact personal paths. A security or privacy
+boundary failure follows [Security](../SECURITY.md); ordinary failures follow
+[Contributing](../CONTRIBUTING.md).

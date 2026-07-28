@@ -1,0 +1,25 @@
+BGE SMALL ENGLISH V1.5 Q8_0 - PROVENANCE AND LICENSE NOTICE
+
+Bundled artifact:
+
+  models/embedding/bge-small-en-v1.5-q8_0.gguf
+  36,806,944 bytes
+  SHA-256 EC38E8DA142596BAA913124AE50550DE284B6916BF59577EF2F0CB9660C2F514
+
+Exact byte source observed for this release:
+
+  https://huggingface.co/CompendiumLabs/bge-small-en-v1.5-gguf
+  revision d32f8c040ea3b516330eeb75b72bcc2d3a780ab7
+  file bge-small-en-v1.5-q8_0.gguf
+
+The exact GGUF repository declares the MIT license and identifies this base:
+
+  https://huggingface.co/BAAI/bge-small-en-v1.5
+
+The BAAI base repository also declares the MIT license and links to the
+FlagEmbedding MIT license:
+
+  https://github.com/FlagOpen/FlagEmbedding/blob/master/LICENSE
+
+This notice records the repository declarations and exact-byte provenance. It
+does not alter the upstream terms or make an independent legal conclusion.

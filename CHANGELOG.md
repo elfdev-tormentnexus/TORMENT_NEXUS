@@ -2,6 +2,48 @@
 
 ## Unreleased
 
+## v0.2.0-beta.6 — 2026-07-28
+
+Beta 6 turns the experimental retrieval and agent seams into measured,
+release-packaged features while making the model and autonomy risks much more
+explicit.
+
+- Added hybrid memory retrieval using the bundled 35 MB
+  `bge-small-en-v1.5-q8_0` embedding model alongside exact word overlap.
+  Embeddings are cached locally, history recall is bounded, and the feature
+  falls back cleanly when the embedding service is unavailable.
+- Added a local, read-only `/ask` interface for an owner-authorised outside
+  agent and a separate outbound escalation bridge. External-provider calls
+  remain off until deliberately enabled and supplied with the owner's own API
+  key; ordinary conversation remains local.
+- Connected the retrieval panel to real memory vectors and added measured
+  entropy and music-response inputs without conflating visual vectors with
+  semantic embedding vectors.
+- Tightened protected edit surfaces, model-role isolation, source validation,
+  privacy exclusions, latency bounds, and regression coverage.
+- Recorded the failed Windows Wi-Fi proxy as a negative result and reopened
+  the sensing workstream around the pending HLK-LD2450 24 GHz radar hardware.
+  Raspberry Pi monitor-mode and hardware work remain plans, not shipped
+  capabilities.
+- Hardened Windows release packaging with versioned artifacts, a clean-source
+  snapshot gate, fatal required-file checks, model/source hashes in the
+  manifest, a verified offline dependency cache, and automatic SHA-256
+  verification after the numbered ZIP parts are joined.
+- Added explicit warnings and typed acknowledgement gates to the maintenance,
+  one-cycle autonomous-repair, and full-maintenance launchers. The ordinary
+  companion launcher does not require a terminal confirmation and instead
+  points first-time users to the mandatory in-app disclosure.
+
+The bundled conversational model remains
+`Qwen3-4B-abliterated-bf16_q8_0` in the **director** role. The bundled
+on-demand editing model remains
+`Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0` in the
+**autonomous-coder** role. The 14B full-maintenance model is still a separate,
+optional desktop artifact and is not part of the base Windows archive.
+
+Full regression-suite count: **verified at release** after the final clean
+source freeze.
+
 ## v0.2.0-beta.5 — 2026-07-28
 
 Beta numbering is cumulative across the project and does not reset when the

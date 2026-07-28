@@ -10,6 +10,29 @@ set "TORMENT_NEXUS_FULL_MAINTENANCE_MODEL_PATH=%ROOT%models\Qwen2.5-Coder-14B-In
 if not exist "%CUDA_SERVER%" goto missing_runtime
 if not exist "%TORMENT_NEXUS_FULL_MAINTENANCE_MODEL_PATH%" goto missing_model
 
+echo.
+echo ================================================================
+echo HIGH-RISK ADVANCED MODE - FULL MAINTENANCE
+echo ================================================================
+echo This launches Qwen2.5-Coder-14B-Instruct-abliterated-Q4_K_M in
+echo the full-maintenance role. It is an optional experimental model,
+echo distributed as a separate add-on rather than used for ordinary chat.
+echo.
+echo "Abliterated" means refusal behaviour may be weakened. The model may
+echo produce unsafe or confidently wrong plans. Full maintenance can apply
+echo multiple source changes during a test-driven repair session.
+echo Guardrails, backups, validation, and rollback reduce risk but are not
+echo a security sandbox and cannot guarantee a safe result.
+echo.
+echo Close every other project editor. Keep a separate backup. Do not run
+echo as Administrator. Remove credentials and irreplaceable files from the
+echo project. Review the plan, final diff, rollback status, and complete
+echo regression report before trusting any result.
+echo.
+set "LAUNCH_CONFIRMATION="
+set /p "LAUNCH_CONFIRMATION=Type START FULL MAINTENANCE to continue: "
+if /i not "%LAUNCH_CONFIRMATION%"=="START FULL MAINTENANCE" goto launch_cancelled
+
 set "TORMENT_NEXUS_LLAMA_SERVER=%CUDA_SERVER%"
 set "TORMENT_NEXUS_MODEL_PATH=%TORMENT_NEXUS_FULL_MAINTENANCE_MODEL_PATH%"
 set "TORMENT_NEXUS_MODEL_DISPLAY_NAME=Qwen2.5-Coder-14B-Abliterated-Q4_K_M / FULL MAINTENANCE"
@@ -26,6 +49,12 @@ set "TORMENT_NEXUS_AUTONOMOUS_ON_STARTUP=0"
 call "%ROOT%start_assistant.bat"
 endlocal
 exit /b
+
+:launch_cancelled
+echo.
+echo Full-maintenance launch cancelled. No model was started.
+endlocal
+exit /b 2
 
 :missing_runtime
 echo The desktop CUDA runtime is missing:

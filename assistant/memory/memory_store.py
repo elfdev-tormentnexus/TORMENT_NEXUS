@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import shutil
 import threading
 from datetime import datetime
@@ -268,27 +269,69 @@ def active_memories():
         return list(memory_logic.active(memories))
 
 
-def forget_memory(search):
+def forget_memory_texts(search):
+    """Delete matching memories and return their exact source texts."""
     global memories
 
     with _lock:
-        before = len(memories)
+        forgotten = [
+            item.get("memory", "")
+            for item in memories
+            if search.lower() in item.get("memory", "").lower()
+        ]
 
         memories = [
             item
             for item in memories
-            if search.lower() not in item["memory"].lower()
+            if search.lower() not in item.get("memory", "").lower()
         ]
 
         save_json(MEMORY_FILE, memories)
-        removed = before - len(memories)
 
-    return removed
+    return forgotten
+
+
+def forget_memory(search):
+    """Delete matching memories and return the number removed."""
+    return len(forget_memory_texts(search))
 
 
 # ============================================================
 # CONVERSATION HISTORY
 # ============================================================
+
+def _trimmed_to_whole_exchanges(text):
+    """
+    Drop whole exchanges off the front, never part of one.
+
+    A plain `text[-MAX_HISTORY_CHARS:]` cuts wherever the character count
+    lands, which is how the live file came to begin "r: hello there again"
+    -- the tail of a "User:" line whose stamp and speaker had been sliced
+    off. Two things read this file and both are hurt by a headless
+    fragment: history_recall parses it into exchanges by their stamps, and
+    TimeAwareness reads the stamps directly.
+
+    Cutting on a boundary can only ever remove more than the cap requires,
+    never less, so the ceiling still holds.
+    """
+    if len(text) <= MAX_HISTORY_CHARS:
+        return text
+
+    # The writer's own record separator: a stamped line followed by User:.
+    boundaries = [
+        match.start()
+        for match in re.finditer(r"^\[\d{4}-\d{2}-\d{2}[ T].*?\]\r?\nUser:", text, re.M)
+    ]
+    keep_from = len(text) - MAX_HISTORY_CHARS
+    surviving = [start for start in boundaries if start >= keep_from]
+
+    if surviving:
+        return text[surviving[0]:]
+
+    # No whole exchange fits under the cap: keep the newest one entire
+    # rather than emitting a fragment of it.
+    return text[boundaries[-1]:] if boundaries else text
+
 
 def append_history(block):
     """Persist a chat block to disk and keep the in-memory copy in sync."""
@@ -300,7 +343,7 @@ def append_history(block):
     if len(conversation_history) > MAX_HISTORY_CHARS:
         # Rewrite rather than append once over the cap, so the file
         # actually shrinks back down instead of growing forever.
-        conversation_history = conversation_history[-MAX_HISTORY_CHARS:]
+        conversation_history = _trimmed_to_whole_exchanges(conversation_history)
         save_text(HISTORY_FILE, conversation_history)
     else:
         append_file(HISTORY_FILE, block)

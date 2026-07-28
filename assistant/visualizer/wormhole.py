@@ -14,6 +14,8 @@ continuous line instead of a dotted trail.
 
 import math
 
+from visualizer import anchor
+
 
 CELL_W = 2
 CELL_H = 4
@@ -56,6 +58,10 @@ class WormholeVisualizer:
     def __init__(self, palette):
         self.palette = tuple(palette)
         self.time = 0.0
+        # Wall-clock seconds for the slow anchor layer. Deliberately not
+        # scaled by audio: a reference that speeds up with the music is
+        # not a reference. See visualizer/anchor.py.
+        self.slow = 0.0
         self.warp = 0.0
         self.pulse = 0.0
         self.bass = 0.0
@@ -99,6 +105,7 @@ class WormholeVisualizer:
         self.pulse = max(beat, self.pulse * math.exp(-dt * 4.0))
 
         self.time += dt * (0.60 + self.mid * 1.30)
+        self.slow += dt
         self.warp += dt * (1.30 + self.bass * 2.40 + self.pulse * 3.20)
 
         if self._np is None or self._x is None:
@@ -145,6 +152,19 @@ class WormholeVisualizer:
             spectrum = np.zeros(48, dtype=np.float32)
 
         intensity = self._draw_tunnel(radius, angle, spectrum, level)
+
+        # Slow rings expanding under the starfield. Rings rather than bands
+        # because this scene is built around a vanishing point, and
+        # horizontal strata would fight its geometry rather than sit behind
+        # it. Wall-clock only -- see visualizer/anchor.py.
+        anchor.apply(
+            np,
+            intensity,
+            anchor.rings(np, xx, yy, self.slow),
+            strength=0.30,
+            mid=self.mid,
+        )
+
         highlight = np.zeros((pixel_h, pixel_w), dtype=bool)
         stars = np.zeros((pixel_h, pixel_w), dtype=bool)
         self._draw_stars(intensity, highlight, stars, pixel_w, pixel_h)

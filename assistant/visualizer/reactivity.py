@@ -1,6 +1,33 @@
 """Scene-specific audio shaping for a more expressive visualizer."""
 
 
+# Every scene's response is shaped here, so this is the one place that can
+# raise reactivity across all of them at once rather than eight times over.
+#
+# `gain` multiplies and `curve` bends: a curve below 1 lifts quiet detail
+# hardest while the min(1.0) ceiling holds the peaks, so lowering the curve
+# widens the range the scene actually reacts across instead of simply
+# making everything brighter. Applied on top of each profile's own numbers
+# so the relative character of the scenes -- the wormhole's hard beat, the
+# plasma's soft one -- survives the change.
+REACTIVITY = 1.22
+CURVE_TIGHTEN = 0.90
+
+
+def _amplify(profile):
+    """Raise a hand-tuned profile's response without flattening its shape."""
+    lifted = {}
+
+    for name, value in profile.items():
+        if isinstance(value, tuple):
+            gain, curve = value
+            lifted[name] = (gain * REACTIVITY, curve * CURVE_TIGHTEN)
+        else:
+            lifted[name] = value * REACTIVITY
+
+    return lifted
+
+
 _PROFILES = {
     "radial tunnel": {
         "bass": (1.42, 0.68),
@@ -102,6 +129,8 @@ _PROFILES = {
         "pan": 1.42,
     },
 }
+
+_PROFILES = {name: _amplify(profile) for name, profile in _PROFILES.items()}
 
 _DEFAULT_PROFILE = _PROFILES["radial tunnel"]
 

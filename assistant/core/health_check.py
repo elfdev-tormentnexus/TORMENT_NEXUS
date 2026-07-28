@@ -10,6 +10,7 @@ import requests
 from core import config
 from core import llm_server
 from memory import extraction_rules
+from knowledge import library as knowledge_library
 from voice import offline_voice
 
 
@@ -158,6 +159,21 @@ def advisory_warnings():
     if voice_issues:
         warnings.append("voice: " + "; ".join(voice_issues))
 
+    library_state = knowledge_library.status()
+    if library_state.get("enabled") and not library_state.get("ready"):
+        warnings.append(
+            "offline library: "
+            + (library_state.get("last_error") or "index is not ready")
+        )
+    elif library_state.get("errors"):
+        warnings.append(
+            f"offline library: {library_state['errors']} source warning(s)"
+        )
+    elif library_state.get("semantic_warning"):
+        warnings.append(
+            "offline library: " + library_state["semantic_warning"]
+        )
+
     try:
         free_bytes = shutil.disk_usage(config.PROJECT_HOME).free
         if free_bytes < GIB:
@@ -223,6 +239,34 @@ def report():
     search_ok, search_detail = _search_health()
     lines.append(_line(search_ok, "web search", search_detail))
     warnings += int(not search_ok)
+
+    library_state = knowledge_library.status()
+    library_ok = (
+        not library_state.get("enabled")
+        or (
+            library_state.get("ready")
+            and not library_state.get("errors")
+            and not library_state.get("semantic_warning")
+        )
+    )
+    if not library_state.get("enabled"):
+        library_detail = "disabled by configuration"
+    elif library_state.get("ready"):
+        library_detail = (
+            f"{library_state.get('sources', 0)} sources, "
+            f"{library_state.get('chunks', 0)} searchable excerpts, "
+            f"{library_state.get('embedded', 0)} embedded"
+        )
+        if library_state.get("errors"):
+            library_detail += (
+                f"; {library_state['errors']} source warning(s)"
+            )
+        if library_state.get("semantic_warning"):
+            library_detail += "; " + library_state["semantic_warning"]
+    else:
+        library_detail = library_state.get("last_error") or "index is not ready"
+    lines.append(_line(library_ok, "offline library", library_detail))
+    warnings += int(not library_ok)
 
     voice_issues = offline_voice.setup_issues(
         check_devices=False,

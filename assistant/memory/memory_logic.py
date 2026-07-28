@@ -18,6 +18,7 @@ Three problems this fixes:
 3. Every memory went into every prompt. Fine at 20, ruinous at 200.
 """
 
+import math
 import re
 
 
@@ -189,10 +190,106 @@ def active(memories):
 # RELEVANCE
 # ============================================================
 
-def score(memory_item, query_tokens, position, total):
+# Automatic semantic-only retrieval is deliberately conservative. The
+# measured evaluation for the shipped embedder found that 0.38 admitted
+# hundreds of unrelated pairs; 0.55 plus a 0.06 lead over the runner-up
+# produced no false automatic recalls in the checked probe set.
+AUTOMATIC_SEMANTIC_MIN_COSINE = 0.55
+AUTOMATIC_SEMANTIC_MARGIN = 0.06
+
+SEMANTIC_MODE_AUTOMATIC = "automatic"
+SEMANTIC_MODE_EXPLICIT = "explicit"
+
+_TRANSIENT_EXACT = {
+    "hi",
+    "hey",
+    "hello",
+    "hello there",
+    "hey there",
+    "good morning",
+    "good afternoon",
+    "good evening",
+    "good night",
+    "how are you",
+    "how is it going",
+    "hows it going",
+    "thanks",
+    "thank you",
+    "thanks so much",
+    "thank you so much",
+    "nice to see you",
+    "okay",
+    "ok",
+    "okay sounds good",
+    "ok sounds good",
+    "sounds good",
+    "that sounds good",
+    "got it",
+    "all right",
+    "alright",
+    "sure",
+    "yes",
+    "no",
+    "what can you do",
+    "who are you",
+}
+
+
+def is_transient_query(text):
+    """
+    True for a whole-turn greeting, acknowledgement or capability pleasantry.
+
+    Matching the normalized *whole* message keeps "sounds good, where is the
+    radio?" meaningful while stopping multiword small talk from opening a
+    semantic lane merely because it has two content tokens.
+    """
+    if not text:
+        return True
+
+    normalized = re.sub(r"[^a-z0-9']+", " ", text.lower()).strip()
+    normalized = normalized.replace("'", "")
+    normalized = re.sub(r"\s+", " ", normalized)
+
+    return normalized in _TRANSIENT_EXACT
+
+
+def _cosine(a, b):
+    """Finite dot product for equal-dimension numeric vectors, else None."""
+    if (
+        not isinstance(a, (list, tuple))
+        or not isinstance(b, (list, tuple))
+        or not a
+        or len(a) != len(b)
+    ):
+        return None
+
+    values = []
+
+    for x, y in zip(a, b):
+        if (
+            not isinstance(x, (int, float))
+            or isinstance(x, bool)
+            or not math.isfinite(x)
+            or not isinstance(y, (int, float))
+            or isinstance(y, bool)
+            or not math.isfinite(y)
+        ):
+            return None
+
+        values.append(x * y)
+
+    result = math.fsum(values)
+    return result if math.isfinite(result) else None
+
+
+def score(memory_item, query_tokens, position, total, semantic=0.0):
     """
     Higher is more worth injecting. Overlap with what the user just
-    said dominates; recency and confidence break ties.
+    said dominates; recency and confidence break lexical ties.
+
+    `semantic` remains an accepted argument for compatibility, but is
+    intentionally not mixed into this score. Semantic-only candidates use
+    a separate lane so recency cannot knock out the best cosine match.
     """
     mem_tokens = tokens(memory_item.get("memory", ""))
 
@@ -205,40 +302,139 @@ def score(memory_item, query_tokens, position, total):
     recency = (position + 1) / total if total else 0.0
     confidence = float(memory_item.get("confidence", 0) or 0)
 
-    return (relevance * 3.0) + (recency * 0.6) + (confidence * 0.4)
+    return (
+        (relevance * 3.0)
+        + (recency * 0.6)
+        + (confidence * 0.4)
+    )
 
 
-def select_relevant(memories, user_input, limit=25):
+def select_relevant(
+    memories,
+    user_input,
+    limit=25,
+    query_vector=None,
+    memory_vectors=None,
+    min_cosine=AUTOMATIC_SEMANTIC_MIN_COSINE,
+    semantic_mode=SEMANTIC_MODE_AUTOMATIC,
+    semantic_margin=AUTOMATIC_SEMANTIC_MARGIN,
+):
     """
-    The most useful memories for this turn. Returns them in stored
-    order so the model sees a stable list rather than a reshuffle
-    every message.
+    Select memories through distinct lexical and semantic lanes.
+
+    Automatic chat injection keeps exact token matches, then reserves at
+    most one slot for a zero-overlap semantic result only when it clears
+    both the 0.55 floor and a 0.06 lead over the next candidate. Explicit
+    search returns cosine-ranked candidates best-first with no recency
+    term; callers should label those as candidates rather than facts.
     """
+    if limit <= 0:
+        return []
+
     query_tokens = tokens(user_input)
     live = active(memories)
 
-    # Greetings and other content-free turns do not need a bundle of
-    # unrelated project facts. Injecting all of them made tiny prompts
-    # expensive and nudged replies toward irrelevant old subjects.
-    if not query_tokens:
+    if semantic_mode not in {
+        SEMANTIC_MODE_AUTOMATIC,
+        SEMANTIC_MODE_EXPLICIT,
+    }:
+        raise ValueError(f"Unknown semantic retrieval mode: {semantic_mode}")
+
+    # Whole-turn greetings and acknowledgements stay retrieval-free even
+    # when they contain several words ("thanks so much", "good morning").
+    if (
+        semantic_mode == SEMANTIC_MODE_AUTOMATIC
+        and (not query_tokens or is_transient_query(user_input))
+    ):
         return []
 
-    live = [
-        item for item in live
+    if memory_vectors is not None and len(memory_vectors) == len(memories):
+        vector_of = {
+            id(item): vector
+            for item, vector in zip(memories, memory_vectors)
+        }
+    else:
+        vector_of = {}
+
+    semantic_pairs = []
+
+    if query_vector is not None:
+        for index, item in enumerate(live):
+            similarity = _cosine(query_vector, vector_of.get(id(item)))
+
+            if similarity is not None:
+                semantic_pairs.append((similarity, index))
+
+    if semantic_mode == SEMANTIC_MODE_EXPLICIT and semantic_pairs:
+        semantic_pairs.sort(key=lambda pair: (-pair[0], pair[1]))
+        return [live[index] for _similarity, index in semantic_pairs[:limit]]
+
+    # Without semantic vectors, an explicit search still gets the exact
+    # word-overlap behavior rather than an empty answer.
+    lexical_indices = [
+        index for index, item in enumerate(live)
         if tokens(item.get("memory", "")) & query_tokens
     ]
 
-    if len(live) <= limit:
-        return live
+    semantic_choice = None
 
+    if query_vector is not None and len(query_tokens) >= 2:
+        lexical_set = set(lexical_indices)
+        zero_overlap = [
+            pair for pair in semantic_pairs if pair[1] not in lexical_set
+        ]
+        zero_overlap.sort(key=lambda pair: (-pair[0], pair[1]))
+
+        try:
+            floor = max(
+                AUTOMATIC_SEMANTIC_MIN_COSINE,
+                min(1.0, max(0.0, float(min_cosine))),
+            )
+        except (TypeError, ValueError):
+            floor = AUTOMATIC_SEMANTIC_MIN_COSINE
+
+        try:
+            margin = max(
+                AUTOMATIC_SEMANTIC_MARGIN,
+                min(1.0, max(0.0, float(semantic_margin))),
+            )
+        except (TypeError, ValueError):
+            margin = AUTOMATIC_SEMANTIC_MARGIN
+
+        if zero_overlap:
+            best_similarity, best_index = zero_overlap[0]
+            runner_up = zero_overlap[1][0] if len(zero_overlap) > 1 else None
+
+            if (
+                best_similarity >= floor
+                and (
+                    runner_up is None
+                    or best_similarity - runner_up >= margin
+                )
+            ):
+                semantic_choice = best_index
+
+    # A one-item budget belongs to an exact lexical hit. With wider prompt
+    # budgets the confident semantic rescue gets one reserved slot.
+    if semantic_choice is not None and lexical_indices and limit == 1:
+        semantic_choice = None
+
+    lexical_capacity = limit - (1 if semantic_choice is not None else 0)
     total = len(live)
-
-    ranked = sorted(
-        range(total),
-        key=lambda i: score(live[i], query_tokens, i, total),
+    ranked_lexical = sorted(
+        lexical_indices,
+        key=lambda index: score(
+            live[index],
+            query_tokens,
+            index,
+            total,
+        ),
         reverse=True,
     )
+    chosen = set(ranked_lexical[:max(0, lexical_capacity)])
 
-    keep = sorted(ranked[:limit])
+    if semantic_choice is not None:
+        chosen.add(semantic_choice)
 
-    return [live[i] for i in keep]
+    # Automatic prompt injection remains stable in stored order.
+    return [item for index, item in enumerate(live) if index in chosen]

@@ -8,6 +8,8 @@ radial streaks, and a real white oscilloscope trace across the horizon.
 
 import math
 
+from visualizer import anchor
+
 
 CELL_W = 2
 CELL_H = 4
@@ -33,6 +35,10 @@ class RadialVisualizer:
     def __init__(self, palette):
         self.palette = tuple(palette)
         self.time = 0.0
+        # Wall-clock seconds for the slow anchor layer. Deliberately not
+        # scaled by audio: a reference that speeds up with the music is
+        # not a reference. See visualizer/anchor.py.
+        self.slow = 0.0
         self.phase = 0.0
         self.pulse = 0.0
         self.pan = 0.0
@@ -58,6 +64,7 @@ class RadialVisualizer:
         self.pan += (pan - self.pan) * response
 
         self.time += dt * (0.72 + self.mid * 1.45)
+        self.slow += dt
         self.phase += dt * (0.32 + self.mid * 0.82)
         self.pulse = max(beat, self.pulse * math.exp(-max(0.0, dt) * 4.6))
 
@@ -172,6 +179,19 @@ class RadialVisualizer:
             intensity += ring * self.pulse * 0.65 * envelope
 
         intensity = np.clip(intensity, 0.0, 1.0)
+
+        # Slow rings under the tunnel, matching its polar geometry. The
+        # tunnel's own rush is entirely audio-driven, so at a steady loud
+        # passage it read as a constant rate; these give it something
+        # unmoving to be measured against. See visualizer/anchor.py.
+        anchor.apply(
+            np,
+            intensity,
+            anchor.rings(np, x, y, self.slow),
+            strength=0.28,
+            mid=self.mid,
+        )
+
         white = np.zeros((pixel_h, pixel_w), dtype=bool)
         glow = np.zeros((pixel_h, pixel_w), dtype=np.float32)
         self._draw_waveform(glow, white, features, level, stereo)

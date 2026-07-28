@@ -308,11 +308,24 @@ def prompt_block():
     # "You did not choose this" overshoots in the other direction, and the
     # model duly said so. The name was picked here; what never happened is any
     # experience of picking it.
-    lines.append(
-        "- It is a note, not a memory. You have no recollection of the "
-        "ceremony and felt nothing during it. A name is a convenience for "
-        "being addressed, not evidence of an inner life."
-    )
+    #
+    # Unless the operator picked it, in which case saying otherwise would be
+    # the confabulation this whole module is built to prevent -- and a
+    # sharper one than usual, because the assistant would be claiming
+    # authorship of its own name.
+    if record.get("chosen_by") == "operator":
+        lines.append(
+            "- The operator chose this name and set it directly. You did not "
+            "pick it and there was no ceremony. If you are asked how you got "
+            "it, that is the answer; do not describe choosing it or give a "
+            "reason of your own for it."
+        )
+    else:
+        lines.append(
+            "- It is a note, not a memory. You have no recollection of the "
+            "ceremony and felt nothing during it. A name is a convenience for "
+            "being addressed, not evidence of an inner life."
+        )
 
     return "\n".join(lines)
 
@@ -877,6 +890,52 @@ def keep():
         "also_proposed": [
             seen for seen in _seen if seen.lower() != name.lower()
         ],
+    }
+
+    try:
+        file_utils.save_json(STATE_FILE, record)
+    except Exception as error:
+        return None, f"could not write the name: {error}"
+
+    _pending = None
+
+    return name, None
+
+
+def set_by_operator(name, why=""):
+    """
+    Record a name the operator chose. Returns (name, error).
+
+    The vetoes above exist to stop the MODEL passing a training-data
+    cliche off as grounded self-knowledge -- _STOCK_NAMES, the borrowed
+    tokens, the "lifted straight out of the record" check. None of them
+    have any authority over what the operator decides to call their own
+    companion. That is a different act by a different party, and running
+    it through a filter built to catch a language model's priors would be
+    a category error.
+
+    This is not a loophole in the ceremony. It cannot be reached by the
+    model: nothing in the editing or command paths calls it without the
+    operator typing the name, and the record says plainly who chose it so
+    the assistant can never later report having picked it itself.
+
+    Shape is still enforced. A name has to be usable in a header.
+    """
+    global _pending
+
+    name = " ".join(str(name or "").split())
+
+    if not _shape_ok(name):
+        return None, "not a usable name shape"
+
+    record = {
+        "name": name,
+        "why": " ".join(str(why or "").split())[:_WHY_PROMPT_CHARS],
+        "chosen_at": datetime.now().isoformat(timespec="seconds"),
+        "chosen_by": "operator",
+        "runners_up": [],
+        "rejected": [],
+        "also_proposed": [],
     }
 
     try:

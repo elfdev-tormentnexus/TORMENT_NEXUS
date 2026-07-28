@@ -15,6 +15,8 @@ costs nothing per grid line.
 
 import math
 
+from visualizer import anchor
+
 
 CELL_W = 2
 CELL_H = 4
@@ -57,6 +59,10 @@ class GridVisualizer:
     def __init__(self, palette):
         self.palette = tuple(palette)
         self.time = 0.0
+        # Wall-clock seconds for the slow anchor layer. Deliberately not
+        # scaled by audio: a reference that speeds up with the music is
+        # not a reference. See visualizer/anchor.py.
+        self.slow = 0.0
         self.travel = 0.0
         self.pulse = 0.0
         self.bass = 0.0
@@ -82,6 +88,7 @@ class GridVisualizer:
         # covered rather than a colour or a size.
         self.travel += dt * (1.05 + self.bass * 2.70 + self.pulse * 1.30)
         self.time += dt * (0.55 + self.mid * 1.20)
+        self.slow += dt
         self.pulse = max(beat, self.pulse * math.exp(-dt * 3.8))
 
     def render(self, width, height, features):
@@ -104,6 +111,17 @@ class GridVisualizer:
 
         intensity = np.zeros((pixel_h, pixel_w), dtype=np.float32)
         highlight = np.zeros((pixel_h, pixel_w), dtype=bool)
+
+        # The slow layer, drawn first so everything else sits on top
+        # of it. It moves on wall-clock time alone, which is what
+        # gives the audio-driven motion above it a sense of speed.
+        anchor.apply(
+            np,
+            intensity,
+            anchor.strata(np, xx, yy, self.slow),
+            strength=0.26,
+            mid=self.mid,
+        )
 
         self._draw_sun(intensity, highlight, xx, yy, level)
         self._draw_skyline(intensity, highlight, xx, yy, spectrum, level)
@@ -146,13 +164,31 @@ class GridVisualizer:
         highlight |= rim > 0.55
 
     def _draw_skyline(self, intensity, highlight, xx, yy, spectrum, level):
-        """Spectrum-shaped ridge that genuinely occludes the sun behind it."""
+        """
+        A corrupted raster band standing where the city skyline used to.
+
+        The skyline was a mirrored, spectrum-cut mountain range -- a good
+        shape, and one this project already says in a dozen other ways. The
+        corruption idiom is the house language: dropped cells, displaced
+        scanlines, and rare overexposed fragments, the same vocabulary
+        ui.py uses on the face and the title. Sitting it on the horizon
+        makes the sun rise behind damage rather than behind scenery.
+
+        Everything the ridge did structurally is kept. It is still cut from
+        the live spectrum, it still occludes the sun rather than letting it
+        glow through, and it still has a bright upper edge. What changed is
+        that the edge is torn into sliding horizontal slabs instead of
+        being continuous, and the interior is eaten away rather than solid.
+        """
         np = self._np
         x_axis = xx[0]
+        pixel_h, pixel_w = xx.shape
 
-        # Mirroring about the centre keeps the ridge symmetrical, which
-        # stops it reading as a bar chart that happens to be pointy.
-        position = np.clip(np.abs(x_axis) / 1.42, 0.0, 1.0)
+        # No longer mirrored. Symmetry was there to stop the ridge reading
+        # as a bar chart; damage does not read as a chart at any symmetry,
+        # and an asymmetric tear looks like something went wrong, which is
+        # the point.
+        position = np.clip((x_axis + 1.42) / 2.84, 0.0, 1.0)
         position = position * (spectrum.size - 1)
         profile = np.interp(
             position,
@@ -164,14 +200,55 @@ class GridVisualizer:
         ridge = ridge + 0.020 * np.sin(x_axis * 8.5 + self.time * 0.7)
         crest = _HORIZON - np.clip(ridge, 0.0, 0.55)
 
-        body = (yy >= crest[None, :]) & (yy <= _HORIZON)
-        edge = np.exp(-(np.abs(yy - crest[None, :]) / 0.013) ** 2)
+        # Displace the crest in chunky horizontal slabs. Quantising time as
+        # well as position is what makes it read as a broken signal: a
+        # continuously sliding tear is liquid, while one that holds a wrong
+        # offset for a few frames and then snaps elsewhere is digital.
+        slab_height = max(1, pixel_h // 22)
+        slab = np.arange(pixel_h, dtype=np.float32) // slab_height
+        seed = np.sin(slab * 12.9898 + np.floor(self.time * 7.0) * 78.233)
+        seed = seed * 43758.5453
+        seed = seed - np.floor(seed)
+
+        # Most slabs sit still. Treble and beats decide how many tear and
+        # how far, so a quiet passage is an almost intact horizon.
+        tearing = 0.10 + self.treble * 0.46 + self.pulse * 0.30
+        reach = int(round(pixel_w * (0.012 + self.treble * 0.055)))
+        offsets = np.where(seed < tearing, (seed * 2.0 - 1.0) * reach, 0.0)
+        offsets = offsets.astype(np.int32)
+
+        columns = np.arange(pixel_w, dtype=np.int32)
+        shifted = (columns[None, :] - offsets[:, None]) % pixel_w
+        crest_rows = crest[shifted]
+
+        body = (yy >= crest_rows) & (yy <= _HORIZON)
+        edge = np.exp(-(np.abs(yy - crest_rows) / 0.013) ** 2)
         edge *= body | (yy < _HORIZON)
 
-        # Overwrite rather than max, so the ridge blocks the sun instead of
-        # letting it glow straight through the mountain.
+        # Overwrite rather than max, so the band blocks the sun instead of
+        # letting it glow straight through.
         intensity[:] = np.where(body, 0.05 + level * 0.06, intensity)
+
+        # Eat holes in the interior. A deterministic cell hash rather than a
+        # random draw, so the damage holds still between frames instead of
+        # boiling -- ui.py's ambient corruption makes the same choice.
+        cell_x = np.floor((xx + 1.42) * 26.0)
+        cell_y = np.floor((yy + 1.0) * 20.0)
+        speckle = np.sin(cell_x * 127.1 + cell_y * 311.7 + np.floor(self.time * 5.0))
+        speckle = speckle * 43758.5453
+        speckle = speckle - np.floor(speckle)
+        dropped = body & (speckle < 0.10 + self.treble * 0.16)
+        intensity[dropped] = 0.0
+
         intensity[:] = np.maximum(intensity, edge * (0.72 + self.treble * 0.28))
+
+        # Rare overexposed fragments, the band's equivalent of the face's
+        # solid raster blocks. Gated on the beat so they punctuate rather
+        # than sparkle continuously.
+        fragments = body & (speckle > 0.982 - self.pulse * 0.030)
+        intensity[fragments] = 1.0
+        highlight |= fragments
+
         highlight |= edge > 0.62
 
     def _draw_floor(self, intensity, xx, yy, level):

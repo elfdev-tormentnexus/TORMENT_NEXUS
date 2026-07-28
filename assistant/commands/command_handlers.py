@@ -4,6 +4,7 @@ import re
 import time
 
 from memory import memory_store as mem
+from memory import semantic_index
 from ui import ui
 from core import chosen_name
 from core import file_utils
@@ -27,6 +28,8 @@ from web import search_engine
 from voice import offline_voice
 from voice import session as voice_session
 from hardware import tdeck
+from core import escalation
+from knowledge import library as knowledge_library
 
 
 # ============================================================
@@ -161,6 +164,7 @@ def _grouped_commands(include_dev):
         "session",
         "hardware",
         "memory",
+        "knowledge",
         "files",
         "project",
         "editing",
@@ -838,6 +842,175 @@ def handle_tdeck_power_saving_on(user_input):
 # MEMORY
 # ============================================================
 
+@command(
+    "library",
+    "Search and manage the private offline manual library",
+    usage=(
+        "library [status|sources|search <terms>|add <path>|"
+        "remove <name>|rebuild]"
+    ),
+    dev_only=False,
+    group="knowledge",
+)
+def handle_library(user_input):
+    raw = str(user_input or "").strip()
+    lowered = raw.lower()
+
+    if lowered not in {"library", "library status", "library sources"} and not (
+        lowered.startswith("library search ")
+        or lowered.startswith("library add ")
+        or lowered.startswith("library remove ")
+        or lowered == "library rebuild"
+    ):
+        return False
+
+    if lowered in {"library", "library status"}:
+        state = knowledge_library.status()
+        if not state.get("enabled"):
+            return "The offline reference library is disabled by configuration."
+        if not state.get("ready"):
+            detail = state.get("last_error") or "the index has not started yet"
+            return f"Offline library is not ready: {detail}"
+        lines = [
+            "OFFLINE REFERENCE LIBRARY",
+            "=" * 58,
+            f"Sources: {state.get('sources', 0)}",
+            f"Searchable excerpts: {state.get('chunks', 0)}",
+            (
+                "Semantic vectors: "
+                f"{state.get('embedded', 0)}/{state.get('chunks', 0)}"
+            ),
+            f"Import folder: {state.get('user_library', '')}",
+        ]
+        if state.get("errors"):
+            lines.append(
+                f"Import warnings: {state['errors']} "
+                f"({state.get('last_error', 'see library sources')})"
+            )
+        if state.get("semantic_warning"):
+            lines.append("Semantic warning: " + state["semantic_warning"])
+        lines.extend([
+            "",
+            "Use 'library search <words>' to search it. In developer mode, "
+            "'library add <file or folder>' copies manuals into the private "
+            "library.",
+        ])
+        return "\n".join(lines)
+
+    if lowered == "library sources":
+        records = knowledge_library.sources()
+        if not records:
+            return "No offline reference sources are indexed yet."
+        lines = ["OFFLINE LIBRARY SOURCES", "=" * 58]
+        for record in records:
+            relative = (
+                os.path.relpath(
+                    record["path"],
+                    knowledge_library.USER_LIBRARY_DIR,
+                )
+                if record["scope"] == "user"
+                else os.path.basename(record["path"])
+            )
+            detail = (
+                f"{record['scope']}: {record['title']} "
+                f"({record['chunks']} excerpt"
+                + ("" if record["chunks"] == 1 else "s")
+                + f") — {relative}"
+            )
+            if record["error"]:
+                detail += f"\n  WARNING: {record['error']}"
+            lines.append(detail)
+        return "\n".join(lines)
+
+    if lowered.startswith("library search "):
+        query = raw[len("library search "):].strip()
+        if not query:
+            return "Use: library search <words>"
+        query_vector = semantic_index.query_vector(query)
+        results = knowledge_library.search(
+            query,
+            query_vector=query_vector,
+            limit=5,
+            semantic_rescue=True,
+        )
+        if not results:
+            return "No offline reference matched that search."
+        lines = [
+            f"OFFLINE LIBRARY RESULTS — {query}",
+            "=" * 58,
+            (
+                "Semantic-only results are candidates, not proof that a "
+                "passage applies."
+            ),
+        ]
+        for index, result in enumerate(results, 1):
+            label = result["title"]
+            if result["heading"]:
+                label += " — " + result["heading"]
+            if result["stale"]:
+                label += " [review date passed]"
+            lines.extend([
+                "",
+                f"{index}. {label} [{result['retrieval']}]",
+                result["text"][:700],
+            ])
+            source_url = result["metadata"].get("source_url")
+            if source_url:
+                lines.append("Source: " + source_url)
+        return "\n".join(lines)
+
+    if not DEV_MODE:
+        return (
+            "Importing, removing, or rebuilding manuals requires developer "
+            "mode. Type 'dev mode' first. Searching does not."
+        )
+
+    if lowered.startswith("library add "):
+        source = raw[len("library add "):].strip().strip("\"'")
+        try:
+            copied = _run_with_activity(
+                "Copying and indexing offline references",
+                lambda: knowledge_library.add(source),
+            )
+        except Exception as error:
+            return f"Could not add that reference: {error}"
+        return (
+            f"Added {len(copied)} document"
+            + ("" if len(copied) == 1 else "s")
+            + ". Indexing continues in the background."
+        )
+
+    if lowered.startswith("library remove "):
+        name = raw[len("library remove "):].strip().strip("\"'")
+        try:
+            removed = knowledge_library.remove(name)
+        except Exception as error:
+            return f"Could not remove that reference: {error}"
+        return (
+            f"Removed {os.path.basename(removed)}. "
+            "Its live search index and library copy were purged immediately. "
+            "This is not forensic erasure of filesystem snapshots, backups, "
+            "or SSD wear-levelled blocks."
+        )
+
+    if lowered == "library rebuild":
+        try:
+            result = _run_with_activity(
+                "Rebuilding the offline reference index",
+                knowledge_library.rebuild,
+            )
+        except Exception as error:
+            return f"Could not rebuild the offline library: {error}"
+        return (
+            "Offline library rebuilt: "
+            f"{result.get('changed', 0)} changed, "
+            f"{result.get('removed', 0)} removed, "
+            f"{len(result.get('errors', []))} warning(s)."
+        )
+
+    return False
+
+
 @command("show memories", "List every stored memory",
          dev_only=False, group="memory")
 def handle_show_memories(user_input):
@@ -868,21 +1041,31 @@ def handle_activity(user_input):
 
     if normalized == "activity on":
         awareness.set_enabled(True)
+        days = awareness.retention_days
+        unit = "day" if days == 1 else "days"
         return (
             "Activity awareness is on. It samples the foreground window, "
-            "including its title, every 20 seconds. Nothing is written to "
-            "disk and everything is discarded when TORMENT_NEXUS closes."
+            "including its title, every 20 seconds. Changes are written to a "
+            "private local log and retained for up to "
+            f"{days:g} {unit}. "
+            "'activity off' stops sampling and deletes that log."
         )
 
     if normalized == "activity off":
         awareness.set_enabled(False)
         return (
-            "Activity awareness is off and what it had noticed is cleared."
+            "Activity awareness is off. Its in-memory observations and local "
+            "activity log were deleted."
         )
 
     if normalized == "activity forget":
         cleared = awareness.forget()
-        return f"Discarded {cleared} observation(s)."
+        suffix = (
+            " Sampling remains on; use 'activity off' to stop new records."
+            if awareness.enabled
+            else ""
+        )
+        return f"Discarded {cleared} observation(s).{suffix}"
 
     if not awareness.enabled:
         return (
@@ -898,16 +1081,23 @@ def handle_activity(user_input):
     return described
 
 
-@command("name", "Let it choose a name for itself, shown in the header",
-         usage="name [keep|again|forget]", group="session",
+@command("name", "Let it choose a name for itself, or set one, shown in the header",
+         # No angle brackets here on purpose: _matches_registered_syntax
+         # treats a "<" in the usage as meaning the command requires an
+         # argument, and bare 'name' -- which holds the ceremony -- would
+         # stop being recognised as an invocation.
+         usage="name [keep|again|forget|is NAME]", group="session",
          # "name" opens a great many ordinary sentences -- "name a colour",
          # "name three things it does wrong". Without this the gate answers
          # those with a developer-mode refusal instead of a conversation.
-         arg_pattern=r"^(keep|again|forget)$")
+         arg_pattern=r"^(keep|again|forget|is\s+\S.*)$")
 def handle_name(user_input):
     normalized = " ".join(str(user_input or "").lower().split())
 
-    if normalized not in ("name", "name keep", "name again", "name forget"):
+    if (
+        normalized not in ("name", "name keep", "name again", "name forget")
+        and not normalized.startswith("name is ")
+    ):
         return False
 
     if not DEV_MODE:
@@ -929,6 +1119,37 @@ def handle_name(user_input):
         return (
             "Forgotten. The header shows TORMENT_NEXUS again.\n"
             "'name' holds the ceremony afresh."
+        )
+
+    # 'name is <x>' -- the operator naming their companion, which is a
+    # different act from the machine naming itself and is not filtered like
+    # one. The stock-name and borrowed-token vetoes exist to stop a 4B model
+    # passing its own training-data priors off as self-knowledge; they have
+    # no business overruling a person who has decided what to call something
+    # they built. Shape is still checked, and the record says who chose it.
+    if normalized.startswith("name is "):
+        wanted = user_input.strip()[len("name is "):].strip()
+
+        if not wanted:
+            return "Usage: name is <what you want to call it>"
+
+        named, error = chosen_name.set_by_operator(
+            wanted,
+            why="Chosen by the operator.",
+        )
+
+        if error:
+            return f"COULD NOT SET THE NAME\n{'=' * 58}\n\n{error}"
+
+        chosen_name.reset()
+        shown = ui.refresh_header_title()
+
+        return (
+            f"Set. The header reads {shown}.\n\n"
+            "Recorded as your choice, not its own -- asked how it got the\n"
+            "name, it will say you gave it rather than inventing a reason.\n"
+            "TORMENT_NEXUS is still the project, the application and the\n"
+            "launcher. 'name forget' undoes it."
         )
 
     if normalized == "name keep":
@@ -1038,12 +1259,79 @@ def handle_forget(user_input):
     if not target:
         return "Usage: forget <text>"
 
-    removed = mem.forget_memory(target)
+    forgotten = mem.forget_memory_texts(target)
+    removed = len(forgotten)
+
+    # Embeddings are derived copies of the memory text. Forgetting the source
+    # must remove those copies from both the in-memory and persistent caches.
+    semantic_index.purge_texts(forgotten)
 
     if removed == 0:
         return f"No memories matched: {target}"
 
     return f"Removed {removed} memor{'y' if removed == 1 else 'ies'} matching: {target}"
+
+
+# ============================================================
+# ESCALATION
+# ============================================================
+
+@command("escalate",
+         "Ask a frontier cloud model one question (opt-in; sends only "
+         "the text you type here)",
+         usage="escalate [claude|openai] <question>",
+         dev_only=False, group="general")
+def handle_escalate(user_input):
+    stripped = user_input.strip()
+
+    if stripped.lower() != "escalate" and not _match_prefix(user_input, "escalate "):
+        return False
+
+    argument = stripped[len("escalate"):].strip()
+    provider = None
+
+    if argument:
+        first, _, rest = argument.partition(" ")
+
+        if first.lower() in escalation.PROVIDERS:
+            provider = first.lower()
+            argument = rest.strip()
+
+    if not argument:
+        ready, reason = escalation.availability(provider)
+        status = "ready" if ready else reason
+        return (
+            "Usage: escalate [claude|openai] <question>\n\n"
+            "Sends exactly the question text to the cloud provider on your "
+            "own API key -- no conversation, no memories, nothing else. "
+            f"Current status: {status}"
+        )
+
+    ready, reason = escalation.availability(provider)
+
+    if not ready:
+        return reason
+
+    # The banner comes before the connection, so the moment of going
+    # online is announced rather than discovered in a log.
+    shown = provider or escalation.default_provider()
+    ui.print_framed(
+        f"[Going online: sending your question to {shown}. "
+        "Only the question text leaves this machine.]",
+        color=ui.YELLOW,
+    )
+
+    def run():
+        return escalation.escalate(argument, provider)
+
+    try:
+        used_provider, model, answer = _run_with_activity(
+            f"asking {shown} (online)", run
+        )
+    except escalation.EscalationError as error:
+        return str(error)
+
+    return f"[{used_provider}:{model}]\n\n{answer}"
 
 
 # ============================================================
@@ -2723,3 +3011,154 @@ def try_handle_command(user_input):
             return result
 
     return None
+
+
+# Words that make a short phrase read as conversation rather than as an
+# attempted invocation. "do you like goals" must never be answered as a
+# malformed "goals".
+_CONVERSATIONAL_WORDS = frozenset(
+    "i me my we you your it that this a an the is are was were do does did "
+    "can could would should will please thanks thank what why how when who "
+    "not never about like think know feel want".split()
+)
+
+MAX_NEAR_MISS_WORDS = 4
+
+# Features the operator has asked for that do not exist yet. Without an
+# entry here each one reaches the director, which performs it in prose:
+# "sing what you want" produced a description of the system humming a
+# melody of purpose. Naming the gap is the honest answer, and a wrong
+# "yes" from a singing engine that was never built is the failure this
+# exists to prevent.
+_UNBUILT_REQUESTS = {
+    "sing what you want": (
+        "I have no command for that yet. Choosing what to sing is not "
+        "built -- only 'sing daisy bell', which performs one fixed "
+        "arrangement."
+    ),
+}
+
+# Ordinary phrasings for real commands that the near-miss shapes below
+# cannot reach, because their extra words are the same ordinary words that
+# make a phrase conversational.
+#
+# The naming ones are here for a measured reason. On 2026-07-28 the
+# operator typed "choose a name". It matched nothing, reached the director,
+# and came back with a chosen name and a reason for it. The ceremony in
+# core/chosen_name.py never ran: the name it produced is on that module's
+# own _STOCK_NAMES veto list and would have been rejected outright, no
+# chosen_name.json was written, and the header never changed. An invented
+# identity decision is the most expensive thing this class of bug can
+# fabricate, so these phrasings are answered here instead.
+_PHRASE_HINTS = {
+    "choose a name": "name",
+    "choose your name": "name",
+    "pick a name": "name",
+    "pick your name": "name",
+    "name yourself": "name",
+    "choose a name for yourself": "name",
+    "pick a name for yourself": "name",
+    "what should i call you": "name",
+}
+
+
+def near_miss_command(user_input):
+    """
+    Name an unrecognised command instead of letting the model improvise one.
+
+    Input that matches nothing used to fall straight through to the
+    director, which answered as though the action had been carried out:
+    "finish goals" produced "I am done with the goals", and "drop all" and
+    "finish" produced stage directions describing a system that had
+    released its hold. Nothing had run. The model has no way to know a
+    command exists, so it treats an instruction it cannot place as one it
+    should narrate.
+
+    Deliberately narrow. It fires only on a short phrase that is one edit
+    away from a real command name, because the cost of a false positive --
+    refusing a sentence the operator meant as conversation -- is worse than
+    the cost of a miss, which merely restores the old behaviour.
+
+    Returns the correction, or None to let ordinary conversation proceed.
+    """
+    if not isinstance(user_input, str):
+        return None
+
+    text = " ".join(user_input.strip().split()).rstrip("?!.").lower()
+    words = text.split()
+
+    if not words or "?" in user_input:
+        return None
+
+    if text in _UNBUILT_REQUESTS:
+        return _UNBUILT_REQUESTS[text]
+
+    hinted = _PHRASE_HINTS.get(text)
+
+    if hinted:
+        entry = next(
+            (item for item in COMMANDS if item["name"] == hinted), None
+        )
+
+        if entry is not None and entry["dev_only"] and not DEV_MODE:
+            return (
+                f"'{user_input.strip()}' is not a command, and nothing ran.\n"
+                f"The real one is '{entry['usage']}', which needs developer "
+                "mode. Type 'dev mode' first."
+            )
+
+        return (
+            f"'{user_input.strip()}' is not a command, and nothing ran.\n"
+            f"Did you mean: {hinted}"
+        )
+
+    if len(words) > MAX_NEAR_MISS_WORDS:
+        return None
+
+    # Only ever advertise commands the operator can actually run; the
+    # developer gate above already answers for the rest.
+    names = [
+        entry["name"]
+        for entry in COMMANDS
+        if not entry["dev_only"] or DEV_MODE
+    ]
+
+    # A real command name is never a near miss. try_handle_command runs
+    # first in production so this is unreachable there, but the guard keeps
+    # the function honest when called on its own.
+    if text in set(names):
+        return None
+
+    suggestions = []
+
+    for name in names:
+        parts = name.split()
+
+        # "finish goals" -> a real command with one stray word attached.
+        # The stray word must not be conversational, or "my goals" and
+        # "the goals" become errors instead of chat.
+        if len(words) != len(parts) + 1:
+            continue
+
+        if words[1:] == parts and words[0] not in _CONVERSATIONAL_WORDS:
+            suggestions.append(name)
+        elif words[:-1] == parts and words[-1] not in _CONVERSATIONAL_WORDS:
+            suggestions.append(name)
+
+    if not suggestions:
+        return None
+
+    # Shortest first: the closest match is the most useful guess.
+    suggestions = sorted(dict.fromkeys(suggestions), key=lambda n: (len(n), n))
+    lines = [f"'{user_input.strip()}' is not a command, and nothing ran."]
+
+    if len(suggestions) == 1:
+        lines.append(f"Did you mean: {suggestions[0]}")
+    else:
+        lines.append("Did you mean one of these?")
+        lines.extend(f"  {name}" for name in suggestions[:4])
+
+    lines.append("")
+    lines.append("Type 'help' for the full list.")
+
+    return "\n".join(lines)

@@ -1,120 +1,206 @@
-# Installing TORMENT_NEXUS on Windows
+# Installing TORMENT_NEXUS Beta 6 on Windows
 
-This guide is for someone who wants to **use** TORMENT_NEXUS. It does not
-require coding, Python, a command line, an online account, or a separate AI
-model.
+This is the ready-to-run path for a person who does not want to assemble a
+Python or llama.cpp development environment.
 
-> [!WARNING]
-> Do not install from GitHub's green **Code** button, **Download ZIP**, or the
-> automatic **Source code (zip)** and **Source code (tar.gz)** files. Those
-> downloads contain developer source code only. They do not contain the AI
-> model or self-contained Windows runtime.
+> [!CAUTION]
+> **The ready-to-run Windows archive contains the language-model weights.**
+>
+> Beta 6 includes community-modified “abliterated” Qwen models with weakened
+> learned refusal behavior. It is the full model-bearing bundle, not a
+> sanitized client or a downloader for a remote service. The models can
+> produce false, harmful, illegal, explicit, biased, manipulative, or insecure
+> material with confidence.
+>
+> Read [Safety](../SAFETY.md), [Privacy](../PRIVACY.md),
+> [Models](../MODELS.md), [Third-party notices](../THIRD_PARTY_NOTICES.md),
+> and [Rights](../RIGHTS.md) before downloading. Do not run the application as
+> Administrator or use it as a high-stakes authority.
 
-## What you need
+## Use the release assets, not the source ZIP
 
-- A 64-bit Windows computer.
-- About 40 GB of free space while installing. The final folder is about 13 GB,
-  but the downloaded parts, rebuilt ZIP, and extracted folder temporarily
-  exist together.
-- At least 16 GB of memory for the Q8 director and bundled 7B coder.
+GitHub’s green **Code** button and automatic **Source code (zip)** and
+**Source code (tar.gz)** files contain developer source only. They are not
+ready-to-run and do not contain the complete Windows runtime or model set.
+
+For Beta 6, use the assets on the
+[GitHub Releases page](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases)
+under `v0.2.0-beta.6`.
+
+## Requirements
+
+- 64-bit Windows.
+- At least 16 GB of RAM. More is preferable when voice and other applications
+  run alongside the local models.
+- About 40 GB of free disk space during installation. Download parts, the
+  rebuilt ZIP, and the extracted folder temporarily coexist.
 - Internet access for the initial multi-gigabyte download.
-- A microphone only if you want to speak to the assistant. Typing works
-  without one.
+- A microphone only if you later choose `audio mode`. Beta 6 begins in text
+  mode.
 
-The packaged beta contains Python, the Q8 director, the on-demand 7B coder,
-the local CPU model server, voice files, and offline installation files.
+No Python installation, command line, online AI account, API key, or separate
+model download is required for the complete archive.
 
-## Step 1: Open the correct release
+## What the complete archive contains
 
-Open the
-[TORMENT_NEXUS v0.2.0-beta.5 release](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.2.0-beta.5).
+- `Qwen3-4B-abliterated-bf16_q8_0.gguf`, the default local director.
+- `Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf`, the on-demand
+  maintenance coder.
+- `bge-small-en-v1.5-q8_0.gguf`, the local embedding model.
+- A private Python runtime and offline dependency files, including `pypdf`.
+- llama.cpp runtime binaries.
+- Moonshine speech recognition, Silero voice-activity detection, and the
+  Piper HFC female voice.
+- The application, built-in offline practical-reference cards, documentation,
+  and guarded tools.
 
-Scroll to **Assets** and click the small arrow if the file list is collapsed.
+Exact sizes, hashes, provenance, behavior, and license status are recorded in
+[Models](../MODELS.md).
 
-## Step 2: Download every release part
+## Step 1: Download every Beta 6 part
 
-Download `TORMENT_NEXUS.zip.part01`, every later consecutive numbered file
-that starts with `TORMENT_NEXUS.zip.part`, plus:
-
-1. `REASSEMBLE_TORMENT_NEXUS.bat`
-
-Keep every file in the same folder, normally **Downloads**. Do not rename
-them. The numbered files are pieces of one ZIP archive; no individual piece
-can be opened by itself.
-
-Ignore the automatically generated **Source code** downloads at the bottom of
-the release.
-
-## Step 3: Join the parts and install
-
-Double-click `REASSEMBLE_TORMENT_NEXUS.bat`. It joins every numbered part back
-into a single `TORMENT_NEXUS.zip` and stops safely if any part is missing.
-
-Compare the resulting ZIP against the SHA-256 fingerprint published in the
-release notes before going further. In PowerShell, from the folder containing
-the ZIP:
-
-```powershell
-Get-FileHash .\TORMENT_NEXUS.zip -Algorithm SHA256
-```
-
-Then right-click `TORMENT_NEXUS.zip`, choose **Extract All**, open the
-extracted `TORMENT_NEXUS` folder, and double-click `setup.bat`.
-
-Allow roughly 40 GB of free space while the download parts, the joined ZIP,
-and the extracted folder are all on the same drive. The parts and the ZIP can
-be deleted once the application launches.
-
-Setup verifies the bundled files and creates a **TORMENT_NEXUS** desktop
-shortcut. It normally takes a few minutes and does not need internet access.
-Leave the window open until it reports that setup is complete.
-
-The installer does not change the system Python installation, PATH, or
-registry. Apart from the desktop shortcut, the application remains inside the
-extracted folder.
-
-If Windows or security software blocks the helper or installer, first confirm
-that it came from the official release page and that the checksum matches.
-Do not bypass workplace or school security policy. See
-[Troubleshooting](TROUBLESHOOTING.md) for safe next steps.
-
-## Step 4: Launch it
-
-Double-click the **TORMENT_NEXUS** desktop shortcut.
-
-If the shortcut was not created, open the extracted folder and double-click
-`start_assistant.bat` instead. Do not move that file away from the rest of the
-folder.
-
-The model loads into memory when the first message is sent, so the first answer
-can be slower than later answers. When the input prompt appears, type:
+Open the Beta 6 release, expand **Assets**, and download:
 
 ```text
-tutorial
+TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01
+TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part02
+...every later consecutive part shown...
+REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat
 ```
+
+Keep all files together, normally in **Downloads**. Do not rename them. A
+`.partNN` file is a piece of one ZIP and cannot be opened independently.
+
+Read the release notes for:
+
+- the exact number of parts;
+- the complete-archive SHA-256;
+- per-asset checksums and sizes;
+- source commit and test result;
+- model provenance and known limitations.
+
+If the release page does not provide those details, stop rather than guessing.
+
+## Step 2: Reassemble and verify
+
+Double-click:
+
+```text
+REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat
+```
+
+It should stop if a numbered part is missing and produce:
+
+```text
+TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip
+```
+
+The helper verifies the complete archive. You can independently confirm it
+from PowerShell in the same folder:
+
+```powershell
+Get-FileHash -Algorithm SHA256 -LiteralPath ".\TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip"
+```
+
+Compare all 64 hexadecimal characters with the release notes. A checksum
+proves byte identity with the published archive; it does not certify that the
+software or models are safe or appropriately licensed for every use.
+
+Do not continue if the hash differs.
+
+## Step 3: Extract and set up
+
+Right-click the verified ZIP, select **Extract All**, open the extracted
+folder, and double-click:
+
+```text
+setup.bat
+```
+
+Do not run setup from inside the ZIP preview. Keep the terminal window open
+until setup reports completion.
+
+Setup verifies the bundle, installs into its own folder, and creates a desktop
+shortcut. It does not replace system Python or add TORMENT_NEXUS to PATH.
+Apart from the shortcut, the application stays inside the extracted folder.
+
+If Windows or security software blocks a file:
+
+1. confirm it came from the official repository’s release page;
+2. confirm the complete checksum;
+3. do not bypass workplace or school policy;
+4. use a personal test machine or ask the administrator to inspect it.
+
+See [Troubleshooting](TROUBLESHOOTING.md) before creating an exception.
+
+## Step 4: Read and acknowledge the first-launch notice
+
+Launch the **TORMENT_NEXUS** desktop shortcut, or run
+`start_assistant.bat` from the extracted folder if the shortcut was not
+created.
+
+Before the model loads and before any microphone, activity sampler, listener,
+or network-capable subsystem starts, Beta 6 displays its safety and privacy
+notice. To proceed, type exactly:
+
+```text
+I UNDERSTAND
+```
+
+Anything else closes the application without starting those components.
+Acceptance is stored in:
+
+```text
+assistant\.safety_acknowledgement.json
+```
+
+It is per installation and may be requested again after deletion or a notice
+version change.
+
+After acceptance, the application begins in:
+
+- text mode, with microphone use off;
+- activity awareness off;
+- cloud escalation off;
+- agent API off;
+- autonomous startup maintenance off;
+- experimental sensing off.
 
 Continue with [Your first session](FIRST_RUN.md).
 
-## Installing a newer beta later
+## Updating from an earlier beta
 
-Do not extract a new beta directly over an old installation. Use a new folder
-so that removed or renamed files from the old version cannot remain mixed into
-the new one.
+Install Beta 6 into a new folder. Do not extract it over an older beta.
+Removed or renamed files from the old version could otherwise remain active.
 
-Keep the old folder until the new beta launches successfully. Your local songs
-are in `assistant\music`, and your local conversation state is under
-`assistant\memory`. Treat conversation and memory files as private. Do not
-upload them to GitHub or include them in a bug report.
+Keep the old installation until Beta 6 passes `health check`. Do not casually
+copy the entire `assistant` directory: it contains credentials, logs,
+acknowledgement and consent state, memory, history, imported manuals, and
+derived indexes.
 
-Release-specific notes should say whether personal state can be copied safely
-between versions. If they do not, keep the old folder as a backup rather than
-guessing.
+Personal items that may matter include:
 
-## Uninstalling
+- `assistant\music`
+- `assistant\memory\memories.json`
+- `assistant\memory\conversation_history.txt`
+- `assistant\knowledge\user_library`
 
-1. Close TORMENT_NEXUS.
-2. Delete the extracted TORMENT_NEXUS folder.
-3. Delete the **TORMENT_NEXUS** desktop shortcut.
+Read the release’s migration note before copying private state. When no
+migration is documented, keep the old folder as a backup instead of merging
+installations.
 
-This removes the packaged application. Delete the original download parts and
-rebuilt ZIP separately if you no longer want to keep an installer copy.
+## Uninstalling and privacy cleanup
+
+1. Close TORMENT_NEXUS and its model-server windows.
+2. Revoke any Anthropic, OpenAI, Brave, or Spotify credentials you configured
+   when appropriate.
+3. Delete the extracted installation folder.
+4. Delete its desktop shortcut.
+5. Delete the original parts and rebuilt ZIP if you no longer want an
+   installer copy.
+6. Review the Recycle Bin, backups, cloud-sync folders, search indexes, and
+   screenshots separately.
+
+Deleting the application cannot recall data already sent to a search service,
+cloud model, Spotify, Bluetooth device, or LoRa peer. See
+[Privacy](../PRIVACY.md) for the complete data inventory.

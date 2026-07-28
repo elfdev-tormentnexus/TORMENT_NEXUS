@@ -27,6 +27,13 @@ assistant/.spotify_token
 # The read-only agent interface's bearer token. Belongs to one running
 # installation, and committing it would hand every clone a live credential.
 assistant/.agent_token
+assistant/.activity_consent.json
+assistant/.safety_acknowledgement.json
+# Owner-supplied cloud API keys for the opt-in escalation bridge. These are
+# billing credentials for external accounts -- strictly worse to leak than
+# any local token.
+assistant/.anthropic_api_key
+assistant/.openai_api_key
 *.env
 *secrets*
 
@@ -37,6 +44,13 @@ assistant/memory/wifi_sensing_status.json
 assistant/memory/memories.json
 assistant/memory/change_plans/
 assistant/memory/plan_*.txt
+
+# Offline knowledge imported by the operator and its derived index. The
+# built-in action cards are source; user manuals and their vectors are private
+# installation data and can be very large.
+assistant/knowledge/library.sqlite3*
+assistant/knowledge/user_library/*
+!assistant/knowledge/user_library/.gitkeep
 
 # The absence of this file is what marks a fresh install, so it must
 # never be tracked -- committing it would deny every clone its first-run
@@ -79,6 +93,9 @@ dump/
 # and committing one makes every future clone pay for it forever.
 # ---------------------------------------------------------------
 models/*.gguf
+# One level down too: the embedding model lives in models/embedding/, and
+# a bare models/*.gguf only matches the top level.
+models/**/*.gguf
 models/voice/cache/
 models/voice/**/*.onnx
 models/voice/**/*.onnx.json

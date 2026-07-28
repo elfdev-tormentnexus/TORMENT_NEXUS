@@ -8,6 +8,8 @@ cellular circuitry suspended behind it.
 
 import math
 
+from visualizer import anchor
+
 
 CELL_W = 2
 CELL_H = 4
@@ -31,6 +33,10 @@ class ReactorVisualizer:
     def __init__(self, palette):
         self.palette = tuple(palette)
         self.time = 0.0
+        # Wall-clock seconds for the slow anchor layer. Deliberately not
+        # scaled by audio: a reference that speeds up with the music is
+        # not a reference. See visualizer/anchor.py.
+        self.slow = 0.0
         self.pulse = 0.0
         self.bass = 0.0
         self.mid = 0.0
@@ -51,6 +57,7 @@ class ReactorVisualizer:
         self.mid += (mid - self.mid) * response
         self.treble += (treble - self.treble) * response
         self.time += dt * (0.42 + self.mid * 1.85)
+        self.slow += dt
         self.pulse = max(
             beat,
             self.pulse * math.exp(-dt * 4.25),
@@ -69,6 +76,17 @@ class ReactorVisualizer:
         xx, yy, radius, angle = self._coordinates(pixel_w, pixel_h)
         intensity = np.zeros((pixel_h, pixel_w), dtype=np.float32)
         highlight = np.zeros((pixel_h, pixel_w), dtype=bool)
+
+        # The slow layer, drawn first so everything else sits on top
+        # of it. It moves on wall-clock time alone, which is what
+        # gives the audio-driven motion above it a sense of speed.
+        anchor.apply(
+            np,
+            intensity,
+            anchor.rings(np, xx, yy, self.slow),
+            strength=0.26,
+            mid=self.mid,
+        )
 
         level = self._clamp(features.get("level", 0.0))
         spectrum = np.asarray(

@@ -14,6 +14,8 @@ toward each other and fuse as they pass instead of simply overlapping.
 
 import math
 
+from visualizer import anchor
+
 
 CELL_W = 2
 CELL_H = 4
@@ -52,6 +54,10 @@ class PlasmaVisualizer:
     def __init__(self, palette):
         self.palette = tuple(palette)
         self.time = 0.0
+        # Wall-clock seconds for the slow anchor layer. Deliberately not
+        # scaled by audio: a reference that speeds up with the music is
+        # not a reference. See visualizer/anchor.py.
+        self.slow = 0.0
         self.drift = 0.0
         self.pulse = 0.0
         self.ripple = 0.0
@@ -85,6 +91,7 @@ class PlasmaVisualizer:
         self.pulse = max(beat, decayed)
 
         self.time += dt * (0.32 + self.mid * 1.10)
+        self.slow += dt
         self.drift += dt * (0.20 + self.bass * 0.72)
         self.ripple += dt * (0.85 + self.pulse * 1.35)
 
@@ -154,6 +161,23 @@ class PlasmaVisualizer:
                 ) ** 2
             )
             intensity = intensity + ring * self.pulse * 0.55
+
+        # A slow diagonal drift beneath the blobs. This scene is the one
+        # with no hard edges anywhere, which is exactly why it needed a
+        # reference most: without something straight and slow behind them,
+        # drifting metaballs give the eye nothing to measure drift against.
+        #
+        # Applied to the composed image rather than to `halo`, which is
+        # scaled by (0.16 + treble * 0.22) further down -- putting it there
+        # attenuated the anchor to nothing and the scene rendered
+        # identically to before.
+        anchor.apply(
+            np,
+            intensity,
+            anchor.diagonal(np, xx, yy, self.slow),
+            strength=0.24,
+            mid=self.mid,
+        )
 
         intensity = np.clip(intensity, 0.0, 1.0)
 

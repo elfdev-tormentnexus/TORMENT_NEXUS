@@ -1,6 +1,30 @@
 @echo off
 setlocal
 set "ROOT=%~dp0"
+
+if /i "%TORMENT_NEXUS_ADVANCED_LAUNCH_CONFIRMED%"=="ONE_CYCLE_AUTONOMOUS_REPAIR" goto disclosure_accepted
+
+echo.
+echo ================================================================
+echo ADVANCED MODEL WARNING - MAINTENANCE CODER
+echo ================================================================
+echo This launches Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0 in the
+echo autonomous-coder role. "Abliterated" means refusal behaviour may
+echo be weakened. It does not mean the model is correct, safe, or trusted.
+echo.
+echo This profile can propose and execute bounded source edits when asked.
+echo Python guardrails, backups, tests, and rollback reduce risk but are
+echo not a security sandbox and cannot guarantee a safe result.
+echo.
+echo Close other project editors, keep a backup, review every proposed
+echo change, do not run as Administrator, and keep credentials and
+echo irreplaceable files outside the working project.
+echo.
+set "LAUNCH_CONFIRMATION="
+set /p "LAUNCH_CONFIRMATION=Type START MAINTENANCE CODER to continue: "
+if /i not "%LAUNCH_CONFIRMATION%"=="START MAINTENANCE CODER" goto launch_cancelled
+
+:disclosure_accepted
 set "CUDA_SERVER=%ROOT%llama.cpp\runtime\desktop-cuda-12.4-b9637\llama-server.exe"
 set "CPU_SERVER=%ROOT%llama.cpp\build\bin\Release\llama-server.exe"
 
@@ -39,6 +63,12 @@ if "%GPU_LAYERS%"=="0" (
 call "%ROOT%start_assistant.bat"
 endlocal
 exit /b
+
+:launch_cancelled
+echo.
+echo Maintenance-coder launch cancelled. No model was started.
+endlocal
+exit /b 2
 
 :missing_runtime
 echo No compatible llama-server runtime was found. Checked:

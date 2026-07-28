@@ -14,11 +14,11 @@ through user32 and kernel32, so nothing here adds a dependency, and on any
 other platform the sampler degrades to whatever it can read rather than
 failing.
 
-Observations persist across restarts, which is what lets it notice that you
-were at this yesterday too. What is written is a change log, not a stream of
-samples: a line is added when the foreground application or title changes,
-when you leave or return, and otherwise at a slow heartbeat. A fortnight of
-ordinary use is a small file, and it reads as a history rather than a dump.
+When the operator opts in, observations persist across restarts, which is
+what lets it notice that an application was in front yesterday too. What is
+written is a change log, not a stream of samples: a line is added when the
+foreground application or title changes, when the operator leaves or returns,
+and otherwise at a slow heartbeat.
 
 Window titles routinely contain file names, URLs and message previews. The
 log is local-only, gitignored, excluded from release packaging and bug
@@ -292,7 +292,8 @@ class SystemAwareness:
 
     def __init__(self, sample_seconds=SAMPLE_SECONDS,
                  history_hours=HISTORY_HOURS,
-                 store_path=None, retention_days=None):
+                 store_path=None, retention_days=None,
+                 enabled=True, preference_path=None):
         self._lock = threading.RLock()
         self._samples = deque()
         self._sample_seconds = max(1.0, float(sample_seconds))
@@ -300,8 +301,9 @@ class SystemAwareness:
         self._thread = None
         self._stop = threading.Event()
         self._cpu = _CpuSampler()
-        self._enabled = True
+        self._enabled = bool(enabled)
         self._store_path = store_path
+        self._preference_path = preference_path
         self._retention = timedelta(
             days=max(0.0, float(
                 RETENTION_DAYS if retention_days is None else retention_days
@@ -309,11 +311,43 @@ class SystemAwareness:
         )
         self._last_written = None
         self._last_write_at = None
+        self._load_preference()
 
     # -- persistence ----------------------------------------------
 
+    def _load_preference(self):
+        path = self._preference_path
+        if not path:
+            return
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                value = json.load(handle)
+            if isinstance(value, dict) and isinstance(value.get("enabled"), bool):
+                self._enabled = value["enabled"]
+        except (OSError, ValueError, TypeError):
+            # Missing or malformed consent never opts a fresh install in.
+            pass
+
+    def _save_preference(self):
+        path = self._preference_path
+        if not path:
+            return
+        try:
+            folder = os.path.dirname(path)
+            if folder:
+                os.makedirs(folder, exist_ok=True)
+            temporary = path + ".tmp"
+            with open(temporary, "w", encoding="utf-8") as handle:
+                json.dump({"enabled": self.enabled}, handle)
+            os.replace(temporary, path)
+        except OSError:
+            pass
+
     def load(self):
         """Read back what was observed before this run, dropping stale lines."""
+        if not self.enabled:
+            return 0
+
         path = self._store_path
 
         if not path or not os.path.isfile(path):
@@ -450,12 +484,26 @@ class SystemAwareness:
             thread.join(timeout=2.0)
 
     def set_enabled(self, enabled):
-        """Pause or resume sampling without tearing the thread down."""
+        """
+        Pause or resume sampling without tearing the thread down.
+
+        Turning it off is also the privacy deletion operation promised by the
+        command: retained window titles must not reappear after a restart.
+        """
+        enabled = bool(enabled)
         with self._lock:
-            self._enabled = bool(enabled)
-            if not self._enabled:
-                self._samples.clear()
-            return self._enabled
+            was_enabled = self._enabled
+            self._enabled = enabled
+
+        if not enabled:
+            self.forget()
+        elif not was_enabled:
+            # Explicit opt-in may restore an earlier opted-in log. A fresh
+            # package has no such file.
+            self.load()
+
+        self._save_preference()
+        return enabled
 
     @property
     def enabled(self):
@@ -477,6 +525,10 @@ class SystemAwareness:
                 pass
 
         return count
+
+    @property
+    def retention_days(self):
+        return self._retention.total_seconds() / (24 * 60 * 60)
 
     # -- sampling -------------------------------------------------
 

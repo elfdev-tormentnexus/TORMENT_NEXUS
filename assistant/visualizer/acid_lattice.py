@@ -42,6 +42,9 @@ class AcidLatticeVisualizer:
         self.pan = 0.0
         self.pulse = 0.0
         self.fracture = 0.0
+        # Wall-clock seconds, deliberately not scaled by audio. A reference
+        # that speeds up with the music is not a reference.
+        self.slow = 0.0
         self._previous_beat = 0.0
         self._np = None
         self._grid_key = None
@@ -70,6 +73,7 @@ class AcidLatticeVisualizer:
         self.stereo = self._envelope(self.stereo, stereo, delta, 8.0, 3.6)
         self.pan = self._signed_envelope(self.pan, pan, delta, 9.0, 4.0)
         self.time += delta * (0.42 + self.mid * 1.18 + self.treble * 0.42)
+        self.slow += delta
         self.pulse = max(beat, self.pulse * math.exp(-delta * 4.5))
 
         # A sustained loud passage should keep the mesh energized, but only
@@ -99,6 +103,7 @@ class AcidLatticeVisualizer:
 
         horizon = self._horizon(xx, spectrum)
         mesh_mask = yy < horizon
+        self._draw_slow_anchor(intensity, xx, yy)
         self._draw_upper_lattice(
             intensity,
             highlight,
@@ -158,6 +163,41 @@ class AcidLatticeVisualizer:
         horizon = base + saw_a * 0.052 + saw_b * 0.018 - band * 0.105
         return np.clip(horizon, -0.52, 0.42).astype(np.float32)
 
+    def _draw_slow_anchor(self, intensity, xx, yy):
+        """
+        A slow, frame-wide strata the fast lattice is read against.
+
+        Two problems, one element. The scene had nothing to measure its
+        motion by: every layer moved at audio speed, so a fast passage and
+        a slow one looked equally busy and neither read as fast. And the
+        lower left was empty by construction -- the mesh is masked above
+        the horizon and the shards are cut away to the right, so a whole
+        quadrant of the frame was unreachable by anything that drew.
+
+        These strata cross the entire frame, ignore the horizon, and drift
+        on wall-clock time alone: about one band every twelve seconds
+        regardless of what the music does. Dim enough to sit under the
+        lattice, present enough that the void has a floor.
+        """
+        np = self._np
+        field = (
+            yy * 2.15
+            + np.sin(xx * 0.85 - self.slow * 0.045) * 0.34
+            + np.sin(xx * 1.9 + self.slow * 0.028) * 0.11
+            - self.slow * 0.085
+        )
+        strata = self._triangle_lines(field)
+
+        # The dither ramp runs 0.17 to 0.81, so brightness here is really a
+        # coverage control: 0.235 cleared the floor on about a tenth of the
+        # subpixels and the strata arrived as scattered dots rather than as
+        # bands. This lands near half coverage -- unmistakably a line, still
+        # visibly beneath the lattice cores above it.
+        intensity[:] = np.maximum(
+            intensity,
+            strata * (0.475 + self.mid * 0.085),
+        )
+
     def _draw_upper_lattice(
         self,
         intensity,
@@ -188,16 +228,24 @@ class AcidLatticeVisualizer:
         # pan shifts the two layers in opposite directions.
         warp_x = (
             xx
-            + np.sin(yy * 5.6 + self.time * 0.82) * (0.060 + self.mid * 0.052)
-            + np.sin(xx * 11.0 - yy * 2.7 - self.time * 0.43) * 0.027
+            + np.sin(yy * 5.6 + self.time * 0.82) * (0.048 + self.mid * 0.040)
+            + np.sin(xx * 11.0 - yy * 2.7 - self.time * 0.43) * 0.020
             + self.pan * 0.075
         )
         warp_y = (
             yy
-            + np.sin(xx * 4.2 - self.time * 0.63) * (0.045 + self.stereo * 0.045)
+            + np.sin(xx * 4.2 - self.time * 0.63) * (0.036 + self.stereo * 0.036)
             + band * (0.028 + self.mid * 0.035)
         )
-        density = 5.1 + self.mid * 3.8 + self.treble * 3.1
+        # Three orientations at the old 5.1-12.0 put a line every three
+        # cells. Braille resolves a line and it resolves a gap, but at that
+        # spacing the three families interleave into texture and the eye
+        # reads noise instead of a mesh -- which is the other half of why
+        # this scene looked wrong. Opened out to roughly one line every ten
+        # cells, so a triangle is a shape rather than a shimmer. The audio
+        # range is kept proportionally wide: growing the field is still the
+        # scene's main response to mids and treble.
+        density = 3.40 + self.mid * 1.70 + self.treble * 1.30
         phase = self.time * (0.85 + self.mid * 0.62)
 
         layer_a = self._triangle_lines(warp_x * density + phase)
@@ -267,12 +315,18 @@ class AcidLatticeVisualizer:
         """Fill the lower right with broken low-poly edges and debris."""
         np = self._np
 
-        # This silhouette leaves a large lower-left hole. It is intentionally
-        # not centred: the reference's voids feel like an off-balance cutout,
+        # This silhouette leaves a lower-left hole. It is intentionally not
+        # centred: the reference's voids feel like an off-balance cutout,
         # not a symmetrical landscape.
+        #
+        # The slope was 0.60-0.84 per unit of depth, which walked the edge
+        # from x=-0.27 at the horizon to x=+0.27 at the bottom and left the
+        # lower half of the frame reading as an empty terminal rather than
+        # as deliberate negative space. Roughly a third of that now: the
+        # cutout still leans, and it stops being most of the picture.
         boundary = (
-            -0.27
-            + (yy - horizon[None, :]) * (0.60 + self.bass * 0.24)
+            -0.42
+            + (yy - horizon[None, :]) * (0.21 + self.bass * 0.13)
             + np.sin(yy * 12.0 + self.time * 0.9) * 0.045
             - self.pan * 0.14
         )
@@ -384,7 +438,33 @@ class AcidLatticeVisualizer:
         np = self._np
         # The distance-to-sine-zero form is cheap and antialiases naturally
         # when terminal resolution is too low to carry a true hairline.
-        width = 0.075 + self.treble * 0.020
+        #
+        # It does not antialias a line the raster cannot reach at all, and
+        # that is what used to happen here. A fixed width of 0.075 puts the
+        # falloff about 0.024 wide in coordinate units, while one braille
+        # pixel advances the coordinate by roughly 0.072 at the default
+        # density -- three times further than the whole line. The sampler
+        # landed on a peak only by luck, so the mesh arrived as speckle
+        # rather than as a lattice, and the scene looked broken beside the
+        # others.
+        #
+        # Measure how fast the coordinate actually moves per pixel and never
+        # draw narrower than that. grid.py:192 makes the same argument for
+        # its ground lines: detail finer than the raster is not fine detail,
+        # it is absence.
+        #
+        # The multiplier is the whole design. sin() is locally pi*(c - n)
+        # near each zero, so a width of k * step holds the line above the
+        # dither floor out to about 1.3k pixels either side. k = pi renders
+        # eight-pixel lines and the three orientations close into a solid
+        # wall -- the opposite failure, and just as wrong for a scene whose
+        # subject is negative space. Anything past k = 0.38 already
+        # guarantees a sample inside the peak, so this sits just above that:
+        # certain to be hit, still thinner than one braille cell.
+        gradient_y, gradient_x = np.gradient(coordinate)
+        step = np.sqrt(gradient_x * gradient_x + gradient_y * gradient_y)
+
+        width = np.maximum(0.075 + self.treble * 0.020, step * 1.15)
         return np.exp(-((np.sin(coordinate * math.pi) / width) ** 2))
 
     def _coordinates(self, pixel_w, pixel_h):

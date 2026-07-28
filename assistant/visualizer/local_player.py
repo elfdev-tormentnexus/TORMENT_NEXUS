@@ -191,6 +191,10 @@ class LocalPlayer:
         self._total_frames = 0
         self._samplerate = 0
         self._volume = 1.0
+        # Per-track level matching, kept separate from the operator's own
+        # volume so that 'volume 40' still means the same thing on every
+        # track and the two never have to be reasoned about together.
+        self._track_gain = 1.0
         self._finished = threading.Event()
         self._generation = 0
         self._repeat_library = True
@@ -282,10 +286,22 @@ class LocalPlayer:
         except Exception as error:
             raise LocalPlaybackError(f"Could not open {name}: {error}") from error
 
+        # Measured before the stream opens so the first callback already
+        # has the right level; cached after the first play of each file, so
+        # this is a one-off cost per track rather than a per-play one.
+        try:
+            from visualizer import loudness
+            track_gain = loudness.gain_for(path)
+        except Exception:
+            # Level matching is a convenience. It must never be the reason
+            # a track refuses to play.
+            track_gain = 1.0
+
         with self._lock:
             self._handle = handle
             self._name = name
             self._path = os.path.abspath(path)
+            self._track_gain = track_gain
             self._paused = False
             self._frames_played = 0
             self._total_frames = handle.frames
@@ -552,7 +568,7 @@ class LocalPlayer:
         with self._lock:
             paused = self._paused
             blocks = self._blocks
-            volume = self._volume
+            volume = self._volume * self._track_gain
 
         if paused or blocks is None:
             outdata[:] = 0

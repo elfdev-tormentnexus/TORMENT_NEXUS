@@ -9,6 +9,8 @@ glints, and controlled scanline corruption on treble hits.
 
 import math
 
+from visualizer import anchor
+
 
 CELL_W = 2
 CELL_H = 4
@@ -68,6 +70,12 @@ class CubeVisualizer:
         self.vx = 8.5
         self.vy = 3.8
         self.time = 0.0
+        # Wall-clock seconds for the slow anchor layer. Deliberately not
+        # scaled by audio: a reference that speeds up with the music is
+        # not a reference. See visualizer/anchor.py.
+        self.slow = 0.0
+        self._anchor_key = None
+        self._anchor_grid_cache = None
         self.flash = 0.0
         self.pulse = 0.0
         self.bounces = 0
@@ -113,6 +121,7 @@ class CubeVisualizer:
         self.treble += (treble - self.treble) * response
         self.pulse = max(beat, self.pulse * math.exp(-dt * 4.2))
         self.time += dt * (0.58 + self.mid * 1.55)
+        self.slow += dt
 
         rate = 0.72 + self.mid * 1.8 + self.pulse * 0.75
         for axis in range(3):
@@ -191,6 +200,20 @@ class CubeVisualizer:
         self.bounces += 1
         self.flash = 1.0
 
+    def _anchor_grid(self, pixel_w, pixel_h):
+        """A plain pixel grid, cached, purely for the slow anchor layer."""
+        key = (pixel_w, pixel_h)
+
+        if self._anchor_key == key:
+            return self._anchor_grid_cache
+
+        np = self._np
+        x = np.linspace(-1.42, 1.42, pixel_w, dtype=np.float32)
+        y = np.linspace(-1.0, 1.0, pixel_h, dtype=np.float32)
+        self._anchor_grid_cache = np.meshgrid(x, y)
+        self._anchor_key = key
+        return self._anchor_grid_cache
+
     def render(self, width, height, features):
         if self._np is None:
             import numpy as np
@@ -203,6 +226,20 @@ class CubeVisualizer:
         pixel_h = height * CELL_H
         intensity = np.zeros((pixel_h, pixel_w), dtype=np.float32)
         highlight = np.zeros((pixel_h, pixel_w), dtype=bool)
+
+        # The slow layer, drawn first so everything else sits on top of it.
+        # It moves on wall-clock time alone, which is what gives the
+        # audio-driven motion above it a sense of speed. This scene draws
+        # from projected geometry rather than a pixel grid, so the anchor
+        # brings its own coordinates.
+        anchor_x, anchor_y = self._anchor_grid(pixel_w, pixel_h)
+        anchor.apply(
+            np,
+            intensity,
+            anchor.diagonal(np, anchor_x, anchor_y, self.slow),
+            strength=0.26,
+            mid=self.mid,
+        )
         level = self._clamp(features.get("level", 0.0))
 
         self._draw_starfield(intensity)

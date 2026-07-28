@@ -9,6 +9,7 @@ name: tests
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 # A second push to the same branch makes the first run's answer irrelevant.
 concurrency:
@@ -17,6 +18,7 @@ concurrency:
 
 jobs:
   regressions:
+    name: Windows regression suite - v0.2.0-beta.6
     # Windows because that is what the beta ships as, and because the five
     # modules carrying platform branches -- health_check, config,
     # system_awareness, ui, spotify_control -- take their Windows path here.
@@ -35,15 +37,15 @@ jobs:
       # Only setup/requirements.txt. The suite is hermetic: it mocks
       # start_server, and the voice and audio stacks are imported lazily
       # inside the functions that use them, so sherpa-onnx, piper and the
-      # GGUF weights are not needed to run it. Verified: 441 tests pass in a
-      # clean virtualenv holding nothing but requests, numpy and soundcard.
+      # GGUF weights are not needed to run it. The exact full-suite count is
+      # verified and recorded at release after the final source freeze.
       - name: Install base dependencies
         run: python -m pip install -r setup/requirements.txt
 
       # assistant/ as the working directory, matching setup/test_assistant.bat.
       # PYTHONIOENCODING because the console this project targets is cp1252 and
       # the suite prints characters that raise UnicodeEncodeError without it.
-      - name: Run the regression suite
+      - name: Run the full Beta 6 regression suite
         working-directory: assistant
         env:
           PYTHONIOENCODING: utf-8

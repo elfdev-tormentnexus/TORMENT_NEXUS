@@ -1,50 +1,116 @@
-# Your first TORMENT_NEXUS session
+# Your first TORMENT_NEXUS Beta 6 session
 
-This is a plain-language tour. You do not need to memorize the commands.
-Whenever you are unsure, type `help` or `explain <topic>`.
+This guide assumes you installed the complete Windows archive. You do not need
+to memorize commands; `help` shows the current command list.
 
-## Starting the tutorial
+## 1. The acknowledgement comes before the model
 
-At the input prompt, type:
+On the first launch, TORMENT_NEXUS prints a safety and privacy disclosure
+before loading the model or preparing the microphone.
 
-```text
-tutorial
-```
-
-The tutorial shows two short topics at a time. Type `next`, `n`, or `continue`
-to move forward. Type `tutorial restart` whenever you want to begin again.
-
-## Talking and typing
-
-TORMENT_NEXUS starts in audio mode by default. Audio mode means replies can be
-spoken, but it does not force you to use a microphone. You can type normally
-while audio mode is active.
+Read it. Type exactly:
 
 ```text
-text mode         stop spoken replies
-audio mode        turn spoken replies back on
-voice status      check voice and microphone readiness
+I UNDERSTAND
 ```
 
-Press **Escape** to cancel speech or listening. A completed message typed while
-an answer is being produced is kept for the next turn.
+Anything else closes the application without starting the model, microphone,
+activity sampler, agent listener, or other network-capable subsystem.
 
-## Checking that everything works
+The acknowledgement is not a claim that the software is safe for every use.
+It confirms that you saw the model, authority, privacy, high-stakes, and
+personification limits. Review [Safety](../SAFETY.md) and
+[Privacy](../PRIVACY.md) whenever you enable an advanced feature.
+
+## 2. Beta 6 starts quiet
+
+A fresh Beta 6 installation starts with:
+
+- text mode on;
+- microphone listening and spoken replies off;
+- foreground-window activity awareness off;
+- cloud escalation off;
+- local agent API off;
+- autonomous startup editing off;
+- experimental sensing off.
+
+Local conversation, memory, clock context, the offline practical-reference
+library, and the bundled embedding model remain available.
+
+The model load can take several seconds. The first generated answer can be
+slower than later answers because files and prompt caches are still warming.
+
+## 3. Start with status and the tutorial
 
 Type:
 
 ```text
 health check
+library status
+tutorial
 ```
 
-The result describes the model, voice, optional search service, and optional
-hardware available on this computer. An unavailable optional feature does not
-necessarily mean the basic assistant is broken.
+`health check` separates required blockers from optional warnings.
+`library status` reports built-in and imported offline references.
+`tutorial` shows two topics at a time; use `next`, `n`, or `continue`, and
+restart it later with `tutorial restart`.
 
-## Understanding local memory
+Useful commands:
 
-Conversation history and selected memories are stored inside this installation,
-not in a cloud account. Useful commands include:
+```text
+help
+explain <topic>
+show memories
+memory count
+library sources
+library search <words>
+```
+
+## 4. Conversation and the abliterated model
+
+The default local director is a community-modified abliterated Qwen3 model.
+It may answer requests other assistants reject and can be confidently wrong
+or unsafe. Voice, memory, a name, and a stylized personality do not make it
+conscious or authoritative.
+
+For important information:
+
+- ask what source or local manual supported the answer;
+- distinguish an offline reference from a current fact-check;
+- verify changing or high-stakes facts with an authoritative source;
+- review generated code before running it;
+- never type credentials or irreplaceable private material.
+
+See [Models](../MODELS.md) and
+[Capabilities and limits](CAPABILITIES_AND_LIMITS.md).
+
+## 5. Use the offline reference library
+
+Beta 6 ships with a small set of practical preparedness cards. Try:
+
+```text
+library sources
+library search power outage
+library search carbon monoxide alarm
+```
+
+Ordinary conversation can automatically receive a short offline excerpt only
+when the question shares meaningful words with an indexed passage.
+Embeddings may rerank those lexical matches but cannot add an unrelated
+manual automatically.
+
+An explicit `library search` is wider. It may label an item
+`semantic-candidate`; that means the vector was similar, not that the passage
+is correct or applicable.
+
+To add personal manuals, encyclopedias, repair guides, or notes, read
+[Offline knowledge](OFFLINE_KNOWLEDGE.md). Imports require developer mode
+because the command copies files into the private library.
+
+## 6. Understand memory and history
+
+Selected durable facts and a bounded recent transcript are stored inside the
+installation:
 
 ```text
 show memories
@@ -52,115 +118,122 @@ memory count
 forget <words from the memory>
 ```
 
-Do not type passwords, recovery codes, private keys, or other secrets into
-chat. Local storage improves privacy, but anyone with access to the installation
-folder may be able to read its text files.
+Exact words and identifiers are strongest. Automatic semantic memory rescue
+is deliberately conservative and adds no more than one zero-overlap memory
+when the best match is both strong and clearly ahead of the runner-up.
+Greetings and acknowledgements retrieve nothing.
 
-## Adding and playing local music
+Older conversation recall is narrower: it runs only when you clearly ask
+about an earlier conversation, returns at most one confident exchange, and
+otherwise stays silent. The current live chat remains separate from the
+external `/ask` agent endpoint.
 
-Open the installed TORMENT_NEXUS folder, then open:
+Memory, history, and their derived embedding cache are local files, not
+encrypted storage. See [Privacy](../PRIVACY.md).
+
+## 7. Opt in to voice only if wanted
+
+Beta 6 does not initialize the microphone on a fresh start.
+
+```text
+audio mode        enable offline spoken replies and microphone listening
+text mode         return to typed, silent operation
+voice status      inspect speech and device readiness
+```
+
+You can type while audio mode is active. Press **Escape** to cancel listening
+or speech.
+
+Speech recognition and synthesis run locally in the complete archive. A
+microphone is optional; text mode remains the simplest privacy boundary.
+
+## 8. Opt in to activity awareness only if wanted
+
+Activity awareness can sample:
+
+- the foreground application and complete window title;
+- how long the keyboard and mouse have been idle;
+- CPU and memory load;
+- battery level and whether the computer is on battery;
+- timestamps.
+
+Window titles can reveal filenames, URLs, pages, and message previews.
+
+```text
+activity           show status or observations
+activity on        enable sampling and retain the choice
+activity off       stop sampling, retain the off choice, and delete the log
+activity forget    delete observations without changing whether sampling is on
+```
+
+When enabled, changes are stored in
+`assistant\memory\activity_log.jsonl` for up to 14 days by default.
+`activity off` clears both in-memory observations and that file.
+
+Activity samples are observations, not consciousness. The model must not
+describe them as watching you.
+
+## 9. Add local music
+
+Copy your own MP3, WAV, FLAC, or OGG files into:
 
 ```text
 assistant\music
 ```
 
-Copy your own MP3, WAV, FLAC, or OGG files into that folder. Return to the
-assistant and type:
+Then use:
 
 ```text
 music library
-play <part of the song name>
+play <part of the filename>
+repeat music
+repeat music off
+repeat music on
 ```
 
-Song matching tolerates casual spelling when there is one clear local match.
-A successful local-song start is shown on screen instead of spoken, so the
-voice does not cover the opening lyrics. The visualizer opens automatically as
-soon as a local song starts.
-
-Type `music mode` only when you want to open the visualizer without starting a
-new local song:
+Starting a local song opens the ten-scene visualizer. In music mode:
 
 | Key | Action |
 | --- | --- |
-| Left / Right | Select another scene |
-| Space | Play the next local song, wrapping to the first after the last |
-| `[` / `]` | Change local-song volume in 5% steps |
-| Ctrl+B | Exit the visualizer |
+| Left / Right | Change scene |
+| Space | Play the next local song |
+| `[` / `]` | Change local-song volume |
+| Ctrl+B | Leave music mode |
 
-There are ten scenes. The default aqua player is a black-glass, chrome-rimmed
-oscilloscope and gel-meter display; the other scenes follow it in rotation.
-The scene changes every 2 minutes 45 seconds, so seeing all of them takes
-about 28 minutes; Left and Right reach one without waiting. The colour palette
-changes every 20 seconds. Space does not skip Spotify or browser audio.
+Space controls local music, not Spotify or browser audio.
 
-The scenes use different response profiles: bass expands the tunnel and
-reactor and drives the neon horizon forward, spectrum detail raises the
-cathedral, mids and treble drive the cube's motion and corruption, mids move
-the plasma flow, and the datastream rain combines a bass data horizon, a
-mid-driven code curtain, treble rain speed, and a brief beat scan fault.
-Beats throw the wormhole starfield forward.
+## 10. Read long answers
 
-Acid lattice is an original acid-green triangulated mesh cut by jagged voids;
-beats throw brief fracture bursts through it. Its visual language draws from
-the supplied music-video reference without using any footage.
-
-Local-library repeat is on by default. A finished local song advances to the
-next filename, and the last song returns to the first. Use:
-
-```text
-repeat music          show whether the loop is on
-repeat music off      stop after the current local song
-repeat music on       continuously cycle the local library
-```
-
-## Reading long answers
-
-Long answers appear one page at a time when they do not fit on screen.
+Long answers use a page view:
 
 | Key | Action |
 | --- | --- |
 | Space, Enter, or Down | Next page |
 | Up or Backspace | Previous page |
-| Escape or Q | Close the page view and return to the conversation |
+| Escape or Q | Close the page view |
 
-Lists and line breaks are formatted while the answer is generated. Long typed
-messages keep the newest part visible instead of disappearing beyond the right
-side of the screen.
+## 11. Connected and advanced features remain choices
 
-## Time awareness
+- Current-information search can use a configured SearXNG or Brave backend.
+- `spotify search` sends a query to MusicBrainz and opens Spotify.
+- `escalate` sends exactly its question to a configured cloud provider, but
+  only after escalation is separately enabled.
+- The experimental agent API is loopback-only, token authenticated, and off.
+- Developer and self-maintenance modes can change project files under
+  application guardrails; those rules are not an OS sandbox.
+- T-Deck, Meshtastic, radar, and Wi-Fi experiments require separate hardware,
+  consent, and documentation.
 
-TORMENT_NEXUS reads the computer's local clock during every reply. This lets it
-understand:
+See [Capabilities and limits](CAPABILITIES_AND_LIMITS.md) before enabling
+them.
 
-- the current local date and time;
-- how long the current session has been open;
-- how much time passed since the previous completed conversation.
+## 12. End the session
 
-It relies on the Windows clock, so an incorrect computer clock produces
-incorrect time information. It does not run thoughts or have experiences while
-the application is closed.
+Close the application normally after speech, music, and advanced work have
+stopped. The next launch can use saved timestamps and explicitly retained
+state. It was not thinking, watching, or waiting while closed.
 
-## Optional connected features
-
-Ordinary conversation, memory, speech, time awareness, local music, and the
-visualizer work locally after installation.
-
-- Web search requires a separately configured SearXNG service.
-- `spotify` opens the installed Spotify desktop application.
-- `spotify search <query>` sends that search text to MusicBrainz for public
-  title-and-artist matches, then opens the selected result in Spotify.
-- Raspberry Pi, Meshtastic, and T-Deck features require separate hardware
-  setup.
-- Developer mode and project-editing tools are advanced features with local
-  guardrails and review steps.
-
-These optional features are not required for ordinary conversation.
-
-## Ending a session
-
-Use the application's normal exit command or close its terminal window after
-speech and music have stopped. The next launch can use the saved timestamp to
-understand how much time passed, but it was not active in the meantime.
-
-If something behaves differently from this guide, see
-[Troubleshooting](TROUBLESHOOTING.md).
+If behavior differs from this guide, use
+[Troubleshooting](TROUBLESHOOTING.md). Do not put conversations, memories,
+manuals, activity logs, keys, tokens, pairing information, or private paths
+in a public report.
