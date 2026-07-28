@@ -104,8 +104,11 @@ Download these assets into one folder:
 1. `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01` through `.part06` —
    all six are required
 2. `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat`
-3. `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` — 15 KB, optional but
+3. `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` — 18 KB, optional but
    recommended
+4. `TORMENT_NEXUS-v0.2.0-beta.6-ask-guard-patch.zip` and
+   `INSTALL_ASK_GUARD_PATCH.bat` — 30 KB, recommended, and **applied by hand
+   after the installer finishes**. See the note below.
 
 Run the reassembler and leave it alone. It does the whole sequence:
 
@@ -116,6 +119,19 @@ Run the reassembler and leave it alone. It does the whole sequence:
 4. applies the documentation patch if it is present.
 
 Then open the `TORMENT_NEXUS` folder and run `setup.bat`.
+
+> **After the automatic install finishes, apply the /ask guard patch
+> yourself.** The reassembler does **not** apply it for you, and nothing
+> prompts you to do it. Put `INSTALL_ASK_GUARD_PATCH.bat` and
+> `TORMENT_NEXUS-v0.2.0-beta.6-ask-guard-patch.zip` inside the extracted
+> `TORMENT_NEXUS` folder and run the installer. It is a deliberate manual
+> step because, unlike the documentation patch, it replaces a file the
+> release manifest hashes — see
+> [the /ask guard patch](#optional-ask-history-guard-patch) for why that
+> trade is yours to make rather than one made silently on your behalf.
+>
+> Skipping it is safe. It only affects the optional read-only agent
+> interface, which is off unless you turn it on.
 
 Allow roughly 40 GB free while this runs — the parts, the joined ZIP and the
 extracted folder briefly coexist. If a `TORMENT_NEXUS` folder already exists
@@ -149,7 +165,7 @@ the first value automatically; the rest are for verifying individual downloads.
 | `.zip.part05` | 2,080,374,784 | `B74AA7B6147C463F4269DC6ACDD4D3781711C66560D6EBBAE7B1002B6F06E789` |
 | `.zip.part06` | 1,978,832,443 | `A346A56A148A7EAE8BFA55F284DDC3028518DDB90E10EC2E730F1236448B236B` |
 | `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` | 3,906 | `9FE13AA4097E21C68CCBB3814541AC831408A63DA037ECF63E3103A96AFDA5BB` |
-| `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` | 15,038 | `81E8517EBE97A2FD833AD2A6A2889D94EC619D904EDD2DA555FEBD1FECED2F90` |
+| `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` | 18,018 | `6199E40E6958E4FF83B2D09F1F600F4B447A510C33D31715570C1E04B8A9DE80` |
 
 ### Optional interface-mode add-on
 
@@ -184,6 +200,66 @@ interface writes, edits, or restarts. The bearer token is written to
 `assistant\.agent_token`, and closing the window closes the interface. Every
 other launcher leaves it closed — installing this add-on does not open
 anything by itself.
+
+### Optional /ask history-guard patch
+
+**This one is applied by hand, and nothing reminds you.** Put
+`INSTALL_ASK_GUARD_PATCH.bat` and its payload inside the extracted
+`TORMENT_NEXUS` folder after `setup.bat` has finished, and run the installer.
+
+Asked a vague question about the past — "what did we discuss before this
+request?", "what did you tell me earlier?" — the read-only agent interface
+would produce a fluent, specific account of a conversation that never
+happened. It has no history in that mode, and it says so correctly when asked
+directly, which is exactly what made the failure easy to miss.
+
+The cause was that the `/ask` path handed the model an advisory system
+message saying it could not see live history, then sampled an answer anyway.
+An advisory is a request. A small model asked to discount context it cannot
+see is the reasoning that already failed once in this project — it is the
+same shape as the persona-shot fusion Beta 6 fixed, one layer further out.
+The guard is now Python and fails closed: matching questions return a fixed
+boundary answer, never reserve the director slot, and never reach the model.
+`/memory/search` also gained a top-level note that its results are retrieval
+candidates rather than verified facts.
+
+The fix landed after the 12 GB archive was already built and split, so it
+ships as a patch instead of a rebuild — the same trade the documentation
+patch and the interface-mode add-on already make.
+
+**Why this one is manual.** The documentation patch replaces documentation
+only, which is what lets this page claim an installed tree still matches the
+published archive checksum. This patch replaces `assistant/main.py`, a file
+the release manifest hashes. Applying it makes the installed tree diverge
+from the published manifest on purpose. That is a real trade, so it is yours
+to make knowingly rather than one the reassembler makes silently on your
+behalf.
+
+The installer refuses to guess. It checks the `main.py` you already have
+against the two hashes it knows — the file Beta 6 shipped and the patched
+file — and stops rather than overwriting a tree someone has already modified.
+It keeps the original as `assistant\main.py.pre-ask-guard`; to undo the
+patch, delete the patched file and rename the backup back.
+
+**Skipping it is safe.** It changes only the optional read-only agent
+interface, which is off unless you deliberately turn it on.
+
+| Add-on detail | Value |
+| --- | --- |
+| Payload | `TORMENT_NEXUS-v0.2.0-beta.6-ask-guard-patch.zip` |
+| Bytes | 30,455 |
+| SHA-256 | `52119076D3F6999790899F0A0FC4C175A2644350D8BC060103C0C27D3D046E84` |
+| Installer | `INSTALL_ASK_GUARD_PATCH.bat`, 3,348 bytes |
+| Installer SHA-256 | `3434D5E4E95284131176A1209010AB63A6B59C3AD40B7FD7B298873300C5E483` |
+| Replaces | `assistant/main.py` (manifest-hashed) |
+| Shipped `main.py` SHA-256 | `930F9DCB1E3FF6B5E861E5240F82EB47F5C2BD64A993F61508272A6639778A10` |
+| Patched `main.py` SHA-256 | `E81746290238FF8DE3CB58AB76097A8AE5EDAEC1D68646DF450D6C11BB0BAE9B` |
+
+Verified against a real extracted tree: applied cleanly and kept a backup on
+a shipped tree, reported "already applied" and changed nothing on a second
+run, and refused with a non-zero exit on a tree whose `main.py` had been
+edited. The suite passes 640 tests with the guard in place, and the guard
+test was confirmed by re-injecting the bug.
 
 ### Optional full-maintenance model add-on
 

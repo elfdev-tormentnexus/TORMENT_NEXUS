@@ -44,6 +44,16 @@ explicit.
   history trimmed mid-record, and fabricated hardware readings. Each is
   enforced in Python rather than by instructing the model. Added `name is
   NAME` so the operator can set a name directly, recorded as operator-chosen.
+- Fixed a sixth one found after the archive was built: `/ask` answered vague
+  questions about the past with a fluent account of a conversation that never
+  happened, because the path advised the model it had no history and then
+  sampled an answer anyway. The guard is Python and fails closed — matching
+  questions never reach the model. `/memory/search` also now states that its
+  results are retrieval candidates rather than verified facts. This ships as
+  the manually applied `ask-guard-patch` asset rather than a 12 GB rebuild;
+  unlike the documentation patch it replaces a manifest-hashed file, so it is
+  a deliberate opt-in step. Suite count with the guard applied: **640 passed,
+  2 skipped**.
 - Reworked the music visualizer: a wall-clock anchor layer across all eight
   scenes, higher scene reactivity, and fixes to the acid lattice line width
   and the datastream horizon. Added playback loudness matching, which
