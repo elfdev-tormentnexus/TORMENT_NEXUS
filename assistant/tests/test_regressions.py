@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import importlib.util
 import inspect
 import json
+import math
 import os
 import re
 from pathlib import Path
@@ -8146,6 +8147,105 @@ class GuardDoctorTests(unittest.TestCase):
             for path in edit_guard.list_editable_files()
         }
         self.assertNotIn("editing/guard_doctor.py", editable)
+
+
+class EntropyStripTests(unittest.TestCase):
+    """
+    The strip is the one number here the model actually produced. Unlike the
+    cloud's projection it is not lossy, so the parsing must not quietly
+    invent, drop or reorder anything.
+    """
+
+    def _chunk(self, *tokens):
+        """A streamed logprobs object in the documented shape."""
+        return {
+            "content": [
+                {
+                    "token": token,
+                    "logprob": math.log(probabilities[0]),
+                    "top_logprobs": [
+                        {"token": f"cand{n}", "logprob": math.log(p)}
+                        for n, p in enumerate(probabilities)
+                    ],
+                }
+                for token, probabilities in tokens
+            ]
+        }
+
+    def _pushed(self, logprobs):
+        with mock.patch.object(assistant_main.ui, "push_token") as push:
+            assistant_main._feed_entropy(logprobs)
+
+        return [call.args[0] for call in push.call_args_list]
+
+    def test_a_streamed_chunk_reaches_the_strip(self):
+        pushed = self._pushed(self._chunk(("storm", [0.7, 0.2, 0.1])))
+
+        self.assertEqual(len(pushed), 1)
+        self.assertAlmostEqual(sum(pushed[0]), 1.0, places=6)
+
+    def test_candidates_are_normalised_to_a_distribution(self):
+        # llama.cpp reports the top N, which do not sum to one on their own.
+        pushed = self._pushed(self._chunk(("storm", [0.4, 0.1, 0.05])))
+
+        self.assertAlmostEqual(sum(pushed[0]), 1.0, places=6)
+
+    def test_whitespace_tokens_are_not_decisions(self):
+        pushed = self._pushed(
+            self._chunk((" ", [0.9, 0.1]), ("\n", [0.9, 0.1]))
+        )
+
+        self.assertEqual(pushed, [])
+
+    def test_a_single_candidate_carries_no_choice(self):
+        pushed = self._pushed(self._chunk(("only", [1.0])))
+
+        self.assertEqual(pushed, [])
+
+    def test_a_bare_list_payload_is_tolerated(self):
+        # It is a llama.cpp build's rendering of an OpenAI shape; neither
+        # side promises the other will not move.
+        chunk = self._chunk(("storm", [0.6, 0.4]))
+        pushed = self._pushed(chunk["content"])
+
+        self.assertEqual(len(pushed), 1)
+
+    def test_nothing_at_all_is_not_an_error(self):
+        for payload in (None, {}, {"content": None}, {"content": []}, []):
+            with self.subTest(payload=payload):
+                self.assertEqual(self._pushed(payload), [])
+
+    def test_a_malformed_entry_never_ends_the_turn(self):
+        pushed = self._pushed({
+            "content": [
+                {"token": "fine", "top_logprobs": [
+                    {"token": "a", "logprob": -0.2},
+                    {"token": "b", "logprob": -1.9},
+                ]},
+                {"token": "broken", "top_logprobs": [{"nope": 1}, {"nope": 2}]},
+                {"no_token_key": True},
+            ]
+        })
+
+        self.assertEqual(len(pushed), 1)
+
+    def test_a_committed_token_scores_lower_than_a_fork(self):
+        field = ui.vector_panel.Field()
+        field.push_token([0.97, 0.01, 0.01, 0.01])
+        field.push_token([0.26, 0.25, 0.25, 0.24])
+
+        committed, fork = field.entropy
+        self.assertLess(committed, 0.2)
+        self.assertGreater(fork, 0.9)
+
+    def test_the_panel_gates_whether_logprobs_are_worth_asking_for(self):
+        engine = ui.LayeredDisplayEngine()
+
+        engine.width, engine.height = 160, 48
+        self.assertGreater(engine.panel_columns(), 0)
+
+        engine.width, engine.height = 80, 48
+        self.assertEqual(engine.panel_columns(), 0)
 
 
 class RepositoryVisibilityTests(unittest.TestCase):

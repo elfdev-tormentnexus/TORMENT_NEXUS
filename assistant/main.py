@@ -473,6 +473,54 @@ def _update_retrieval_panel(active, relevant):
         pass
 
 
+# Entropy over only the top few candidates has a narrow dynamic range. At
+# five the observed spread was 0.39-0.87; at ten it was 0.00-0.72, which the
+# strip can resolve without display stretching.
+PANEL_TOP_LOGPROBS = 10
+
+
+def _candidate_probabilities(alternatives):
+    """The reported candidates as a distribution. The panel derives entropy."""
+    probabilities = [math.exp(item["logprob"]) for item in alternatives]
+    total = sum(probabilities) or 1.0
+
+    return [value / total for value in probabilities]
+
+
+def _feed_entropy(logprobs):
+    """
+    Send one streamed chunk's token candidates to the panel's strip.
+
+    Best-effort for the same reason the cloud is: an observation of the
+    assistant must not be able to end a turn. Tolerant of the payload
+    arriving either as the documented {"content": [...]} object or as a
+    bare list, because this is a llama.cpp build's rendering of an OpenAI
+    shape and neither side promises the other will not change.
+    """
+    if not logprobs:
+        return
+
+    entries = (
+        logprobs.get("content")
+        if isinstance(logprobs, dict)
+        else logprobs
+    )
+
+    for entry in entries or []:
+        try:
+            if not entry.get("token", "").strip():
+                # Whitespace and stop tokens are not decisions. They sit at
+                # zero and would drag the strip's floor down with them.
+                continue
+
+            alternatives = entry.get("top_logprobs") or []
+
+            if len(alternatives) > 1:
+                ui.push_token(_candidate_probabilities(alternatives))
+        except Exception:
+            continue
+
+
 def _runtime_context_prompt(user_input="", search_context=None):
     """Per-turn memory and web evidence, kept outside the reusable prefix."""
     active = mem.active_memories()
@@ -931,6 +979,15 @@ def run_generation(
         if QWEN_NO_THINK:
             payload["chat_template_kwargs"] = {"enable_thinking": False}
 
+        # Only when the panel is on screen to consume them. Ten candidates
+        # per token is real payload on every streamed chunk, and a panel
+        # nobody can see is not a reason to carry it.
+        want_entropy = ui.panel_active()
+
+        if want_entropy:
+            payload["logprobs"] = True
+            payload["top_logprobs"] = PANEL_TOP_LOGPROBS
+
         ui.set_status("connecting")
 
         with requests.post(
@@ -977,6 +1034,9 @@ def run_generation(
                 choices = chunk.get("choices") or [{}]
                 delta = choices[0].get("delta") or {}
                 piece = delta.get("content") or ""
+
+                if want_entropy:
+                    _feed_entropy(choices[0].get("logprobs"))
 
                 if piece:
                     if not seen_any_piece:

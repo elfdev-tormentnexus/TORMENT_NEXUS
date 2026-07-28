@@ -3515,6 +3515,24 @@ def light_memories(indices):
         _engine.field.retrieve(list(indices))
 
 
+def panel_active():
+    """
+    Whether the retrieval panel is currently being drawn.
+
+    Callers use this to decide whether to pay for data only the panel
+    consumes. Asking the model for ten candidates per token is not free,
+    and there is no reason to carry them to a panel nobody can see.
+    """
+    with _engine.lock:
+        return _engine.panel_columns() > 0
+
+
+def push_token(probabilities):
+    """Append one generated token's candidate distribution to the strip."""
+    with _engine.lock:
+        _engine.field.push_token(probabilities)
+
+
 def set_dev_mode(flag):
     """Enable or disable the rapid purple-cycle developer-mode face."""
     with _engine.lock:
