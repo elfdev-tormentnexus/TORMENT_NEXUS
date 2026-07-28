@@ -67,9 +67,15 @@ AUTONOMOUS_SERIAL_MODE = False
 # It expires like dev mode does, because it costs a second resident
 # embedding server -- llama.cpp fixes pooling at launch, so trajectories
 # cannot come from the pooled instance -- and makes every retrieval slower.
-EXPERIMENTAL_MODE = False
+EXPERIMENTAL_MODE = os.environ.get(
+    "TORMENT_NEXUS_EXPERIMENTAL", "").strip().lower() in {"1", "true", "on", "yes"}
 EXPERIMENTAL_MODE_EXPIRES_AT = 0.0
 EXPERIMENTAL_MODE_DURATION_SECONDS = 60 * 60
+
+# Started from the environment means started deliberately, by a launcher
+# built for it, so it does not expire out from under a session that exists
+# to run in this mode. Toggled from inside a normal session it does.
+EXPERIMENTAL_MODE_FROM_ENV = EXPERIMENTAL_MODE
 
 _ROLE_LABELS = {
     MODEL_ROLE_DIRECTOR: "director",
@@ -115,6 +121,9 @@ def is_experimental_mode():
 
 def _expire_experimental_mode():
     global EXPERIMENTAL_MODE, EXPERIMENTAL_MODE_EXPIRES_AT
+
+    if EXPERIMENTAL_MODE_FROM_ENV:
+        return
 
     if (
         EXPERIMENTAL_MODE
