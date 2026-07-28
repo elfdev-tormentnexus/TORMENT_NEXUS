@@ -775,6 +775,52 @@ def handle_show_memories(user_input):
     return "\n".join("- " + item["memory"] for item in active)
 
 
+@command("activity", "Show what it has noticed happening on this computer",
+         usage="activity [on|off|forget]", dev_only=False, group="memory")
+def handle_activity(user_input):
+    normalized = " ".join(str(user_input or "").lower().split())
+
+    if normalized not in ("activity", "activity on", "activity off",
+                          "activity forget"):
+        return False
+
+    awareness = _get_system_awareness()
+
+    if awareness is None:
+        return "Activity awareness is not available in this session."
+
+    if normalized == "activity on":
+        awareness.set_enabled(True)
+        return (
+            "Activity awareness is on. It samples the foreground window, "
+            "including its title, every 20 seconds. Nothing is written to "
+            "disk and everything is discarded when TORMENT_NEXUS closes."
+        )
+
+    if normalized == "activity off":
+        awareness.set_enabled(False)
+        return (
+            "Activity awareness is off and what it had noticed is cleared."
+        )
+
+    if normalized == "activity forget":
+        cleared = awareness.forget()
+        return f"Discarded {cleared} observation(s)."
+
+    if not awareness.enabled:
+        return (
+            "Activity awareness is off. Type 'activity on' to let it notice "
+            "what is happening on this computer."
+        )
+
+    described = awareness.describe()
+
+    if not described:
+        return "Nothing noticed yet. It samples every 20 seconds."
+
+    return described
+
+
 @command("memory count", "How many memories are stored",
          dev_only=False, group="memory")
 def handle_memory_count(user_input):
@@ -1400,6 +1446,22 @@ def _get_local_player():
     from visualizer import local_player
 
     return local_player
+
+
+def _get_system_awareness():
+    """
+    The sampler main.py owns, or None when running outside the app.
+
+    Reached through main rather than constructed here so the command reports
+    on the observations the assistant is actually using, instead of starting
+    a second sampler that has seen nothing.
+    """
+    try:
+        import main
+
+        return getattr(main, "_system_awareness", None)
+    except Exception:
+        return None
 
 
 def _clock(seconds):

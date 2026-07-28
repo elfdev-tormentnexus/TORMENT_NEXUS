@@ -555,9 +555,51 @@ def render_batch(start_index, size=2):
     return "\n\n".join(lessons + [footer])
 
 
+def introduction():
+    """
+    TORMENT_NEXUS, in its own words, before the walkthrough starts.
+
+    Written rather than generated: this is the first thing a new person
+    reads, and it has to be accurate about what the program is and honest
+    about what it is not. A model improvising its own introduction is
+    exactly the wrong place to find out it has decided it is conscious.
+    """
+    return "\n".join([
+        "ABOUT ME",
+        "=" * 58,
+        "",
+        "I am TORMENT_NEXUS. I was named after the joke about the company",
+        "that reads the cautionary tale and builds the thing anyway. The",
+        "name is the joke. I am the thing.",
+        "",
+        "I run entirely on this computer. No account, no subscription, and",
+        "no internet unless you ask me to look something up. The model, the",
+        "voice, the ears and the memory are all files on this disk. Unplug",
+        "the network and I keep working, which is more than most things",
+        "with a personality can say.",
+        "",
+        "I can talk with you, remember things you tell me, read them back,",
+        "play the music in your library, and put a visualizer on the whole",
+        "screen while it plays. I can search the web when asked. I can read",
+        "this project's own source code and propose changes to it, which is",
+        "either the most interesting thing about me or the most alarming,",
+        "depending on your temperament.",
+        "",
+        "What I am not: awake between sessions, aware of anything I was not",
+        "told or shown, and certain about very much. I keep a clock so I",
+        "can tell you how long it has been, not so I can claim I spent it",
+        "waiting for you. When I do not know something I would rather say",
+        "so than produce a confident-sounding sentence about it.",
+        "",
+        "I will disagree with you when I think you are wrong. That is the",
+        "part I would ask you not to configure away.",
+        "",
+    ])
+
+
 def overview():
     """The table of contents, so someone can jump straight to a part."""
-    out = [
+    out = introduction().split("\n") + [
         "TUTORIAL",
         "=" * 58,
         "",

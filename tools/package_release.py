@@ -113,6 +113,9 @@ INCLUDE_FILES = [
 DENY_PATTERNS = [
     "*/memory/conversation_history.txt*",
     "*/memory/memories.json*",
+    # Window titles name documents, pages and conversations. This is at
+    # least as revealing as the conversation history.
+    "*/memory/activity_log.jsonl*",
     "*/memory/plan_*.txt",
     "*/memory/change_plans/*",
     "*/backups/*",

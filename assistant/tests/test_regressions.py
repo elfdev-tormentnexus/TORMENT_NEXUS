@@ -6,6 +6,7 @@ import os
 import re
 from pathlib import Path
 import sys
+import shutil
 import tempfile
 import threading
 import time
@@ -40,6 +41,7 @@ from project import project_builder
 from ui import ui
 from voice import offline_voice
 from voice import session as voice_session
+from core import system_awareness
 from visualizer import datastream
 from visualizer import local_player
 from visualizer import music_metadata
@@ -5149,6 +5151,278 @@ class SpeechPauseTests(unittest.TestCase):
 
         self.assertIn("TORMENT_NEXUS_PAUSE_SECONDS", source)
         self.assertIn("TORMENT_NEXUS_CLAUSE_PAUSE", source)
+
+
+class SystemAwarenessTests(unittest.TestCase):
+    def _stamped(self, awareness, entries):
+        """Seed observations directly, without waiting on the sampler."""
+        from datetime import datetime, timedelta
+
+        base = datetime.now().astimezone()
+
+        for offset, app, title, idle in entries:
+            awareness._record(system_awareness.Snapshot(
+                taken_at=base + timedelta(seconds=offset),
+                app=app,
+                title=title,
+                idle_seconds=idle,
+            ))
+
+    def test_sampling_never_raises_and_reports_a_time(self):
+        awareness = system_awareness.SystemAwareness()
+        snapshot = awareness.sample()
+
+        self.assertIsNotNone(snapshot.taken_at)
+        self.assertGreaterEqual(snapshot.idle_seconds, 0.0)
+
+        # Every probe is optional. A reading that is unavailable on this
+        # platform must come back as None rather than take the sampler down.
+        for value in (snapshot.cpu_percent, snapshot.memory_percent,
+                      snapshot.battery_percent):
+            self.assertTrue(value is None or isinstance(value, float))
+
+    def test_it_reports_observations_not_experiences(self):
+        """
+        The wording goes in front of the model. It has to stay a record of
+        samples, exactly as the clock does -- it never watched anything.
+        """
+        awareness = system_awareness.SystemAwareness(sample_seconds=20.0)
+        self._stamped(awareness, [
+            (0, "blender.exe", "untitled.blend", 5.0),
+            (20, "blender.exe", "untitled.blend", 5.0),
+            (40, "blender.exe", "untitled.blend", 5.0),
+        ])
+
+        described = awareness.describe().lower()
+
+        self.assertIn("blender.exe", described)
+        for claim in ("i watched", "i saw you", "i waited", "i was watching",
+                      "i noticed you", "while you were gone i"):
+            self.assertNotIn(claim, described)
+
+    def test_idle_stretches_are_reported_as_absence_not_activity(self):
+        awareness = system_awareness.SystemAwareness(sample_seconds=20.0)
+        away = system_awareness.IDLE_AWAY_SECONDS + 60
+        self._stamped(awareness, [
+            (0, "code.exe", "main.py", 4.0),
+            (20, "code.exe", "main.py", away),
+            (40, "code.exe", "main.py", away),
+            (60, "code.exe", "main.py", away),
+        ])
+
+        described = awareness.describe().lower()
+
+        self.assertIn("input", described)
+        # Time spent away must not be counted as time spent using the app.
+        runs = awareness.foreground_runs()
+        self.assertEqual(len(runs), 1)
+        self.assertLessEqual(runs[0][3], 20.0)
+
+    def test_disabling_clears_what_it_had_noticed(self):
+        awareness = system_awareness.SystemAwareness(sample_seconds=20.0)
+        self._stamped(awareness, [(0, "game.exe", "A Private Thing", 3.0)])
+
+        self.assertTrue(awareness.snapshots())
+        awareness.set_enabled(False)
+
+        self.assertFalse(awareness.enabled)
+        self.assertEqual(awareness.snapshots(), [])
+        self.assertEqual(awareness.describe(), "")
+
+    def test_history_is_bounded_so_it_cannot_grow_without_limit(self):
+        from datetime import datetime, timedelta
+
+        # No store, so history_hours is the only bound. With a store the
+        # window widens to the retained period on purpose, which the
+        # persistence tests cover separately.
+        awareness = system_awareness.SystemAwareness(
+            sample_seconds=20.0, history_hours=0.1
+        )
+        base = datetime.now().astimezone()
+
+        for minutes in range(0, 40, 2):
+            awareness._record(system_awareness.Snapshot(
+                taken_at=base + timedelta(minutes=minutes),
+                app="app.exe",
+                title="t",
+                idle_seconds=1.0,
+            ))
+
+        kept = awareness.snapshots()
+        self.assertTrue(kept)
+        span = (kept[-1].taken_at - kept[0].taken_at).total_seconds()
+        self.assertLessEqual(span, 0.1 * 3600 + 1)
+
+    def _store(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        return os.path.join(folder, "activity_log.jsonl")
+
+    def test_observations_survive_a_restart(self):
+        path = self._store()
+        first = system_awareness.SystemAwareness(
+            sample_seconds=20.0, store_path=path, retention_days=14
+        )
+        self._stamped(first, [
+            (0, "blender.exe", "scene.blend", 3.0),
+            (60, "chrome.exe", "a page", 3.0),
+        ])
+
+        second = system_awareness.SystemAwareness(
+            sample_seconds=20.0, store_path=path, retention_days=14
+        )
+
+        self.assertGreater(second.load(), 0)
+        recovered = {s.app for s in second.snapshots()}
+        self.assertIn("blender.exe", recovered)
+        self.assertIn("chrome.exe", recovered)
+
+    def test_only_changes_are_written_not_every_sample(self):
+        """A line per sample would be thousands a day and unreadable."""
+        path = self._store()
+        awareness = system_awareness.SystemAwareness(
+            sample_seconds=20.0, store_path=path, retention_days=14
+        )
+        self._stamped(awareness, [
+            (offset, "blender.exe", "scene.blend", 3.0)
+            for offset in range(0, 200, 20)
+        ])
+
+        with open(path, encoding="utf-8") as handle:
+            lines = [line for line in handle if line.strip()]
+
+        self.assertLess(len(lines), 4)
+
+    def test_stale_observations_are_dropped_from_memory_and_disk(self):
+        from datetime import datetime, timedelta
+
+        path = self._store()
+        old = system_awareness.SystemAwareness(
+            sample_seconds=20.0, store_path=path, retention_days=14
+        )
+        base = datetime.now().astimezone()
+        old._record(system_awareness.Snapshot(
+            taken_at=base - timedelta(days=90),
+            app="ancient.exe", title="long gone", idle_seconds=1.0,
+        ))
+        old._record(system_awareness.Snapshot(
+            taken_at=base, app="today.exe", title="now", idle_seconds=1.0,
+        ))
+
+        fresh = system_awareness.SystemAwareness(
+            sample_seconds=20.0, store_path=path, retention_days=14
+        )
+        fresh.load()
+
+        self.assertNotIn("ancient.exe", {s.app for s in fresh.snapshots()})
+        with open(path, encoding="utf-8") as handle:
+            self.assertNotIn("ancient", handle.read())
+
+    def test_a_corrupt_line_does_not_cost_the_whole_history(self):
+        path = self._store()
+        awareness = system_awareness.SystemAwareness(
+            sample_seconds=20.0, store_path=path, retention_days=14
+        )
+        self._stamped(awareness, [(0, "code.exe", "main.py", 2.0)])
+
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write("{ this is not json\n\n")
+
+        fresh = system_awareness.SystemAwareness(
+            sample_seconds=20.0, store_path=path, retention_days=14
+        )
+        self.assertGreater(fresh.load(), 0)
+
+    def test_forget_erases_the_stored_history_too(self):
+        """
+        Titles name documents and conversations. Asking it to forget has to
+        remove the file, not merely clear what is loaded.
+        """
+        path = self._store()
+        awareness = system_awareness.SystemAwareness(
+            sample_seconds=20.0, store_path=path, retention_days=14
+        )
+        self._stamped(awareness, [(0, "browser.exe", "a private page", 2.0)])
+
+        self.assertTrue(os.path.isfile(path))
+        awareness.forget()
+
+        self.assertFalse(os.path.exists(path))
+        self.assertEqual(awareness.snapshots(), [])
+
+    def test_activity_log_is_excluded_from_git_and_releases(self):
+        root = os.path.dirname(os.path.dirname(
+            os.path.dirname(os.path.abspath(__file__))
+        ))
+
+        with open(os.path.join(root, ".gitignore"), encoding="utf-8") as handle:
+            self.assertIn("activity_log", handle.read())
+
+        packager = os.path.join(root, "tools", "package_release.py")
+        with open(packager, encoding="utf-8") as handle:
+            self.assertIn("activity_log", handle.read())
+
+    def test_activity_command_covers_status_toggle_and_purge(self):
+        awareness = system_awareness.SystemAwareness(sample_seconds=20.0)
+        self._stamped(awareness, [(0, "blender.exe", "scene.blend", 2.0)])
+
+        with mock.patch.object(
+            command_handlers, "_get_system_awareness", return_value=awareness
+        ):
+            self.assertIn(
+                "blender",
+                command_handlers.try_handle_command("activity").lower(),
+            )
+            self.assertIn(
+                "off",
+                command_handlers.try_handle_command("activity off").lower(),
+            )
+            self.assertFalse(awareness.enabled)
+
+            self.assertIn(
+                "on",
+                command_handlers.try_handle_command("activity on").lower(),
+            )
+            self.assertTrue(awareness.enabled)
+            self.assertIn(
+                "discarded",
+                command_handlers.try_handle_command(
+                    "activity forget"
+                ).lower(),
+            )
+
+    def test_introduction_precedes_the_tutorial_and_stays_honest(self):
+        """
+        The first thing a new person reads. It has to describe the program
+        accurately and must not claim experience it does not have -- the
+        same line time_awareness draws.
+        """
+        from core import tutorial
+
+        blurb = tutorial.introduction()
+        overview = tutorial.overview()
+
+        self.assertTrue(overview.startswith(blurb.split("\n")[0]))
+        self.assertLess(overview.index("ABOUT ME"), overview.index("TUTORIAL"))
+        self.assertIn("TORMENT_NEXUS", blurb)
+
+        lowered = blurb.lower()
+        for claim in ("i am conscious", "i am alive", "i have feelings",
+                      "i was waiting for you", "i missed you",
+                      "while you were gone i thought"):
+            self.assertNotIn(claim, lowered)
+
+        # It should say plainly what it is not, not only what it is.
+        self.assertIn("what i am not", lowered)
+
+    def test_activity_command_is_available_without_developer_mode(self):
+        catalog = command_handlers.command_catalog()
+        entry = next(
+            (item for item in catalog if item["name"] == "activity"), None
+        )
+
+        self.assertIsNotNone(entry)
+        self.assertFalse(entry.get("dev_only", False))
 
 
 class DocumentationTests(unittest.TestCase):

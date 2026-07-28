@@ -36,6 +36,8 @@ from memory import extraction_rules
 import requests
 
 from core.config import (
+    ACTIVITY_FILE,
+    ACTIVITY_RETENTION_DAYS,
     SERVER_URL,
     DEBUG,
     MAX_TOKENS,
@@ -59,6 +61,7 @@ from core.llm_server import start_server, stop_server
 from core import dev_auth
 from core import tutorial
 from core.time_awareness import TimeAwareness
+from core.system_awareness import SystemAwareness
 from commands import natural_command
 from commands.command_handlers import (
     command_catalog,
@@ -287,6 +290,39 @@ def clean_reply(text):
 session_turns = []
 _time_awareness = TimeAwareness(mem.conversation_history)
 
+# Observations of the machine, kept across restarts so it can notice that
+# you were at this yesterday too. The titles it records name documents,
+# pages and conversations, so the log is gitignored, excluded from release
+# packaging and bug reports, aged out on every load, and erasable with
+# 'activity forget'.
+_system_awareness = SystemAwareness(
+    store_path=ACTIVITY_FILE,
+    retention_days=ACTIVITY_RETENTION_DAYS,
+)
+
+
+def _ambient_context():
+    """
+    What the machine has been doing, phrased as observation.
+
+    Framed the same way as the clock: it is a record of samples, not a claim
+    to have been watching, and the wording has to keep that distinction
+    intact once it is in front of the model.
+    """
+    if not _system_awareness.enabled:
+        return ""
+
+    described = _system_awareness.describe()
+
+    if not described:
+        return ""
+
+    return (
+        "\nObserved machine activity this session "
+        "(sampled state, not something it watched or experienced):\n"
+        f"{described}\n"
+    )
+
 MAX_SESSION_MESSAGES = 6
 MAX_SEARCH_CONTEXT_CHARS = 5_000
 PROMPT_CACHE_WAIT_SECONDS = 180
@@ -358,7 +394,7 @@ def _runtime_context_prompt(user_input="", search_context=None):
 
 Trusted local clock:
 {_time_awareness.context()}
-
+{_ambient_context()}
 Potentially relevant stored notes:
 {memory_text}
 {search_rule}
@@ -1779,6 +1815,74 @@ def _idle_check_in_line():
     return random.choice(_IDLE_FALLBACK_LINES)
 
 
+def _idle_observation_line():
+    """
+    One remark about what the machine has been doing, or None.
+
+    Returns None rather than inventing something when there is nothing to
+    remark on. A companion that comments on an empty room is worse than one
+    that stays quiet, and the observation is only interesting because it is
+    actually true.
+    """
+    if not _system_awareness.enabled:
+        return None
+
+    observed = _system_awareness.describe()
+
+    if not observed:
+        return None
+
+    try:
+        response = requests.post(
+            SERVER_URL + "/v1/chat/completions",
+            headers=MODEL_REQUEST_HEADERS,
+            json={
+                "messages": [
+                    {"role": "system", "content": _stable_system_prompt()},
+                    {
+                        "role": "user",
+                        "content": (
+                            "These are sampled observations of this "
+                            "computer, not things you watched happen:\n"
+                            f"{observed}\n\n"
+                            "Make one short remark about it, at most "
+                            "sixteen words. Do not ask a question, do not "
+                            "greet them, and do not offer help. Do not "
+                            "claim to have been watching or waiting. "
+                            "Reply with the remark only."
+                        ),
+                    },
+                ],
+                "max_tokens": 48,
+                "temperature": 0.9,
+                "stream": False,
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        line = clean_reply(
+            response.json()["choices"][0]["message"]["content"]
+        ).strip().strip('"')
+
+        if line and len(line) <= 200:
+            return line
+    except Exception:
+        pass
+
+    # The plain statement is a perfectly good remark on its own.
+    return observed
+
+
+def _run_idle_observation():
+    """Remark once, partway into a silence, without demanding an answer."""
+    line = _idle_observation_line()
+
+    if not line:
+        return
+
+    ui.print_framed(f"AI > {line}", color=ui.VIOLET)
+
+
 def _run_idle_check_in():
     """
     Check in after a silence and wait a little longer for an answer.
@@ -1836,15 +1940,30 @@ def chat_loop():
             ui.set_dev_mode(is_dev_mode())
             prompt = "YOU >"
 
+            # A silence is met twice. Partway in it remarks on what the
+            # machine has been doing; only if that also goes unanswered does
+            # it ask whether anyone is still there. Splitting the wait keeps
+            # the total time before the shutdown prompt unchanged.
+            first_wait = (
+                IDLE_CHECKIN_SECONDS / 2.0
+                if IDLE_CHECKIN_ENABLED
+                else None
+            )
             user_input = ui.input_framed(
                 prompt,
                 color=ui.RED,
                 initial_text=draft_input,
-                idle_timeout=(
-                    IDLE_CHECKIN_SECONDS if IDLE_CHECKIN_ENABLED else None
-                ),
+                idle_timeout=first_wait,
             )
             draft_input = ""
+
+            if user_input is ui.IDLE and first_wait is not None:
+                _run_idle_observation()
+                user_input = ui.input_framed(
+                    prompt,
+                    color=ui.RED,
+                    idle_timeout=first_wait,
+                )
 
             if user_input is ui.IDLE:
                 user_input = _run_idle_check_in()
@@ -2136,12 +2255,18 @@ def main():
         ui.print_framed(f"AI > [self-improvement] {autonomous_summary}", color=ui.VIOLET)
         reload_self()
 
+    # Read yesterday back before sampling today, so the first thing it says
+    # about your activity is not limited to the last twenty seconds.
+    _system_awareness.load()
+    _system_awareness.start()
+
     try:
         if VOICE_ON_STARTUP:
             _voice_mode_loop()
 
         chat_loop()
     finally:
+        _system_awareness.stop()
         memory_worker.stop()
         stop_server(server_process)
         # Never leave the terminal with a restricted scroll region,

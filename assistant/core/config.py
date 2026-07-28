@@ -147,6 +147,25 @@ MODEL_API_KEY_FILE = (
 CORE_MEMORY_FILE = os.path.join(ASSISTANT_ROOT, "memory", "core_memory.txt")
 MEMORY_FILE = os.path.join(ASSISTANT_ROOT, "memory", "memories.json")
 HISTORY_FILE = os.path.join(ASSISTANT_ROOT, "memory", "conversation_history.txt")
+
+# What the machine was seen doing, kept across restarts. This file records
+# window titles, which routinely contain file names, URLs and message
+# previews -- treat it with the same care as the conversation history. It is
+# gitignored and carries a DENY_PATTERNS entry so it cannot reach a release.
+ACTIVITY_FILE = os.path.join(ASSISTANT_ROOT, "memory", "activity_log.jsonl")
+
+# Observations older than this are dropped on load and on write. Long enough
+# to notice a pattern across a fortnight, short enough that it is not a
+# permanent record of everything ever done on this computer.
+try:
+    ACTIVITY_RETENTION_DAYS = max(
+        0.0,
+        min(365.0, float(
+            os.environ.get("TORMENT_NEXUS_ACTIVITY_RETENTION_DAYS", "14")
+        )),
+    )
+except ValueError:
+    ACTIVITY_RETENTION_DAYS = 14.0
 PROMPT_CACHE_DIR = os.path.join(ASSISTANT_ROOT, "cache", "prompt")
 
 # Audio files here play with no network, no account, and no Spotify.
