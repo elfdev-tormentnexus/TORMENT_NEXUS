@@ -315,15 +315,48 @@ so the header must carry:
 A decoder should refuse to compare two files whose `anchors` digests differ,
 rather than returning a number that looks like a similarity.
 
-### Status
+### Measured, 2026-07-28
 
-**Not implemented and not measured.** Nothing in this document supports a
-claim that it works at this project's scale. A genuine test also needs a
-second embedding model — the project ships only `bge-small-en-v1.5` — so
-this cannot be evaluated against the current bundle alone. The cheapest
-honest first experiment is two different public embedders over one shared
-anchor set, measuring whether nearest-neighbour agreement survives the
-translation.
+Implemented in `tools/rosetta_stone.py` and run against two genuinely
+incompatible spaces: `bge-small-en-v1.5-q8_0` at **384 dims** and
+`nomic-embed-text-v1.5` Q8_0 at **768 dims**, both mean-pooled, served
+side by side on separate ports. 122 core anchors, digest `b5421687348e956e`.
+
+Different dimensionality is deliberate. Two 384-dim models could be accused
+of accidental compatibility; 384 against 768 cannot be compared at all
+without translation, so there is no baseline to be confused with.
+
+Corpus of ~180 paragraph chunks from six project documents, top-10
+neighbour agreement between the two models:
+
+| | Agreement |
+| --- | --- |
+| chance | 0.056 |
+| **translated into anchor space** | **0.370** |
+| each model's native neighbours | 0.549 |
+
+The last row is the ceiling, not a competitor: it is how much the two models
+agree with each other *at all*, measured by comparing their own neighbour
+lists by index. No translation can beat it.
+
+So translation recovers **67% of the achievable ceiling at 6.6× chance.**
+Within-model fidelity — does the relative form preserve each model's own
+structure — is Spearman **+0.737** for bge and **+0.667** for nomic.
+
+**It works, and it is not free.** A third of what the models could agree on
+is lost in translation, and each model's own neighbour structure is only
+about three-quarters preserved. That is the honest shape of the result: good
+enough to make cross-model comparison possible where it was impossible, not
+good enough to pretend the two spaces have become one.
+
+One caution against overreading these numbers. An earlier run on a 20-chunk
+corpus gave 0.610 against a 0.680 ceiling — 90% of the ceiling, far rosier —
+because with n=20 chance alone is 0.263. The larger corpus is the honest
+figure and the small one should not be quoted.
+
+Not yet measured: whether quantising a relative representation compounds the
+loss, how few anchors it survives, and whether project anchors help or
+distort when both agents hold the same material.
 
 ## 8. What this is not
 
