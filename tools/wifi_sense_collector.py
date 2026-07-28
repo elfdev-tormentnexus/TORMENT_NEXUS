@@ -190,8 +190,18 @@ def calibrate(seconds, out_path):
     the band, and how many neighbours are audible. A number that meant
     stillness here would mean nothing anywhere else.
     """
-    print(f"Calibrating for {seconds}s. Leave the room still -- no walking "
-          f"through, ideally nobody in it.\n")
+    # Still, not empty. A stationary body is constant multipath and becomes
+    # part of the baseline, so sitting motionless is a valid null state -- and
+    # in a one-room flat it is the only one available. Calibrating "the room as
+    # it is when I am sitting here" also makes the detector answer the more
+    # useful question afterwards.
+    print(f"Calibrating for {seconds}s.\n"
+          f"  Sit still -- you do NOT need to leave the room. Breathing is "
+          f"fine; walking about is not.\n"
+          f"  Keep traffic flowing: a video stream or a download. Rate "
+          f"adaptation needs packets\n"
+          f"  to adapt to, and an idle link looks perfectly calm no matter "
+          f"what the room is doing.\n")
 
     samples = []
     started = time.time()
@@ -241,6 +251,129 @@ def calibrate(seconds, out_path):
     print(f"  still  below {baseline * STILL_FACTOR:.2f}")
     print(f"  motion above {baseline * MOTION_FACTOR:.2f}")
     print(f"\nSaved to {path}")
+
+    return 0
+
+
+def verify(out_path, listen_interface=None, phase=20):
+    """Guided still-then-moving test: does this baseline actually discriminate?
+
+    Calibration in a real home is never done in an empty room, and it does not
+    need to be. A stationary body is constant multipath and simply becomes part
+    of the baseline; what matters is that the room was STILL, not that it was
+    empty. In a studio apartment "still" is the only option available anyway.
+
+    That makes an honest check more important, not less. This measures the same
+    statistic during a deliberately still phase and a deliberately moving one
+    and reports whether the calibrated thresholds actually separate them. A
+    detector that cannot tell those two apart is worse than no detector,
+    because it will report confidently either way.
+    """
+    baseline = _load_baseline(out_path)
+
+    if baseline is None:
+        print("Calibrate first -- there is nothing to verify against.")
+        return 1
+
+    def measure(label, instruction):
+        print(f"\n{label}\n  {instruction}")
+        input("  Press Enter when ready...")
+
+        samples = []
+        fractions = []
+        previous_scan = {}
+        started = time.time()
+
+        while time.time() - started < phase:
+            if listen_interface:
+                current = _scan(listen_interface)
+                moved = _scan_disturbance(previous_scan, current)
+
+                if moved is not None:
+                    fractions.append(moved)
+
+                if current:
+                    previous_scan = current
+
+            value = _sample()
+
+            if value is not None:
+                samples.append(value)
+
+            left = int(phase - (time.time() - started))
+            print(f"\r  {left:2d}s remaining   {len(samples):2d} samples ",
+                  end="", flush=True)
+            time.sleep(SAMPLE_SECONDS)
+
+        spread = _spread(samples)
+        worst = max(fractions) if fractions else None
+        print(f"\r  spread {spread:6.2f} Mbps" +
+              (f"   scan peak {worst:.0%}" if worst is not None else "") +
+              "        ")
+
+        return spread, worst
+
+    print("=" * 62)
+    print("DOES THIS BASELINE DISCRIMINATE?")
+    print("=" * 62)
+    print(f"\nCalibrated quiet spread: {baseline:.2f} Mbps")
+    print(f"  still  below {baseline * STILL_FACTOR:.2f}")
+    print(f"  motion above {baseline * MOTION_FACTOR:.2f}")
+    print("\nKeep the video or download running throughout.")
+
+    still_spread, still_scan = measure(
+        "PHASE 1 of 2 - STILL",
+        f"Sit as still as you can for {phase}s. Breathing is fine.",
+    )
+    move_spread, move_scan = measure(
+        "PHASE 2 of 2 - MOVING",
+        f"Walk about, wave your arms, cross between the PC and the router "
+        f"for {phase}s.",
+    )
+
+    print("\n" + "=" * 62)
+    print(f"still  : rate spread {still_spread:6.2f}" +
+          (f"   scan peak {still_scan:.0%}" if still_scan is not None else ""))
+    print(f"moving : rate spread {move_spread:6.2f}" +
+          (f"   scan peak {move_scan:.0%}" if move_scan is not None else ""))
+
+    rate_separates = move_spread > still_spread * 1.5
+    scan_separates = (
+        still_scan is not None and move_scan is not None
+        and move_scan > still_scan + 0.15
+    )
+
+    print()
+
+    if rate_separates:
+        print("PASS  the receive rate clearly moves more when you do.")
+    else:
+        print("WEAK  the receive rate barely changed between the two phases.")
+
+    if still_scan is not None:
+        if scan_separates:
+            print("PASS  the second radio saw more paths disturbed.")
+        else:
+            print("WEAK  the second radio saw no clear difference.")
+
+    if not rate_separates and not scan_separates:
+        print("\nThis baseline does not discriminate. Most often that means "
+              "the link was\nidle -- rate adaptation has nothing to adapt to "
+              "without traffic. Start a\nvideo stream and calibrate again "
+              "before trusting any reading.")
+        return 1
+
+    suggested = (still_spread + move_spread) / 2
+
+    print(f"\nA threshold near {suggested:.2f} Mbps sits between your two "
+          f"phases.")
+    print(f"Calibration put the motion line at {baseline * MOTION_FACTOR:.2f}.")
+
+    if baseline * MOTION_FACTOR > move_spread:
+        print("\nThat line is ABOVE what your movement actually produced, so "
+              "real motion\nwould read as 'unknown'. Recalibrate while sitting "
+              "still -- the current\nbaseline was probably captured with "
+              "movement in it.")
 
     return 0
 
@@ -393,7 +526,7 @@ def main():
                         help="status file the bridge reads "
                              "(TORMENT_NEXUS_WIFI_EXPERIMENT_FILE)")
     parser.add_argument("--calibrate", type=int, metavar="SECONDS",
-                        help=f"measure a quiet room first, e.g. "
+                        help=f"measure a still room first (you need not leave it), e.g. "
                              f"--calibrate {CALIBRATE_SECONDS}")
     parser.add_argument("--listen", metavar="INTERFACE",
                         help="a SECOND wireless interface, left unconnected, "
@@ -401,10 +534,17 @@ def main():
                              "(e.g. --listen \"Wi-Fi 2\"). Do not name the "
                              "interface carrying your internet connection.")
 
+    parser.add_argument("--verify", action="store_true",
+                        help="guided still-then-moving test: check the "
+                             "calibrated thresholds actually separate the two")
+
     args = parser.parse_args()
 
     if args.calibrate:
         return calibrate(args.calibrate, args.out)
+
+    if args.verify:
+        return verify(args.out, args.listen)
 
     return collect(args.out, args.listen)
 
