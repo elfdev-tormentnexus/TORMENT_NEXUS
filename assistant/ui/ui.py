@@ -342,6 +342,30 @@ CORRUPT_JOLT = 0.65      # influence above which the whole glyph kicks sideways
 
 _CORRUPT_CHARS = ["\u2593", "\u2592", "\u2591", "\u2580", "\u2584"]
 
+# --- audio-reactive voice-mode corruption ---
+# Default frame length of the speech envelope. The voice layer sends its own
+# value with each utterance; this is only the fallback before one arrives.
+SPEECH_ENVELOPE_HOP = 0.025
+
+# How fast the face follows the envelope, per second rather than per frame.
+# Attack is quick so a consonant lands as it happens; release is slower so
+# the face settles between syllables instead of strobing. These are rates,
+# not fractions, because a per-frame fraction would make the whole effect
+# faster on a fast terminal -- the same reason the visualizer scenes shape
+# their response with dt.
+SPEECH_ATTACK_RATE = 22.0
+SPEECH_RELEASE_RATE = 18.0
+
+# Longest frame gap still treated as continuous. A stall (resize, scheduling
+# hiccup) must not snap the face straight to the envelope.
+SPEECH_MAX_FRAME = 0.20
+
+# How far corruption spreads from the mouth. At silence only the mouth is
+# touched; at full level the damage reaches the whole face.
+SPEECH_REACH_QUIET = 0.30
+SPEECH_REACH_LOUD = 1.15
+SPEECH_REACH_EDGE = 0.34
+
 # Pixel-only material used by the generating-state face collapse.
 # No letters, crosses, slashes, box-drawing joints, or terminal-hacker glyphs.
 _MAX_CORRUPT_BLOCKS = ["░", "▒", "▓", "█", "▀", "▄", "▌", "▐"]
@@ -550,6 +574,16 @@ class LayeredDisplayEngine:
         self._face_last_switch = time.time()
         self.face_flash = 0
 
+        # Shape of the utterance currently being spoken, so the voice-mode
+        # corruption follows the audio instead of running at a fixed rate.
+        self.speech_levels = ()
+        self.speech_brightness = ()
+        self.speech_hop = SPEECH_ENVELOPE_HOP
+        self.speech_started_at = 0.0
+        self._speech_drive = 0.0
+        self._speech_edge = 0.0
+        self._speech_last_frame = 0.0
+
         # Optional externally supplied phase text. Generic values such as
         # "connecting" are translated into the richer telemetry display.
         self.status_text = ""
@@ -582,6 +616,64 @@ class LayeredDisplayEngine:
         s = shutil.get_terminal_size(fallback=(80, 24))
         self.width = max(s.columns, 40)
         self.height = max(s.lines, 15)
+
+    def _advance_speech_drive(self):
+        """
+        Follow the utterance's envelope at the current playback position.
+
+        Position comes from elapsed time against the moment playback started,
+        not from a counter, so the face stays in step with the audio however
+        fast or slow the terminal happens to be redrawing.
+        """
+        now = time.monotonic()
+        delta = (
+            now - self._speech_last_frame
+            if self._speech_last_frame
+            else 1.0 / 30.0
+        )
+        self._speech_last_frame = now
+        delta = max(0.0, min(SPEECH_MAX_FRAME, delta))
+
+        # The exact exponential, not delta * rate. Clamping the linear form
+        # at 1.0 makes a slow terminal snap straight to the envelope while a
+        # fast one eases toward it, so the effect would differ by machine.
+        attack = 1.0 - math.exp(-delta * SPEECH_ATTACK_RATE)
+        release = 1.0 - math.exp(-delta * SPEECH_RELEASE_RATE)
+        levels = self.speech_levels
+
+        if not levels or not self.voice_speaking:
+            self._speech_drive *= 1.0 - release
+            self._speech_edge *= 1.0 - release
+            return self._speech_drive, self._speech_edge
+
+        elapsed = now - self.speech_started_at
+        index = int(elapsed / self.speech_hop)
+
+        # Past the end of the buffer the audio has finished even if the
+        # speaking flag has not been cleared yet.
+        if index < 0 or index >= len(levels):
+            target_level = 0.0
+            target_edge = 0.0
+        else:
+            # Take the loudest envelope frame this render frame spans, not
+            # the one it happens to land on. A slow terminal steps over
+            # several frames of audio per redraw, and point-sampling would
+            # drop whichever transients fell between its samples.
+            first = max(0, int((elapsed - delta) / self.speech_hop))
+            brightness = self.speech_brightness
+            target_level = max(levels[first:index + 1] or (0.0,))
+            span = brightness[first:index + 1]
+            target_edge = max(span or (0.0,))
+
+        for name, target in (
+            ("_speech_drive", target_level),
+            ("_speech_edge", target_edge),
+        ):
+            current = getattr(self, name)
+            rate = attack if target > current else release
+            setattr(self, name, current + (target - current) * rate)
+
+        return self._speech_drive, self._speech_edge
 
     # ------------------------------------------------------------
     # WEARABLE FACE RASTERIZER
@@ -1132,7 +1224,8 @@ class LayeredDisplayEngine:
         roll,
         flash=False,
         max_corrupt=False,
-        speech_mouth=False,
+        speech_energy=0.0,
+        speech_edge=0.0,
     ):
         if char == " ":
             return
@@ -1170,20 +1263,28 @@ class LayeredDisplayEngine:
             x += random.randint(-3, 3)
             y += random.choice([-1, 0, 0, 0, 1])
 
-        elif speech_mouth:
-            # Speech animation is deliberately confined to the mouth. It
-            # resembles a noisy audio waveform rather than making the whole
-            # voice-mode face collapse like the normal generation effect.
+        elif speech_energy > 0.0:
+            # Driven by the audio actually being spoken rather than by a
+            # fixed rate, so the face tracks the delivery: it goes still
+            # between words and tears apart on a stressed syllable.
             chance = random.random()
 
-            if chance < 0.12:
+            if chance < 0.16 * speech_energy:
                 return
 
-            if chance < 0.68:
+            if chance < 0.16 + 0.62 * speech_energy:
                 char = self._pixel_noise_cell(char)
 
-            x += random.choice([-1, 0, 0, 0, 1])
-            y += random.choice([-1, 0, 0, 0, 0, 1])
+            # Bright, consonant-heavy frames break into solid raster
+            # fragments; open vowels stay dot-based and legible.
+            if random.random() < 0.22 * speech_edge * speech_energy:
+                char = random.choice(_MAX_CORRUPT_BLOCKS)
+
+            swing = int(round(1.0 + speech_energy * 2.4))
+            x += random.randint(-swing, swing)
+
+            if random.random() < 0.30 + 0.45 * speech_energy:
+                y += random.choice([-1, 0, 0, 1])
         elif corruption > 0.0:
             chance = random.random()
 
@@ -1212,13 +1313,17 @@ class LayeredDisplayEngine:
 
         color = base_color
 
-        if speech_mouth:
-            color = fg(random.choice([
-                C_RED_BRIGHT,
-                C_RED_MID,
-                C_RED_DARK,
-                C_RED_BLOOD,
-            ]))
+        if speech_energy > 0.0:
+            # Loud frames sit at the bright end of the red ramp, quiet ones
+            # at the dark end, so the colour carries the level as well.
+            ramp = (C_RED_BLOOD, C_RED_DARK, C_RED_MID, C_RED_BRIGHT)
+            top = len(ramp) - 1
+            index = min(top, int(speech_energy * (top + 1)))
+
+            if index < top and random.random() < 0.35:
+                index += 1
+
+            color = fg(ramp[index])
         elif max_corrupt:
             if self.dev_mode:
                 colour_offset = random.choice([-2, -1, 0, 0, 1, 2])
@@ -1602,16 +1707,37 @@ class LayeredDisplayEngine:
         else:
             face_color = WHITE
 
+        speech_drive, speech_edge = self._advance_speech_drive()
+        speaking = self.voice_mode and self.voice_speaking
+
+        # The mouth is the epicentre, and loudness decides how far out the
+        # damage travels. Quiet speech only disturbs the mouth; a loud
+        # syllable throws the whole face apart and it recovers immediately
+        # after, which is what makes it read as reacting to the audio.
+        mouth_row = face_cell_height * 0.66
+        mouth_col = face_cell_width * 0.5
+        row_extent = max(1.0, face_cell_height * 0.75)
+        col_extent = max(1.0, face_cell_width * 0.5)
+        reach = SPEECH_REACH_QUIET + speech_drive * (
+            SPEECH_REACH_LOUD - SPEECH_REACH_QUIET
+        )
+
         for row_y, row in enumerate(face_rows):
             for col_x, char in enumerate(row):
-                speech_mouth = (
-                    self.voice_mode
-                    and self.voice_speaking
-                    and row_y >= int(face_cell_height * 0.50)
-                    and int(face_cell_width * 0.18)
-                    <= col_x
-                    < int(face_cell_width * 0.82)
-                )
+                speech_energy = 0.0
+
+                if speaking and speech_drive > 0.01:
+                    spread = math.hypot(
+                        (row_y - mouth_row) / row_extent,
+                        (col_x - mouth_col) / col_extent,
+                    )
+                    speech_energy = max(
+                        0.0,
+                        min(
+                            1.0,
+                            (reach - spread) / SPEECH_REACH_EDGE,
+                        ),
+                    ) * speech_drive
                 self._header_effect_cell(
                     canvas=canvas,
                     char=char,
@@ -1635,7 +1761,8 @@ class LayeredDisplayEngine:
                             and self.voice_speaking
                         )
                     ),
-                    speech_mouth=speech_mouth,
+                    speech_energy=speech_energy,
+                    speech_edge=speech_edge,
                 )
 
         # Compact title directly beneath the face. It is responsive and never
@@ -3017,6 +3144,25 @@ def set_voice_speaking(flag):
     """Animate only the voice face's mouth while audio is playing."""
     with _engine.lock:
         _engine.voice_speaking = bool(flag) and _engine.voice_mode
+
+        if not _engine.voice_speaking:
+            _engine.speech_levels = ()
+            _engine.speech_brightness = ()
+
+
+def set_speech_envelope(levels, brightness, hop_seconds):
+    """
+    Hand the face the shape of the utterance about to be played.
+
+    Called from the playback thread the instant before the audio starts, so
+    the timeline is anchored here and the renderer can read its position by
+    elapsed time at whatever rate it happens to be drawing.
+    """
+    with _engine.lock:
+        _engine.speech_levels = tuple(levels or ())
+        _engine.speech_brightness = tuple(brightness or ())
+        _engine.speech_hop = max(0.001, float(hop_seconds))
+        _engine.speech_started_at = time.monotonic()
 
 
 def is_generating():

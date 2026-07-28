@@ -463,17 +463,22 @@ VOICE_SPEECH_NOISE_W_SCALE = 0.035
 # Silence inserted after a sentence ends.
 #
 # The reference recording measured a 0.51s median between phrases, and
-# 0.45 was set to match it. Listening says that still reads as slightly
-# clipped: a full stop wants more air than the measurement suggests,
-# because the vocoder's flat pitch removes the falling intonation that
-# normally signals an ending. The pause has to carry that on its own.
+# 0.45 was set to match it. That was then raised to 0.72 because the
+# vocoder's flat pitch removed the falling intonation that normally signals
+# an ending, and the pause had to carry that on its own.
+#
+# The voice now has that fall: each spoken chunk carries its own declination
+# and a tail drop, measured at about 1.2 semitones from the first half of a
+# sentence to the second. The compensation is no longer needed, and holding
+# it produced 18 pauses over half a second per minute against the
+# reference's 6, which reads as hesitant rather than deliberate.
 try:
     VOICE_SPEECH_PAUSE_SECONDS = max(
         0.0,
-        min(3.0, float(os.environ.get("TORMENT_NEXUS_PAUSE_SECONDS", "0.72"))),
+        min(3.0, float(os.environ.get("TORMENT_NEXUS_PAUSE_SECONDS", "0.52"))),
     )
 except ValueError:
-    VOICE_SPEECH_PAUSE_SECONDS = 0.72
+    VOICE_SPEECH_PAUSE_SECONDS = 0.52
 
 # Silence inserted where a long sentence had to be split mid-way.
 #
@@ -609,7 +614,7 @@ except ValueError:
 VOICE_DAISY_CACHE = os.path.join(
     VOICE_MODEL_ROOT,
     "cache",
-    "daisy_bell_machine_v10_"
+    "daisy_bell_machine_v11_"
     f"mix{int(round(VOICE_DAISY_ACCOMPANIMENT_GAIN * 100))}_"
     f"{_DAISY_VOICE_KEY}.wav",
 )

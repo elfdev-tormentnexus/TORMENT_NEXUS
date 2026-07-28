@@ -11,6 +11,7 @@ text chat has no voice dependency or startup cost.
 """
 
 import copy
+import hashlib
 import io
 import os
 import re
@@ -418,11 +419,35 @@ def _resize_matrix(np, matrix, target_samples):
     ).astype(np.float32)
 
 
+def _tuned_float(name, default, low, high):
+    """Read a clamped tuning override, as core.config does for voice settings."""
+    try:
+        return max(low, min(high, float(os.environ.get(name, default))))
+    except (TypeError, ValueError):
+        return default
+
+
 # Deliberately constrained, downward-biased steps.  The one restrained lift is
 # placed before a deeper fall: it creates a dry, skeptical emphasis without
 # turning the sentence into a melody.  The rest of the pattern settles down,
 # which reads as controlled and faintly sardonic rather than eager or warm.
 _CADENCE_SEMITONE_PATTERN = (0.0, -0.75, -0.15, 1.40, -1.10, -0.45, -1.30)
+
+# Measured against 14 minutes of Portal 2 dialogue. The reference delivery
+# carries about 2.4 semitones of inflection inside a phrase; this voice was
+# measured at 0.64, which is why it read as a dead monotone rather than as a
+# cold one. The pattern above keeps its shape -- downward-biased, one
+# restrained lift -- and is scaled bodily instead, so more motion does not
+# become a different motion.
+#
+# Deliberately short of the full 2.4: the reference includes lines played for
+# emphasis, and matching those exactly makes an assistant that sounds amused.
+_CADENCE_DEPTH = _tuned_float("TORMENT_NEXUS_CADENCE_DEPTH", 3.80, 0.0, 8.0)
+
+# Ceiling on upward steps, in semitones. Falls are left unbounded.
+_CADENCE_LIFT_CEILING = _tuned_float(
+    "TORMENT_NEXUS_CADENCE_LIFT", 2.20, 0.0, 8.0
+)
 
 # How far the voice falls from the start of a phrase to the end.
 #
@@ -438,12 +463,65 @@ _CADENCE_SEMITONE_PATTERN = (0.0, -0.75, -0.15, 1.40, -1.10, -0.45, -1.30)
 # should be audible, the wobble should not.
 # A modestly stronger sentence fall makes the final thought land with dry
 # certainty. It is still far below a sung contour.
-_CADENCE_DECLINATION_SEMITONES = 1.10
+# Raised from 1.10. The reference falls 1.1-1.3 semitones from the first half
+# of a phrase to the second; this voice managed 0.18, so sentences ended at
+# the pitch they started and nothing ever landed. Each spoken chunk carries
+# its own ramp, so this is the fall across one sentence, not one reply.
+# Interacts with _CADENCE_DEPTH: the step pattern is downward-biased, so
+# deepening it steepens the sentence fall too. Tune the pair together and
+# measure, rather than either alone.
+_CADENCE_DECLINATION_SEMITONES = _tuned_float(
+    "TORMENT_NEXUS_CADENCE_FALL", 0.60, 0.0, 6.0
+)
 
 # The final 120ms gets one small additional fall. This is the equivalent of a
 # spoken deadpan full stop: it gives sentence endings bite without changing
 # duration or inserting an echo/reverb effect.
-_CADENCE_TAIL_DROP_SEMITONES = 0.40
+_CADENCE_TAIL_DROP_SEMITONES = 0.90
+
+# Every utterance previously started on the same carrier, so consecutive
+# sentences had identical pitch arcs -- measured at 0.43 semitones of
+# variation between phrases against 2.2-2.5 in the reference. That sameness
+# is a large part of what marks a voice as synthetic in the dull sense
+# rather than the intended one.
+#
+# The offset is derived from the text, not drawn at random: the same
+# sentence is always delivered at the same pitch, which is both reproducible
+# for the tests and quietly appropriate for a machine.
+# Expressed as the standard deviation to produce, so it can be compared
+# directly against a measurement of the reference rather than being a scale
+# factor whose effect depends on the shape of the draw below.
+_UTTERANCE_PITCH_SPREAD = _tuned_float(
+    "TORMENT_NEXUS_PHRASE_PITCH_SPREAD", 2.30, 0.0, 6.0
+)
+
+# Standard deviation of the triangular unit draw in _utterance_pitch_bias.
+_UNIT_DRAW_STD = 0.408
+
+# However the draw falls, one sentence never leaps more than this far from
+# the resting pitch. Beyond it the voice stops sounding like one speaker.
+_UTTERANCE_PITCH_LIMIT = 4.5
+
+
+def _utterance_pitch_bias(text):
+    """A stable per-sentence pitch offset in semitones."""
+    if not text or _UTTERANCE_PITCH_SPREAD <= 0.0:
+        return 0.0
+
+    digest = hashlib.blake2b(
+        text.strip().lower().encode("utf-8", "ignore"),
+        digest_size=8,
+    ).digest()
+    # Two independent bytes averaged: a flat draw puts as much weight at the
+    # extremes as at the centre, which reads as the voice lurching between
+    # two registers rather than varying around one.
+    unit = ((digest[0] + digest[1]) / 510.0) * 2.0 - 1.0
+    semitones = unit / _UNIT_DRAW_STD * _UTTERANCE_PITCH_SPREAD
+
+    return max(
+        -_UTTERANCE_PITCH_LIMIT,
+        min(_UTTERANCE_PITCH_LIMIT, semitones),
+    )
 
 def _cadence_semitone_curve(
     np,
@@ -518,12 +596,39 @@ def _cadence_semitone_curve(
     pattern = np.asarray(
         _CADENCE_SEMITONE_PATTERN,
         dtype=np.float32,
-    ) * strength
+    ) * strength * _CADENCE_DEPTH
+
+    # Deliberately asymmetric. Scaling the pattern bodily scaled its one
+    # lift too, up to nearly five semitones, which is a leap a cold voice
+    # does not make -- it starts to sound interested. Falls keep the full
+    # depth; rises are capped. The delivery should be able to drop further
+    # than it can climb.
+    pattern = np.minimum(pattern, _CADENCE_LIFT_CEILING)
+
+    values = [
+        float(pattern[index % len(pattern)])
+        for index in range(len(boundaries) - 1)
+    ]
+
+    # The pattern's one lift is fine mid-phrase -- it is what keeps the line
+    # from being a flat slide -- but it must never be the last thing heard.
+    # A short sentence covers only two or three plateaus, so the lift can
+    # land on or near the final one and the phrase rises into its own full
+    # stop: "It's you." was measured climbing 2.19 semitones.
+    #
+    # Merely rejecting a positive final value was not enough. A lift on the
+    # penultimate plateau still left the ending above the opening, because
+    # the declination has barely accumulated that early. The last plateau is
+    # therefore pinned to the bottom of the pattern outright: every phrase
+    # lands cold, and the variety between phrases comes from the per-
+    # sentence pitch offset instead.
+    if values:
+        values[-1] = float(np.min(pattern))
 
     for index, (start, end) in enumerate(
         zip(boundaries[:-1], boundaries[1:])
     ):
-        curve[start:end] = pattern[index % len(pattern)]
+        curve[start:end] = values[index]
 
     # Thirty-to-fifty milliseconds is enough to prevent zippering without
     # blurring the characteristic step from one plateau to the next.
@@ -535,8 +640,10 @@ def _cadence_semitone_curve(
     for index, boundary in enumerate(boundaries[1:-1], start=1):
         start = max(active_start, boundary - transition_frames)
         end = min(active_end, boundary + transition_frames + 1)
-        previous_value = pattern[(index - 1) % len(pattern)]
-        next_value = pattern[index % len(pattern)]
+        # Read back the assigned values, not the raw pattern, or the ramp
+        # into a corrected final plateau would still aim at the lift.
+        previous_value = values[index - 1]
+        next_value = values[index]
         curve[start:end] = np.linspace(
             previous_value,
             next_value,
@@ -548,20 +655,23 @@ def _cadence_semitone_curve(
         max(1, transition_frames),
         max(1, (active_end - active_start) // 3),
     )
+    # Easing in from the resting pitch is right: the phrase should arrive,
+    # not start mid-thought.
     curve[active_start:active_start + fade_frames] *= np.linspace(
         0.25,
         1.0,
         fade_frames,
         dtype=np.float32,
     )
-    curve[active_end - fade_frames:active_end] *= np.linspace(
-        1.0,
-        0.25,
-        fade_frames,
-        dtype=np.float32,
-    )
 
-    # Declination, added after the fades so the descent is present for the
+    # Easing *out* is not. Scaling a plateau toward zero moves a negative
+    # value upward, so the symmetric fade that used to sit here lifted the
+    # end of every phrase by three quarters of its own depth -- a rise into
+    # the full stop, precisely the delivery this curve exists to avoid. It
+    # went unnoticed while the pattern was shallow enough for the lift to be
+    # under a semitone. Nothing follows active_end but silence, so there is
+    # no discontinuity worth buying it back for.
+    # Declination, added after the fade so the descent is present for the
     # whole phrase rather than being tapered away exactly where it matters
     # most -- the final words are the ones that have to land cold.
     span = active_end - active_start
@@ -1009,6 +1119,159 @@ def _load_failure_hint(error):
     )
 
 
+# Frame length for the envelope the voice-mode face reacts to. Short enough
+# to catch individual syllables, long enough that the face is not strobing.
+SPEECH_ENVELOPE_HOP = 0.025
+
+
+def _speech_envelope(np, audio, sample_rate, hop_seconds):
+    """
+    Reduce an utterance to a loudness and a brightness track.
+
+    Two dimensions rather than one: loudness alone cannot tell a vowel from a
+    sibilant, and the face reads as reacting to speech, not just to volume,
+    when consonants push it differently from open vowels.
+
+    Both are returned as plain lists so the renderer, which has no numpy
+    dependency of its own, can index them directly.
+    """
+    samples = np.asarray(audio, dtype=np.float32)
+
+    if samples.ndim > 1:
+        samples = samples.mean(axis=1)
+
+    if samples.size == 0:
+        return [], []
+
+    peak = float(np.max(np.abs(samples)))
+
+    if peak <= 0.0:
+        return [], []
+
+    samples = samples / peak
+    hop = max(1, int(round(hop_seconds * sample_rate)))
+    usable = (samples.size // hop) * hop
+
+    if usable < hop:
+        return [], []
+
+    frames = samples[:usable].reshape(-1, hop)
+    levels = np.sqrt((frames ** 2).mean(axis=1))
+
+    # Loudness is compressed, but only mildly: speech sits well below its
+    # peak most of the time, so a linear map leaves the face nearly still,
+    # while a hard compression lifts the quiet frames so far that the face
+    # never settles and stops reading as reactive at all.
+    loudness = np.clip(levels / max(float(levels.max()), 1e-6), 0.0, 1.0)
+    loudness = loudness ** 0.75
+
+    # Zero-crossing rate stands in for brightness. It separates fricatives
+    # from vowels for a fraction of the cost of a spectrum per frame.
+    crossings = np.abs(np.diff(np.signbit(frames).astype(np.int8), axis=1))
+    brightness = crossings.mean(axis=1) if crossings.size else levels * 0.0
+    brightness = np.clip(brightness / 0.35, 0.0, 1.0)
+
+    return (
+        [float(value) for value in loudness],
+        [float(value) for value in brightness],
+    )
+
+
+# A consonant lasts about as long as it lasts. Sung vowels do not.
+_SUSTAIN_ONSET_SECONDS = 0.070
+_SUSTAIN_CODA_SECONDS = 0.055
+
+# Below this much stretch there is no audible smear to correct, and speech
+# rendered at its own length must not be reshaped at all.
+_SUSTAIN_MIN_RATIO = 1.25
+
+
+def _sustain_warp(
+    np,
+    source_samples,
+    output_samples,
+    source_span,
+    output_span,
+    sample_rate,
+):
+    """
+    Map output position to source position, holding the vowel, not the word.
+
+    Stretching a syllable uniformly to fill a long note stretches its
+    consonants too, so a held "day" arrives as "d-d-d-ay-y-y" -- the slip
+    audible on the opening notes, where a 0.34s syllable is asked to cover
+    1.26s. Singers do not do this: the onset and release keep roughly their
+    spoken length and the vowel absorbs the whole surplus.
+
+    The decision is made on the raw sample counts, not the frame spans. The
+    two spans are offset by different amounts (hop against frame_size), so a
+    1:1 render still shows output_span a few hundred samples the larger, and
+    testing those would quietly reshape ordinary speech as well.
+
+    Returns a pair of breakpoint arrays for np.interp, or (None, None) when
+    the note is too close to spoken length to be worth reshaping.
+    """
+    if source_span <= 0 or output_span <= source_span:
+        return None, None
+
+    if output_samples <= source_samples * _SUSTAIN_MIN_RATIO:
+        return None, None
+
+    onset = min(
+        int(sample_rate * _SUSTAIN_ONSET_SECONDS),
+        max(1, int(source_span * 0.30)),
+    )
+    coda = min(
+        int(sample_rate * _SUSTAIN_CODA_SECONDS),
+        max(1, int(source_span * 0.25)),
+    )
+
+    # Nothing left in the middle to spend the surplus on.
+    if onset + coda >= source_span:
+        return None, None
+
+    return (
+        np.asarray(
+            [0.0, onset, output_span - coda, output_span],
+            dtype=np.float64,
+        ),
+        np.asarray(
+            [0.0, onset, source_span - coda, source_span],
+            dtype=np.float64,
+        ),
+    )
+
+
+# The reference voice sits about 8dB lower above 4kHz than this one did.
+# That excess is what made the vocoder read as buzz rather than as a smooth
+# synthetic voice: the carrier's upper harmonics survive the envelope intact,
+# where a real vocal tract would have damped them.
+_TILT_CORNER_HZ = _tuned_float("TORMENT_NEXUS_TILT_CORNER_HZ", 1900.0,
+                               200.0, 12_000.0)
+_TILT_DB_PER_OCTAVE = _tuned_float("TORMENT_NEXUS_TILT_DB_OCTAVE", 3.4,
+                                   0.0, 18.0)
+
+
+def _spectral_tilt(np, signal, sample_rate, corner_hz, db_per_octave):
+    """Roll the top end off at a fixed slope above a corner frequency."""
+    if db_per_octave <= 0.0 or signal.size == 0:
+        return signal
+
+    was_mono = signal.ndim == 1
+    matrix = signal[:, None] if was_mono else signal
+    spectrum = np.fft.rfft(matrix, axis=0)
+    freqs = np.fft.rfftfreq(matrix.shape[0], 1.0 / sample_rate)
+    octaves = np.log2(np.maximum(freqs, corner_hz) / corner_hz)
+    gain = (10.0 ** (-(db_per_octave * octaves) / 20.0)).astype(np.float32)
+    shaped = np.fft.irfft(
+        spectrum * gain[:, None],
+        n=matrix.shape[0],
+        axis=0,
+    ).astype(np.float32)
+
+    return shaped[:, 0] if was_mono else shaped
+
+
 def _machine_vocoder(
     np,
     source,
@@ -1125,10 +1388,25 @@ def _machine_vocoder(
     )
     source_span = max(0, source_samples - frame_size)
     output_span = max(1, output_samples - hop)
+    warp_output, warp_source = _sustain_warp(
+        np,
+        source_samples,
+        output_samples,
+        source_span,
+        output_span,
+        sample_rate,
+    )
 
     for output_start in range(0, output_samples, hop):
-        progress = min(1.0, output_start / output_span)
-        source_start = int(round(progress * source_span))
+        if warp_output is None:
+            progress = min(1.0, output_start / output_span)
+            source_start = int(round(progress * source_span))
+        else:
+            source_start = int(round(float(np.interp(
+                min(output_start, output_span),
+                warp_output,
+                warp_source,
+            ))))
         source_frame = np.zeros(
             (frame_size, channels),
             dtype=np.float32,
@@ -1276,6 +1554,18 @@ def _encoded_robot_effect(
         )
         target_samples = len(robot)
 
+        # Damp the carrier's surviving upper harmonics. Applied before the
+        # quantisation below, so the digital edge is added to a voice that
+        # already has a plausible spectral slope rather than being smoothed
+        # away along with the buzz.
+        robot = _spectral_tilt(
+            np,
+            robot,
+            sample_rate,
+            _TILT_CORNER_HZ,
+            _TILT_DB_PER_OCTAVE,
+        )
+
         # Light quantisation, as in the sung path. It is what gives the
         # voice its digital edge rather than sounding merely filtered.
         levels = max(160, int(round(512 - 256 * strength)))
@@ -1408,11 +1698,55 @@ DAISY_QWEN_CONTINUATION = (
     (None, None, 4),
 )
 
+# The 1961 IBM 704 demonstration does not open on the voice. The machine
+# states the tune by itself first, and the singing arrives over an
+# accompaniment already running -- which is most of why that recording is
+# unsettling rather than merely quaint. This is the opening phrase, "Daisy,
+# Daisy, give me your answer do", played on the oscillators alone.
+# Timed from the reference recording, where the vocal enters at 1:06.
+DAISY_INTRO_TARGET_SECONDS = 66.0
+
+# The introduction plays the chorus itself with the words taken away, so the
+# machine states the tune before it sings it, and repeats until the entry.
+_DAISY_INTRO_SOURCE = tuple(
+    (note, units) for _text, note, units in DAISY_CHORUS
+)
+
+
+def _build_daisy_intro(target_seconds, eighth_seconds):
+    """Repeat the tune up to the vocal's entry, rounded to whole measures."""
+    measures = max(1, int(round(target_seconds / (eighth_seconds * 6))))
+    wanted = measures * 6
+    melody = []
+    total = 0
+
+    while total < wanted:
+        for note, units in _DAISY_INTRO_SOURCE:
+            if total >= wanted:
+                break
+            # A note is clipped rather than allowed to overrun, so the
+            # introduction ends exactly on a bar line and the chorus does
+            # not start half a beat into a measure.
+            units = min(units, wanted - total)
+            melody.append((note, units))
+            total += units
+
+    return tuple(melody)
+
+
+DAISY_INTRO_MELODY = _build_daisy_intro(
+    DAISY_INTRO_TARGET_SECONDS,
+    DAISY_EIGHTH_SECONDS,
+)
+DAISY_INTRO_EIGHTHS = sum(units for _note, units in DAISY_INTRO_MELODY)
+DAISY_INTRO_MEASURES = DAISY_INTRO_EIGHTHS // 6
+
 # Fourteen eighth notes complete the first 32 measures and leave a two-measure
 # instrumental bridge before Qwen's continuation. The final two eighths make
-# the complete performance exactly 66 measures.
+# the complete performance exactly 66 measures after the introduction.
 DAISY_PERFORMANCE = (
-    DAISY_CHORUS
+    ((None, None, DAISY_INTRO_EIGHTHS),)
+    + DAISY_CHORUS
     + ((None, None, 14),)
     + DAISY_QWEN_CONTINUATION
     + ((None, None, 2),)
@@ -1439,7 +1773,14 @@ DAISY_CHORD_PROGRESSION = (
     "G", "D7", "G", "G",
 )
 DAISY_PERFORMANCE_CHORDS = (
-    DAISY_CHORD_PROGRESSION
+    # The introduction can outrun one pass of the progression, so it cycles
+    # rather than being sliced -- a short slice would leave later measures
+    # with no chord at all and the accompaniment would simply stop.
+    tuple(
+        DAISY_CHORD_PROGRESSION[index % len(DAISY_CHORD_PROGRESSION)]
+        for index in range(DAISY_INTRO_MEASURES)
+    )
+    + DAISY_CHORD_PROGRESSION
     + ("G", "D7")
     + DAISY_CHORD_PROGRESSION
 )
@@ -1583,6 +1924,28 @@ def _daisy_computer_accompaniment(np, sample_rate, output_samples):
             0.026,
             brightness=1.18,
         )
+
+    # The tune itself, stated before the voice arrives. It is louder than the
+    # chord voices so it reads as the melody rather than as part of the
+    # texture, and it stops exactly where the singing starts.
+    position = 0
+
+    for midi_note, units in DAISY_INTRO_MELODY:
+        duration = units * eighth_samples
+
+        if midi_note is not None:
+            _add_daisy_tone(
+                np,
+                accompaniment,
+                sample_rate,
+                position,
+                max(1, int(round(duration * 0.90))),
+                midi_note,
+                0.20,
+                brightness=0.90,
+            )
+
+        position += duration
 
     accompaniment = np.round(accompaniment * 512.0) / 512.0
     peak = float(np.max(np.abs(accompaniment)))
@@ -1946,6 +2309,7 @@ class OfflineVoice:
 
     def _play_audio(self, audio, sample_rate, cancelled, progress=None):
         duration = max(0.05, len(audio) / float(sample_rate))
+        self._publish_speech_envelope(audio, sample_rate)
         started_at = time.monotonic()
 
         if progress:
@@ -1983,12 +2347,43 @@ class OfflineVoice:
 
         return True
 
+    def set_speech_envelope_callback(self, callback):
+        """
+        Receive the shape of each utterance just before it is played.
+
+        The face reacts to what is actually being said, and the samples are
+        already in hand here, so there is nothing to capture and no second
+        audio device to contend with. Handing over the whole envelope at once
+        rather than a level per tick lets the renderer interpolate at its own
+        frame rate instead of stepping at this loop's 20Hz.
+        """
+        self._speech_envelope_callback = callback
+
+    def _publish_speech_envelope(self, audio, sample_rate):
+        callback = getattr(self, "_speech_envelope_callback", None)
+
+        if callback is None:
+            return
+
+        try:
+            levels, brightness = _speech_envelope(
+                self.np,
+                audio,
+                sample_rate,
+                SPEECH_ENVELOPE_HOP,
+            )
+            callback(levels, brightness, SPEECH_ENVELOPE_HOP)
+        except Exception:
+            # A cosmetic effect must never be able to stop the voice.
+            pass
+
     def _play_wav_bytes(
         self,
         wav_bytes,
         cancelled,
         phase_changed=None,
         progress=None,
+        pitch_bias=0.0,
     ):
         try:
             audio, sample_rate = self._decode_wav_bytes(wav_bytes)
@@ -2002,7 +2397,10 @@ class OfflineVoice:
                     audio,
                     sample_rate,
                     VOICE_ROBOT_STRENGTH,
-                    carrier_hz=VOICE_SPEECH_CARRIER_HZ,
+                    carrier_hz=(
+                        VOICE_SPEECH_CARRIER_HZ
+                        * (2.0 ** (pitch_bias / 12.0))
+                    ),
                     # Both of these were previously left to defaults, so
                     # speech ran at 172Hz-nominal with no formant lift while
                     # the sung path got 145Hz and 1.08. The missing lift is
@@ -2280,6 +2678,7 @@ class OfflineVoice:
                 cancelled,
                 phase_changed,
                 progress=report_progress,
+                pitch_bias=_utterance_pitch_bias(chunk),
             ):
                 return False
 

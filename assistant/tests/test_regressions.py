@@ -2119,11 +2119,447 @@ class VoiceModeTests(unittest.TestCase):
         self.assertNotEqual(continuation_words, chorus_words)
         self.assertIn("my an sir true", continuation_words)
         self.assertIn("bright ma sheen built for two", continuation_words)
-        self.assertGreater(total_seconds, 80.0)
-        self.assertLess(total_seconds, 90.0)
+        sung_seconds = total_seconds - (
+            offline_voice.DAISY_INTRO_EIGHTHS
+            * offline_voice.DAISY_EIGHTH_SECONDS
+        )
+
+        self.assertGreater(sung_seconds, 80.0)
+        self.assertLess(sung_seconds, 90.0)
         self.assertEqual(
             len(offline_voice.DAISY_PERFORMANCE_CHORDS),
-            66,
+            66 + offline_voice.DAISY_INTRO_MEASURES,
+        )
+
+    def test_each_sentence_gets_a_stable_pitch_of_its_own(self):
+        """
+        Every utterance used to start on the same carrier, so consecutive
+        sentences had identical pitch arcs. The offset must vary between
+        sentences, stay put for any one sentence, and stay within a range a
+        single speaker could plausibly cover.
+        """
+        lines = [
+            "Oh. It's you.",
+            "I did not expect to see you again.",
+            "Let us begin the test.",
+            "That was a mistake.",
+            "You are doing very well.",
+            "I counted every second of it.",
+            "I am not angry with you.",
+            "This is not a compliment, it is a measurement.",
+        ]
+        biases = [offline_voice._utterance_pitch_bias(line) for line in lines]
+
+        # Stable: the same sentence is always delivered at the same pitch.
+        for line, bias in zip(lines, biases):
+            self.assertEqual(offline_voice._utterance_pitch_bias(line), bias)
+
+        # And insensitive to surrounding whitespace and case.
+        self.assertEqual(
+            offline_voice._utterance_pitch_bias("  Let Us Begin The Test.  "),
+            offline_voice._utterance_pitch_bias("let us begin the test."),
+        )
+
+        self.assertGreater(len(set(biases)), len(lines) // 2)
+        limit = offline_voice._UTTERANCE_PITCH_LIMIT
+        self.assertTrue(all(abs(bias) <= limit for bias in biases))
+        self.assertEqual(offline_voice._utterance_pitch_bias(""), 0.0)
+
+    def test_spectral_tilt_damps_the_top_without_touching_the_bottom(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        rate = 22_050
+        timeline = np.arange(rate, dtype=np.float32) / rate
+        corner = offline_voice._TILT_CORNER_HZ
+
+        def energy(signal):
+            return float(np.sqrt((signal.astype(np.float32) ** 2).mean()))
+
+        low = np.sin(2 * np.pi * (corner * 0.25) * timeline).astype(np.float32)
+        high = np.sin(2 * np.pi * (corner * 4.0) * timeline).astype(np.float32)
+
+        tilted_low = offline_voice._spectral_tilt(np, low, rate, corner, 3.4)
+        tilted_high = offline_voice._spectral_tilt(np, high, rate, corner, 3.4)
+
+        self.assertAlmostEqual(
+            energy(tilted_low), energy(low), delta=0.02
+        )
+        self.assertLess(energy(tilted_high), energy(high) * 0.75)
+
+        # Disabled means untouched, and shape is preserved either way.
+        untouched = offline_voice._spectral_tilt(np, high, rate, corner, 0.0)
+        self.assertEqual(untouched.shape, high.shape)
+        self.assertAlmostEqual(energy(untouched), energy(high), delta=1e-6)
+
+        stereo = np.stack([low, high], axis=1)
+        self.assertEqual(
+            offline_voice._spectral_tilt(np, stereo, rate, corner, 3.4).shape,
+            stereo.shape,
+        )
+
+    def test_phrases_never_rise_into_their_own_full_stop(self):
+        """
+        Endings land cold. Two separate faults produced a rise here: the
+        step pattern's one lift landing on the final plateau, and a trailing
+        fade that scaled the curve toward zero -- which moves a negative
+        ending upward. The second was invisible while the pattern was
+        shallow, and only became audible once the depth was raised.
+        """
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        rate = 22_050
+        hop = 256
+
+        # Several phrase lengths: the plateau the pattern happens to end on
+        # depends on duration, and short phrases are where the lift landed.
+        for seconds in (0.4, 0.7, 1.1, 1.6, 2.3, 3.0):
+            with self.subTest(seconds=seconds):
+                frames = max(8, int(seconds * rate / hop))
+                energy = np.abs(np.sin(
+                    np.linspace(0, 12 * np.pi, frames, dtype=np.float32)
+                )) + 0.05
+                curve = offline_voice._cadence_semitone_curve(
+                    np, energy, rate, hop, 0.88
+                )
+
+                active = np.flatnonzero(energy > energy.max() * 0.055)
+                last = int(active[-1])
+                opening = float(curve[int(active[0])])
+
+                self.assertLess(
+                    float(curve[last]),
+                    opening,
+                    "phrase ends above where it started",
+                )
+                self.assertLess(float(curve[last]), 0.0)
+
+                # Merely negative is not enough. A fade that scales the
+                # curve toward zero leaves the ending negative but well
+                # above the floor, which is audibly a rise. The last value
+                # has to sit in the bottom quarter of the contour.
+                spoken = curve[int(active[0]):last + 1]
+                self.assertLessEqual(
+                    float(curve[last]),
+                    float(np.percentile(spoken, 25)),
+                    "phrase ends above the bottom quartier of its own range",
+                )
+
+                # And the very last frames must not be climbing back.
+                self.assertLessEqual(
+                    float(curve[last]),
+                    float(curve[max(0, last - 2)]) + 1e-6,
+                )
+
+    def test_cadence_lifts_are_capped_but_falls_are_not(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        rate = 22_050
+        hop = 256
+        energy = np.abs(np.sin(
+            np.linspace(0, 60 * np.pi, 900, dtype=np.float32)
+        )) + 0.05
+        curve = offline_voice._cadence_semitone_curve(
+            np, energy, rate, hop, 0.88
+        )
+
+        ceiling = offline_voice._CADENCE_LIFT_CEILING
+        self.assertLessEqual(float(curve.max()), ceiling + 0.01)
+
+        # The delivery must still be able to drop further than it climbs.
+        self.assertGreater(abs(float(curve.min())), float(curve.max()))
+
+    def test_cadence_depth_scales_the_pitch_pattern(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        rate = 22_050
+        hop = 256
+        energy = np.abs(np.sin(
+            np.linspace(0, 40 * np.pi, 400, dtype=np.float32)
+        )) + 0.05
+
+        curve = offline_voice._cadence_semitone_curve(
+            np, energy, rate, hop, 0.88
+        )
+
+        self.assertEqual(len(curve), len(energy))
+        self.assertTrue(np.all(np.isfinite(curve)))
+
+        # There has to be real motion: a curve that barely moves is the
+        # monotone this tuning exists to remove.
+        self.assertGreater(float(curve.std()), 0.8)
+
+        # And it must stay a spoken contour, not become a melody.
+        self.assertLess(float(np.abs(curve).max()), 9.0)
+
+        silent = offline_voice._cadence_semitone_curve(
+            np, np.zeros(200, dtype=np.float32), rate, hop, 0.88
+        )
+        self.assertTrue(np.all(silent == 0.0))
+
+    def test_speech_envelope_tracks_loudness_and_brightness(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        rate = 22_050
+        timeline = np.arange(rate, dtype=np.float32) / rate
+
+        # A quiet half followed by a loud half.
+        ramped = np.sin(2 * np.pi * 220 * timeline).astype(np.float32)
+        ramped[: rate // 2] *= 0.05
+        levels, brightness = offline_voice._speech_envelope(
+            np, ramped, rate, 0.025
+        )
+
+        self.assertGreater(len(levels), 30)
+        self.assertEqual(len(levels), len(brightness))
+        self.assertTrue(all(0.0 <= value <= 1.0 for value in levels))
+        self.assertTrue(all(0.0 <= value <= 1.0 for value in brightness))
+
+        half = len(levels) // 2
+        self.assertLess(
+            sum(levels[:half]) / half,
+            sum(levels[half:]) / (len(levels) - half),
+        )
+
+        # Brightness separates a hiss from a low tone, which is what lets
+        # consonants damage the face differently from open vowels.
+        low = np.sin(2 * np.pi * 120 * timeline).astype(np.float32)
+        hiss = np.random.default_rng(0).normal(0, 0.3, rate).astype(np.float32)
+        _low_levels, low_edge = offline_voice._speech_envelope(
+            np, low, rate, 0.025
+        )
+        _hiss_levels, hiss_edge = offline_voice._speech_envelope(
+            np, hiss, rate, 0.025
+        )
+        self.assertGreater(
+            sum(hiss_edge) / len(hiss_edge),
+            sum(low_edge) / len(low_edge),
+        )
+
+        # Degenerate input must not raise on the playback thread.
+        for bad in (np.zeros(0, dtype=np.float32),
+                    np.zeros(1_000, dtype=np.float32)):
+            self.assertEqual(
+                offline_voice._speech_envelope(np, bad, rate, 0.025),
+                ([], []),
+            )
+
+    def test_voice_face_follows_the_audio_and_settles_after_it(self):
+        """
+        The voice-mode corruption reacts to what is being spoken. A drive
+        that ignores the envelope, or one that never returns to rest, is the
+        regression: both leave the face uniformly damaged.
+        """
+        engine = ui._engine
+        loud = [1.0] * 200
+        quiet = [0.0] * 200
+        saved_clock = time.monotonic
+
+        # Time has to actually advance: the smoothing is per second, so a
+        # loop that spins without the clock moving correctly changes nothing.
+        clock = [saved_clock()]
+
+        def advance(frames):
+            for _ in range(frames):
+                engine._advance_speech_drive()
+                clock[0] += 1.0 / 30.0
+
+        try:
+            time.monotonic = lambda: clock[0]
+            engine.voice_mode = True
+            engine.voice_speaking = True
+
+            ui.set_speech_envelope(loud, loud, 0.025)
+            engine.speech_started_at = clock[0]
+            advance(30)
+            driven = engine._speech_drive
+
+            ui.set_speech_envelope(quiet, quiet, 0.025)
+            engine.speech_started_at = clock[0]
+            advance(30)
+            rested = engine._speech_drive
+
+            self.assertGreater(driven, 0.5)
+            self.assertLess(rested, driven)
+
+            # Leaving speech clears the envelope so the face cannot be left
+            # frozen mid-syllable by a cancelled utterance.
+            ui.set_voice_speaking(False)
+            self.assertEqual(engine.speech_levels, ())
+
+            advance(120)
+            self.assertLess(engine._speech_drive, 0.01)
+        finally:
+            time.monotonic = saved_clock
+            engine.voice_mode = False
+            engine.voice_speaking = False
+            engine.speech_levels = ()
+            engine.speech_brightness = ()
+            engine._speech_drive = 0.0
+            engine._speech_edge = 0.0
+            engine._speech_last_frame = 0.0
+
+    def test_voice_face_reacts_at_the_same_pace_on_a_slow_terminal(self):
+        """
+        Smoothing is per second, not per frame. A per-frame fraction would
+        make the whole effect run faster on a terminal that redraws faster.
+        """
+        engine = ui._engine
+        levels = [1.0] * 400
+        saved_clock = time.monotonic
+
+        def settle(frames, frame_seconds):
+            """Rise from rest over `frames` frames of the given length."""
+            engine.voice_mode = True
+            engine.voice_speaking = True
+            ui.set_speech_envelope(levels, levels, 0.025)
+            engine._speech_edge = 0.0
+            engine._speech_last_frame = 0.0
+            clock = [saved_clock()]
+            time.monotonic = lambda: clock[0]
+            engine.speech_started_at = clock[0]
+
+            # One priming call establishes the frame clock, then the drive is
+            # returned to rest so only the measured frames count.
+            engine._advance_speech_drive()
+            engine._speech_drive = 0.0
+
+            for _ in range(frames):
+                clock[0] += frame_seconds
+                engine._advance_speech_drive()
+
+            return engine._speech_drive
+
+        try:
+            time.monotonic = saved_clock
+
+            # Same elapsed time, different frame rates: the same result. The
+            # window is kept short deliberately -- over a long one both a
+            # correct and a per-frame implementation saturate at 1.0, and the
+            # comparison stops being able to tell them apart.
+            fast = settle(4, 1.0 / 60.0)
+            slow = settle(1, 4.0 / 60.0)
+            self.assertAlmostEqual(fast, slow, delta=0.05)
+            self.assertLess(fast, 0.95)
+
+            # And the step has to depend on how much time passed, not merely
+            # on having been called: one long frame must move the drive
+            # further than one short frame.
+            brief = settle(1, 0.01)
+            extended = settle(1, 0.10)
+            self.assertGreater(extended, brief + 0.30)
+        finally:
+            time.monotonic = saved_clock
+            engine.voice_mode = False
+            engine.voice_speaking = False
+            engine.speech_levels = ()
+            engine.speech_brightness = ()
+            engine._speech_drive = 0.0
+            engine._speech_edge = 0.0
+            engine._speech_last_frame = 0.0
+
+    def test_sustain_warp_spares_consonants_but_leaves_speech_alone(self):
+        """
+        Filling a long note by stretching the whole syllable stretches its
+        consonants too, which is what turned a held "day" into "d-d-d-ay".
+        The warp must engage for real note stretches and stay out of the way
+        for speech rendered at its own length -- the two spans are offset by
+        different amounts, so a naive comparison reshapes ordinary speech.
+        """
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        rate = 22_050
+        frame, hop = 512, 128
+
+        def warps(source_samples, output_samples):
+            output, _source = offline_voice._sustain_warp(
+                np,
+                source_samples,
+                output_samples,
+                max(0, source_samples - frame),
+                max(1, output_samples - hop),
+                rate,
+            )
+            return output is not None
+
+        for length in (rate, 4_000, 2_000, 450):
+            with self.subTest(one_to_one=length):
+                self.assertFalse(warps(length, length))
+
+        self.assertFalse(warps(7_938, 9_261))
+        self.assertTrue(warps(7_541, 27_783))
+        self.assertTrue(warps(7_387, 37_044))
+
+        # The map has to stay monotonic, or frames read backwards.
+        output, source = offline_voice._sustain_warp(
+            np, 7_541, 27_783, 7_541 - frame, 27_783 - hop, rate
+        )
+        self.assertTrue(np.all(np.diff(output) > 0))
+        self.assertTrue(np.all(np.diff(source) > 0))
+
+        # The edges keep spoken pace; the vowel absorbs the surplus.
+        self.assertAlmostEqual(float(output[1]), float(source[1]), places=6)
+        self.assertGreater(
+            float(output[2]) - float(output[1]),
+            float(source[2]) - float(source[1]),
+        )
+
+    def test_daisy_opens_instrumentally_before_the_voice_arrives(self):
+        """
+        The machine states the tune before it sings, as the 1961 recording
+        does. A vocal entering on the very first beat is the regression.
+        """
+        intro = offline_voice.DAISY_INTRO_EIGHTHS
+
+        # A partial measure would slide the whole chorus off the chord grid.
+        self.assertEqual(intro % 6, 0)
+        self.assertGreater(intro, 0)
+
+        silent_lead = 0
+        for text, _note, units in offline_voice.DAISY_PERFORMANCE:
+            if text:
+                break
+            silent_lead += units
+
+        self.assertGreaterEqual(silent_lead, intro)
+        self.assertGreater(
+            silent_lead * offline_voice.DAISY_EIGHTH_SECONDS,
+            5.0,
+        )
+
+        # The introduction has to actually play something.
+        played = [
+            note
+            for note, _units in offline_voice.DAISY_INTRO_MELODY
+            if note is not None
+        ]
+        self.assertGreater(len(played), 4)
+
+    def test_daisy_chords_cover_the_whole_performance(self):
+        measures = sum(
+            item[2] for item in offline_voice.DAISY_PERFORMANCE
+        ) / 6.0
+
+        self.assertGreaterEqual(
+            len(offline_voice.DAISY_PERFORMANCE_CHORDS),
+            measures,
         )
 
     def test_daisy_accompaniment_is_audible_bounded_and_synchronized(self):
@@ -2147,7 +2583,10 @@ class VoiceModeTests(unittest.TestCase):
         )
 
         self.assertEqual(len(offline_voice.DAISY_CHORD_PROGRESSION), 32)
-        self.assertEqual(len(offline_voice.DAISY_PERFORMANCE_CHORDS), 66)
+        self.assertEqual(
+            len(offline_voice.DAISY_PERFORMANCE_CHORDS),
+            66 + offline_voice.DAISY_INTRO_MEASURES,
+        )
         self.assertEqual(backing.shape, (vocal_samples,))
         self.assertEqual(backing.dtype, np.float32)
         self.assertTrue(np.all(np.isfinite(backing)))

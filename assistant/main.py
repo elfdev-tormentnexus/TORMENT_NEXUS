@@ -108,11 +108,25 @@ def _prepare_voice_for_startup():
     _startup_voice_error = None
 
     try:
-        voice = offline_voice.OfflineVoice()
+        voice = _new_voice()
         voice.prepare_output()
         _startup_voice = voice
     except Exception as error:
         _startup_voice_error = error
+
+
+def _new_voice():
+    """
+    Build a voice engine already wired to the face.
+
+    The engine deliberately does not import the terminal, so the connection
+    is made here, where both halves are already in scope. Every construction
+    site goes through this: wiring them individually is how one gets missed
+    and a single entry point ends up with a face that does not react.
+    """
+    voice = offline_voice.OfflineVoice()
+    voice.set_speech_envelope_callback(ui.set_speech_envelope)
+    return voice
 
 
 # ============================================================
@@ -1453,7 +1467,7 @@ def _voice_mode_loop():
         if startup_error is not None:
             raise startup_error
         if voice is None:
-            voice = offline_voice.OfflineVoice()
+            voice = _new_voice()
             voice.prepare_output()
     except Exception as error:
         ui.finish_activity("Voice startup failed")
@@ -1783,7 +1797,7 @@ def _run_idle_check_in():
 
         try:
             if _startup_voice is None:
-                _startup_voice = offline_voice.OfflineVoice()
+                _startup_voice = _new_voice()
                 _startup_voice.prepare_output()
 
             ui.set_voice_mode(True)
