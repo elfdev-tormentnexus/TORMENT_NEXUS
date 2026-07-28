@@ -516,6 +516,10 @@ _UNIT_DRAW_STD = 0.408
 # the resting pitch. Beyond it the voice stops sounding like one speaker.
 _UTTERANCE_PITCH_LIMIT = 4.5
 
+# What counts as terse, and how far below rest such a line is delivered.
+_TERSE_WORD_LIMIT = _tuned_float("TORMENT_NEXUS_TERSE_WORDS", 4, 1, 12)
+_TERSE_PITCH_DROP = _tuned_float("TORMENT_NEXUS_TERSE_DROP", 2.10, 0.0, 5.0)
+
 
 def _utterance_pitch_bias(text):
     """A stable chromatic per-sentence pitch offset in semitones."""
@@ -531,6 +535,15 @@ def _utterance_pitch_bias(text):
     # two registers rather than varying around one.
     unit = ((digest[0] + digest[1]) / 510.0) * 2.0 - 1.0
     semitones = unit / _UNIT_DRAW_STD * _UTTERANCE_PITCH_SPREAD
+
+    # A short flat statement -- "You're right." "I guess so." -- is the
+    # coldest thing this voice says, and it must never be handed an upward
+    # offset. Drawing from the hash alone did exactly that: "You are right."
+    # landed at +4 semitones, the top of the range, which reads as pert
+    # rather than indifferent. Terse lines are pinned below rest, keeping
+    # enough of the draw that they do not all sound like one recording.
+    if len(re.findall(r"[A-Za-z0-9']+", text)) <= _TERSE_WORD_LIMIT:
+        semitones = -_TERSE_PITCH_DROP - abs(semitones) * 0.35
 
     bounded = max(
         -_UTTERANCE_PITCH_LIMIT,

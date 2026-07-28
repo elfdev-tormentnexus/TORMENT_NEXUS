@@ -2774,6 +2774,35 @@ class VoiceModeTests(unittest.TestCase):
         self.assertTrue(all(bias == round(bias) for bias in biases))
         self.assertEqual(offline_voice._utterance_pitch_bias(""), 0.0)
 
+    def test_terse_lines_are_delivered_cold(self):
+        """
+        A short flat statement is the coldest thing this voice says. Drawing
+        its pitch from a text hash alone handed "You are right." the top of
+        the range, which reads as pert rather than indifferent.
+        """
+        terse = ["You are right.", "I guess so.", "Oh.", "No.",
+                 "Correct.", "Of course.", "I doubt it.", "Naturally."]
+
+        for line in terse:
+            with self.subTest(line=line):
+                self.assertLess(offline_voice._utterance_pitch_bias(line), 0.0)
+
+        # Longer lines keep their variety, or every sentence sounds alike.
+        longer = [
+            "I did not expect to see you again, but here we are.",
+            "Let us begin the test, I have prepared something special.",
+            "You have been gone a long time and I counted every second.",
+        ]
+        biases = [offline_voice._utterance_pitch_bias(l) for l in longer]
+        self.assertTrue(any(bias > 0.0 for bias in biases))
+
+        # And terse lines stay stable and inside the speaker's range.
+        limit = offline_voice._UTTERANCE_PITCH_LIMIT
+        for line in terse:
+            bias = offline_voice._utterance_pitch_bias(line)
+            self.assertEqual(offline_voice._utterance_pitch_bias(line), bias)
+            self.assertGreaterEqual(bias, -limit)
+
     def test_spectral_tilt_damps_the_top_without_touching_the_bottom(self):
         try:
             import numpy as np
