@@ -4,6 +4,15 @@ Written 2026-07-28, straight after the Windows approach was tested and failed.
 Self-contained on purpose — read this and the plan is executable without the
 conversation that produced it.
 
+## Status
+
+**Paused, not abandoned.** The active sensing workstream is now the dedicated
+24 GHz mmWave hardware experiment recorded in
+[Sensing module: active hardware track](SENSING_MODULE.md). That experiment is
+pending acquisition and arrival of an HLK-LD2450 radar and CP2102 USB-to-TTL
+adapter. Resume this monitor-mode plan only if the radar experiment is measured
+and rejected, or if monitor-mode research is explicitly prioritised again.
+
 ## What already failed, and why that matters here
 
 `tools/wifi_sense_collector.py` reads Windows userland APIs. It was calibrated
@@ -35,7 +44,9 @@ radiotap header. Unsmoothed, uncached, unquantised.
    machine, and losing it means losing the ability to look up how to fix it.
    It is also pointless: PicoScenes gets CSI by patching the open-source Linux
    `iwlwifi` driver *plus firmware*, and Intel's Windows firmware does not
-   expose that path at all.
+   expose that path at all. (2026-07 update: open Linux tools now reach
+   AX-series cards — see [WIFI_SENSING_CSI_LANDSCAPE.md](WIFI_SENSING_CSI_LANDSCAPE.md).
+   The only-internet-link reason is the binding one and the guardrail stands.)
 2. **Nothing is installed to the Windows disk.** Live USB only, until the Pi
    takes over. No dual-boot partition, no Secure Boot change, no bootloader.
 3. **The TP-Link is the only radio touched.** It carries no traffic; breaking
