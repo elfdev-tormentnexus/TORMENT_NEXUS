@@ -69,11 +69,14 @@ REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat
 TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip
 INSTALL_ASK_GUARD_PATCH.bat
 TORMENT_NEXUS-v0.2.0-beta.6-ask-guard-patch.zip
+INSTALL_COMMAND_GUARD_PATCH.bat
+TORMENT_NEXUS-v0.2.0-beta.6-command-guard-patch.zip
 ```
 
-The last three are small and optional. The documentation patch is applied for
-you by the reassembler. The two `ask-guard` files are **not** — they are
-Step 4 below, and nothing prompts you for them.
+The last five are small and optional. The documentation patch is applied for
+you by the reassembler. The two guard patches are **not** — they are Step 4
+below. The reassembler names them on its last screen, and nothing else
+prompts you for them.
 
 Keep all files together, normally in **Downloads**. Do not rename them. A
 `.partNN` file is a piece of one ZIP and cannot be opened independently.
@@ -140,38 +143,49 @@ If Windows or security software blocks a file:
 
 See [Troubleshooting](TROUBLESHOOTING.md) before creating an exception.
 
-## Step 4: Apply the /ask guard patch by hand
+## Step 4: Apply the two guard patches by hand
 
 Do this once setup has finished. Nothing reminds you except the last screen
 of the reassembler and this step.
 
-Move both files **into** the extracted `TORMENT_NEXUS` folder — the one
-containing `start_assistant.bat` — and double-click the installer:
+Move all four files **into** the extracted `TORMENT_NEXUS` folder — the one
+containing `start_assistant.bat` — and double-click each installer:
 
 ```text
 INSTALL_ASK_GUARD_PATCH.bat
 TORMENT_NEXUS-v0.2.0-beta.6-ask-guard-patch.zip
+
+INSTALL_COMMAND_GUARD_PATCH.bat
+TORMENT_NEXUS-v0.2.0-beta.6-command-guard-patch.zip
 ```
 
-It verifies the payload, checks that `assistant\main.py` is the file Beta 6
-shipped, keeps the original as `assistant\main.py.pre-ask-guard`, and applies
-the change. If it finds a `main.py` it does not recognise, it stops without
+They are independent and may be run in either order, or one without the
+other. Each verifies its payload, checks that the file it is about to replace
+is the one Beta 6 shipped, and keeps the original beside it as a `.pre-`
+backup. If either finds a file it does not recognise, it stops without
 touching anything rather than overwriting work you have done.
 
-The patch corrects the read-only agent interface, which used to answer vague
-questions about past conversations with a confident account of exchanges that
-never happened. The fix landed after the archive was built, so it ships
-separately instead of forcing a 12 GB rebuild.
+Both correct cases where the assistant described something it had not
+actually done:
 
-**Why this one is manual.** The documentation patch replaces documentation
+- **`/ask` guard** — the read-only agent interface used to answer vague
+  questions about past conversations with a confident account of exchanges
+  that never happened.
+- **Near-miss command guard** — input like `drop all` or `finish goal` is not
+  a command, but it was answered with "I'm dropping everything" and "I'm
+  finishing the goal". Nothing had run.
+
+Both fixes landed after the archive was built, so they ship separately
+instead of forcing a 12 GB rebuild.
+
+**Why these are manual.** The documentation patch replaces documentation
 only, which is what lets the release claim an installed tree still matches
-the published archive checksum. This patch replaces a file the release
-manifest hashes, so applying it makes your installation diverge from that
-checksum deliberately. That is your decision to make, not one the installer
+the published archive checksum. These patches replace files the release
+manifest hashes, so applying them makes your installation diverge from that
+checksum deliberately. That is your decision to make, not one an installer
 should make quietly on your behalf.
 
-Skipping it is safe. It affects only the optional agent interface, which
-stays off unless you turn it on.
+Skipping them is safe. Neither is required for the assistant to run.
 
 ## Step 5: Read and acknowledge the first-launch notice
 

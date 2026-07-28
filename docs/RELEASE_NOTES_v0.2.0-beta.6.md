@@ -104,11 +104,14 @@ Download these assets into one folder:
 1. `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01` through `.part06` —
    all six are required
 2. `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat`
-3. `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` — 22 KB, optional but
+3. `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` — 24 KB, optional but
    recommended
 4. `TORMENT_NEXUS-v0.2.0-beta.6-ask-guard-patch.zip` and
    `INSTALL_ASK_GUARD_PATCH.bat` — 30 KB, recommended, and **applied by hand
    after the installer finishes**. See the note below.
+5. `TORMENT_NEXUS-v0.2.0-beta.6-command-guard-patch.zip` and
+   `INSTALL_COMMAND_GUARD_PATCH.bat` — 29 KB, recommended, and **also applied
+   by hand**.
 
 Run the reassembler and leave it alone. It does the whole sequence:
 
@@ -122,18 +125,23 @@ Run the reassembler and leave it alone. It does the whole sequence:
 
 Then open the `TORMENT_NEXUS` folder and run `setup.bat`.
 
-> **After the automatic install finishes, apply the /ask guard patch
-> yourself.** The reassembler does **not** apply it for you, and nothing
-> prompts you to do it. Put `INSTALL_ASK_GUARD_PATCH.bat` and
-> `TORMENT_NEXUS-v0.2.0-beta.6-ask-guard-patch.zip` inside the extracted
-> `TORMENT_NEXUS` folder and run the installer. It is a deliberate manual
-> step because, unlike the documentation patch, it replaces a file the
-> release manifest hashes — see
-> [the /ask guard patch](#optional-ask-history-guard-patch) for why that
-> trade is yours to make rather than one made silently on your behalf.
+> **After the automatic install finishes, apply the two guard patches
+> yourself.** The reassembler does **not** apply them for you. It names them
+> on its last screen, and nothing else prompts you. Put each installer and
+> its payload inside the extracted `TORMENT_NEXUS` folder and run them:
 >
-> Skipping it is safe. It only affects the optional read-only agent
-> interface, which is off unless you turn it on.
+> - `INSTALL_ASK_GUARD_PATCH.bat` —
+>   [the /ask guard patch](#optional-ask-history-guard-patch)
+> - `INSTALL_COMMAND_GUARD_PATCH.bat` —
+>   [the near-miss command guard patch](#optional-near-miss-command-guard-patch)
+>
+> They are deliberate manual steps because, unlike the documentation patch,
+> each replaces a file the release manifest hashes — that trade is yours to
+> make rather than one made silently on your behalf. They are independent of
+> each other and may be applied in either order, or one without the other.
+>
+> Skipping them is safe. Both correct cases where the assistant described
+> something it had not actually done; neither is required to run.
 
 Allow roughly 40 GB free while this runs — the parts, the joined ZIP and the
 extracted folder briefly coexist. If a `TORMENT_NEXUS` folder already exists
@@ -166,8 +174,8 @@ the first value automatically; the rest are for verifying individual downloads.
 | `.zip.part04` | 2,080,374,784 | `FCD6AF853B42626177C683EA68A21329FDDABC031F476CE772FC7D5C929DDEFF` |
 | `.zip.part05` | 2,080,374,784 | `B74AA7B6147C463F4269DC6ACDD4D3781711C66560D6EBBAE7B1002B6F06E789` |
 | `.zip.part06` | 1,978,832,443 | `A346A56A148A7EAE8BFA55F284DDC3028518DDB90E10EC2E730F1236448B236B` |
-| `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` | 4,796 | `90FB1C8FF448D70AF7C155B0735747D7E5D8BDDC1F31C2A7D17CA45E9DFF5E7F` |
-| `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` | 22,257 | `F3D3745C5CDBAB1505A5EE910F27B2135872FB8DD58EEC61A91BD188351E4053` |
+| `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` | 4,792 | `0ABE31679EE4688785807749DBCA2C13E5F2D862CB7DCCAF319EB14A2C24D1F9` |
+| `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` | 23,936 | `67BA3B1F2AE70B917C220AFFF2A57C0DB905E9BF86F3EC5DB34EA963163CE744` |
 
 ### Optional interface-mode add-on
 
@@ -262,6 +270,58 @@ a shipped tree, reported "already applied" and changed nothing on a second
 run, and refused with a non-zero exit on a tree whose `main.py` had been
 edited. The suite passes 640 tests with the guard in place, and the guard
 test was confirmed by re-injecting the bug.
+
+### Optional near-miss command guard patch
+
+**Also applied by hand.** Same shape as the patch above, and independent of
+it: that one replaces `assistant/main.py`, this one replaces
+`assistant/commands/command_handlers.py`. Either may be applied without the
+other, in any order.
+
+Typing something that looks like a command but is not one used to reach the
+model, which answered as though the action had been carried out. Beta 6
+already ships a fix for this, and it works for the exact shape it matches —
+a real command name with one stray word, which catches `finish goals`. It
+does nothing at all for these:
+
+| You typed | It answered | What ran |
+| --- | --- | --- |
+| `drop all` | "I'm dropping everything." | nothing |
+| `drop` | "I'm dropping." | nothing |
+| `finish` | a stage direction | nothing |
+| `finish goal` | "I'm finishing the goal." | nothing |
+
+The reasons are structural rather than missing entries. No command in the
+table contains the word `drop`, so `drop all` was never one word away from
+anything to begin with. A bare single word cannot match a rule that needs one
+more word than the command name has, because no command name is zero words
+long. And `finish goal` missed because the comparison was exact per word, so
+a plural the table spells differently was a total miss.
+
+The patch compares words allowing one typo each — excluding words under three
+characters, or every short token would match every other one — and answers a
+phrase built on a state-changing verb that resembles no command at all.
+Ordinary conversation containing one of those verbs is untouched: any
+conversational word in the phrase disqualifies it, which is what keeps
+"can you drop me a line" and "i want to finish this" as chat.
+
+| Add-on detail | Value |
+| --- | --- |
+| Payload | `TORMENT_NEXUS-v0.2.0-beta.6-command-guard-patch.zip` |
+| Bytes | 28,974 |
+| SHA-256 | `A1D9975925FEBC71AF671F5A8BDF6FCA925948DA312C2F55FF1B7D4AC7633BC4` |
+| Installer | `INSTALL_COMMAND_GUARD_PATCH.bat`, 3,460 bytes |
+| Installer SHA-256 | `84830868398C8642AFDC83B0F8087D1413C411A01C324CA36807DF2B67BA73A1` |
+| Replaces | `assistant/commands/command_handlers.py` (manifest-hashed) |
+| Shipped file SHA-256 | `FECB9E8596E5DBBB617F5E56C6EE07834A6C87A989D73C4F3A64351EEB9F21B8` |
+| Patched file SHA-256 | `183BCEFAB7DBB3FE9587507C0BE385A0FE670F370D996751C1FF153580ACD3A1` |
+
+Verified against a real extracted tree, including alongside the `/ask` patch:
+both applied to the same installation, each keeping its own backup, neither
+disturbing the other's file. Rerunning reported "already applied" and changed
+nothing; a tree whose file had been edited was refused with a non-zero exit
+and left untouched. The suite passes 644 tests, and each new guard test was
+confirmed by re-injecting the bug.
 
 ### Optional full-maintenance model add-on
 

@@ -87,6 +87,18 @@ DOCS_PATCH_NAME = f"{PACKAGE_NAME}-{RELEASE_VERSION}-docs-patch.zip"
 # tools/build_ask_guard_patch.py.
 ASK_GUARD_PATCH_NAME = f"{PACKAGE_NAME}-{RELEASE_VERSION}-ask-guard-patch.zip"
 ASK_GUARD_INSTALLER = "INSTALL_ASK_GUARD_PATCH.bat"
+COMMAND_GUARD_PATCH_NAME = (
+    f"{PACKAGE_NAME}-{RELEASE_VERSION}-command-guard-patch.zip"
+)
+COMMAND_GUARD_INSTALLER = "INSTALL_COMMAND_GUARD_PATCH.bat"
+
+# Every hand-applied patch, in the order the reassembler names them. Each
+# replaces a manifest-hashed file and is therefore never applied for the
+# operator, only named.
+MANUAL_PATCH_INSTALLERS = (
+    ASK_GUARD_INSTALLER,
+    COMMAND_GUARD_INSTALLER,
+)
 
 PYTHON_VERSION = "3.14.6"
 EMBED_URL = (f"https://www.python.org/ftp/python/{PYTHON_VERSION}"
@@ -1249,30 +1261,48 @@ def _write_reassembler(part_paths, target, archive_sha256):
         "echo.",
         f"echo Done. Open the {PACKAGE_NAME} folder and run setup.bat.",
         "echo.",
-        # The reassembler deliberately does not apply this one. It replaces a
-        # manifest-hashed file, so running it is the operator's decision --
-        # but the decision cannot be made by someone who never learns it
-        # exists, and this screen is the last thing they read.
-        f'set "ASKGUARD=%ROOT%\\{ASK_GUARD_INSTALLER}"',
-        'if exist "%ASKGUARD%" (',
-        "    echo One manual step is left, and nothing else will prompt",
-        "    echo for it. Move these two files into the "
-        f"{PACKAGE_NAME}",
-        f"    echo folder, then run {ASK_GUARD_INSTALLER}:",
-        "    echo.",
-        f"    echo     {ASK_GUARD_INSTALLER}",
-        f"    echo     {ASK_GUARD_PATCH_NAME}",
-        "    echo.",
-        "    echo It corrects an interface that answered questions about",
-        "    echo past conversations it never had. This script does not",
-        "    echo apply it, because unlike the documentation patch it",
-        "    echo replaces a file the release manifest hashes.",
-        ") else (",
-        f"    echo An optional patch named {ASK_GUARD_INSTALLER}",
-        "    echo on the release page corrects an interface that answered",
-        "    echo questions about past conversations it never had. It is",
-        "    echo applied by hand and is safe to skip.",
-        ")",
+        # The reassembler deliberately applies none of these. Each replaces a
+        # manifest-hashed file, so running one is the operator's decision --
+        # but a decision nobody is told about is not one, and this screen is
+        # the last thing they read.
+        #
+        # Written as flat gotos rather than nested if/else blocks: a bare
+        # "if exist" inside a parenthesised block is where cmd's parsing
+        # turns fragile, and this file already carries one comment about a
+        # swallowed quote costing an afternoon.
+        'set "ANYPATCH="',
+    ))
+
+    for installer in MANUAL_PATCH_INSTALLERS:
+        lines.append(
+            f'if exist "%ROOT%\\{installer}" set "ANYPATCH=1"'
+        )
+
+    lines.extend((
+        "if not defined ANYPATCH goto :nopatch",
+        "echo Manual steps remain, and nothing else will prompt for them.",
+        f"echo Move these into the {PACKAGE_NAME} folder, then run each",
+        "echo installer:",
+        "echo.",
+    ))
+
+    for installer in MANUAL_PATCH_INSTALLERS:
+        lines.append(
+            f'if exist "%ROOT%\\{installer}" echo     {installer}'
+        )
+
+    lines.extend((
+        "echo.",
+        "echo They are applied by hand because, unlike the documentation",
+        "echo patch, they replace files the release manifest hashes.",
+        "goto :patchdone",
+        "",
+        ":nopatch",
+        "echo Optional patches on the release page correct two cases where",
+        "echo this assistant described something it had not actually done.",
+        "echo They are applied by hand and are safe to skip.",
+        "",
+        ":patchdone",
         "pause",
         "",
     ))

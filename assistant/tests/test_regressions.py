@@ -10032,6 +10032,60 @@ class NearMissCommandTests(unittest.TestCase):
         self.assertIn("nothing ran", reply)
         self.assertIn("goals", reply)
 
+    def test_the_verbs_the_first_fix_claimed_are_actually_caught(self):
+        # The original docstring said "drop all" and "finish" were handled.
+        # They were not: nothing in the command table contains "drop", so
+        # the shape that matches a command name plus one stray word could
+        # never reach them. Live on 2026-07-28, after that fix shipped,
+        # "drop all" answered "I'm dropping everything" and "drop" answered
+        # "I'm dropping" -- both reading as completed actions.
+        for phrase in ("drop all", "drop", "finish", "clear", "reset all"):
+            with self.subTest(phrase=phrase):
+                reply = command_handlers.near_miss_command(phrase)
+                self.assertIsNotNone(
+                    reply, f"{phrase!r} fell through to the model"
+                )
+                self.assertIn("nothing ran", reply)
+
+    def test_a_singular_command_name_still_finds_its_plural(self):
+        # "finish goal" is one character from "finish goals" and answered
+        # "I'm finishing the goal". The match was exact per word, so a
+        # plural the table spells differently was a total miss.
+        reply = command_handlers.near_miss_command("finish goal")
+
+        self.assertIsNotNone(reply, "'finish goal' fell through to the model")
+        self.assertIn("nothing ran", reply)
+        self.assertIn("goals", reply)
+
+    def test_an_action_verb_inside_a_sentence_is_still_conversation(self):
+        # The verb rule must not swallow ordinary speech that happens to
+        # use one. Any conversational word disqualifies the phrase.
+        for phrase in (
+            "can you drop me a line",
+            "i want to finish this",
+            "what did you drop",
+            "i think we should finish",
+            "please cancel that",
+            "did you delete it",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIsNone(
+                    command_handlers.near_miss_command(phrase),
+                    f"ordinary conversation was refused: {phrase!r}",
+                )
+
+    def test_one_edit_matching_does_not_collapse_short_words(self):
+        # A one-character tolerance across two-letter words would make
+        # every short token match every other one.
+        self.assertTrue(command_handlers._within_one_edit("goals", "goal"))
+        self.assertTrue(command_handlers._within_one_edit("goals", "goels"))
+        self.assertFalse(command_handlers._within_one_edit("up", "in"))
+        self.assertFalse(command_handlers._within_one_edit("play", "stop"))
+        # Two edits away, not one: "goals" -> "gls" drops both vowels.
+        self.assertFalse(command_handlers._within_one_edit("goals", "gls"))
+        # Real command names must never collide with each other.
+        self.assertFalse(command_handlers._within_one_edit("pause", "resume"))
+
     def test_a_requested_but_unbuilt_feature_says_so(self):
         # It answered this one by describing itself humming a melody of
         # purpose. The feature does not exist; saying that is the answer.

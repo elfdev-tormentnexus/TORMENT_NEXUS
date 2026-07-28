@@ -54,6 +54,17 @@ explicit.
   unlike the documentation patch it replaces a manifest-hashed file, so it is
   a deliberate opt-in step. Suite count with the guard applied: **640 passed,
   2 skipped**.
+- Closed the gap in that second fix, found by live testing after the archive
+  was built. `near_miss_command` matched a real command name plus one stray
+  word, which cannot reach a phrase resembling no command at all: nothing in
+  the table contains "drop", so `drop all` still answered "I'm dropping
+  everything", and `finish goal` — one character from the real `finish
+  goals` — still answered "I'm finishing the goal". Words are now compared
+  allowing one typo each, and a phrase built on a state-changing verb that
+  matches nothing is answered directly. Ordinary speech containing such a
+  verb is untouched. Ships as the manually applied `command-guard-patch`
+  asset. Suite count with both guard patches applied: **644 passed, 2
+  skipped**.
 - Reworked the music visualizer: a wall-clock anchor layer across all eight
   scenes, higher scene reactivity, and fixes to the acid lattice line width
   and the datastream horizon. Added playback loudness matching, which

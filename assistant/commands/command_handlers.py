@@ -3061,6 +3061,58 @@ _PHRASE_HINTS = {
     "what should i call you": "name",
 }
 
+# Verbs whose whole meaning is that state changed. The shapes below match a
+# phrase against real command names, which cannot help when the phrase
+# resembles no command at all: nothing in the table contains "drop", so
+# "drop all" could never be one word away from anything and fell through to
+# the director every time. On 2026-07-28, after the first near-miss fix
+# shipped, "drop all" still answered "I'm dropping everything" and "finish
+# goal" still answered "I'm finishing the goal". Neither had run.
+#
+# A miss here is not neutral the way an ordinary miss is. These verbs are
+# exactly the ones whose narration reads as a completed action, so the
+# operator is told a thing happened that did not.
+_UNPERFORMED_ACTION_VERBS = frozenset(
+    "drop finish complete clear reset delete cancel abort wipe purge "
+    "discard end abandon undo revert".split()
+)
+
+
+def _within_one_edit(first, second):
+    """True when two words differ by at most one insert, delete or swap."""
+    if first == second:
+        return True
+
+    long_word, short_word = (
+        (first, second) if len(first) >= len(second) else (second, first)
+    )
+
+    # A single-character word is too short for an edit to be evidence of
+    # anything; "a" and "i" would match every other one-letter token.
+    if len(short_word) < 3 or len(long_word) - len(short_word) > 1:
+        return False
+
+    if len(long_word) == len(short_word):
+        return sum(
+            a != b for a, b in zip(long_word, short_word)
+        ) == 1
+
+    for index in range(len(long_word)):
+        if long_word[:index] + long_word[index + 1:] == short_word:
+            return True
+
+    return False
+
+
+def _command_words_match(typed, actual):
+    """Compare a typed phrase to a command name, tolerating one typo."""
+    if len(typed) != len(actual):
+        return False
+
+    return all(
+        _within_one_edit(left, right) for left, right in zip(typed, actual)
+    )
+
 
 def near_miss_command(user_input):
     """
@@ -3140,12 +3192,37 @@ def near_miss_command(user_input):
         if len(words) != len(parts) + 1:
             continue
 
-        if words[1:] == parts and words[0] not in _CONVERSATIONAL_WORDS:
+        # One typo tolerated per word, so a plural that the table spells
+        # differently still resolves: "finish goal" reaches "goals" instead
+        # of reaching the director, which answered "I'm finishing the goal".
+        if (
+            _command_words_match(words[1:], parts)
+            and words[0] not in _CONVERSATIONAL_WORDS
+        ):
             suggestions.append(name)
-        elif words[:-1] == parts and words[-1] not in _CONVERSATIONAL_WORDS:
+        elif (
+            _command_words_match(words[:-1], parts)
+            and words[-1] not in _CONVERSATIONAL_WORDS
+        ):
             suggestions.append(name)
 
     if not suggestions:
+        # Nothing resembles a command. If the phrase is a bare instruction
+        # built on a state-changing verb, saying so is still better than
+        # letting it be narrated as done. Any ordinary conversational word
+        # disqualifies it, which is what keeps "can you drop me a line" and
+        # "i want to finish this" out.
+        if (
+            words[0] in _UNPERFORMED_ACTION_VERBS
+            and not any(word in _CONVERSATIONAL_WORDS for word in words)
+        ):
+            return (
+                f"'{user_input.strip()}' is not a command, and nothing ran.\n"
+                "Nothing was dropped, finished, cleared or changed.\n"
+                "\n"
+                "Type 'help' for the full list."
+            )
+
         return None
 
     # Shortest first: the closest match is the most useful guess.
