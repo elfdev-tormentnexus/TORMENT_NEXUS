@@ -317,6 +317,63 @@ def decode_beam(png_path):
     return [[low + b * scale for b in row[:dims]] for row in rows], header
 
 
+def trace(path, stone, top=1, use_project=False, seed=20260728):
+    """Read a trajectory against a concept dictionary, token by token.
+
+    This is the one thing the pooled vector cannot do at all. A mean says
+    what a sentence is about; a trace says *where* in the sentence each
+    meaning appeared, by profiling every token position against the anchor
+    set rather than profiling the sentence as a whole.
+
+    The anchors are a hand-assigned dictionary of concept directions, so
+    the readout is in chosen English rather than in learned coordinates:
+    at token 7 this leans toward "grandparents telling the same story
+    again", at token 11 toward "a promise made to a dying person".
+
+    Requires both servers. The path comes from an unpooled instance and the
+    stone from a pooled one, because llama.cpp fixes pooling at launch.
+
+    Returns a list of (index, rgb, [(score, anchor), ...]).
+    """
+    import rosetta_stone as rs
+
+    cols = colours(path, seed)
+    out = []
+    for i, (vec, rgb) in enumerate(zip(path, cols)):
+        out.append((i, rgb, rs.profile(vec, stone, top=top,
+                                       use_project=use_project)))
+    return out
+
+
+def cmd_trace(args):
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import rosetta_stone as rs
+
+    stone = rs.build_stone(args.stone_url, args.stone_key, args.use_project)
+    path = beam(args.text, args.url, args.key)
+    rows = trace(path, stone, args.top, args.use_project)
+
+    print(f'"{args.text}"\n')
+    print(f"  tokens {len(path)}   anchors {stone['core_count']}"
+          f"{' + ' + str(stone['project_count']) if args.use_project else ''}")
+    print(f"\n{'#':>3}  {'colour':<17} strongest concept at that point")
+    print("  " + "-" * 72)
+    for i, rgb, hits in rows:
+        head = f"{i:>3}  rgb({rgb[0]:>3},{rgb[1]:>3},{rgb[2]:>3})"
+        for n, (score, anchor) in enumerate(hits):
+            print(f"{head if n == 0 else ' ' * len(head)}  {score:+.3f}  {anchor}")
+
+    # The peaks are the point: where a concept is strongest along the path.
+    best = {}
+    for i, _, hits in rows:
+        for score, anchor in hits:
+            if anchor not in best or score > best[anchor][0]:
+                best[anchor] = (score, i)
+    print("\n  peaks:")
+    for anchor, (score, i) in sorted(best.items(), key=lambda kv: -kv[1][0]):
+        print(f"    token {i:>3}  {score:+.3f}  {anchor}")
+
+
 def cmd_encode(args):
     path = beam(args.text, args.url, args.key)
     header = encode_beam(path, args.out, args.text, args.url)
@@ -353,11 +410,17 @@ def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
     for name, fn in (("render", cmd_render), ("measure", cmd_measure),
-                     ("encode", cmd_encode)):
+                     ("encode", cmd_encode), ("trace", cmd_trace)):
         s = sub.add_parser(name)
         s.add_argument("text")
         s.add_argument("--url", required=True)
         s.add_argument("--key")
+        if name == "trace":
+            s.add_argument("--stone-url", required=True,
+                           help="a POOLED embedding server, for the anchors")
+            s.add_argument("--stone-key")
+            s.add_argument("--top", type=int, default=1)
+            s.add_argument("--use-project", action="store_true")
         if name in ("render", "encode"):
             s.add_argument("--out",
                            default="beam.png" if name == "render" else "beam_sable7.png")

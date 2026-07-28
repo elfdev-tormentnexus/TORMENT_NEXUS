@@ -178,6 +178,57 @@ class Sable7ContainerTests(unittest.TestCase):
         self.assertTrue(all(len(row) == 4 for row in back))
 
 
+class TraceTests(unittest.TestCase):
+    """Reading a trajectory against a concept dictionary, token by token.
+
+    The capability the pooled vector cannot provide at all: not what a
+    sentence is about, but where in the sentence each meaning appeared.
+    """
+
+    def _stone(self):
+        # Two orthogonal concepts, so which token leans where is unambiguous.
+        return {
+            "magic": "SABLEROSETTA1",
+            "core_count": 2,
+            "project_count": 1,
+            "anchors_core": ["east", "north"],
+            "anchors_project": ["up"],
+            "anchor_vectors": [[1.0, 0.0, 0.0],
+                               [0.0, 1.0, 0.0],
+                               [0.0, 0.0, 1.0]],
+        }
+
+    def test_one_row_per_token(self):
+        path = [[1.0, 0.1, 0.0], [0.1, 1.0, 0.0], [0.5, 0.5, 0.0]]
+        rows = vb.trace(path, self._stone())
+        self.assertEqual(len(rows), len(path))
+
+    def test_each_row_carries_index_colour_and_concepts(self):
+        path = [[1.0, 0.1, 0.0], [0.1, 1.0, 0.0], [0.5, 0.5, 0.0]]
+        for i, (index, rgb, hits) in enumerate(vb.trace(path, self._stone())):
+            self.assertEqual(index, i)
+            self.assertEqual(len(rgb), 3)
+            self.assertTrue(hits)
+
+    def test_the_concept_is_located_at_the_token_that_carries_it(self):
+        # Token 0 points east, token 1 points north. A trace that cannot
+        # tell them apart is not doing the one thing it exists for.
+        path = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]]
+        rows = vb.trace(path, self._stone(), top=1)
+        self.assertEqual(rows[0][2][0][1], "east")
+        self.assertEqual(rows[1][2][0][1], "north")
+
+    def test_project_anchors_are_excluded_unless_requested(self):
+        path = [[0.0, 0.0, 1.0]]
+        named = [a for _, _, hits in vb.trace(path, self._stone(), top=3)
+                 for _, a in hits]
+        self.assertNotIn("up", named)
+        named = [a for _, _, hits in
+                 vb.trace(path, self._stone(), top=3, use_project=True)
+                 for _, a in hits]
+        self.assertIn("up", named)
+
+
 class CosineTests(unittest.TestCase):
     def test_identical_vectors(self):
         self.assertAlmostEqual(vb.cosine([1.0, 2.0], [1.0, 2.0]), 1.0)
