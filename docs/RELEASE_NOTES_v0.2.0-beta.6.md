@@ -48,6 +48,40 @@ presents the mandatory in-app safety, privacy, and model disclosure. The
 maintenance, one-cycle autonomous-repair, and full-maintenance launchers show
 additional warnings and require exact typed acknowledgement before starting.
 
+## Experimental and high-risk capabilities
+
+Everything in this table is **off on a fresh installation** unless stated
+otherwise. None of it starts on its own. It is listed here, before the
+download instructions, so nobody discovers it after fetching 12 GB.
+
+| Capability | Default | What it can do when you turn it on |
+| --- | --- | --- |
+| One-cycle autonomous repair (`start_autonomous_self_heal.bat`) | Off; needs the typed phrase `RUN ONE AUTONOMOUS REPAIR` | Inspects, modifies, validates and rolls back project files **without approving each individual edit** |
+| Maintenance / full-maintenance coder profiles | Off; separate launchers, exact typed acknowledgement | Bounded project editing and repair under review |
+| Local agent interface (`TORMENT_NEXUS_AGENT_API=1`) | Off | Token-authenticated, GET-only service on `127.0.0.1:8099`; lets an authorised outside agent search private memory and knowledge and ask the local director a read-only question. No write or command endpoints |
+| Outbound escalation (`TORMENT_NEXUS_ESCALATION=1` plus a provider key) | Off; a key on disk alone does not enable it | Sends the question text you type to Anthropic or OpenAI under their billing, retention and terms |
+| Semantic retrieval and embeddings | On when the local embedding service is healthy | Local-only vector retrieval; degrades to lexical matching when absent |
+| Web search | Backend set to self-hosted SearXNG on `127.0.0.1:8081` | See the note below — the search service is **not** part of this download |
+| Foreground activity awareness | Off | Records application, window title, idle time and load locally |
+| Radar / room sensing | Not present | Hardware has not arrived; nothing is shipped |
+
+**Autonomous editing is the one to read twice.** It is genuinely capable of
+changing this project's source without asking about each change. The
+guardrails — protected files, previews, backups, fixed checks, tests and
+rollback — reduce risk and are not a security sandbox.
+
+**Web search is inert as shipped.** The default backend expects a self-hosted
+SearXNG instance on loopback, which lives outside the packaged tree and is not
+included here. Until you run one, or switch the backend to Brave and supply
+your own API key, web search simply returns nothing. When a search service
+*is* running, queries leave your machine through it.
+
+**The semantic thresholds are calibrated measurements, not universal
+constants.** They were measured against this exact stack: this embedding
+model, quantization, runtime, and mean pooling — deliberately chosen over the
+CLS pooling upstream BGE examples commonly use. Changing any of those
+invalidates the numbers and requires recalibration.
+
 ## What is in the package
 
 - Qwen3 4B abliterated Q8 director;
@@ -209,6 +243,12 @@ commands that inspect, disable, or erase it.
 Web search, provider escalation, Spotify metadata lookup, radio transmission,
 and connected hardware are separate optional paths. Each can cross a local or
 network boundary only when configured and used.
+
+The embedding service is local-only and Beta 6 rejects a non-loopback
+embedding URL. One exception is worth stating plainly: if you configure a
+**remote director server**, retrieved memories and reference context are sent
+to it as part of an ordinary model prompt. The local-first claim covers the
+embedder, not that director traffic.
 
 The release builder refuses to include the maintainer's conversations,
 memories, chosen name, activity history, imported knowledge documents, derived
