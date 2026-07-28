@@ -1,0 +1,379 @@
+"""
+Renders the retrieval field: a memory cloud and a token-entropy strip.
+
+Two independent real measurements share one panel. Neither is decorative and
+neither claims a mechanism that was not measured:
+
+- The cloud is memories projected to 2D. Position is the first two principal
+  components, hue is the third, and BRIGHTNESS IS RECONSTRUCTION FIDELITY --
+  a point the projection is misrepresenting renders dim. The panel shows where
+  it is lying rather than hiding it behind a disclaimer.
+- The strip is per-token entropy from the sampler's own distribution. Unlike
+  the projection this is not lossy; it is the number the model produced.
+
+A lit point and a strip column are related by SEQUENCE, not causation. Nothing
+in llama.cpp's HTTP API can attribute a token to a memory, so no arc drawn here
+may assert that it does. The one real relationship available is lexical echo --
+"this word appears in that memory" -- which is an observation, not a mechanism.
+
+This module is pure rendering. It never reads files, reaches the network, or
+imports project state, so it can be previewed standalone:
+
+    python -m ui.vector_panel
+"""
+
+import colorsys
+import math
+import random
+
+
+HALF_BLOCK = "▀"
+RESET = "\x1b[0m"
+
+# A point stops being "recently retrieved" after this many decay steps.
+GLOW_STEPS = 40
+ECHO_STEPS = 12
+
+
+def _fg(rgb):
+    r, g, b = rgb
+    return f"\x1b[38;2;{r};{g};{b}m"
+
+
+def _bg(rgb):
+    r, g, b = rgb
+    return f"\x1b[48;2;{r};{g};{b}m"
+
+
+def _hsv(hue, sat, val):
+    r, g, b = colorsys.hsv_to_rgb(hue % 1.0, max(0.0, min(1.0, sat)),
+                                  max(0.0, min(1.0, val)))
+    return int(r * 255), int(g * 255), int(b * 255)
+
+
+# ============================================================
+# PROJECTION
+# ============================================================
+
+def _dot(a, b):
+    return sum(x * y for x, y in zip(a, b))
+
+
+def _norm(v):
+    return math.sqrt(_dot(v, v)) or 1.0
+
+
+def _unit(v):
+    n = _norm(v)
+    return [x / n for x in v]
+
+
+def _power_iterate(rows, exclude, steps=24):
+    """Top principal direction of `rows`, orthogonal to everything in `exclude`."""
+    if not rows:
+        return []
+
+    dim = len(rows[0])
+    vector = [random.gauss(0.0, 1.0) for _ in range(dim)]
+
+    for _ in range(steps):
+        accumulated = [0.0] * dim
+
+        for row in rows:
+            scale = _dot(row, vector)
+            for i, value in enumerate(row):
+                accumulated[i] += scale * value
+
+        for previous in exclude:
+            scale = _dot(accumulated, previous)
+            for i in range(dim):
+                accumulated[i] -= scale * previous[i]
+
+        if not any(accumulated):
+            return _unit([random.gauss(0.0, 1.0) for _ in range(dim)])
+
+        vector = _unit(accumulated)
+
+    return vector
+
+
+def project(vectors, previous=None):
+    """
+    Project high-dimensional vectors to (x, y, hue, fidelity) in 0..1.
+
+    `previous` is the last projection's components. Passing it keeps the
+    layout anchored: principal components are sign-ambiguous and will flip
+    between recomputations, which would teleport every point and destroy the
+    one-memory-one-pixel correspondence the panel exists to show.
+    """
+    if not vectors:
+        return [], []
+
+    dim = len(vectors[0])
+    centre = [
+        sum(v[i] for v in vectors) / len(vectors)
+        for i in range(dim)
+    ]
+    centred = [[v[i] - centre[i] for i in range(dim)] for v in vectors]
+
+    components = []
+    for _ in range(3):
+        components.append(_power_iterate(centred, components))
+
+    # Anchor against the previous frame. Flipping a component's sign is a
+    # free choice mathematically and a catastrophe visually.
+    if previous:
+        for index, component in enumerate(components):
+            if index < len(previous) and _dot(component, previous[index]) < 0:
+                components[index] = [-x for x in component]
+
+    coords = []
+    for row in centred:
+        a, b, c = (_dot(row, comp) for comp in components)
+
+        # How much of this point survives the flattening. Points the
+        # projection misrepresents are drawn dim.
+        kept = math.sqrt(a * a + b * b)
+        total = _norm(row)
+        fidelity = max(0.0, min(1.0, kept / total)) if total else 0.0
+
+        coords.append([a, b, c, fidelity])
+
+    for axis in range(3):
+        values = [c[axis] for c in coords]
+        low, high = min(values), max(values)
+        span = (high - low) or 1.0
+        for c in coords:
+            c[axis] = (c[axis] - low) / span
+
+    return coords, components
+
+
+# ============================================================
+# FIELD
+# ============================================================
+
+class Field:
+    """Holds panel state. Fed by the caller; never reads anything itself."""
+
+    def __init__(self):
+        self.points = []          # [{x, y, hue, fidelity, glow, echo}]
+        self._components = None
+        self.entropy = []         # recent per-token entropy, 0..1
+        self.echo_column = None
+
+    def set_memories(self, vectors):
+        """Re-project. Existing glow survives so a new memory nudges the field."""
+        coords, self._components = project(vectors, self._components)
+        glow = [p["glow"] for p in self.points]
+        echo = [p["echo"] for p in self.points]
+
+        self.points = []
+        for index, (x, y, hue, fidelity) in enumerate(coords):
+            self.points.append({
+                "x": x,
+                "y": y,
+                "hue": hue,
+                "fidelity": fidelity,
+                "glow": glow[index] if index < len(glow) else 0,
+                "echo": echo[index] if index < len(echo) else 0,
+            })
+
+    def retrieve(self, indices):
+        """Light the memories `select_relevant()` actually returned."""
+        for index in indices:
+            if 0 <= index < len(self.points):
+                self.points[index]["glow"] = GLOW_STEPS
+
+    def push_token(self, probabilities, echoed=()):
+        """
+        Append one generated token.
+
+        `probabilities` is the top-N candidate distribution. `echoed` are the
+        indices of lit memories whose text contains this token -- an
+        observation about vocabulary, not a claim about causation.
+        """
+        total = sum(probabilities) or 1.0
+        normalised = [p / total for p in probabilities]
+        raw = -sum(p * math.log(p) for p in normalised if p > 0)
+        ceiling = math.log(len(normalised)) if len(normalised) > 1 else 1.0
+
+        self.entropy.append(min(1.0, raw / ceiling))
+        self.echo_column = len(self.entropy) - 1
+
+        for index in echoed:
+            if 0 <= index < len(self.points):
+                self.points[index]["echo"] = ECHO_STEPS
+
+    def decay(self):
+        for point in self.points:
+            point["glow"] = max(0, point["glow"] - 1)
+            point["echo"] = max(0, point["echo"] - 1)
+
+    # --------------------------------------------------------
+    # RENDER
+    # --------------------------------------------------------
+
+    def render(self, width, height, strip_rows=8):
+        """Return `height` ANSI strings, each `width` cells wide."""
+        cloud_rows = max(1, height - strip_rows - 1)
+
+        lines = self._render_cloud(width, cloud_rows)
+        lines.append(_fg((70, 30, 40)) + "─" * width + RESET)
+        lines.extend(self._render_strip(width, strip_rows))
+
+        return lines[:height]
+
+    def _render_cloud(self, width, rows):
+        # Two vertical pixels per cell via the half block.
+        pixels = [[None] * width for _ in range(rows * 2)]
+
+        for point in self.points:
+            col = int(point["x"] * (width - 1))
+            row = int((1.0 - point["y"]) * (rows * 2 - 1))
+
+            if not (0 <= col < width and 0 <= row < rows * 2):
+                continue
+
+            # Brightness carries projection fidelity, so a badly-placed point
+            # announces itself. Retrieval and echo add on top.
+            value = 0.18 + 0.55 * point["fidelity"]
+            sat = 0.35 + 0.45 * point["fidelity"]
+
+            if point["glow"]:
+                lift = point["glow"] / GLOW_STEPS
+                value = min(1.0, value + 0.45 * lift)
+                sat = min(1.0, sat + 0.35 * lift)
+
+            if point["echo"]:
+                value = min(1.0, value + 0.5 * (point["echo"] / ECHO_STEPS))
+
+            pixels[row][col] = _hsv(point["hue"], sat, value)
+
+        return self._pack(pixels, width, rows)
+
+    def _render_strip(self, width, rows):
+        pixels = [[None] * width for _ in range(rows * 2)]
+        visible = self.entropy[-width:]
+        offset = len(self.entropy) - len(visible)
+
+        for col, level in enumerate(visible):
+            filled = int(level * (rows * 2 - 1)) + 1
+
+            for step in range(filled):
+                row = rows * 2 - 1 - step
+                intensity = step / max(1, rows * 2 - 1)
+
+                # Red when it committed, toward violet when the mass split.
+                hue = 0.02 + 0.72 * level
+                pixels[row][col] = _hsv(
+                    hue,
+                    0.85,
+                    0.30 + 0.65 * (level * 0.6 + intensity * 0.4),
+                )
+
+            if self.echo_column is not None and offset + col == self.echo_column:
+                pixels[rows * 2 - 1][col] = (255, 240, 200)
+
+        return self._pack(pixels, width, rows)
+
+    @staticmethod
+    def _pack(pixels, width, rows):
+        """Two pixel rows per text row: foreground is top, background bottom."""
+        lines = []
+
+        for row in range(rows):
+            top_row = pixels[row * 2]
+            bottom_row = pixels[row * 2 + 1]
+            out = []
+            last = None
+
+            for col in range(width):
+                top, bottom = top_row[col], bottom_row[col]
+
+                if top is None and bottom is None:
+                    if last is not None:
+                        out.append(RESET)
+                        last = None
+                    out.append(" ")
+                    continue
+
+                style = _fg(top or (0, 0, 0)) + _bg(bottom or (0, 0, 0))
+
+                if style != last:
+                    out.append(style)
+                    last = style
+
+                out.append(HALF_BLOCK)
+
+            out.append(RESET)
+            lines.append("".join(out))
+
+        return lines
+
+
+# ============================================================
+# STANDALONE PREVIEW
+# ============================================================
+
+def _synthetic(count=140, dim=48, clusters=5):
+    """Clustered fake embeddings, so the projection has structure to find."""
+    centres = [
+        [random.gauss(0, 1) for _ in range(dim)]
+        for _ in range(clusters)
+    ]
+    return [
+        [
+            value + random.gauss(0, 0.35)
+            for value in centres[index % clusters]
+        ]
+        for index in range(count)
+    ]
+
+
+def _demo(frames=240, width=44, height=40):
+    import sys
+    import time
+
+    field = Field()
+    field.set_memories(_synthetic())
+
+    sys.stdout.write("\x1b[?25l")
+    try:
+        for frame in range(frames):
+            if frame % 60 == 0:
+                field.retrieve(random.sample(range(len(field.points)), 6))
+
+            if frame % 2 == 0:
+                # Bursty confidence: mostly settled, occasional fork.
+                if random.random() < 0.22:
+                    probs = [random.random() for _ in range(5)]
+                else:
+                    probs = [0.9] + [random.random() * 0.06 for _ in range(4)]
+
+                lit = [
+                    i for i, p in enumerate(field.points) if p["glow"]
+                ]
+                echoed = (
+                    random.sample(lit, 1)
+                    if lit and random.random() < 0.25
+                    else ()
+                )
+                field.push_token(probs, echoed)
+
+            field.decay()
+
+            sys.stdout.write("\x1b[H")
+            sys.stdout.write("\n".join(field.render(width, height)))
+            sys.stdout.flush()
+            time.sleep(1 / 30)
+    finally:
+        sys.stdout.write("\x1b[?25h" + RESET + "\n")
+
+
+if __name__ == "__main__":
+    import os
+
+    os.system("")  # enable ANSI on Windows consoles
+    print("\x1b[2J", end="")
+    _demo()
