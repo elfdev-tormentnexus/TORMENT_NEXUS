@@ -2259,9 +2259,7 @@ class LayeredDisplayEngine:
     # hardware-like visual language before the rotation moves into the more
     # abstract scenes.
     _MUSIC_SCENES = (
-        "aqua player",
         "radial tunnel",
-        "spectrum cathedral",
         "orbital reactor",
         "corrupt cube",
         "neon horizon",
@@ -3186,15 +3184,9 @@ def skip_local_track():
 
 def _make_music_scene(name, palette):
     """Construct a visualizer lazily; normal chat never imports these scenes."""
-    if name == "aqua player":
-        from visualizer.y2k_player import Y2KPlayerVisualizer
-        return Y2KPlayerVisualizer(palette)
     if name == "radial tunnel":
         from visualizer.radial import RadialVisualizer
         return RadialVisualizer(palette)
-    if name == "spectrum cathedral":
-        from visualizer.spectrum import SpectrumVisualizer
-        return SpectrumVisualizer(palette)
     if name == "orbital reactor":
         from visualizer.reactor import ReactorVisualizer
         return ReactorVisualizer(palette)
@@ -3281,7 +3273,7 @@ def enter_music_mode():
     _visualizer_output_guard.start()
     try:
         from visualizer.audio_source import AudioSource
-        _make_music_scene("aqua player", _engine._MUSIC_PALETTES[0][1])
+        _make_music_scene(_engine._MUSIC_SCENES[0], _engine._MUSIC_PALETTES[0][1])
     except Exception as error:
         _visualizer_output_guard.stop()
         return f"Music mode unavailable: {error}"

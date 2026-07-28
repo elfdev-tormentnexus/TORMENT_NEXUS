@@ -2,19 +2,6 @@
 
 
 _PROFILES = {
-    # The player panel has its own physical meters, so it favors quick bass
-    # arrivals, sharp beat flashes, and a generously readable spectrum.
-    "aqua player": {
-        "bass": (1.56, 0.60),
-        "mid": (1.34, 0.70),
-        "treble": (1.42, 0.66),
-        "level": (1.42, 0.68),
-        "beat": (2.20, 0.64),
-        "stereo_width": (1.44, 0.68),
-        "spectrum": (1.60, 0.58),
-        "waveform": 1.56,
-        "pan": 1.34,
-    },
     "radial tunnel": {
         "bass": (1.42, 0.68),
         "mid": (1.22, 0.76),
@@ -25,17 +12,6 @@ _PROFILES = {
         "spectrum": (1.34, 0.66),
         "waveform": 1.48,
         "pan": 1.28,
-    },
-    "spectrum cathedral": {
-        "bass": (1.28, 0.74),
-        "mid": (1.30, 0.72),
-        "treble": (1.48, 0.64),
-        "level": (1.42, 0.70),
-        "beat": (1.80, 0.72),
-        "stereo_width": (1.18, 0.82),
-        "spectrum": (1.58, 0.58),
-        "waveform": 1.62,
-        "pan": 1.18,
     },
     "orbital reactor": {
         "bass": (1.58, 0.60),
@@ -168,8 +144,8 @@ def shape_features(features, scene_name):
     Return a copy whose quiet details and transients are easier to see.
 
     Each scene emphasizes the part of the music that fits its visual language:
-    bass expands the tunnel and reactor, spectrum detail raises the cathedral,
-    and mids/treble push the cube's motion and corruption.
+    bass expands the tunnel and reactor, mids and treble push the cube's
+    motion and corruption, and onsets alone fracture the lattice.
     """
     source = dict(features or {})
     profile = _PROFILES.get(scene_name, _DEFAULT_PROFILE)

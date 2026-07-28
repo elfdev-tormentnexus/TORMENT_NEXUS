@@ -51,13 +51,11 @@ from visualizer import reactivity
 from visualizer import spotify_control
 from visualizer.cube import CubeVisualizer
 from visualizer.radial import RadialVisualizer
-from visualizer.spectrum import SpectrumVisualizer
 from visualizer.reactor import ReactorVisualizer
 from visualizer.grid import GridVisualizer
 from visualizer.plasma import PlasmaVisualizer
 from visualizer.datastream import DatastreamVisualizer
 from visualizer.wormhole import WormholeVisualizer
-from visualizer.y2k_player import Y2KPlayerVisualizer
 from visualizer.acid_lattice import AcidLatticeVisualizer
 
 # The desktop icon animator lives beside the assistant package, not in it.
@@ -3511,8 +3509,6 @@ class MusicVisualizerTests(unittest.TestCase):
         features = self._features()
 
         for scene_class in (
-            Y2KPlayerVisualizer,
-            SpectrumVisualizer,
             ReactorVisualizer,
             CubeVisualizer,
             GridVisualizer,
@@ -3539,8 +3535,6 @@ class MusicVisualizerTests(unittest.TestCase):
         features = self._features()
 
         for scene_class in (
-            Y2KPlayerVisualizer,
-            SpectrumVisualizer,
             ReactorVisualizer,
             CubeVisualizer,
             GridVisualizer,
@@ -3562,7 +3556,7 @@ class MusicVisualizerTests(unittest.TestCase):
                 )
 
     def test_aqua_player_is_the_default_scene(self):
-        self.assertEqual(ui._engine._MUSIC_SCENES[0], "aqua player")
+        self.assertEqual(ui._engine._MUSIC_SCENES[0], "radial tunnel")
 
     def test_every_scene_lifts_quiet_audio_and_transients(self):
         features = {
@@ -3601,7 +3595,7 @@ class MusicVisualizerTests(unittest.TestCase):
         }
 
         radial = reactivity.shape_features(features, "radial tunnel")
-        cathedral = reactivity.shape_features(features, "spectrum cathedral")
+        cathedral = reactivity.shape_features(features, "orbital reactor")
         reactor = reactivity.shape_features(features, "orbital reactor")
         cube = reactivity.shape_features(features, "corrupt cube")
 
@@ -3639,7 +3633,6 @@ class MusicVisualizerTests(unittest.TestCase):
         features = self._features()
 
         for scene_class in (
-            Y2KPlayerVisualizer,
             GridVisualizer,
             PlasmaVisualizer,
             DatastreamVisualizer,
@@ -3664,7 +3657,6 @@ class MusicVisualizerTests(unittest.TestCase):
             self.skipTest("numpy is installed by the optional voice setup")
 
         for scene_class in (
-            Y2KPlayerVisualizer,
             GridVisualizer,
             PlasmaVisualizer,
             DatastreamVisualizer,
@@ -4176,7 +4168,10 @@ class AudioModeUiTests(unittest.TestCase):
 
         self.assertEqual(engine.music_scene_index, 1)
         self.assertEqual(engine.current_input, "keep this draft")
-        self.assertIn("radial tunnel", engine.music_status)
+        # Named from the list rather than hardcoded: this test is about the
+        # arrow key advancing the scene and preserving the draft, not about
+        # which scene happens to sit second.
+        self.assertIn(engine._MUSIC_SCENES[1], engine.music_status)
 
     def test_volume_command_is_visible_without_developer_mode(self):
         with mock.patch.object(ui, "set_music_volume", return_value=70) as setter:
