@@ -7440,21 +7440,43 @@ class DocumentationTests(unittest.TestCase):
             root / "docs" / "INSTALL_WINDOWS.md"
         ).read_text(encoding="utf-8")
 
+        # v0.2.0-beta.1 ships a single archive again: the music visualizer
+        # repair that beta.3 needed as a separate patch is built in. So the
+        # asset list drops from four files to three, and the beginner path is
+        # the plain reassemble-extract-setup route rather than a patched
+        # installer. A stale name here is worse than a wrong one -- it sends a
+        # first-time user hunting a release page for a file that is not there.
         for text in (readme, installer):
             with self.subTest(document="README" if text is readme else "installer"):
                 self.assertIn("TORMENT_NEXUS.zip.part01", text)
                 self.assertIn("TORMENT_NEXUS.zip.part02", text)
-                self.assertIn(
-                    "TORMENT_NEXUS_v0.1.0-beta.3_"
-                    "MUSIC_VISUALIZER_PATCH.zip",
-                    text,
-                )
-                self.assertIn(
-                    "INSTALL_TORMENT_NEXUS_BETA3_WITH_MUSIC_PATCH.bat",
-                    text,
-                )
                 self.assertIn("REASSEMBLE_TORMENT_NEXUS.bat", text)
                 self.assertIn("Source code", text)
+
+                # Retired assets must not be named anywhere a beginner reads.
+                self.assertNotIn("MUSIC_VISUALIZER_PATCH", text)
+                self.assertNotIn("WITH_MUSIC_PATCH", text)
+
+    def test_beginner_docs_point_at_the_current_release(self):
+        # The download link and the version a bug reporter is asked to quote
+        # both drift silently, and both are read by someone who has no way to
+        # tell they are out of date.
+        root, _ = self._documents()
+        current = "v0.2.0-beta.1"
+
+        for name in ("README.md", "docs/INSTALL_WINDOWS.md",
+                     "docs/TROUBLESHOOTING.md", "docs/BETA_GUIDE.md"):
+            text = (root / name).read_text(encoding="utf-8")
+
+            with self.subTest(document=name):
+                self.assertNotIn("v0.1.0-beta.3", text)
+
+        for name in ("README.md", "docs/INSTALL_WINDOWS.md",
+                     "docs/TROUBLESHOOTING.md"):
+            text = (root / name).read_text(encoding="utf-8")
+
+            with self.subTest(document=name, check="names current release"):
+                self.assertIn(current, text)
 
 
 class BatchScriptTests(unittest.TestCase):

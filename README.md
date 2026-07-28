@@ -16,8 +16,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.1.0-beta.3">
-    Download the latest beta: v0.1.0-beta.3
+  <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.2.0-beta.1">
+    Download the latest beta: v0.2.0-beta.1
   </a>
 </p>
 
@@ -25,7 +25,7 @@
 > **Want to use TORMENT_NEXUS on Windows? Do not use GitHub's green
 > `Code` button or its automatic `Source code` downloads.** Those files are
 > for developers and do not contain the AI model or self-contained Windows
-> runtime. Follow the Windows instructions below and download the four named
+> runtime. Follow the Windows instructions below and download the three named
 > release files.
 
 ## Installing the Windows beta
@@ -48,30 +48,28 @@ download a separate model.
 ### Four installation steps
 
 1. Open the
-   [v0.1.0-beta.3 release page](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.1.0-beta.3)
+   [v0.2.0-beta.1 release page](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.2.0-beta.1)
    and expand **Assets** if the file list is hidden.
-2. Download all four of these files into the same folder:
+2. Download all three of these files into the same folder:
    - `TORMENT_NEXUS.zip.part01`
    - `TORMENT_NEXUS.zip.part02`
-   - `TORMENT_NEXUS_v0.1.0-beta.3_MUSIC_VISUALIZER_PATCH.zip`
-   - `INSTALL_TORMENT_NEXUS_BETA3_WITH_MUSIC_PATCH.bat`
-3. Double-click `INSTALL_TORMENT_NEXUS_BETA3_WITH_MUSIC_PATCH.bat`. It checks
-   the original download, extracts the app, installs the visualizer repair,
-   and starts the normal offline setup. Leave the window open until it says
-   setup is complete.
+   - `REASSEMBLE_TORMENT_NEXUS.bat`
+3. Double-click `REASSEMBLE_TORMENT_NEXUS.bat`. It joins the two parts back
+   into `TORMENT_NEXUS.zip`. Right-click that ZIP, choose **Extract All**,
+   open the extracted folder, and double-click `setup.bat`. Leave the window
+   open until it says setup is complete.
 4. Launch **TORMENT_NEXUS** from the new desktop shortcut.
 
 Setup is offline and normally takes only a few minutes. It changes nothing in
 your system Python, PATH, or registry. Everything stays in the extracted
 folder, apart from the desktop shortcut.
 
-Already installed Beta 3? Download only the music visualizer patch ZIP,
-extract it, close TORMENT_NEXUS, and double-click
-`APPLY_MUSIC_VISUALIZER_PATCH.bat`. It backs up the original files before
-repairing them.
+Upgrading from an earlier beta? Install this one into a new folder rather than
+extracting over the old one, and keep the old folder until the new version
+launches. Your local songs are in `assistant\music`.
 
-For the manual `REASSEMBLE_TORMENT_NEXUS.bat` route, checksum details, Windows
-security messages, or anything that does not match these steps, use the
+For checksum details, Windows security messages, or anything that does not
+match these steps, use the
 [complete Windows installation guide](docs/INSTALL_WINDOWS.md).
 
 ## Your first launch

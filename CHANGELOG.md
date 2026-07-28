@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.2.0-beta.1 — 2026-07-28
+
+The minor version moves rather than the patch level: coding work is now split
+across three role-bound models instead of one, the director model itself was
+replaced, and the Raspberry Pi target gained real hardware specifications.
+The music-visualizer repair that shipped as a separate patch for beta.3 is
+built in here, so this release is a single archive again.
+
 - Added a disabled, desktop-only Wi-Fi sensing experiment bridge. It accepts
   only one fresh, aggregate local status record from a separately authorised
   collector; it never changes a Wi-Fi driver, captures packets, retains CSI,

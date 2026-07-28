@@ -34,18 +34,16 @@ because GitHub cannot host it as one release asset.
 ## Downloading the correct package
 
 The complete beginner process is in
-[Installing on Windows](INSTALL_WINDOWS.md). In short, download these four
+[Installing on Windows](INSTALL_WINDOWS.md). In short, download these three
 files from the selected GitHub Release into the same folder:
 
 1. `TORMENT_NEXUS.zip.part01`
 2. `TORMENT_NEXUS.zip.part02`
-3. `TORMENT_NEXUS_v0.1.0-beta.3_MUSIC_VISUALIZER_PATCH.zip`
-4. `INSTALL_TORMENT_NEXUS_BETA3_WITH_MUSIC_PATCH.bat`
+3. `REASSEMBLE_TORMENT_NEXUS.bat`
 
-Run the patched installer helper. It verifies the original Beta 3 ZIP,
-extracts it, applies the music visualizer repair, and starts the ordinary
-offline setup. `REASSEMBLE_TORMENT_NEXUS.bat` remains available for the manual
-archive-only route.
+Run `REASSEMBLE_TORMENT_NEXUS.bat` to join the parts into a single
+`TORMENT_NEXUS.zip`, check it against the SHA-256 fingerprint in the release
+notes, then extract it and run `setup.bat`.
 
 GitHub's automatic **Source code (zip)** and **Source code (tar.gz)** downloads
 are for developers. They are not ready-to-run packages.
