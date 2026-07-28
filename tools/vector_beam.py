@@ -33,11 +33,23 @@ is llama.cpp's own /embeddings -- the OpenAI-compatible one refuses it.
 """
 import argparse
 import math
+import os
 import struct
 import sys
 import zlib
 
 import requests
+
+# The trajectory format, named by the operator.
+#
+# It is deliberately not a revision of SABLE1 or SABLEVEC1 despite the
+# family resemblance in the name -- those carry an unordered payload and an
+# unordered *set* of vectors respectively, and neither has any notion of
+# sequence. SABLE7 carries an ordered path with token boundaries and the
+# text that produced it, because for a trajectory the order is the content.
+# A reader that treats a SABLE7 payload as a SABLEVEC1 set gets the right
+# numbers in a meaningless arrangement, which is why it declares itself.
+MAGIC = "SABLE7"
 
 
 def beam(text, url, api_key=None, timeout=180):
@@ -181,16 +193,139 @@ def render(path, out_path, text="", width=1200, height=300, seed=20260728):
     stats = measure(path)
     _png(out_path, width, height, rows, text_chunks=[
         ("Title", "SABLE beam"),
+        ("Format", MAGIC),
         ("Comment",
-         "Per-token embedding trajectory rendered as a beam. Colour is a "
-         "fixed seeded 3-axis projection of each token vector after "
-         "centring on the path mean -- lossy and one-way, for looking at. "
-         "The trajectory itself is N vectors and stores losslessly through "
-         "SABLEVEC1. Mean pooling collapses this path to a single point."),
+         f"{MAGIC}: an ordered per-token embedding trajectory. Order is the "
+         "content -- unlike SABLEVEC1, which carries an unordered set. What "
+         "is rendered here is a projection, not the data: each token's "
+         "colour is a fixed seeded 3-axis projection taken after centring "
+         "on the path mean, and is lossy and one-way. Three numbers cannot "
+         "carry 384, and nothing recovers a token vector from its colour. "
+         "Brightness tracks each token's cosine distance from the pooled "
+         "point, so the tokens the stored vector represents worst are the "
+         "ones that burn. Mean pooling collapses this whole path to one "
+         "point; the mean is recoverable from the path and the path is not "
+         "recoverable from the mean."),
         ("Source", text[:200]),
         ("Tokens", str(stats["tokens"])),
+        ("Dims", str(stats["dims"])),
+        ("FlattenedRange", f"{stats['flattened_range']:.4f}"),
     ])
     return stats
+
+
+# --- the SABLE7 container ----------------------------------------------
+#
+# Layout mirrors SABLEVEC1 -- one vector per row, three dims per pixel
+# through RGB, affine uint8 with a single scale and offset -- because that
+# part is measured and works. What differs is the header, and the header is
+# the whole reason this is a separate format: a trajectory that loses its
+# order is not a degraded trajectory, it is a bag of numbers. The row index
+# IS the token index, and a reader must be told that rather than left to
+# assume it.
+
+VERSION = 1
+
+
+def quantise(vectors):
+    lo = min(min(v) for v in vectors)
+    hi = max(max(v) for v in vectors)
+    scale = (hi - lo) / 255.0 or 1.0
+    rows = [bytes(min(255, max(0, int(round((x - lo) / scale)))) for x in v)
+            for v in vectors]
+    return rows, scale, lo
+
+
+def encode_beam(path, out_path, source_text="", model=""):
+    """Write a trajectory as SABLE7. Returns the header it wrote."""
+    import hashlib
+    import json as _json
+
+    rows, scale, low = quantise(path)
+    tokens, dims = len(path), len(path[0])
+    width = (dims + 2) // 3
+
+    header = {
+        "magic": MAGIC,
+        "version": VERSION,
+        "tokens": tokens,
+        "dims": dims,
+        "scale": scale,
+        "low": low,
+        "layout": "one token per row, in order, three dims per pixel via RGB",
+        "ordered": True,
+        "model": model,
+        "source_sha256": hashlib.sha256(
+            source_text.encode("utf-8")).hexdigest() if source_text else None,
+    }
+
+    raster = []
+    for row in rows:
+        padded = row + bytes((-len(row)) % 3)
+        raster.append(padded[:width * 3])
+
+    _png(out_path, width, tokens, raster, text_chunks=[
+        ("Title", "SABLE7 trajectory"),
+        ("Format", MAGIC),
+        (MAGIC, _json.dumps(header)),
+        ("Comment",
+         "Ordered per-token embedding trajectory. Row index is token index; "
+         "reordering rows destroys the content rather than degrading it. "
+         "Not a SABLEVEC1 set."),
+    ])
+    return header
+
+
+def decode_beam(png_path):
+    """Read a SABLE7 file back. Raises if it is not one."""
+    import json as _json
+
+    data = open(png_path, "rb").read()
+    if data[:8] != b"\x89PNG\r\n\x1a\n":
+        raise ValueError("not a PNG")
+
+    pos, idat, header = 8, b"", None
+    width = height = None
+    while pos < len(data):
+        length, = struct.unpack(">I", data[pos:pos + 4])
+        kind = data[pos + 4:pos + 8]
+        body = data[pos + 8:pos + 8 + length]
+        if kind == b"IHDR":
+            width, height = struct.unpack(">II", body[:8])
+        elif kind == b"tEXt":
+            key, _, value = body.partition(b"\x00")
+            if key.decode("latin-1") == MAGIC:
+                header = _json.loads(value.decode("utf-8"))
+        elif kind == b"IDAT":
+            idat += body
+        elif kind == b"IEND":
+            break
+        pos += 12 + length
+
+    if header is None or header.get("magic") != MAGIC:
+        raise ValueError(f"no {MAGIC} header -- refusing to guess the layout")
+
+    raw = zlib.decompress(idat)
+    stride = width * 3
+    rows, at = [], 0
+    for _ in range(height):
+        at += 1                                   # filter byte, always 0 here
+        rows.append(raw[at:at + stride])
+        at += stride
+
+    scale, low, dims = header["scale"], header["low"], header["dims"]
+    return [[low + b * scale for b in row[:dims]] for row in rows], header
+
+
+def cmd_encode(args):
+    path = beam(args.text, args.url, args.key)
+    header = encode_beam(path, args.out, args.text, args.url)
+    back, got = decode_beam(args.out)
+    worst = min(cosine(a, b) for a, b in zip(path, back))
+    print(f"wrote {args.out}  ({os.path.getsize(args.out):,} bytes)")
+    print(f"  tokens {header['tokens']}  dims {header['dims']}")
+    print(f"  round-trip worst cosine: {worst:.6f}")
+    print(f"  order preserved: {'yes' if got['tokens'] == header['tokens'] else 'no'}")
 
 
 def cmd_render(args):
@@ -217,13 +352,16 @@ def cmd_measure(args):
 def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
-    for name, fn in (("render", cmd_render), ("measure", cmd_measure)):
+    for name, fn in (("render", cmd_render), ("measure", cmd_measure),
+                     ("encode", cmd_encode)):
         s = sub.add_parser(name)
         s.add_argument("text")
         s.add_argument("--url", required=True)
         s.add_argument("--key")
+        if name in ("render", "encode"):
+            s.add_argument("--out",
+                           default="beam.png" if name == "render" else "beam_sable7.png")
         if name == "render":
-            s.add_argument("--out", default="beam.png")
             s.add_argument("--width", type=int, default=1200)
             s.add_argument("--height", type=int, default=300)
         s.set_defaults(func=fn)

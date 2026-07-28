@@ -10,6 +10,8 @@ current format holds. Everything else about the beam is a rendering.
 import importlib.util
 import math
 import os
+import shutil
+import tempfile
 import unittest
 
 _BEAM = os.path.join(
@@ -89,6 +91,91 @@ class ColourTests(unittest.TestCase):
         for axis in vb._projection(16, seed=5):
             self.assertAlmostEqual(math.sqrt(sum(x * x for x in axis)), 1.0,
                                    places=9)
+
+
+class Sable7ContainerTests(unittest.TestCase):
+    """The container's job is to keep order and to say that it does.
+
+    A trajectory that loses its order is not a degraded trajectory, it is a
+    bag of numbers -- so the format declares itself and the reader refuses
+    to guess.
+    """
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.path = [
+            [0.10, 0.90, 0.30, 0.50],
+            [0.80, 0.20, 0.50, 0.10],
+            [0.40, 0.40, 0.90, 0.70],
+            [0.05, 0.65, 0.15, 0.95],
+        ]
+
+    def tearDown(self):
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def _out(self, name="b.png"):
+        return os.path.join(self.dir, name)
+
+    def test_round_trip_preserves_the_vectors(self):
+        out = self._out()
+        vb.encode_beam(self.path, out, "some text", "test-model")
+        back, header = vb.decode_beam(out)
+        self.assertEqual(header["tokens"], len(self.path))
+        self.assertEqual(header["dims"], len(self.path[0]))
+        for original, recovered in zip(self.path, back):
+            self.assertGreater(vb.cosine(original, recovered), 0.999)
+
+    def test_round_trip_preserves_the_order(self):
+        # The property the whole format exists for.
+        out = self._out()
+        vb.encode_beam(self.path, out, "t", "m")
+        back, _ = vb.decode_beam(out)
+        for i, (original, recovered) in enumerate(zip(self.path, back)):
+            best = max(range(len(self.path)),
+                       key=lambda j: vb.cosine(self.path[j], recovered))
+            self.assertEqual(best, i, f"token {i} came back in position {best}")
+
+    def test_header_declares_the_format_and_that_it_is_ordered(self):
+        out = self._out()
+        header = vb.encode_beam(self.path, out, "t", "m")
+        self.assertEqual(header["magic"], vb.MAGIC)
+        self.assertTrue(header["ordered"])
+        _, read_back = vb.decode_beam(out)
+        self.assertEqual(read_back["magic"], vb.MAGIC)
+
+    def test_source_text_is_recorded_as_a_digest_not_as_text(self):
+        out = self._out()
+        header = vb.encode_beam(self.path, out, "a private sentence", "m")
+        self.assertEqual(len(header["source_sha256"]), 64)
+        blob = open(out, "rb").read()
+        self.assertNotIn(b"a private sentence", blob)
+
+    def test_a_png_without_the_header_is_refused_not_guessed(self):
+        out = self._out("plain.png")
+        vb._png(out, 2, 2, [bytes(6), bytes(6)])
+        with self.assertRaises(ValueError):
+            vb.decode_beam(out)
+
+    def test_a_non_png_is_refused(self):
+        out = self._out("not.png")
+        open(out, "wb").write(b"this is not a png")
+        with self.assertRaises(ValueError):
+            vb.decode_beam(out)
+
+    def test_a_single_token_path_survives(self):
+        out = self._out()
+        vb.encode_beam([[0.3, 0.7, 0.1]], out, "t", "m")
+        back, header = vb.decode_beam(out)
+        self.assertEqual(header["tokens"], 1)
+        self.assertEqual(len(back), 1)
+
+    def test_dims_not_divisible_by_three_do_not_lose_the_tail(self):
+        # 4 dims needs 2 pixels and leaves 2 padding bytes; the decoder
+        # must trim by the declared dims rather than by the row width.
+        out = self._out()
+        vb.encode_beam(self.path, out, "t", "m")
+        back, _ = vb.decode_beam(out)
+        self.assertTrue(all(len(row) == 4 for row in back))
 
 
 class CosineTests(unittest.TestCase):
