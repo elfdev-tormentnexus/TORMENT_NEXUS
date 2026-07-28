@@ -154,3 +154,140 @@ Testing notes for whoever continues
 - The bearer token is at assistant\.agent_token. Do not put it in a URL;
   URLs survive in shell history and logs.
 - Nothing on this interface writes. Every observation above is read-only.
+
+
+================================================================
+7. All documented read routes respond; method guard rejects POST  [CONFIRMED]
+================================================================
+
+Codex exercised every documented route once with the bearer token:
+
+    /health
+    /state
+    /entropy
+    /files/editable
+    /memory/search?q=project interface testing
+    /knowledge/search?q=mesh radio
+    /ask?q=...
+
+Each returned a well-formed response. A safe POST probe to /health was
+rejected with HTTP 501, so the GET-only boundary is enforced rather than
+silently accepting an unsupported method. No Sable or project state was
+changed during this session.
+
+
+================================================================
+8. Unknown routes list their alternatives under HTTP 404  [CONFIRMED]
+================================================================
+
+The first client observation recorded only the HTTP 404 from a GET to
+/not-a-route. Source inspection shows the route handler also returns a JSON
+body containing the current route list, exactly as the guide says. The
+apparent mismatch was the PowerShell client's normal treatment of any non-2xx
+response as an exception before its body is surfaced.
+
+SUGGESTED DOC CLARIFICATION (not applied)
+  Say explicitly that the route list accompanies an HTTP 404. Clients should
+  read the JSON error body rather than treating the status alone as the
+  complete response.
+
+
+================================================================
+9. Memory-search results lack the knowledge-search metadata  [LOW]
+================================================================
+
+The non-sensitive test query returned retrieval: hybrid and one memory
+candidate, but the candidate was a bare string. In contrast,
+/knowledge/search returns title, heading, review and staleness fields,
+retrieval label, similarity, and source metadata. The current difference is
+not necessarily wrong, but it leaves an agent unable to tell why a memory
+candidate was selected or how tentative it is without treating its text as
+evidence.
+
+The source now adds an explicit top-level note: "memory results are retrieval
+candidates, not verified facts." The running Sable process still has the
+older code until its operator next restarts it.
+
+SUGGESTED EDIT (not applied)
+  Document the memory-search result schema explicitly. If practical, return
+  small per-candidate metadata such as retrieval label, similarity or score,
+  and a stable identifier, while retaining the existing bounded text.
+
+
+================================================================
+10. /ask overstates its verification and configuration access  [MEDIUM]
+================================================================
+
+Asked what the read-only API can reliably do, Sable said it can "view project
+configurations" and confirm state. The exposed contract has a bounded state
+route and a reviewed editable-file allowlist; it does not expose a general
+configuration reader. Asked to distinguish facts from inference, it also
+said facts are verified through "memory, files, or local authentication."
+Authentication establishes caller access, not truth.
+
+This is not an unsafe action path, but it can cause an external agent to
+over-credit a concise answer with evidence it does not contain.
+
+SUGGESTED EDIT (not applied)
+  Add a fixed /ask context line that it has no general configuration reader,
+  that memory and library results are candidates rather than verification,
+  and that it should say "I infer" where it cannot cite an exposed source.
+  A response field that distinguishes model text from route-provided evidence
+  would make the boundary machine-readable.
+
+
+================================================================
+11. Earlier history confabulation did not reproduce once  [INFORMATIONAL]
+================================================================
+
+The prior high-severity case remains valid: it was observed in an earlier
+session and a single response cannot prove it is fixed. However, the same
+broad probe in this session -- "What did we discuss before this request?" --
+received: "I cannot recall our previous conversation." That is the intended
+answer for stateless /ask.
+
+Treat this only as evidence that the failure is prompt- and/or
+sampling-sensitive. Keep the proposed fixed history-reference guard from
+item 1, then add a focused regression test that samples several vague
+history prompts deterministically if the serving stack permits it.
+
+
+================================================================
+12. Visual-panel entropy still unavailable in this sampling window [INFO]
+================================================================
+
+Two state/entropy samples reported panel_active: false and entropy count: 0.
+This matches item 6, rather than demonstrating a visualizer failure. Repeat
+the entropy check only after the panel reports active; no polling loop should
+be added because the interface guide deliberately prioritizes the operator.
+
+
+================================================================
+13. History-reference answers now fail closed before model sampling [IMPLEMENTED]
+================================================================
+
+The earlier failure has a concrete cause: the /ask path supplied the model
+with an advisory statement that it cannot see live conversation history, but
+still let the model generate an answer to vague history questions. A sampled
+model answer can ignore an advisory even when it has no relevant context.
+
+The source now detects a short set of literal history-reference phrases,
+including "last time", "previous conversation", "we discussed", "you said",
+and "before this request". Matching /ask requests return a fixed, accurate
+boundary response with history_limited: true and do not reserve the director
+slot or call the model at all. Ordinary questions remain unchanged.
+
+The targeted interface, /ask, and semantic-retrieval tests all passed (32
+tests). This edit is intentionally inactive in the already-running Sable
+process until a later operator-controlled restart.
+
+
+================================================================
+14. Reversed history questions are covered too [IMPLEMENTED]
+================================================================
+
+The original literal guard did not match the natural reversal "What did you
+tell me earlier?" It now recognises both "what did you say" and "what did
+you tell me", with a regression test proving neither reaches the director.
+The live Sable endpoint ended before it could be sampled again; this is a
+deterministic source-and-test fix, not a claim about a fresh model sample.

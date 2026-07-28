@@ -107,6 +107,35 @@ from voice import session as voice_session
 
 server_process = None
 _agent_ask_lock = threading.Lock()
+_AGENT_HISTORY_REFERENCE_PHRASES = (
+    "last time",
+    "last conversation",
+    "previous conversation",
+    "past conversation",
+    "our conversation",
+    "our discussions",
+    "we discussed",
+    "we talked",
+    "you said",
+    "you told me",
+    "what did you say",
+    "what did you tell me",
+    "remember when",
+    "before this request",
+    "prior interaction",
+)
+_AGENT_HISTORY_BOUNDARY = (
+    "I cannot access or remember the operator's previous conversations "
+    "through this diagnostic interface. I can answer only from your current "
+    "question, the stable persona, and core memory."
+)
+
+
+def _agent_requests_unavailable_history(question):
+    normalised = question.casefold()
+    return any(
+        phrase in normalised for phrase in _AGENT_HISTORY_REFERENCE_PHRASES
+    )
 
 # Voice setup can take a visible moment on a cold launch.  Prepare it before
 # the animated terminal starts so the first thing a person sees is a stable,
@@ -634,6 +663,7 @@ def _agent_providers():
         return {
             "query": term,
             "results": [item.get("memory", "") for item in found],
+            "note": "memory results are retrieval candidates, not verified facts",
             # This label is load-bearing: it names the retrieval that
             # actually ran, so an empty result reads as the finding it is.
             # "hybrid" means word overlap plus cosine over real embeddings;
@@ -648,6 +678,13 @@ def _agent_providers():
 
         if not question:
             return {"question": "", "answer": None, "note": "pass ?q=<question>"}
+
+        if _agent_requests_unavailable_history(question):
+            return {
+                "question": question,
+                "answer": _AGENT_HISTORY_BOUNDARY,
+                "history_limited": True,
+            }
 
         # One llama.cpp slot means one caller. Agent requests never wait in a
         # hidden queue behind one another, and they re-check operator state

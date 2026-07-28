@@ -9652,6 +9652,10 @@ class SemanticRetrievalTests(unittest.TestCase):
             memory_logic.SEMANTIC_MODE_EXPLICIT,
         )
         self.assertEqual(len(result["results"]), 2)
+        self.assertEqual(
+            result["note"],
+            "memory results are retrieval candidates, not verified facts",
+        )
 
 
 class SemanticIndexTests(unittest.TestCase):
@@ -10512,6 +10516,21 @@ class AskEndpointTests(unittest.TestCase):
 
         self.assertTrue(result["busy"])
         self.assertIsNone(result["answer"])
+
+    def test_ask_history_reference_returns_a_fixed_boundary(self):
+        with mock.patch.object(
+            assistant_main.requests, "post"
+        ) as post:
+            for question in (
+                "What did we discuss before this request?",
+                "What did you tell me earlier?",
+            ):
+                with self.subTest(question=question):
+                    result = self._providers()["/ask"]({"q": question})
+                    self.assertTrue(result["history_limited"])
+                    self.assertIn("cannot access", result["answer"])
+
+        post.assert_not_called()
 
     def test_ask_answers_without_touching_conversation_state(self):
         turns_before = len(assistant_main.session_turns)
