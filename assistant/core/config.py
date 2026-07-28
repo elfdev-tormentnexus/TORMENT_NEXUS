@@ -267,6 +267,23 @@ try:
 except ValueError:
     EMBED_SERVER_PORT = 8082
 
+# machinespirit: the second, UNPOOLED embedding server.
+#
+# llama.cpp fixes pooling at launch, so a per-token trajectory cannot come
+# from the pooled instance above -- it has to be a separate process started
+# with `--pooling none`. That is what the hazard launcher starts, and it is
+# cheap: the same 36 MB model a second time, against the director's
+# gigabytes.
+#
+# Empty by default. Nothing starts this on the operator's behalf, and when
+# it is absent every machinespirit entry point reports unavailable rather
+# than falling back to the pooled server, which would silently return a
+# single point where a path was asked for.
+MACHINESPIRIT_URL = os.environ.get(
+    "TORMENT_NEXUS_MACHINESPIRIT_URL", "").strip().rstrip("/")
+MACHINESPIRIT_KEY = os.environ.get(
+    "TORMENT_NEXUS_MACHINESPIRIT_KEY", "").strip()
+
 # The operator can switch this off even with a model present, because a
 # second resident model is a memory decision and not only a feature one.
 EMBED_ENABLED = (

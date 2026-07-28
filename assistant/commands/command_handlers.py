@@ -141,6 +141,19 @@ def experimental_mode_remaining():
     return max(0.0, EXPERIMENTAL_MODE_EXPIRES_AT - time.monotonic())
 
 
+def machinespirit_status():
+    """One honest line about whether the trajectory server is really there."""
+    from core import machinespirit
+
+    if not machinespirit.configured():
+        return ("No unpooled embedding server configured, so machinespirit "
+                "cannot read trajectories. The hazard launcher starts one.")
+    if not machinespirit.available():
+        return ("An unpooled server is configured but is not answering, so "
+                "machinespirit cannot read trajectories yet.")
+    return "machinespirit is live: per-token trajectories available."
+
+
 # ============================================================
 # COMMAND REGISTRY
 #
@@ -2993,6 +3006,109 @@ def handle_full_self_heal(user_input):
 # ============================================================
 # DISPATCH
 # ============================================================
+
+@command("experimental mode",
+         "Run machinespirit: per-token trajectories, slower on purpose",
+         usage="experimental mode [off|status]", dev_only=False,
+         group="session")
+def handle_experimental_mode(user_input):
+    global EXPERIMENTAL_MODE, EXPERIMENTAL_MODE_EXPIRES_AT
+
+    normalized = (user_input or "").strip().lower()
+    if not normalized.startswith("experimental mode"):
+        return False
+
+    rest = normalized[len("experimental mode"):].strip()
+
+    if rest in {"off", "stop", "no"}:
+        if EXPERIMENTAL_MODE_FROM_ENV:
+            return ("Experimental mode was started by the launcher, so it "
+                    "stays on for this session. Close the window to leave it.")
+        if not is_experimental_mode():
+            return "Experimental mode is already off."
+        EXPERIMENTAL_MODE = False
+        EXPERIMENTAL_MODE_EXPIRES_AT = 0.0
+        return "Experimental mode off. Retrieval is unchanged, as it was."
+
+    if rest and rest not in {"on", "status"}:
+        return "Usage: experimental mode [off|status]"
+
+    if rest == "status" or is_experimental_mode():
+        if not is_experimental_mode():
+            return "Experimental mode is off.\n" + machinespirit_status()
+        if EXPERIMENTAL_MODE_FROM_ENV:
+            left = "for this session (started by the launcher)"
+        else:
+            minutes = int(experimental_mode_remaining() // 60)
+            left = f"for {minutes} more minutes"
+        return (f"Experimental mode is on {left}.\n"
+                + machinespirit_status())
+
+    EXPERIMENTAL_MODE = True
+    EXPERIMENTAL_MODE_EXPIRES_AT = (
+        time.monotonic() + EXPERIMENTAL_MODE_DURATION_SECONDS
+    )
+    minutes = EXPERIMENTAL_MODE_DURATION_SECONDS // 60
+
+    return (
+        f"Experimental mode on for {minutes} minutes.\n"
+        "\n"
+        "machinespirit reads per-token trajectories instead of only the "
+        "averaged point, and 'trace <text>' shows which concept appeared "
+        "at which token.\n"
+        "\n"
+        "Retrieval is NOT changed by this. Trajectories shadow it rather "
+        "than replace it, because keeping the path has not been shown to "
+        "retrieve better, only to say more about where meaning sat.\n"
+        "\n"
+        + machinespirit_status()
+    )
+
+
+@command("trace",
+         "Show which concept appeared at which token in a sentence",
+         usage="trace <text>", dev_only=False, group="knowledge")
+def handle_trace(user_input):
+    if not _match_prefix(user_input, "trace "):
+        return False
+
+    text = user_input[len("trace "):].strip()
+    if not text:
+        return "Usage: trace <text>"
+
+    from core import machinespirit
+
+    if not machinespirit.configured():
+        return ("Nothing to trace with. machinespirit needs a second "
+                "embedding server started with --pooling none, because "
+                "llama.cpp fixes pooling when the process starts. The "
+                "hazard launcher starts one, and nothing is guessed in "
+                "its absence.")
+
+    rows = machinespirit.trace(text, top=1)
+    if rows is None:
+        return ("machinespirit could not read a trajectory. The unpooled "
+                "server is configured but did not answer, or the embedder "
+                "is off.")
+
+    lines = ['"' + text + '"', ""]
+    for index, hits in rows:
+        for score, anchor in hits:
+            lines.append(f"  token {index:>3}  {score:+.3f}  {anchor}")
+
+    top = machinespirit.peaks(rows)[:4]
+    if top:
+        lines.append("")
+        lines.append("  peaks:")
+        for anchor, score, index in top:
+            lines.append(f"    token {index:>3}  {score:+.3f}  {anchor}")
+
+    lines.append("")
+    lines.append("  Concepts come from a fixed anchor dictionary, not from "
+                 "the model naming them. A weak score means nothing in the "
+                 "dictionary fits.")
+    return "\n".join(lines)
+
 
 def _matches_registered_syntax(user_input, entry):
     """
