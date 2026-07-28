@@ -643,7 +643,23 @@ class GoalScopeTests(unittest.TestCase):
 
 class PersonaIdentityTests(unittest.TestCase):
     def test_persona_has_one_consistent_project_name(self):
-        self.assertIn("Your sole name is TORMENT_NEXUS", persona.PERSONA)
+        # The project's name is fixed. The director may hold a name of its
+        # own alongside it, so this guards the guarantee rather than the
+        # sentence that used to carry it.
+        self.assertIn(
+            "TORMENT_NEXUS is the name of this project",
+            persona.PERSONA,
+        )
+        self.assertIn("That name does not change", persona.PERSONA)
+        self.assertIn(
+            "Do not treat legacy project labels as alternate names",
+            persona.PERSONA,
+        )
+        # A self-chosen name must not become a claim to an inner life.
+        self.assertIn(
+            "Having a name is not evidence of consciousness",
+            persona.PERSONA,
+        )
         self.assertNotIn("Do not call yourself TORMENT_NEXUS", persona.PERSONA)
 
 
