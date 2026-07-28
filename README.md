@@ -116,6 +116,9 @@ answers.
 - Notice what is happening on the computer around it: which application is in
   front, how long you have been away from the keyboard, and how hard the
   machine is working. It may remark on this during a long silence.
+- Accept an explicitly enabled, experimental **desktop Wi-Fi sensing** result
+  from a separate local research collector. This is disabled by default and
+  is limited to a coarse radio-activity state, never a camera-like view.
 - Find and play music placed in its local music folder, including casually
   typed song names, and keep playing through the library on its own.
 - Display a glossy Y2K music visualizer with ten rotating scenes and
@@ -152,6 +155,28 @@ To change how long it is kept, set `TORMENT_NEXUS_ACTIVITY_RETENTION_DAYS`.
 Setting it to `0` means the file is discarded the next time TORMENT_NEXUS
 starts, so nothing carries from one session to the next.
 
+### Experimental Wi-Fi sensing
+
+This is a desktop research seam, not a ready-made Windows feature. The
+installed Intel AX211 driver does not give TORMENT_NEXUS a normal supported
+way to collect Wi-Fi channel-state data, so the program will never alter your
+adapter, load a driver, transmit radio traffic, or begin a capture by itself.
+
+If a separately authorised **local** experiment eventually produces a small
+aggregate status record, set `TORMENT_NEXUS_WIFI_EXPERIMENT_FILE` to that
+file and use `wifi sensing on`. The only accepted results are `unknown`,
+`still`, `motion`, and `approach`, with a short expiry and a coarse confidence
+level. No raw CSI, packet data, SSIDs, device addresses, identity, range
+trace, or sensing history is accepted or retained by TORMENT_NEXUS. Use
+`wifi sensing status`, `wifi sensing off`, and `wifi sensing forget` to
+inspect or clear its in-memory reading.
+
+Treat it as a consent-based room-activity experiment in your own space—not a
+camera, person detector, or a way to see through walls.
+
+The exact collector contract and the separate calibration gate are in
+[Experimental desktop Wi-Fi sensing](docs/WIFI_SENSING_EXPERIMENT.md).
+
 ## Local by default, connected by choice
 
 | Feature | What leaves the computer? |
@@ -159,6 +184,7 @@ starts, so nothing carries from one session to the next.
 | Conversation, model, memory, and speech | Nothing by default. These run locally. |
 | Time awareness | Nothing. It reads the computer's clock and saved conversation timestamps. |
 | Activity awareness | Nothing. Window titles and machine load are sampled into a local file kept for two weeks, excluded from releases, and erased by `activity forget`. |
+| Experimental Wi-Fi sensing | Nothing. Disabled unless a local aggregate-only experiment is configured; no radio capture, raw samples, or history is handled by the app. |
 | Local music and visualizer | Nothing. Songs stay in the local music folder. |
 | Web search | Search text leaves the computer only when optional SearXNG search is configured and used. |
 | Spotify search | The search text is sent to MusicBrainz for public song metadata, then opened in the installed Spotify app. |
@@ -281,12 +307,20 @@ advanced manual setup.
 ### Advanced and maintainer documentation
 
 - [Architecture](docs/ARCHITECTURE.md) - system layout and trust boundaries.
+- [Experimental desktop Wi-Fi sensing](docs/WIFI_SENSING_EXPERIMENT.md) - the
+  isolated, opt-in research boundary for the future AX211 experiment.
 - [Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md) - use a separately
   provided model with a source checkout.
 - [T-Deck custom firmware](docs/TDECK_CUSTOM_FIRMWARE.md) - optional hardware
   work.
 - [Release checklist](docs/RELEASE_CHECKLIST.md) - build a clean Windows
   handoff.
+
+## Acknowledgements
+
+**sundog** — voice recognition testing, and a good deal of the new-user
+experience and interface detail you meet in the first ten minutes. Several
+things in this project started as an idea thrown out in conversation.
 
 ## Beta status, safety, and license
 

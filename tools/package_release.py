@@ -930,6 +930,10 @@ PRIVACY
     passcode verifier, device pairing PIN, API key, or music from the person
     who sent it. TORMENT_NEXUS starts with a blank slate. The included
     RELEASE_MANIFEST.json records a SHA-256 hash for every shipped file.
+
+THANKS
+    sundog - voice recognition testing, and a good deal of the new-user
+    experience and interface detail in the first ten minutes of this.
 """
 
 
