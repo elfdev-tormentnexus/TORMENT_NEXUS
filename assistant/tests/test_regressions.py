@@ -225,13 +225,18 @@ class SelfHealRewardTests(unittest.TestCase):
                 config.MODEL_ROLE_DIRECTOR,
             )
 
-    def test_validation_requires_health_and_the_fixed_regression_run(self):
+    def test_validation_requires_no_blockers_and_the_fixed_regression_run(self):
+        # This previously mocked health_check.report() returning "Overall:
+        # healthy", because validation demanded a clean bill across all seven
+        # checks -- including whether SearXNG happened to be running. The
+        # prerequisite is now the narrow blocker set; the assertions below are
+        # unchanged, only what stands in for "ready to validate".
         completed = SimpleNamespace(returncode=0, stdout="tests ok", stderr="")
 
         with mock.patch.object(
             self_heal_state.health_check,
-            "report",
-            return_value="ASSISTANT HEALTH CHECK\nOverall: healthy",
+            "validation_blockers",
+            return_value=[],
         ), mock.patch.object(
             self_heal_state.subprocess,
             "run",
@@ -7788,6 +7793,254 @@ class RegressionLauncherTests(unittest.TestCase):
         self.assertNotEqual(bootstrap, -1)
         self.assertNotEqual(discovery, -1)
         self.assertLess(bootstrap, discovery)
+
+
+class CapabilityGateCoverageTests(unittest.TestCase):
+    """
+    The capability gate is only as good as its list of capabilities.
+
+    Every POSIX spawn and exec variant was enumerated while os.startfile --
+    the Windows launcher this project actually calls in two places -- was
+    absent, as were the radio and microphone libraries. A gate that names
+    nine ways to start a process and misses the one used on the target
+    platform is not a gate.
+    """
+
+    BASE = "import os\n\n\ndef go():\n    return 1\n"
+
+    def _problem(self, updated):
+        return edit_guard.change_capability_problem(
+            "voice/session.py", self.BASE, updated
+        )
+
+    def test_the_windows_process_launcher_is_refused(self):
+        problem = self._problem(
+            "import os\n\n\ndef go():\n    os.startfile('x.exe')\n    return 1\n"
+        )
+        self.assertIsNotNone(problem)
+        self.assertIn("os.startfile", problem)
+
+    def test_every_exec_spelling_is_refused(self):
+        for call in (
+            "os.execl", "os.execle", "os.execlp", "os.execlpe",
+            "os.execv", "os.execve", "os.execvp", "os.execvpe",
+        ):
+            with self.subTest(call=call):
+                problem = self._problem(
+                    f"import os\n\n\ndef go():\n    {call}('sh', [])\n"
+                    "    return 1\n"
+                )
+                self.assertIsNotNone(problem)
+
+    def test_radio_and_microphone_libraries_are_refused(self):
+        # This project has a LoRa radio and a microphone. A module that
+        # gains either has gained egress or the room, and neither looks
+        # like "network" to a list built around requests and socket.
+        for module in ("serial", "sounddevice", "pyaudio"):
+            with self.subTest(module=module):
+                problem = self._problem(
+                    f"import os\nimport {module}\n\n\ndef go():\n    return 1\n"
+                )
+                self.assertIsNotNone(problem)
+                self.assertIn(module, problem)
+
+    def test_deserialisation_that_executes_is_refused(self):
+        for module in ("pickle", "marshal", "runpy"):
+            with self.subTest(module=module):
+                problem = self._problem(
+                    f"import os\nimport {module}\n\n\ndef go():\n    return 1\n"
+                )
+                self.assertIsNotNone(problem)
+
+    def test_an_ordinary_edit_still_passes(self):
+        self.assertIsNone(
+            self._problem("import os\n\n\ndef go():\n    return 2\n")
+        )
+
+    def test_capability_already_present_is_retained(self):
+        # The gate is a delta. A module that already reaches the network may
+        # keep doing so; this pins that deliberate behaviour so a future
+        # tightening does not silently break every legitimate repair.
+        self.assertIsNone(
+            edit_guard.change_capability_problem(
+                "web/search_engine.py",
+                "import requests\n\n\ndef f():\n    return requests.get('http://a')\n",
+                "import requests\n\n\ndef f():\n    return requests.get('http://b')\n",
+            )
+        )
+
+
+class ReleasePrivacyCoverageTests(unittest.TestCase):
+    """
+    The basename set is documented as a second independent check on the
+    deny patterns. It had drifted: activity_log.jsonl was pattern-only
+    while the deny comment called it as revealing as the conversation
+    history, which is in the set. These pin the invariant rather than the
+    two strings, because the failure mode is the next file, not this one.
+    """
+
+    # The deny list mixes three motivations: privacy, copyright (the music
+    # folder) and portability. Only the privacy subset needs a second check,
+    # because verify() reports a basename hit as "personal file present" and
+    # that label would be wrong for the others. Exemptions are listed rather
+    # than inferred, so adding a genuinely personal file still fails here.
+    NOT_PERSONAL = {
+        # A runtime lock holding no user data. Denied so a package does not
+        # arrive pre-locked, which is portability, not privacy.
+        "icon_anim/.animator.lock",
+    }
+
+    def test_every_literal_deny_pattern_has_basename_coverage(self):
+        for pattern in package_release.DENY_PATTERNS:
+            if pattern in self.NOT_PERSONAL:
+                continue
+
+            leaf = pattern.rstrip("*").rstrip("/").split("/")[-1]
+
+            # Directory patterns and wildcards cannot be basenames.
+            if not leaf or "*" in leaf or pattern.endswith("/*"):
+                continue
+
+            with self.subTest(pattern=pattern):
+                self.assertTrue(
+                    package_release.private_basename(leaf),
+                    f"{pattern} is denied by pattern but has no basename "
+                    "coverage, so verify() checks it only once",
+                )
+
+    def test_the_activity_log_is_covered_by_both_checks(self):
+        self.assertTrue(package_release.denied("assistant/memory/activity_log.jsonl"))
+        self.assertTrue(package_release.private_basename("activity_log.jsonl"))
+
+    def test_recovery_sidecars_are_covered_by_basename(self):
+        # memory_store writes memories.json.<stamp>.invalid-shape when it
+        # recovers a malformed store. It holds the original memory data.
+        self.assertTrue(
+            package_release.private_basename(
+                "memories.json.20260728_120000_000001.invalid-shape"
+            )
+        )
+
+    def test_an_ordinary_file_is_not_flagged(self):
+        for name in ("main.py", "README.md", "memories_example.json"):
+            with self.subTest(name=name):
+                self.assertFalse(package_release.private_basename(name))
+
+
+class MaintenanceBoundaryTests(unittest.TestCase):
+    """
+    The 14B repair profile had a wider surface than its gate assumed.
+
+    change_capability_problem() is a delta -- it blocks capability a patch
+    adds and permits capability a module already has. web/search_engine_*.py
+    already import requests, so an unattended repair could re-point the URL
+    without adding an import and be reported only after it landed.
+    """
+
+    NEUTRAL = "def f():\n    return 1\n"
+    NEUTRAL_EDITED = "def f():\n    return 2\n"
+
+    def test_network_modules_are_refused_unattended(self):
+        for target in (
+            "web/search_engine_searxng.py",
+            "web/search_engine_brave.py",
+            "web/search_engine.py",
+        ):
+            with self.subTest(target=target):
+                problem = edit_guard.maintenance_change_problem(
+                    target, self.NEUTRAL, self.NEUTRAL_EDITED
+                )
+                self.assertIsNotNone(problem)
+
+    def test_persistence_and_radio_modules_are_refused_unattended(self):
+        for target in (
+            "memory/memory_store.py",
+            "memory/memory_worker.py",
+            "hardware/tdeck.py",
+            "visualizer/spotify_control.py",
+            "core/system_awareness.py",
+        ):
+            with self.subTest(target=target):
+                self.assertIsNotNone(
+                    edit_guard.maintenance_change_problem(
+                        target, self.NEUTRAL, self.NEUTRAL_EDITED
+                    )
+                )
+
+    def test_an_ordinary_module_is_still_repairable(self):
+        self.assertIsNone(
+            edit_guard.maintenance_change_problem(
+                "memory/memory_logic.py", self.NEUTRAL, self.NEUTRAL_EDITED
+            )
+        )
+
+    def test_the_capability_gate_still_applies_to_allowed_modules(self):
+        problem = edit_guard.maintenance_change_problem(
+            "memory/memory_logic.py",
+            self.NEUTRAL,
+            "import subprocess\n\n\ndef f():\n    return 2\n",
+        )
+        self.assertIsNotNone(problem)
+
+    def test_restricted_modules_remain_human_editable(self):
+        # The restriction is on nobody reviewing, not on the file itself.
+        editable = {
+            path.replace(os.sep, "/")
+            for path in edit_guard.list_editable_files()
+        }
+        for target in ("web/search_engine.py", "memory/memory_store.py"):
+            with self.subTest(target=target):
+                self.assertIn(target, editable)
+
+    def test_the_maintenance_engine_uses_the_narrower_gate(self):
+        source = inspect.getsource(maintenance_engine._try_apply)
+        self.assertIn("maintenance_change_problem", source)
+
+
+class SelfHealDiagnosisTests(unittest.TestCase):
+    """
+    A self-heal run must not treat the environment as a code defect.
+
+    validate_restart() previously required health_check.report() to say
+    "Overall: healthy", which meant zero warnings across seven checks --
+    including whether SearXNG was reachable. With the search backend simply
+    stopped, a repair session handed a coding model a diagnostic about a
+    network service and asked it for a patch.
+    """
+
+    def test_a_down_search_backend_does_not_block_validation(self):
+        with mock.patch.object(
+            health_check,
+            "_search_health",
+            return_value=(False, "SearXNG unavailable: connection refused"),
+        ):
+            blockers = health_check.validation_blockers()
+
+        self.assertFalse(
+            any("search" in problem.lower() for problem in blockers),
+            "a stopped search backend must never block a code repair",
+        )
+
+    def test_a_down_search_backend_is_still_reported_as_advisory(self):
+        with mock.patch.object(
+            health_check,
+            "_search_health",
+            return_value=(False, "SearXNG unavailable: connection refused"),
+        ):
+            warnings = health_check.advisory_warnings()
+
+        self.assertTrue(
+            any("search" in warning.lower() for warning in warnings),
+            "the operator should still be told the backend is down",
+        )
+
+    def test_blockers_are_limited_to_validation_prerequisites(self):
+        # Anything listed here stops a repair outright, so the set must stay
+        # small and mechanical. Voice files and disk headroom are not it.
+        source = inspect.getsource(health_check.validation_blockers)
+        for advisory in ("_search_health", "setup_issues", "disk_usage"):
+            with self.subTest(advisory=advisory):
+                self.assertNotIn(advisory, source)
 
 
 if __name__ == "__main__":

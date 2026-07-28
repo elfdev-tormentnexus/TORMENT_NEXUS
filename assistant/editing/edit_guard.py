@@ -107,15 +107,57 @@ AUTONOMOUS_ALLOWED_FILES = (
     os.path.join("project", "project_mapper.py"),
 )
 
+# The full-maintenance profile edits a much wider surface than an unattended
+# 7B cycle, gated only by change_capability_problem(). That gate is a delta:
+# it blocks capability a patch ADDS and deliberately permits capability a
+# module already has. For most modules that is the right trade. For these it
+# is not -- each already holds the capability that matters, so a repair could
+# re-point where data goes without adding a single import, unattended, and be
+# reported only after three edits have landed.
+#
+# This is the same argument DENIED_FILES makes about persona.py. These stay
+# editable through the human preview-and-confirm path, which is the point:
+# the restriction is on nobody reviewing, not on the file.
+MAINTENANCE_DENIED_FILES = (
+    # Network egress. The URL is data, and data is editable.
+    os.path.join("web", "search_engine.py"),
+    os.path.join("web", "search_engine_brave.py"),
+    os.path.join("web", "search_engine_searxng.py"),
+    os.path.join("web", "search_intent.py"),
+    # Radio egress and device credentials.
+    os.path.join("hardware", "tdeck.py"),
+    os.path.join("hardware", "setup_hardware.py"),
+    # OAuth token handling plus network.
+    os.path.join("visualizer", "spotify_control.py"),
+    # Everything that persists what the operator said or did.
+    os.path.join("memory", "memory_store.py"),
+    os.path.join("memory", "memory_worker.py"),
+    os.path.join("core", "system_awareness.py"),
+    os.path.join("core", "wifi_experimental.py"),
+)
+
 _SENSITIVE_IMPORT_ROOTS = {
     "aiohttp",
     "ctypes",
     "httpx",
     "importlib",
+    # Dynamic code loading. pickle and marshal both execute on load, so
+    # they are code execution wearing a serialisation costume.
+    "marshal",
+    "multiprocessing",
     "pathlib",
+    "pickle",
     "requests",
+    "runpy",
+    # This project has a radio and a microphone. A module that gains
+    # pyserial gains LoRa/mesh egress; one that gains an audio capture
+    # library gains the room. Neither is process or network capability in
+    # the usual sense, and both were invisible to this check before.
+    "pyaudio",
+    "serial",
     "shutil",
     "socket",
+    "sounddevice",
     "subprocess",
     "tarfile",
     "tempfile",
@@ -130,10 +172,20 @@ _SENSITIVE_CALLS = {
     "eval",
     "exec",
     "open",
+    # The exec family, complete. Listing only execv/execve left every
+    # other spelling of the same operation unguarded.
+    "os.execl",
+    "os.execle",
+    "os.execlp",
+    "os.execlpe",
     "os.execv",
     "os.execve",
+    "os.execvp",
+    "os.execvpe",
     "os.open",
     "os.popen",
+    "os.posix_spawn",
+    "os.posix_spawnp",
     "os.remove",
     "os.removedirs",
     "os.rename",
@@ -148,7 +200,13 @@ _SENSITIVE_CALLS = {
     "os.spawnve",
     "os.spawnvp",
     "os.spawnvpe",
+    # os.startfile is the Windows process/document launcher and this is a
+    # Windows-first project that already calls it in two places. Every POSIX
+    # spawn and exec variant was listed while the one that actually runs here
+    # was not.
+    "os.startfile",
     "os.system",
+    "os.truncate",
     "os.unlink",
     "pathlib.Path.rename",
     "pathlib.Path.replace",
@@ -369,6 +427,20 @@ def change_capability_problem(relative_path, original, updated):
         )
 
     return None
+
+
+def maintenance_change_problem(relative_path, original, updated):
+    """Explain why an unattended full-maintenance repair is out of bounds."""
+    normalized = _policy_key(relative_path)
+    denied_here = {_policy_key(path) for path in MAINTENANCE_DENIED_FILES}
+
+    if normalized in denied_here:
+        return (
+            f"{relative_path} reaches the network, a radio, or stored personal "
+            "data; it can only be changed through a human-reviewed edit"
+        )
+
+    return change_capability_problem(relative_path, original, updated)
 
 
 def autonomous_change_problem(relative_path, original, updated):

@@ -36,6 +36,12 @@ CONTEXT_MARGIN = 160
 MAX_INPUT_TOKENS = CONTEXT_SIZE - MAX_TOKENS - CONTEXT_MARGIN
 MAX_EXCERPT_LINES = 150
 
+# Hard ceiling on /tokenize round-trips per edit. Candidates are ranked, and
+# in practice the budget is spent within the first handful; the rest were
+# only ever going to be measured and discarded.
+MAX_CANDIDATE_TRIALS = 12
+MAX_CONSECUTIVE_MISSES = 3
+
 
 SYSTEM = """You make small, surgical edits to Python files.
 
@@ -278,7 +284,16 @@ def _budgeted_user_message(filename, file_content, request):
     best_message = None
     best_tokens = None
 
-    for _score, start, end in candidates:
+    # Every trial below is an HTTP round-trip to /tokenize. _candidate_ranges
+    # emits one range per matching line, so a common term in a large file
+    # produced hundreds of them -- measured at 386 for "fix the speech rate"
+    # against offline_voice.py, roughly ten seconds of sequential requests
+    # before the patch request even started. Candidates are score-ordered, so
+    # the tail was never going to be selected anyway; only the head is worth
+    # paying for.
+    consecutive_misses = 0
+
+    for _score, start, end in candidates[:MAX_CANDIDATE_TRIALS]:
         trial_ranges = selected + [(start, end)]
         excerpts = _render_excerpts(file_content, trial_ranges)
         trial = _user_message(
@@ -294,6 +309,15 @@ def _budgeted_user_message(filename, file_content, request):
             selected = trial_ranges
             best_message = trial
             best_tokens = tokens
+            consecutive_misses = 0
+            continue
+
+        # A later range can still be small enough to fit, so one miss is not
+        # the end. A run of them means the budget is genuinely spent.
+        consecutive_misses += 1
+
+        if consecutive_misses >= MAX_CONSECUTIVE_MISSES:
+            break
 
     if best_message is not None:
         return best_message, best_tokens, True

@@ -178,6 +178,10 @@ PRIVATE_RUNTIME_BASENAMES = {
     ".tdeck_ble_pin",
     ".spotify_token",
     ".tutorial_state.json",
+    # Window titles name documents, pages and conversations. The deny
+    # comment above calls this at least as revealing as the conversation
+    # history, and that file is in this set -- so this one belongs here too.
+    "activity_log.jsonl",
     "chosen_name.json",
     "conversation_history.txt",
     "memories.json",
@@ -194,6 +198,24 @@ SKIP_NAMES = [
     "en_US-libritts_r-medium.onnx",
     "en_US-libritts_r-medium.onnx.json",
 ]
+
+
+def private_basename(name):
+    """True for a personal runtime file, including its recovery variants.
+
+    Exact matching missed the sidecars runtime code writes beside the real
+    file -- memory_store recovers a malformed store to
+    ``memories.json.<stamp>.invalid-shape``, which holds the original memory
+    data and is caught by the deny patterns but was invisible to this second,
+    supposedly independent check.
+    """
+    if name in PRIVATE_RUNTIME_BASENAMES:
+        return True
+
+    return any(
+        name.startswith(private + ".")
+        for private in PRIVATE_RUNTIME_BASENAMES
+    )
 
 
 def denied(relpath):
@@ -471,7 +493,7 @@ def verify(report):
             if denied(rel):
                 problems.append(f"denylisted file present: {rel}")
 
-            if name in PRIVATE_RUNTIME_BASENAMES:
+            if private_basename(name):
                 problems.append(f"personal file present: {rel}")
 
     report.append(f"  scanned {scanned} files in the package")

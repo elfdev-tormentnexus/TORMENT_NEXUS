@@ -110,6 +110,64 @@ def _search_health():
     return False, f"unknown backend {config.SEARCH_BACKEND!r}"
 
 
+def validation_blockers():
+    """Conditions that must hold before a repair result can be believed.
+
+    ``report()`` deliberately warns about anything an operator would want to
+    know: a search backend that is down, a thin disk, missing voice files.
+    None of those are code defects, and a self-heal session that treats them
+    as such asks a coding model to fix a network service with a patch --
+    three times, backing each attempt out again.
+
+    So this is the narrow subset: the pieces without which the fixed
+    regression run cannot execute or be trusted. Everything else stays
+    advisory and reaches the model as context, never as a repair target.
+    """
+    problems = []
+
+    if not os.path.isfile(config.LLAMA_SERVER):
+        problems.append(f"llama-server is missing at {config.LLAMA_SERVER}")
+
+    if not os.path.isfile(config.MODEL_PATH):
+        problems.append(f"the model file is missing at {config.MODEL_PATH}")
+
+    if not llm_server.is_alive(timeout=2):
+        problems.append(f"the model API is not responding at {config.SERVER_URL}")
+    elif llm_server.accepts_unauthenticated_requests(timeout=2):
+        problems.append("the model API is answering without authentication")
+
+    return problems
+
+
+def advisory_warnings():
+    """Environment warnings worth reporting but never worth repairing."""
+    warnings = []
+
+    memory_ok, memory_detail = _memory_health(config.MEMORY_FILE)
+    if not memory_ok:
+        warnings.append(f"memory: {memory_detail}")
+
+    search_ok, search_detail = _search_health()
+    if not search_ok:
+        warnings.append(f"web search: {search_detail}")
+
+    voice_issues = offline_voice.setup_issues(
+        check_devices=False,
+        require_microphone=False,
+    )
+    if voice_issues:
+        warnings.append("voice: " + "; ".join(voice_issues))
+
+    try:
+        free_bytes = shutil.disk_usage(config.PROJECT_HOME).free
+        if free_bytes < GIB:
+            warnings.append(f"storage: only {free_bytes / GIB:.1f} GiB free")
+    except OSError as error:
+        warnings.append(f"storage: {error}")
+
+    return warnings
+
+
 def report():
     """Return a concise health report without changing project state."""
     lines = [

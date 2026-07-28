@@ -177,7 +177,7 @@ def _try_apply(suggestion, records):
             f"{target}: diff is {added + removed} lines; limit is {MAX_CHANGED_LINES}",
         )
 
-    capability_problem = edit_guard.change_capability_problem(
+    capability_problem = edit_guard.maintenance_change_problem(
         target,
         original,
         new_content,

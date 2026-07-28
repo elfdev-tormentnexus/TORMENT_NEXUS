@@ -126,10 +126,20 @@ def rollback_records(records):
 
 
 def validate_restart():
-    """Run the fixed, trusted restart validation used for an earned credit."""
-    report = health_check.report()
-    if "Overall: healthy" not in report:
-        return False, "Health check did not report healthy.\n\n" + report
+    """Run the fixed, trusted restart validation used for an earned credit.
+
+    Only genuine blockers stop the run. Environment warnings -- a search
+    backend that is down, a thin disk -- are passed through as context so the
+    repair model can see them without being asked to patch them.
+    """
+    blockers = health_check.validation_blockers()
+    if blockers:
+        return False, (
+            "Validation cannot run:\n"
+            + "\n".join(f"  {problem}" for problem in blockers)
+            + "\n\nThese are environment problems, not code defects. "
+            "No repair was attempted."
+        )
 
     try:
         result = subprocess.run(
@@ -148,6 +158,17 @@ def validate_restart():
     if result.returncode:
         output = (result.stdout + "\n" + result.stderr).strip()
         tail = "\n".join(output.splitlines()[-16:])
-        return False, "Regression validation failed.\n\n" + tail
 
-    return True, "Health check and regression validation passed."
+        # Advisory warnings ride along as context only. Labelling them keeps a
+        # repair model from reading "SearXNG unavailable" as the thing to fix.
+        warnings = health_check.advisory_warnings()
+        context = (
+            "\n\nEnvironment notes (context only, not repairable in code):\n"
+            + "\n".join(f"  {item}" for item in warnings)
+            if warnings
+            else ""
+        )
+
+        return False, "Regression validation failed.\n\n" + tail + context
+
+    return True, "Regression validation passed."
