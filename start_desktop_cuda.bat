@@ -2,14 +2,14 @@
 setlocal
 set "ROOT=%~dp0"
 set "CUDA_SERVER=%ROOT%llama.cpp\runtime\desktop-cuda-12.4-b9637\llama-server.exe"
-set "MODEL=%ROOT%models\Qwen3-4B-Instruct-2507-Q5_K_M.gguf"
+set "MODEL=%ROOT%models\Qwen3-4B-abliterated-bf16_q8_0.gguf"
 
 if not exist "%CUDA_SERVER%" goto missing_runtime
 if not exist "%MODEL%" goto missing_model
 
 set "TORMENT_NEXUS_LLAMA_SERVER=%CUDA_SERVER%"
 set "TORMENT_NEXUS_MODEL_PATH=%MODEL%"
-set "TORMENT_NEXUS_MODEL_DISPLAY_NAME=Qwen3-4B-I-2507-Abliterated-Q5_K_M / CUDA"
+set "TORMENT_NEXUS_MODEL_DISPLAY_NAME=Qwen3-4B-Abliterated-Q8_0 / CUDA"
 set "TORMENT_NEXUS_MODEL_ROLE=director"
 set "TORMENT_NEXUS_LLAMA_GPU_LAYERS=99"
 set "TORMENT_NEXUS_CONTEXT_SIZE=8192"

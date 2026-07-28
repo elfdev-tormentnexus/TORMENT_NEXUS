@@ -15,22 +15,20 @@ You probably downloaded GitHub's automatic **Source code (zip)** file. It does
 not include the AI model or self-contained Windows runtime.
 
 Return to the
-[v0.2.0-beta.1 release](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.2.0-beta.1)
-and download:
+[v0.2.0-beta.5 release](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.2.0-beta.5)
+and download every consecutive release part, starting at `part01`, plus:
 
 ```text
-TORMENT_NEXUS.zip.part01
-TORMENT_NEXUS.zip.part02
 REASSEMBLE_TORMENT_NEXUS.bat
 ```
 
-Keep all three in the same folder and follow
+Keep every file in the same folder and follow
 [Installing on Windows](INSTALL_WINDOWS.md).
 
 ## The reassembly helper says a file is missing
 
-- Confirm both `.part01` and `.part02` finished downloading.
-- Put both parts and `REASSEMBLE_TORMENT_NEXUS.bat` in the same folder.
+- Confirm every consecutive `.partNN` file in the release finished downloading.
+- Put every part and `REASSEMBLE_TORMENT_NEXUS.bat` in the same folder.
 - Do not rename the files.
 - Check whether the browser added `(1)` or another suffix after a repeated
   download. Remove the incomplete duplicate and download the correct file
@@ -38,13 +36,12 @@ Keep all three in the same folder and follow
 - Make sure the files are not still represented by temporary browser download
   names.
 
-Run the helper again only after all three filenames match the release
-exactly.
+Run the helper again only after every filename matches the release exactly.
 
 ## The rebuilt ZIP will not open or its checksum is wrong
 
 One of the parts may be incomplete or damaged. Delete `TORMENT_NEXUS.zip`,
-download both parts again, and rerun `REASSEMBLE_TORMENT_NEXUS.bat`. Compare
+download every part again, and rerun `REASSEMBLE_TORMENT_NEXUS.bat`. Compare
 the rebuilt ZIP against the SHA-256 fingerprint in the release notes before
 extracting. Do not run setup when the release checksum does not match.
 
@@ -101,8 +98,9 @@ The local model loads into memory on the first message. Later messages are
 normally faster. Closing the application releases that memory, so a new
 session must load it again.
 
-Close other memory-heavy applications if Windows is struggling. 8 GB of memory
-is comfortable for text use; 16 GB is better with voice enabled.
+Close other memory-heavy applications if Windows is struggling. The bundled Q8
+director and 7B coder need at least 16 GB of memory; more leaves more room for
+voice and other applications.
 
 ## I turned voice off and cannot turn it back on
 

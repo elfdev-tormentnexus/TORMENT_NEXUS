@@ -2,6 +2,30 @@
 
 ## Unreleased
 
+## v0.2.0-beta.5 — 2026-07-28
+
+Beta numbering is cumulative across the project and does not reset when the
+minor version changes.
+
+- Made the abliterated Qwen3 4B Q8 the bundled director and added the
+  abliterated Qwen2.5-Coder 7B Q8 as the bundled, on-demand autonomous coder.
+  The 14B maintenance profile remains an explicitly separate desktop model.
+  The coder uses a configured CUDA runtime when present and otherwise falls
+  back honestly to the bundled CPU server.
+
+- Added a Windows userland Wi-Fi collector and verification harness as a
+  **measured negative**. On this strong 5 GHz link, receive-rate variance was
+  lower while moving than while still, and cached scan data saw no disturbance.
+  It now reports that the information is not there and refuses threshold
+  tuning, rather than pretending a noisy proxy is a room sensor.
+- Documented the separate, consent-based monitor-mode research gate for the
+  spare TP-Link radio. It keeps the AX211 and normal Windows connection out of
+  scope, and is not a shipped sensing feature.
+- Added `package_release.py --split`, which cuts a release archive below
+  GitHub's asset cap, generates a CRLF reassembler for the actual number of
+  parts, removes stale extra parts, and verifies a byte-for-byte rejoin before
+  reporting success.
+
 ## v0.2.0-beta.1 — 2026-07-28
 
 The minor version moves rather than the patch level: coding work is now split

@@ -2,7 +2,8 @@
 
 > [!NOTE]
 > This is an advanced developer guide. It is not required for the ready-to-run
-> Windows beta, which already includes its model and runtime.
+> Windows beta, which already includes its Q8 director, 7B autonomous coder,
+> and a CPU runtime.
 
 This repository is source code, not a model host. You can provide a compatible
 local GGUF separately, including in a private zip shared with an authorized
@@ -25,7 +26,7 @@ the developer or tester must first provide:
 The simplest option is to place the GGUF at:
 
 ```text
-models/Qwen3-4B-Instruct-2507-Q5_K_M.gguf
+models/Qwen3-4B-abliterated-bf16_q8_0.gguf
 ```
 
 For a differently named model, set its absolute path before launching. On
@@ -65,23 +66,26 @@ checks, regression tests, and rollback.
 
 ## Desktop companion and maintenance roles
 
-`start_assistant.bat` remains the original CPU-compatible launch path for the
-included Qwen3 4B companion. That is the Raspberry Pi-compatible path. On the
-desktop, `start_desktop_cuda.bat` runs the same deployed abliterated companion
-with GPU offload. It is the **director**: conversation, goals and subgoals,
-and creating or approving a proposed change plan. It is not the profile that
+`start_assistant.bat` is the bundled CPU launch path for the included Qwen3 4B
+Q8 abliterated **director**. It handles conversation, goals and subgoals, and
+creating or approving a proposed change plan. It is not the profile that
 executes source edits.
 
-`start_desktop_q8.bat` is a separate desktop-only comparison launcher for
-`Qwen3-4B-abliterated-bf16_q8_0.gguf`. It has its own server identity and
-prompt cache, so it cannot silently reuse the Q5 session. It does not replace
-the Q5 default or the Raspberry Pi model.
+`start_desktop_cuda.bat` runs that same Q8 director with GPU offload when the
+separate desktop CUDA runtime is present. `start_desktop_q8.bat` remains only
+as a compatibility entry point for older shortcuts; it launches the normal Q8
+director too.
 
-`start_maintenance_coder.bat` runs the local Qwen2.5-Coder 7B Instruct Q8
+`start_maintenance_coder.bat` runs the included Qwen2.5-Coder 7B Instruct Q8
 GGUF as the **autonomous coder**. It is an explicit, on-demand profile for
 bounded self-heals and plan-directed edits. Its launcher deliberately leaves
 automatic editing off at startup; a bounded run still has to be deliberately
 requested.
+
+The 7B launcher uses the desktop CUDA runtime with 16 GPU layers when it is
+available. Otherwise it falls back to the bundled CPU server with zero GPU
+layers. CPU mode is functional but deliberately slower; it does not silently
+pretend to be accelerated.
 
 For one explicitly requested startup repair attempt, use
 `start_autonomous_self_heal.bat`. It starts that same 7B profile with the
@@ -114,7 +118,9 @@ models\Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf
 ```
 
 If you store it elsewhere, set `TORMENT_NEXUS_CODER_MODEL_PATH` to its absolute
-path before launching. Do not put model weights in Git or the release archive.
+path before launching. Do not put model weights in Git. The ready-to-run
+Windows beta intentionally includes this one coder model; source checkouts and
+the 14B profile still require a separately supplied GGUF.
 
 The verified 7B maintenance profile uses 16 GPU layers, a 4K context, flash
 attention, and Q8 KV cache. On this desktop it generated about 17.7 tokens per

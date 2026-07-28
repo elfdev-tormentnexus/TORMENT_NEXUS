@@ -17,7 +17,7 @@ that is confusing or different from the documentation.
 
 The ready-to-run Windows package contains:
 
-- the local language model;
+- the Q8 director and on-demand 7B autonomous-coder models;
 - a private, bundled Python runtime;
 - the local model server;
 - offline Python installation files;
@@ -28,19 +28,16 @@ It starts with no conversation history, saved memories, developer passcode,
 API key, paired device information, or music from the maintainer.
 
 The normal GitHub source checkout does **not** contain all of those
-multi-gigabyte files. The release package does, divided into two download parts
-because GitHub cannot host it as one release asset.
+multi-gigabyte files. The release package does, divided into GitHub-sized
+download parts because GitHub cannot host it as one release asset.
 
 ## Downloading the correct package
 
 The complete beginner process is in
-[Installing on Windows](INSTALL_WINDOWS.md). In short, download these three
-files from the selected GitHub Release into the same folder:
-
-1. `TORMENT_NEXUS.zip.part01`
-2. `TORMENT_NEXUS.zip.part02`
-3. `REASSEMBLE_TORMENT_NEXUS.bat`
-
+[Installing on Windows](INSTALL_WINDOWS.md). In short, download every
+consecutive `TORMENT_NEXUS.zip.partNN` file from the selected GitHub Release,
+starting at `TORMENT_NEXUS.zip.part01`, plus
+`REASSEMBLE_TORMENT_NEXUS.bat`, into the same folder.
 Run `REASSEMBLE_TORMENT_NEXUS.bat` to join the parts into a single
 `TORMENT_NEXUS.zip`, check it against the SHA-256 fingerprint in the release
 notes, then extract it and run `setup.bat`.

@@ -43,17 +43,17 @@ MODEL_PATH = (
     or os.path.join(
         PROJECT_HOME,
         "models",
-        "Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+        "Qwen3-4B-abliterated-bf16_q8_0.gguf",
     )
 )
 
 # What the UI header shows. Kept separate from MODEL_PATH's filename
 # so the on-disk name can stay descriptive (matching what it was
 # downloaded as) while the header shows a shorter label. Desktop profiles
-# may override it without changing the Pi-safe default model path.
+# may override it without changing the shipped director model path.
 MODEL_DISPLAY_NAME = (
     os.environ.get("TORMENT_NEXUS_MODEL_DISPLAY_NAME", "").strip()
-    or "Qwen3-4B-I-2507-Q5_K_M"
+    or "Qwen3-4B-Abliterated-Q8_0"
 )
 
 # Models have distinct jobs, but the authority boundary is still trusted Python

@@ -1,5 +1,6 @@
 from collections import Counter
 from datetime import datetime, timezone
+import importlib.util
 import inspect
 import json
 import os
@@ -65,6 +66,20 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))), "tools"))
 import glitch_icon
 from web import search_engine
+
+# package_release.py intentionally lives beside the application package rather
+# than inside it. Load that local maintainer tool by path so the dependency
+# census does not mistake it for an installable third-party module.
+_PACKAGE_RELEASE_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    "tools",
+    "package_release.py",
+)
+_PACKAGE_RELEASE_SPEC = importlib.util.spec_from_file_location(
+    "package_release_for_tests", _PACKAGE_RELEASE_PATH
+)
+package_release = importlib.util.module_from_spec(_PACKAGE_RELEASE_SPEC)
+_PACKAGE_RELEASE_SPEC.loader.exec_module(package_release)
 
 
 class PathSafetyGuardTests(unittest.TestCase):
@@ -7440,17 +7455,15 @@ class DocumentationTests(unittest.TestCase):
             root / "docs" / "INSTALL_WINDOWS.md"
         ).read_text(encoding="utf-8")
 
-        # v0.2.0-beta.1 ships a single archive again: the music visualizer
-        # repair that beta.3 needed as a separate patch is built in. So the
-        # asset list drops from four files to three, and the beginner path is
-        # the plain reassemble-extract-setup route rather than a patched
-        # installer. A stale name here is worse than a wrong one -- it sends a
-        # first-time user hunting a release page for a file that is not there.
+        # The number of parts follows archive size, so beginner instructions
+        # must name the first numbered asset, the generated helper, and the
+        # rule to download every consecutive later part. A fixed two-part list
+        # silently breaks the next time model payload crosses another cap.
         for text in (readme, installer):
             with self.subTest(document="README" if text is readme else "installer"):
                 self.assertIn("TORMENT_NEXUS.zip.part01", text)
-                self.assertIn("TORMENT_NEXUS.zip.part02", text)
                 self.assertIn("REASSEMBLE_TORMENT_NEXUS.bat", text)
+                self.assertIn("every", text.lower())
                 self.assertIn("Source code", text)
 
                 # Retired assets must not be named anywhere a beginner reads.
@@ -7462,7 +7475,7 @@ class DocumentationTests(unittest.TestCase):
         # both drift silently, and both are read by someone who has no way to
         # tell they are out of date.
         root, _ = self._documents()
-        current = "v0.2.0-beta.1"
+        current = "v0.2.0-beta.5"
 
         for name in ("README.md", "docs/INSTALL_WINDOWS.md",
                      "docs/TROUBLESHOOTING.md", "docs/BETA_GUIDE.md"):
@@ -7545,6 +7558,126 @@ class BatchScriptTests(unittest.TestCase):
         for variable in ("PART1", "PART2"):
             self.assertNotIn(f'"%{variable}% (', source)
             self.assertIn(f'"%{variable}%"', source)
+
+
+class ReleaseSplitTests(unittest.TestCase):
+    """The uploader must never produce parts its helper cannot reassemble."""
+
+    def setUp(self):
+        self.folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.folder, True)
+        self.dist = os.path.join(self.folder, "dist")
+        os.makedirs(self.dist)
+        self.archive = os.path.join(
+            self.dist, f"{package_release.PACKAGE_NAME}.zip"
+        )
+
+    def _split(self, payload, limit=1024):
+        with open(self.archive, "wb") as handle:
+            handle.write(payload)
+
+        with mock.patch.object(package_release, "DIST", self.dist), mock.patch.object(
+            package_release, "MAX_ASSET_BYTES", limit
+        ):
+            report = []
+            self.assertTrue(package_release.split(report), report)
+        return report
+
+    def test_split_rejoins_all_parts_and_generates_a_matching_batch_file(self):
+        payload = bytes(range(251)) * 11
+        report = self._split(payload)
+        parts = sorted(str(path) for path in Path(self.dist).glob(
+            f"{package_release.PACKAGE_NAME}.zip.part*"
+        ))
+        helper = os.path.join(self.dist, package_release.REASSEMBLER_NAME)
+
+        self.assertEqual(len(parts), 3)
+        self.assertEqual(b"".join(Path(path).read_bytes() for path in parts), payload)
+        self.assertTrue(all(os.path.getsize(path) <= 1024 for path in parts))
+        self.assertIn("verified", "\n".join(report))
+
+        source = Path(helper).read_bytes()
+        self.assertIn(b'"%PART1%"+"%PART2%"+"%PART3%"', source)
+        self.assertIn(b'Missing TORMENT_NEXUS.zip.part03', source)
+        self.assertIn(b'if not exist "%PART1%" (', source)
+        self.assertIn(b"\r\n", source)
+        self.assertNotIn(b"\n", source.replace(b"\r\n", b""))
+
+    def test_split_removes_only_obsolete_parts_from_an_earlier_larger_archive(self):
+        stale = self.archive + ".part04"
+        Path(stale).write_bytes(b"old derived part")
+        self._split(b"a" * 1500)
+
+        self.assertFalse(os.path.exists(stale))
+        self.assertTrue(os.path.isfile(self.archive + ".part01"))
+        self.assertTrue(os.path.isfile(self.archive + ".part02"))
+
+    def test_split_refuses_when_there_is_no_archive(self):
+        with mock.patch.object(package_release, "DIST", self.dist):
+            report = []
+            self.assertFalse(package_release.split(report))
+
+        self.assertIn("MISSING archive", "\n".join(report))
+
+    def test_discard_stage_requires_an_archive_and_removes_only_the_stage(self):
+        stage = os.path.join(self.dist, package_release.PACKAGE_NAME)
+        os.makedirs(stage)
+        marker = os.path.join(stage, "rebuildable.txt")
+        Path(marker).write_text("stage", encoding="utf-8")
+
+        with mock.patch.object(package_release, "DIST", self.dist), mock.patch.object(
+            package_release, "STAGE", stage
+        ):
+            report = []
+            self.assertFalse(package_release.discard_stage(report))
+            self.assertTrue(os.path.isfile(marker))
+
+            Path(self.archive).write_bytes(b"verified archive")
+            report = []
+            self.assertTrue(package_release.discard_stage(report), report)
+
+        self.assertFalse(os.path.exists(stage))
+        self.assertTrue(os.path.isfile(self.archive))
+
+
+class ReleaseModelContractTests(unittest.TestCase):
+    """The archive's model roles must match the launchers' real defaults."""
+
+    def _root(self):
+        return os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))))
+
+    def test_package_ships_the_q8_director_and_7b_coder_not_the_retired_q5(self):
+        models = {
+            path for path in package_release.INCLUDE_FILES
+            if path.startswith("models/") and path.endswith(".gguf")
+        }
+
+        self.assertEqual(models, {
+            "models/Qwen3-4B-abliterated-bf16_q8_0.gguf",
+            "models/Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf",
+        })
+
+    def test_normal_launch_defaults_to_the_shipped_q8_director(self):
+        with open(
+            os.path.join(self._root(), "assistant", "core", "config.py"),
+            encoding="utf-8",
+        ) as handle:
+            config = handle.read()
+
+        self.assertIn("Qwen3-4B-abliterated-bf16_q8_0.gguf", config)
+        self.assertNotIn("Qwen3-4B-Instruct-2507-Q5_K_M.gguf", config)
+
+    def test_bundled_coder_uses_cpu_only_when_the_cuda_runtime_is_absent(self):
+        with open(
+            os.path.join(self._root(), "start_maintenance_coder.bat"),
+            encoding="utf-8",
+        ) as handle:
+            launcher = handle.read()
+
+        self.assertIn("set \"CPU_SERVER=", launcher)
+        self.assertIn("set \"GPU_LAYERS=0\"", launcher)
+        self.assertIn("CUDA runtime not found", launcher)
 
 
 class StartupImportTests(unittest.TestCase):

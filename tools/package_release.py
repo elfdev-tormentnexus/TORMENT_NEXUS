@@ -26,18 +26,21 @@ else.
 
     python tools/package_release.py                 build into dist/
     python tools/package_release.py --archive       ... and zip it
+    python tools/package_release.py --split         cut the ZIP for GitHub
     python tools/package_release.py --verify-only   re-check an existing build
     python tools/package_release.py --skip-download reuse cached wheels/python
 """
 
 import argparse
 import fnmatch
+import glob
 import hashlib
 import json
 import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.request
 import zipfile
@@ -55,6 +58,15 @@ PACKAGE_NAME = "TORMENT_NEXUS"
 STAGE = os.path.join(DIST, PACKAGE_NAME)
 CACHE = os.path.join(DIST, ".cache")
 MANIFEST_NAME = "RELEASE_MANIFEST.json"
+
+# GitHub rejects a release asset over 2 GiB. The margin covers the difference
+# between the API's accounting and ours, and costs nothing.
+MAX_ASSET_BYTES = 2 * 1024**3 - 64 * 1024**2
+
+# This helper is generated from the actual number of split parts. A hand-made
+# helper once knew about only two parts; a later part would then be silently
+# omitted and leave every recipient with a corrupt archive.
+REASSEMBLER_NAME = "REASSEMBLE_TORMENT_NEXUS.bat"
 
 PYTHON_VERSION = "3.14.6"
 EMBED_URL = (f"https://www.python.org/ftp/python/{PYTHON_VERSION}"
@@ -86,21 +98,26 @@ INCLUDE_FILES = [
     "docs/TESTING.md",
     "docs/TROUBLESHOOTING.md",
     "docs/WIFI_SENSING_EXPERIMENT.md",
+    "docs/WIFI_SENSING_NEXT_STEP.md",
     "LICENSES/QWEN_APACHE-2.0.txt",
     "setup/requirements.txt",
     "setup/requirements-voice.txt",
     "setup/requirements-hardware.txt",
     "setup/requirements-release-windows.txt",
     "start_assistant.bat",
+    "start_maintenance_coder.bat",
+    "start_autonomous_self_heal.bat",
     "setup/test_assistant.bat",
     "tools/glitch_icon.py",
     "tools/package_release.py",
+    "tools/wifi_sense_collector.py",
     "tools/reassemble_release_parts.bat",
     "tools/start_glitch.bat",
     "tools/stop_glitch.bat",
     "assets/assistant_icon.ico",
     "assets/assistant_icon_animated.gif",
-    "models/Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+    "models/Qwen3-4B-abliterated-bf16_q8_0.gguf",
+    "models/Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf",
     "models/voice/silero_vad.onnx",
 ]
 
@@ -511,6 +528,185 @@ def _hash_file(path):
     return digest.hexdigest()
 
 
+def _hash_parts(paths):
+    """Return the byte count and SHA-256 of a binary concatenation."""
+    digest = hashlib.sha256()
+    total = 0
+
+    for path in paths:
+        with open(path, "rb") as source:
+            for block in iter(lambda: source.read(1024 * 1024), b""):
+                digest.update(block)
+                total += len(block)
+
+    return total, digest.hexdigest()
+
+
+def _write_reassembler(part_paths, target):
+    """Generate a batch helper for exactly these parts, with CRLF endings."""
+    names = [os.path.basename(path) for path in part_paths]
+    lines = [
+        "@echo off",
+        "setlocal",
+        'set "HERE=%~dp0"',
+        f'set "ZIP=%HERE%{PACKAGE_NAME}.zip"',
+        "",
+        "REM The closing quote matters. Without it the variable expands and the",
+        "REM opening \"(\" is swallowed into the quoted filename, so cmd loses the",
+        "REM start of the block and the script fails in a way that points nowhere",
+        "REM near the actual line.",
+    ]
+    variables = []
+
+    for number, name in enumerate(names, 1):
+        variable = f"PART{number}"
+        variables.append(variable)
+        lines.extend((
+            "",
+            f'set "{variable}=%HERE%{name}"',
+            f'if not exist "%{variable}%" (',
+            f"    echo Missing {name} in this folder.",
+            "    pause",
+            "    exit /b 1",
+            ")",
+        ))
+
+    copy_sources = "+".join(f'"%{variable}%"' for variable in variables)
+    lines.extend((
+        "",
+        "echo Reassembling the complete beta package...",
+        f'copy /b {copy_sources} "%ZIP%" >nul',
+        "if errorlevel 1 (",
+        f"    echo Could not create {PACKAGE_NAME}.zip.",
+        "    pause",
+        "    exit /b 1",
+        ")",
+        "",
+        "echo.",
+        "echo Complete: %ZIP%",
+        "echo Verify the SHA-256 shown in the GitHub Release notes, then extract the ZIP and run setup.bat.",
+        "pause",
+        "",
+    ))
+
+    # Batch files are intentionally CRLF even though repository source uses
+    # LF. cmd.exe is forgiving, but this preserves the form Windows users
+    # expect and keeps generated output distinct from source formatting.
+    with open(target, "w", encoding="utf-8", newline="\r\n") as handle:
+        handle.write("\n".join(lines))
+
+
+def split(report):
+    """Cut the release ZIP into upload-sized parts and prove they rejoin."""
+    archive = os.path.join(DIST, f"{PACKAGE_NAME}.zip")
+    if not os.path.isfile(archive):
+        report.append(f"  MISSING archive  {archive}")
+        return False
+
+    archive_size = os.path.getsize(archive)
+    part_count = max(1, (archive_size + MAX_ASSET_BYTES - 1) // MAX_ASSET_BYTES)
+    part_paths = [
+        archive + f".part{number:02d}"
+        for number in range(1, part_count + 1)
+    ]
+    reassembler = os.path.join(DIST, REASSEMBLER_NAME)
+    expected_parts = {os.path.normcase(os.path.abspath(path)) for path in part_paths}
+
+    # Produce and verify every new asset in a temporary sibling directory.
+    # An interrupted write cannot damage the source ZIP or a previously
+    # published set of parts.
+    try:
+        with tempfile.TemporaryDirectory(
+            prefix=f".{PACKAGE_NAME}_split_", dir=DIST
+        ) as temporary:
+            temporary_parts = [
+                os.path.join(temporary, os.path.basename(path))
+                for path in part_paths
+            ]
+            with open(archive, "rb") as source:
+                for target in temporary_parts:
+                    remaining = MAX_ASSET_BYTES
+                    with open(target, "wb") as part:
+                        while remaining:
+                            block = source.read(min(1024 * 1024, remaining))
+                            if not block:
+                                break
+                            part.write(block)
+                            remaining -= len(block)
+
+            temporary_reassembler = os.path.join(temporary, REASSEMBLER_NAME)
+            _write_reassembler(temporary_parts, temporary_reassembler)
+
+            joined_size, joined_hash = _hash_parts(temporary_parts)
+            if joined_size != archive_size or joined_hash != _hash_file(archive):
+                report.append(
+                    "  REFUSING TO SPLIT - generated parts do not rejoin "
+                    "to the source archive."
+                )
+                return False
+
+            stale_parts = sorted(glob.glob(archive + ".part*"))
+            extras = [
+                path for path in stale_parts
+                if os.path.normcase(os.path.abspath(path)) not in expected_parts
+            ]
+            if any(not os.path.isfile(path) for path in extras):
+                report.append(
+                    "  REFUSING TO SPLIT - an unexpected non-file matches "
+                    f"{archive}.part*"
+                )
+                return False
+
+            # Only now replace the derived release assets. The source ZIP is
+            # never moved or rewritten. Matching old parts are atomically
+            # replaced; obsolete later parts are removed so they cannot be
+            # uploaded accidentally beside the generated helper.
+            for stale in extras:
+                os.remove(stale)
+            for source, target in zip(temporary_parts, part_paths):
+                os.replace(source, target)
+            os.replace(temporary_reassembler, reassembler)
+    except OSError as error:
+        report.append(f"  SPLIT FAILED: {error}")
+        return False
+
+    report.append(
+        f"  split {os.path.basename(archive)} into {part_count} part(s) "
+        f"of at most {MAX_ASSET_BYTES / 1024**3:.2f} GiB"
+    )
+    report.append(f"  generated {reassembler}")
+    report.append("  verified: the numbered parts rejoin byte-for-byte")
+    return True
+
+
+def discard_stage(report):
+    """Remove a rebuildable staged package only after its archive is present."""
+    archive = os.path.join(DIST, f"{PACKAGE_NAME}.zip")
+    if not os.path.isfile(archive):
+        report.append(
+            f"  REFUSING TO DISCARD STAGE - archive is missing: {archive}"
+        )
+        return False
+
+    if not os.path.exists(STAGE):
+        report.append("  staged package already absent")
+        return True
+    if not os.path.isdir(STAGE):
+        report.append(
+            f"  REFUSING TO DISCARD STAGE - not a directory: {STAGE}"
+        )
+        return False
+
+    try:
+        shutil.rmtree(STAGE)
+    except OSError as error:
+        report.append(f"  COULD NOT DISCARD STAGE: {error}")
+        return False
+
+    report.append(f"  discarded rebuildable staged package: {STAGE}")
+    return True
+
+
 def write_manifest(report):
     """Record every shipped file so a handoff can be checked later."""
     entries = []
@@ -657,8 +853,13 @@ if errorlevel 1 (
 )
 
 echo   [3/4] Checking the install...
-if not exist "%~dp0models\Qwen3-4B-Instruct-2507-Q5_K_M.gguf" (
-    echo   ERROR: the language model is missing from this package.
+if not exist "%~dp0models\Qwen3-4B-abliterated-bf16_q8_0.gguf" (
+    echo   ERROR: the Q8 director model is missing from this package.
+    pause
+    exit /b 1
+)
+if not exist "%~dp0models\Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf" (
+    echo   ERROR: the 7B autonomous coder model is missing from this package.
     pause
     exit /b 1
 )
@@ -830,12 +1031,12 @@ WHAT THIS IS
 
 WHAT YOU NEED
     - 64-bit Windows
-    - About 3 GB for this extracted folder
-    - At least 8 GB of RAM; 16 GB is better with voice enabled
+    - About 13 GB for this extracted folder
+    - At least 16 GB of RAM for the Q8 director and 7B coder
     - A microphone only if you want to speak; typed input works without one
 
     The full download, rebuilt ZIP, and extracted folder can temporarily use
-    about 10 GB together. You may delete the download parts and ZIP after the
+    about 40 GB together. You may delete the download parts and ZIP after the
     installation works.
 
 INSTALLING
@@ -859,9 +1060,10 @@ WHAT IT TOUCHES
     folder and the shortcut.
 
 FIRST RUN
-    The model loads into RAM and takes a moment on the first message. 8 GB
-    of RAM is comfortable; 16 GB is better if you want the voice running at
-    the same time.
+    The Q8 director loads into RAM and takes a moment on the first message.
+    The bundled 7B coder is an on-demand separate profile, started through
+    start_maintenance_coder.bat or start_autonomous_self_heal.bat. It can run
+    through the bundled CPU server, though a configured CUDA runtime is faster.
 
     Type "tutorial" for the beginner-friendly walkthrough. Type "help" to
     see available commands or "explain <anything>" for one focused guide.
@@ -941,6 +1143,13 @@ def main():
     parser = argparse.ArgumentParser(description="Build a shareable package.")
     parser.add_argument("--archive", action="store_true",
                         help="zip the package when done")
+    parser.add_argument("--split", action="store_true",
+                        help="cut the archive into upload-sized parts, "
+                             "generate the matching reassembler, and verify "
+                             "they rejoin")
+    parser.add_argument("--discard-stage", action="store_true",
+                        help="with --split, remove the verified rebuildable "
+                             "stage folder before making parts")
     parser.add_argument("--skip-download", action="store_true",
                         help="reuse cached Python and wheels")
     parser.add_argument("--verify-only", action="store_true",
@@ -951,7 +1160,20 @@ def main():
                              "you test-ran setup.bat)")
     args = parser.parse_args()
 
+    if args.split and (args.archive or args.verify_only or args.sanitize):
+        parser.error("--split is a separate action; archive or verify first")
+    if args.discard_stage and not args.split:
+        parser.error("--discard-stage requires --split")
+
     report = []
+
+    if args.split:
+        if args.discard_stage and not discard_stage(report):
+            print("\n".join(report))
+            return 1
+        ok = split(report)
+        print("\n".join(report))
+        return 0 if ok else 1
 
     # Windows keeps DLLs from the running embedded interpreter open. A build
     # cannot safely replace dist/TORMENT_NEXUS while it is being run by that

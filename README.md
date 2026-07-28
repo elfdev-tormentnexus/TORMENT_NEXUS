@@ -16,8 +16,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.2.0-beta.1">
-    Download the latest beta: v0.2.0-beta.1
+  <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.2.0-beta.5">
+    Download the latest beta: v0.2.0-beta.5
   </a>
 </p>
 
@@ -25,8 +25,8 @@
 > **Want to use TORMENT_NEXUS on Windows? Do not use GitHub's green
 > `Code` button or its automatic `Source code` downloads.** Those files are
 > for developers and do not contain the AI model or self-contained Windows
-> runtime. Follow the Windows instructions below and download the three named
-> release files.
+> runtime. Follow the Windows instructions below and download every numbered
+> release part plus the reassembler.
 
 ## Installing the Windows beta
 
@@ -40,21 +40,20 @@ download a separate model.
 | You need | Why |
 | --- | --- |
 | 64-bit Windows | The current packaged beta is built for 64-bit Windows. |
-| About 10 GB of free space during installation | The two download parts, rebuilt ZIP, and extracted folder temporarily exist together. The installed folder is about 3 GB. |
-| At least 8 GB of memory | 8 GB is comfortable for text use; 16 GB is better when using voice at the same time. |
+| About 40 GB of free space during installation | The download parts, rebuilt ZIP, and extracted folder temporarily exist together. The installed folder is about 13 GB. |
+| At least 16 GB of memory | This is the minimum for the Q8 director and bundled 7B coder. More memory leaves more room for voice and other applications. |
 | Internet for the download | Setup and ordinary conversation work locally after the files are downloaded. |
 | A microphone only if you want to speak | Typed input and spoken replies still work without a microphone. |
 
 ### Four installation steps
 
 1. Open the
-   [v0.2.0-beta.1 release page](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.2.0-beta.1)
+   [v0.2.0-beta.5 release page](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.2.0-beta.5)
    and expand **Assets** if the file list is hidden.
-2. Download all three of these files into the same folder:
-   - `TORMENT_NEXUS.zip.part01`
-   - `TORMENT_NEXUS.zip.part02`
-   - `REASSEMBLE_TORMENT_NEXUS.bat`
-3. Double-click `REASSEMBLE_TORMENT_NEXUS.bat`. It joins the two parts back
+2. Download `TORMENT_NEXUS.zip.part01`, every later consecutive
+   `TORMENT_NEXUS.zip.partNN` file shown on the release page, and
+   `REASSEMBLE_TORMENT_NEXUS.bat` into the same folder. Do not skip a number.
+3. Double-click `REASSEMBLE_TORMENT_NEXUS.bat`. It joins every numbered part back
    into `TORMENT_NEXUS.zip`. Right-click that ZIP, choose **Extract All**,
    open the extracted folder, and double-click `setup.bat`. Leave the window
    open until it says setup is complete.
@@ -307,6 +306,8 @@ advanced manual setup.
 - [Architecture](docs/ARCHITECTURE.md) - system layout and trust boundaries.
 - [Experimental desktop Wi-Fi sensing](docs/WIFI_SENSING_EXPERIMENT.md) - the
   isolated, opt-in research boundary for the future AX211 experiment.
+- [Wi-Fi sensing next step](docs/WIFI_SENSING_NEXT_STEP.md) - the measured
+  Windows result and the separately scoped monitor-mode research plan.
 - [Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md) - use a separately
   provided model with a source checkout.
 - [T-Deck custom firmware](docs/TDECK_CUSTOM_FIRMWARE.md) - optional hardware
