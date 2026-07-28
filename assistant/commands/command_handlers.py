@@ -48,6 +48,29 @@ DEV_MODE_EXPIRES_AT = 0.0
 DEV_MODE_DURATION_SECONDS = 15 * 60
 AUTONOMOUS_SERIAL_MODE = False
 
+# Experimental mode: SABLE7 token trajectories, deliberately slower.
+#
+# A sentence embedding is a mean over its token vectors. This mode keeps the
+# path instead of only the mean, on the theory that the discarded structure
+# carries usable semantics. That theory is NOT established -- late
+# interaction over trajectories retrieved the same documents as plain
+# pooled cosine in the only measurement taken so far, and three unlabelled
+# queries is too small to conclude either way. See
+# docs/VECTOR_TRANSLATION_RESEARCH.md.
+#
+# So this mode SHADOWS rather than replaces. Retrieval answers exactly as it
+# always did, and the trajectory ranking is computed alongside and logged.
+# The mode's first job is to produce the evidence that would justify it,
+# which is the honest order to do this in: nothing downstream changes until
+# the numbers say it should.
+#
+# It expires like dev mode does, because it costs a second resident
+# embedding server -- llama.cpp fixes pooling at launch, so trajectories
+# cannot come from the pooled instance -- and makes every retrieval slower.
+EXPERIMENTAL_MODE = False
+EXPERIMENTAL_MODE_EXPIRES_AT = 0.0
+EXPERIMENTAL_MODE_DURATION_SECONDS = 60 * 60
+
 _ROLE_LABELS = {
     MODEL_ROLE_DIRECTOR: "director",
     MODEL_ROLE_AUTONOMOUS_CODER: "autonomous coder",
@@ -83,6 +106,30 @@ def _expire_dev_mode():
         DEV_MODE = False
         DEV_MODE_EXPIRES_AT = 0.0
         AUTONOMOUS_SERIAL_MODE = False
+
+
+def is_experimental_mode():
+    _expire_experimental_mode()
+    return EXPERIMENTAL_MODE
+
+
+def _expire_experimental_mode():
+    global EXPERIMENTAL_MODE, EXPERIMENTAL_MODE_EXPIRES_AT
+
+    if (
+        EXPERIMENTAL_MODE
+        and EXPERIMENTAL_MODE_EXPIRES_AT
+        and time.monotonic() >= EXPERIMENTAL_MODE_EXPIRES_AT
+    ):
+        EXPERIMENTAL_MODE = False
+        EXPERIMENTAL_MODE_EXPIRES_AT = 0.0
+
+
+def experimental_mode_remaining():
+    """Seconds left, or 0.0 when the mode is off."""
+    if not is_experimental_mode() or not EXPERIMENTAL_MODE_EXPIRES_AT:
+        return 0.0
+    return max(0.0, EXPERIMENTAL_MODE_EXPIRES_AT - time.monotonic())
 
 
 # ============================================================
