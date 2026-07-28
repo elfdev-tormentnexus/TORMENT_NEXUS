@@ -397,6 +397,20 @@ _RAIL = "\u258f"          # thin left rail
 _RAIL_ACTIVE = "\u2590"   # marker on the newest line
 _SEPARATOR = "\u2500"     # rule above the input row
 
+# --- retrieval panel ---
+# A fixed measure, not a fraction of the terminal. The cloud draws one memory
+# per cell, so a narrower box silently drops points instead of scaling them.
+# Below the gate the panel is therefore dropped whole rather than squeezed.
+#
+# Gated on available cells because "maximized" is not detectable from a
+# terminal: GetConsoleWindow() returns the hidden pseudo-console under Windows
+# Terminal, which is what double-clicking the .bat opens.
+PANEL_WIDTH = 44            # interior cells, matching the verified 44x40 render
+PANEL_BORDER = 1            # the rule dividing it from the conversation
+PANEL_MIN_CHAT_WIDTH = 60   # chat measure that must survive reserving it
+PANEL_MIN_HEIGHT = 20       # rows below which there is nothing worth drawing
+_PANEL_RULE = "\u2502"      # vertical divider
+
 # --- restrained terminal corruption ---
 # These effects are deliberately canvas-only: the actual input buffer and
 # chat history remain pristine. A typed character gets one very short visual
@@ -637,11 +651,42 @@ class LayeredDisplayEngine:
         self.lock = threading.Lock()
         self.render_thread = None
         self._last_render_error = ""
+        self.panel_enabled = True
 
     def update_size(self):
         s = shutil.get_terminal_size(fallback=(80, 24))
         self.width = max(s.columns, 40)
         self.height = max(s.lines, 15)
+
+    def panel_columns(self):
+        """
+        Columns the retrieval panel occupies, its divider included, or 0.
+
+        Music mode owns the whole canvas, so the panel yields to it rather
+        than drawing over a full-screen scene.
+        """
+        if not self.panel_enabled or self.music_mode:
+            return 0
+
+        if self.height < PANEL_MIN_HEIGHT:
+            return 0
+
+        total = PANEL_WIDTH + PANEL_BORDER
+
+        if self.width - total < PANEL_MIN_CHAT_WIDTH:
+            return 0
+
+        return total
+
+    def content_width(self):
+        """
+        The measure conversation text wraps and is sliced to.
+
+        Everything the operator reads is bounded by this rather than by the
+        terminal width, which is also a readability fix in its own right: at
+        220 columns the old wrap produced a 216-character line.
+        """
+        return self.width - self.panel_columns()
 
     def _advance_speech_drive(self):
         """
@@ -2015,11 +2060,19 @@ class LayeredDisplayEngine:
                     if canvas[separator_y][x].char == _SEPARATOR
                 )
 
-            # The left gutter is reserved by CHAT_INDENT and the far-right
-            # column sits outside all message slices. They are safe places
-            # for a fragment only when presently blank.
+            # The left gutter is reserved by CHAT_INDENT and the column just
+            # inside the chat's right edge sits outside all message slices.
+            # They are safe places for a fragment only when presently blank.
+            # The right edge is the content measure, not the terminal's: past
+            # it lies the panel, which is a drawing surface rather than the
+            # empty chrome this effect is restricted to.
+            # Bounded by the canvas as well as by the content measure: this
+            # is called with a canvas of its own size in tests, and the
+            # engine's idea of the width is not that canvas's width.
+            chrome_right = max(1, min(width - 1, self.content_width() - 1))
+
             for y in range(0, height - 2):
-                for x in (1, width - 1):
+                for x in (1, chrome_right):
                     if canvas[y][x].char == " ":
                         candidates.append((x, y))
 
@@ -2058,6 +2111,24 @@ class LayeredDisplayEngine:
             ):
                 canvas[y][x] = CanvasCell(char, color)
 
+    def _draw_panel(self, canvas, content_w, top, bottom):
+        """
+        Draw the retrieval panel's divider down the reserved gutter.
+
+        The interior is left as the blank canvas it already is. Nothing is
+        rendered into it here on purpose: the geometry is the risky half of
+        this feature -- it moves chat wrap, the pager and the corruption
+        targets all at once -- and a rendering pass landing in the same
+        change would make a layout regression look like a renderer bug.
+        """
+        if content_w >= self.width or content_w < 0:
+            return
+
+        colour = fg(C_RED_DEEP)
+
+        for y in range(max(0, top), min(bottom, len(canvas) - 1) + 1):
+            canvas[y][content_w] = CanvasCell(_PANEL_RULE, colour)
+
     def render_frame(self):
         with self.lock:
             self.time_counter += 0.08
@@ -2074,6 +2145,11 @@ class LayeredDisplayEngine:
                 self._draw_music(canvas, w, h)
                 self._blit(canvas)
                 return
+
+            # Every measure the conversation is laid out against. The header
+            # stays centred on the full width -- it is chrome above the split,
+            # not part of the reading column.
+            content_w = self.content_width()
 
             # Layer 0: Header & Streaks
             heat = 0.25 + random.uniform(0.0, 0.35)
@@ -2126,7 +2202,7 @@ class LayeredDisplayEngine:
                 ]
 
                 if self.live_text:
-                    wrap_w = max(w - CHAT_INDENT - 2, 10)
+                    wrap_w = max(content_w - CHAT_INDENT - 2, 10)
                     caret = "\u2588" if self.streaming else ""
 
                     for wrapped_line in _wrapped_display_lines(
@@ -2159,11 +2235,16 @@ class LayeredDisplayEngine:
                 rail_col = fg(C_RED_MID) if idx == newest else fg(C_RED_DEEP)
                 canvas[row_y][0] = CanvasCell(rail_char, rail_col)
 
-                for col_x, char in enumerate(text[:w - CHAT_INDENT - 1]):
+                for col_x, char in enumerate(text[:content_w - CHAT_INDENT - 1]):
                     canvas[row_y][col_x + CHAT_INDENT] = CanvasCell(char, shade)
 
             # Rule between the backlog and the input row
             sep_y = h - 3
+
+            # The panel sits between the header and that rule, so the rule
+            # doubles as its lower edge and the input line below keeps the
+            # full width to type on.
+            self._draw_panel(canvas, content_w, self.header_height, sep_y - 1)
 
             if sep_y > self.header_height:
                 for x in range(0, w):
@@ -2576,7 +2657,7 @@ def print_framed(text="", color="", expires_in=None):
     )
 
     with _engine.lock:
-        width = max(_engine.width - CHAT_INDENT - 2, 10)
+        width = max(_engine.content_width() - CHAT_INDENT - 2, 10)
 
         for wrapped_line in _wrapped_display_lines(text, width):
             _engine.chat_history.append(
@@ -2628,7 +2709,7 @@ def page_text_if_needed(text, color=GREY):
     """
     with _engine.lock:
         _engine.update_size()
-        width = max(_engine.width - CHAT_INDENT - 2, 10)
+        width = max(_engine.content_width() - CHAT_INDENT - 2, 10)
         lines = [
             (line, color or RESET)
             for line in _wrapped_display_lines(text, width)

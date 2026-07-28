@@ -8145,5 +8145,153 @@ class GuardDoctorTests(unittest.TestCase):
         self.assertNotIn("editing/guard_doctor.py", editable)
 
 
+class RetrievalPanelLayoutTests(unittest.TestCase):
+    """
+    Reserving the gutter moves chat wrap, the pager and the corruption
+    targets at once, which is the whole risk in this feature. These pin the
+    geometry; the renderer in ui/vector_panel.py is covered separately.
+    """
+
+    WIDE = (160, 48)
+    NARROW = (80, 48)
+    SHORT = (160, 16)
+
+    def _frame(self, size, chat=(), music=False):
+        """Render one frame and hand back the engine and its finished canvas."""
+        engine = ui.LayeredDisplayEngine()
+        engine.music_mode = music
+        engine.chat_history[:] = list(chat)
+
+        with mock.patch.object(
+            ui.shutil,
+            "get_terminal_size",
+            return_value=os.terminal_size(size),
+        ), mock.patch.object(ui.LayeredDisplayEngine, "_blit") as blit:
+            engine.render_frame()
+
+        return engine, blit.call_args.args[0]
+
+    def test_a_wide_terminal_reserves_the_gutter(self):
+        engine, _canvas = self._frame(self.WIDE)
+
+        self.assertEqual(
+            engine.panel_columns(),
+            ui.PANEL_WIDTH + ui.PANEL_BORDER,
+        )
+        self.assertEqual(
+            engine.content_width(),
+            self.WIDE[0] - ui.PANEL_WIDTH - ui.PANEL_BORDER,
+        )
+
+    def test_a_narrow_terminal_drops_the_panel_whole(self):
+        # Dropped rather than squeezed: the cloud is one memory per cell, so
+        # a narrower box loses points instead of scaling them.
+        engine, _canvas = self._frame(self.NARROW)
+
+        self.assertEqual(engine.panel_columns(), 0)
+        self.assertEqual(engine.content_width(), self.NARROW[0])
+
+    def test_a_short_terminal_drops_the_panel(self):
+        engine, _canvas = self._frame(self.SHORT)
+
+        self.assertEqual(engine.panel_columns(), 0)
+
+    def test_music_mode_owns_the_whole_canvas(self):
+        engine, _canvas = self._frame(self.WIDE, music=True)
+
+        self.assertEqual(engine.panel_columns(), 0)
+
+    def test_the_divider_runs_between_the_header_and_the_rule(self):
+        engine, canvas = self._frame(self.WIDE)
+        column = engine.content_width()
+        separator_y = len(canvas) - 3
+
+        for y in range(engine.header_height, separator_y - 1):
+            with self.subTest(row=y):
+                self.assertEqual(canvas[y][column].char, ui._PANEL_RULE)
+
+        # Not over the header, and not over the input line below the rule.
+        self.assertNotEqual(canvas[0][column].char, ui._PANEL_RULE)
+        self.assertNotEqual(canvas[len(canvas) - 2][column].char, ui._PANEL_RULE)
+
+    def test_chat_text_never_crosses_into_the_gutter(self):
+        engine, canvas = self._frame(
+            self.WIDE,
+            chat=[("X" * 400, ui.GREY, None)],
+        )
+        column = engine.content_width()
+        separator_y = len(canvas) - 3
+
+        self.assertLess(column, self.WIDE[0])
+
+        for y in range(engine.header_height, separator_y):
+            for x in range(column + 1, self.WIDE[0]):
+                with self.subTest(row=y, col=x):
+                    self.assertEqual(canvas[y][x].char, " ")
+
+    def test_a_dropped_panel_gives_the_width_back_to_the_chat(self):
+        engine, canvas = self._frame(
+            self.NARROW,
+            chat=[("X" * 400, ui.GREY, None)],
+        )
+        widest = max(
+            sum(1 for cell in row if cell.char == "X")
+            for row in canvas
+        )
+
+        self.assertGreater(widest, self.NARROW[0] - ui.CHAT_INDENT - 4)
+
+    def test_the_transcript_wraps_to_the_content_measure(self):
+        engine = ui._engine
+        previous = (engine.width, engine.height, list(engine.chat_history))
+
+        def restore():
+            engine.width, engine.height = previous[0], previous[1]
+            engine.chat_history[:] = previous[2]
+
+        self.addCleanup(restore)
+
+        engine.width, engine.height = self.WIDE
+        engine.chat_history.clear()
+        ui.print_framed("Y" * 400)
+
+        widest = max(len(text) for text, _colour, _expiry in engine.chat_history)
+        self.assertLessEqual(
+            widest,
+            engine.content_width() - ui.CHAT_INDENT - 2,
+        )
+        # And the gutter is genuinely reserved, so this is not passing by
+        # virtue of the panel being dropped at this size.
+        self.assertGreater(engine.panel_columns(), 0)
+
+    def test_ambient_corruption_stays_out_of_the_panel(self):
+        engine = ui.LayeredDisplayEngine()
+        engine.width, engine.height = self.WIDE
+        width, height = self.WIDE
+        canvas = [
+            [ui.CanvasCell() for _ in range(width)]
+            for _ in range(height)
+        ]
+        engine._ambient_corruption_next_at = 5.0
+
+        with mock.patch.object(ui.random, "uniform", return_value=2.0), \
+                mock.patch.object(ui.random, "random", return_value=0.9), \
+                mock.patch.object(ui.random, "randrange", return_value=0), \
+                mock.patch.object(ui.random, "choice", return_value="▓"):
+            engine._draw_ambient_chrome_corruption(canvas, 5.0)
+
+        placed = [
+            x
+            for _y, row in enumerate(canvas)
+            for x, cell in enumerate(row)
+            if cell.char == "▓"
+        ]
+
+        self.assertTrue(placed)
+        for x in placed:
+            with self.subTest(col=x):
+                self.assertLess(x, engine.content_width())
+
+
 if __name__ == "__main__":
     unittest.main()
