@@ -57,9 +57,16 @@ assistant/cache/
 *.backup
 dump/
 # Legacy root-level runtime placeholders are not source files.
-memory/
+#
+# Anchored with a leading slash. Written bare, these match a directory of
+# that name at ANY depth, so `memory/` silently swallowed the whole of
+# assistant/memory/ -- every source module in it was invisible to git and
+# survived only because files already tracked stay tracked. A new module
+# added there committed clean and simply did not exist for anyone else.
+# The specific private files under assistant/memory/ are listed above.
+/memory/
 # Obsolete captured wiring logs; they are neither source nor runtime state.
-wirelog/
+/wirelog/
 
 
 # ---------------------------------------------------------------
