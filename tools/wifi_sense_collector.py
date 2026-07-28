@@ -357,10 +357,44 @@ def verify(out_path, listen_interface=None, phase=20):
             print("WEAK  the second radio saw no clear difference.")
 
     if not rate_separates and not scan_separates:
-        print("\nThis baseline does not discriminate. Most often that means "
-              "the link was\nidle -- rate adaptation has nothing to adapt to "
-              "without traffic. Start a\nvideo stream and calibrate again "
-              "before trusting any reading.")
+        # Two very different failures were being reported as one, and the
+        # advice for the first is actively misleading when it is the second.
+        #
+        # A flat link genuinely is an idle link, and more traffic fixes it. But
+        # a link that varies and simply does not correlate with the room is not
+        # short of traffic -- it is short of *information*, and no amount of
+        # calibrating will put any there. On a strong short-range 5 GHz link
+        # the adapter has so much margin that a human body never drags SNR far
+        # enough to force a modulation change, so the rate reports on the
+        # adapter's own churn instead of on the room. Telling that operator to
+        # start a video and try again wastes their evening.
+        idle = still_spread < 1.0 and move_spread < 1.0
+
+        if idle:
+            print("\nThe rate barely moved in either phase, which means the "
+                  "link was idle rather\nthan the room being calm. Rate "
+                  "adaptation has nothing to adapt to without\ntraffic. Start "
+                  "a video stream or a large download and calibrate again.")
+        else:
+            backwards = move_spread < still_spread
+
+            print("\nThe link IS varying -- it just is not varying with the "
+                  "room" +
+                  (", and moving\nproduced less change than sitting still, "
+                   "which is the opposite of a weak\nsignal. That is noise."
+                   if backwards else "."))
+            print("\nThis is the expected outcome on a strong, short-range "
+                  "link. The adapter only\nchanges modulation when the "
+                  "channel is marginal, and yours is not: a body\nabsorbs some "
+                  "signal but never enough to force the decision. Scan values "
+                  "are\ncached and rounded to whole percent because they exist "
+                  "to draw a taskbar\nicon, not to measure anything.")
+            print("\nDo not tune the thresholds to make this agree. The "
+                  "information is not in\nthese APIs. The next real step is "
+                  "monitor mode on a spare adapter, which\ngives per-packet "
+                  "RSSI from every transmitter instead of a smoothed number\n"
+                  "once a second -- see the handoff notes.")
+
         return 1
 
     suggested = (still_spread + move_spread) / 2
