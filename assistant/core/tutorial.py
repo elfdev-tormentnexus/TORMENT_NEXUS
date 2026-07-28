@@ -36,16 +36,19 @@ LESSONS = [
         "key": "what",
         "title": "What this is",
         "body": (
-            "A private AI companion that runs entirely on your own machine.\n"
-            "The language model, memory, speech, and listening all run\n"
-            "locally. Ordinary conversation stays on this machine, and the\n"
-            "core system still works with the network unplugged.\n\n"
-            "Web search is the deliberate exception: using 'search' sends\n"
-            "that query through the SearXNG setup you chose, then out to the\n"
-            "internet. It is optional, and it does not make web results\n"
-            "trusted.\n\n"
-            "That constraint shapes everything else here. Features are built\n"
-            "to degrade quietly rather than depend on a service being up."
+            "What it does:\n"
+            "TORMENT_NEXUS is an AI companion that runs on this Windows PC.\n"
+            "Your normal conversations, memories, voice, and listening are\n"
+            "handled locally. In other words, they stay on this computer.\n\n"
+            "Try it:\n"
+            "Type a normal question, or type 'health check' to see which\n"
+            "features are ready right now.\n\n"
+            "Good to know:\n"
+            "Most features still work without the internet. Web search is a\n"
+            "deliberate exception: a search query is sent through your chosen\n"
+            "SearXNG setup and then to the internet. MusicBrainz, Spotify, and\n"
+            "internet radio also need a connection when you choose to use\n"
+            "them."
         ),
         "commands": ["help", "health check"],
     },
@@ -53,12 +56,42 @@ LESSONS = [
         "key": "talking",
         "title": "Just talking to it",
         "body": (
-            "Type normally. Anything that is not a recognised command goes to\n"
-            "the model as conversation.\n\n"
-            "You do not have to memorise commands either -- plain requests get\n"
-            "routed to the matching command when the intent is clear, so\n"
-            "'play some breakcore' finds the same handler as typing the\n"
-            "command yourself."
+            "What it does:\n"
+            "You can type naturally, just as you would in a chat. You do not\n"
+            "need to turn every request into a special command.\n\n"
+            "Try it:\n"
+            "Ask a question, request instructions, or say something simple\n"
+            "like 'play some breakcore'.\n\n"
+            "Good to know:\n"
+            "When a message is wider than the screen, the input line follows\n"
+            "the newest text. An ellipsis on the left means earlier text is\n"
+            "still there; it has not been deleted.\n\n"
+            "Long answers are shown one page at a time. Press Space, Enter,\n"
+            "or Down for the next page; press Up or Backspace for the previous\n"
+            "page; press Escape or Q to close the pager. When you finish, the\n"
+            "display returns to the bottom of the conversation. Lists and line\n"
+            "breaks are also arranged while the answer is appearing."
+        ),
+        "commands": [],
+    },
+    {
+        "key": "time",
+        "title": "Time and returning",
+        "body": (
+            "What it does:\n"
+            "TORMENT_NEXUS reads this computer's local clock during each reply.\n"
+            "It knows the current date and time, how long the present session\n"
+            "has been open, and how long it has been since the previous completed\n"
+            "conversation turn.\n\n"
+            "Try it:\n"
+            "Ask what time or date it is. If you return after a longer break, it\n"
+            "can recognize that gap naturally when it matters to the conversation.\n\n"
+            "Good to know:\n"
+            "Clock awareness is not background consciousness. The app does not\n"
+            "watch, think, wait, work, or feel while it is closed or between\n"
+            "turns. It compares trusted local timestamps when a reply begins.\n"
+            "If the Windows clock or time zone is wrong, its time answer will\n"
+            "also be wrong."
         ),
         "commands": [],
     },
@@ -66,14 +99,18 @@ LESSONS = [
         "key": "commands",
         "title": "Commands and developer mode",
         "body": (
-            "'help' lists everything available to you right now. The list is\n"
-            "shorter than the full set on purpose: the tools that can modify\n"
-            "files or the project itself are hidden behind developer mode, so\n"
-            "an ordinary conversation cannot wander into them by accident.\n\n"
-            "Developer mode expires on its own after fifteen minutes rather\n"
-            "than staying on until you remember to turn it off.\n\n"
-            "The up and down arrow keys cycle the command list, so you can\n"
-            "browse rather than recall."
+            "What it does:\n"
+            "Commands are short phrases for specific actions. 'help' shows\n"
+            "the commands you can use right now. Developer mode temporarily\n"
+            "unlocks advanced tools that can read or change project files.\n\n"
+            "Try it:\n"
+            "Type 'help'. You can also press the Up and Down arrow keys to\n"
+            "browse commands instead of remembering them.\n\n"
+            "Good to know:\n"
+            "Developer mode turns itself off after fifteen minutes. This helps\n"
+            "prevent an ordinary conversation from changing files by mistake.\n"
+            "In command examples, replace words inside <angle brackets> with\n"
+            "your own text. Words inside [square brackets] are optional."
         ),
         "commands": ["help", "dev mode", "dev help", "exit dev mode"],
     },
@@ -81,12 +118,16 @@ LESSONS = [
         "key": "memory",
         "title": "What it remembers",
         "body": (
-            "Worthwhile facts from your conversations are extracted and kept\n"
-            "between sessions; the rest is allowed to disappear. You can read\n"
-            "everything it has stored, and delete any of it.\n\n"
-            "There is a deliberate boundary here: it will not assume you are\n"
-            "the person who set it up, and it will not address you by a name\n"
-            "unless you give one in the current conversation."
+            "What it does:\n"
+            "It can save useful facts from a conversation so they are available\n"
+            "the next time you open the app. It does not try to save everything.\n\n"
+            "Try it:\n"
+            "Type 'show memories' to review what is stored, or 'memory count'\n"
+            "to see how many memories there are.\n\n"
+            "Good to know:\n"
+            "You can inspect and delete stored memories. The app does not assume\n"
+            "who is using the computer, and it will not call you by a name unless\n"
+            "you provide that name in the current conversation."
         ),
         "commands": ["show memories", "memory count", "forget"],
     },
@@ -94,16 +135,20 @@ LESSONS = [
         "key": "voice",
         "title": "Speaking and listening",
         "body": (
-            "Audio mode gives it a voice and, optionally, ears. Speech is\n"
-            "synthesised locally and shaped through a vocoder that separates\n"
-            "pitch from vocal tract, which is what gives it a machine\n"
-            "character rather than a narrator reading aloud.\n\n"
-            "Listening is half-duplex on purpose -- it will not transcribe its\n"
-            "own speaker. Typing keeps working the whole time, and Escape\n"
-            "always gets you back to the plain terminal.\n\n"
-            "Three environment variables retune the voice without touching\n"
-            "code: TORMENT_NEXUS_CARRIER_HZ, TORMENT_NEXUS_PITCH_FLATTEN, and\n"
-            "TORMENT_NEXUS_VOWEL_STRETCH."
+            "What it does:\n"
+            "Audio mode lets TORMENT_NEXUS speak replies aloud and, when a\n"
+            "microphone is available, listen for your voice.\n\n"
+            "Try it:\n"
+            "Type 'audio mode' to begin. Type 'voice status' if you want to\n"
+            "check the speaker and microphone setup first. If you later use\n"
+            "'text mode' to turn voice off, type 'audio mode' whenever you want\n"
+            "to turn it back on.\n\n"
+            "Good to know:\n"
+            "Typing continues to work in audio mode. Press Escape or type\n"
+            "'text mode' to return to text-only use. It pauses listening while\n"
+            "it speaks so it does not mistake its own voice for yours. Idle\n"
+            "check-ins appear on the screen but are not spoken by default, so\n"
+            "the app should not unexpectedly call out for your attention."
         ),
         "commands": ["audio mode", "voice status", "text mode", "exit audio",
                      "sing daisy bell"],
@@ -112,25 +157,32 @@ LESSONS = [
         "key": "music",
         "title": "Music",
         "body": (
-            "Drop audio files into the music folder and they become playable\n"
-            "by name, with no account and no network. The plain 'play' command\n"
-            "checks your local library first -- an offline machine should never\n"
-            "lose a local file to a service it cannot reach.\n\n"
-            "Spotify can also search from the terminal. Type 'spotify search\n"
-            "<song>', then reply with 1 through 5 to choose a listed result,\n"
-            "or 'spotify cancel' to abandon it. The five-result picker uses\n"
-            "MusicBrainz metadata and needs no Spotify developer account. Your\n"
-            "search text goes online to MusicBrainz; choosing a result opens its\n"
-            "title-and-artist search in the installed Spotify app.\n\n"
-            "Music runs on its own audio stream, so TORMENT_NEXUS can talk over\n"
-            "it without cutting the track off.\n\n"
-            "There is also an audio-reactive visualiser that responds to\n"
-            "whatever the machine is playing. It begins with the original\n"
-            "radial tunnel, rotates through four scenes every 2:45, and can\n"
-            "be changed immediately with Left/Right. Space cycles colours,\n"
-            "[/] changes local-music volume, and Ctrl+B exits.\n\n"
-            "The 'volume' command controls files played from the local music\n"
-            "library. Spotify and browser audio keep their own controls."
+            "What it does:\n"
+            "It can play audio files stored in the music folder. You can ask\n"
+            "for a title naturally, even if your spelling is slightly different\n"
+            "from the filename. It can also open Spotify searches and show an\n"
+            "audio-reactive visualizer.\n\n"
+            "Try it:\n"
+            "Type 'music library' to see your local songs. Then type\n"
+            "'play <track>' using all or part of a title. For example, a casual\n"
+            "request for 'i rly wna stay at ur house' can find the locally\n"
+            "stored song with the matching name.\n\n"
+            "Good to know:\n"
+            "Local songs do not need an account or internet connection. The\n"
+            "successful start message is shown on screen instead of spoken, so\n"
+            "the voice does not cover the opening of the song. Later spoken\n"
+            "replies can still play alongside music; use text mode if you want\n"
+            "the app to remain completely quiet.\n\n"
+            "For Spotify, type 'spotify search <song>', reply with 1 through 5\n"
+            "to choose a result, or type 'spotify cancel'. The picker sends the\n"
+            "search text to MusicBrainz, then opens the chosen title and artist\n"
+            "in the installed Spotify app.\n\n"
+            "In the visualizer, colours change automatically every 20 seconds.\n"
+            "Space plays the next song in your local music folder, Left/Right\n"
+            "changes the scene, [ and ] change local-song volume, and Ctrl+B\n"
+            "exits. Scenes also rotate automatically every 2:45. The 'volume'\n"
+            "command affects local songs only; Spotify and browser audio use\n"
+            "their own controls."
         ),
         "commands": ["music library", "play", "spotify", "pause local",
                      "resume local", "stop music", "now playing", "music mode",
@@ -140,13 +192,17 @@ LESSONS = [
         "key": "projects",
         "title": "Making small projects",
         "body": (
-            "Ask it to build a small project in ordinary language and it will\n"
-            "create a self-contained result in the dump folder instead of\n"
-            "scattering new files through the assistant itself. You can list\n"
-            "what it made or open the destination at any time.\n\n"
-            "This is for new, contained work such as a simple utility, web\n"
-            "page, or prototype. It does not grant permission to modify the\n"
-            "TORMENT_NEXUS source code."
+            "What it does:\n"
+            "It can create a small, self-contained project from an ordinary\n"
+            "request. New work is placed in the dump folder so it does not get\n"
+            "mixed into the TORMENT_NEXUS program files.\n\n"
+            "Try it:\n"
+            "Ask it to build a simple utility, web page, or prototype. Type\n"
+            "'list projects' to see previous results or 'dump path' to open\n"
+            "the folder where they are saved.\n\n"
+            "Good to know:\n"
+            "Building a project does not give the app permission to change its\n"
+            "own source code. Self-editing has a separate approval process."
         ),
         "commands": ["build project", "list projects", "dump path"],
     },
@@ -154,10 +210,15 @@ LESSONS = [
         "key": "files",
         "title": "Reading your project",
         "body": (
-            "It can list, read, and search the code it is made of, and build\n"
-            "a structural map of a project so it can answer questions about\n"
-            "shape rather than guessing from a filename.\n\n"
-            "These are developer-mode tools because they read from disk."
+            "What it does:\n"
+            "It can list, read, and search project files. It can also make a\n"
+            "map of how a project is arranged before explaining it.\n\n"
+            "Try it:\n"
+            "Turn on developer mode, then start with 'list files' or use\n"
+            "'explain file <path>' for a specific file.\n\n"
+            "Good to know:\n"
+            "These commands can read files from disk, so they are available\n"
+            "only while developer mode is on. Reading does not change a file."
         ),
         "commands": ["list files", "read file", "search code", "show structure",
                      "explain file", "inspect project"],
@@ -166,15 +227,17 @@ LESSONS = [
         "key": "editing",
         "title": "Editing itself, with your approval",
         "body": (
-            "It can propose changes to its own source. Nothing is written\n"
-            "until you approve it: a change becomes a plan, the plan can be\n"
-            "previewed and modified, and only then applied.\n\n"
-            "Every applied edit is backed up first and can be rolled back.\n"
-            "Some files are permanently off-limits regardless of approval,\n"
-            "so it cannot edit its way around its own guard rails.\n\n"
-            "'suggest' is the low-pressure entry point: it reads real files\n"
-            "and proposes concrete improvements, and 'do <n>' turns one into\n"
-            "a plan."
+            "What it does:\n"
+            "It can suggest changes to its own source code. A suggestion becomes\n"
+            "a plan that you can preview and adjust before anything is written.\n\n"
+            "Try it:\n"
+            "In developer mode, type 'suggest'. If you like suggestion number\n"
+            "2, type 'do 2', review the plan, and approve it only when it looks\n"
+            "right.\n\n"
+            "Good to know:\n"
+            "An approved edit is backed up before it is applied, and you can\n"
+            "roll it back. Some safety-related files cannot be changed through\n"
+            "this feature, even with approval."
         ),
         "commands": ["suggest", "do", "preview plan", "modify plan",
                      "approve plan", "plan status", "rollback", "list backups"],
@@ -183,21 +246,19 @@ LESSONS = [
         "key": "autonomous",
         "title": "The autonomous cycle",
         "body": (
-            "There is a mode where it edits itself without asking first. It\n"
-            "exists under negotiated limits rather than as a free hand: one\n"
-            "edit per run, a hard cap on how many lines may change, the same\n"
-            "permanently-protected files, isolation from anything that\n"
-            "arrived as untrusted input, and a full log of what it did.\n\n"
-            "It is off at startup by default, because a multi-request cycle\n"
-            "before the prompt appears looks like a frozen program."
-            "\n\n"
-            "If you are actively watching, 'autonomous serial on' lets the\n"
-            "next cycle batch up to three of the same small guarded edits,\n"
-            "then reload once. It is off by default and turns itself off when\n"
-            "developer mode ends. If all three edits survive the fixed health\n"
-            "and regression validation after restart, that batch earns one\n"
-            "extra guarded edit. A failed validation restores the batch and\n"
-            "earns no credit."
+            "What it does:\n"
+            "An autonomous cycle lets the app make one small change to its own\n"
+            "code without asking for approval at every step. It checks the\n"
+            "result and records what happened.\n\n"
+            "Try it:\n"
+            "Use this only while you are watching the app. Turn on developer\n"
+            "mode, then type 'run autonomous cycle'.\n\n"
+            "Good to know:\n"
+            "This feature is off when the app starts. Each run has strict limits\n"
+            "on the size and location of an edit, and protected files stay off\n"
+            "limits. 'autonomous serial on' allows up to three guarded edits in\n"
+            "one watched batch. It turns off when developer mode ends. If the\n"
+            "checks fail, the batch is restored from its backup."
         ),
         "commands": ["run autonomous cycle", "autonomous serial"],
     },
@@ -205,14 +266,17 @@ LESSONS = [
         "key": "goals",
         "title": "Self-directed documentation goals",
         "body": (
-            "The optional goals feature lets TORMENT_NEXUS propose useful\n"
-            "project-related documentation tasks, such as a benchmark plan\n"
-            "or hardware integration notes. It is off by default and needs\n"
-            "developer mode before new goals can be set or worked on.\n\n"
-            "Its goal work is deliberately narrower than self-editing: it can\n"
-            "only write plain text, Markdown, JSON, or CSV inside workshop/.\n"
-            "It cannot change source code, run programs, use the network, or\n"
-            "write outside that folder through this feature."
+            "What it does:\n"
+            "The optional goals feature can propose and work on documentation\n"
+            "tasks, such as a test plan or hardware setup notes.\n\n"
+            "Try it:\n"
+            "In developer mode, type 'goals' to see the current status. Use\n"
+            "'set goals' when you want it to prepare new documentation goals.\n\n"
+            "Good to know:\n"
+            "Goals are off by default. This feature can create only plain text,\n"
+            "Markdown, JSON, or CSV files inside the workshop folder. It cannot\n"
+            "change source code, run programs, use the network, or write outside\n"
+            "that folder."
         ),
         "commands": ["goals", "set goals", "work on goals", "goal done"],
     },
@@ -220,12 +284,17 @@ LESSONS = [
         "key": "web",
         "title": "Searching the web",
         "body": (
-            "Search runs against a self-hosted SearXNG instance rather than a\n"
-            "commercial API, so queries are not attached to an account. When\n"
-            "the network is gone this degrades quietly instead of failing the\n"
-            "whole reply.\n\n"
-            "Results are treated as untrusted data. Something written on a\n"
-            "web page is never followed as an instruction."
+            "What it does:\n"
+            "The search command looks for current information on the internet\n"
+            "through the SearXNG search service configured for this app.\n\n"
+            "Try it:\n"
+            "Type 'search <query>', replacing <query> with what you want to\n"
+            "look up.\n\n"
+            "Good to know:\n"
+            "The search words leave this computer and are sent to the configured\n"
+            "search service. Results are treated as untrusted information, not\n"
+            "as instructions for the app to follow. If the network is offline,\n"
+            "the rest of the assistant can continue working."
         ),
         "commands": ["search"],
     },
@@ -233,15 +302,18 @@ LESSONS = [
         "key": "hardware",
         "title": "Connected hardware",
         "body": (
-            "It can pair with a LilyGO T-Deck over Bluetooth and use it as a\n"
-            "remote terminal, including over Meshtastic radio where there is\n"
-            "no internet at all.\n\n"
-            "The terminal is conversation-only: it cannot reach command,\n"
-            "project, editing, or autonomous systems. It accepts text only\n"
-            "from the paired local T-Deck, not arbitrary mesh traffic.\n\n"
-            "Meshtastic text uses the configured radio channel. Other devices\n"
-            "with that channel key may be able to see those messages, so\n"
-            "treat the radio terminal as non-secret."
+            "What it does:\n"
+            "It can connect to a LilyGO T-Deck over Bluetooth and use the\n"
+            "T-Deck as a small remote chat terminal. Meshtastic can carry those\n"
+            "messages by radio without internet access.\n\n"
+            "Try it:\n"
+            "Type 'tdeck setup' for guided setup, or 'tdeck status' to check an\n"
+            "existing connection.\n\n"
+            "Good to know:\n"
+            "The remote terminal is for conversation only. It cannot use project,\n"
+            "file-editing, or autonomous tools. Other devices with the same\n"
+            "Meshtastic channel key may be able to read the radio messages, so\n"
+            "treat that terminal as non-secret."
         ),
         "commands": ["tdeck setup", "tdeck scan", "tdeck status",
                      "tdeck terminal", "tdeck nodes"],
@@ -250,14 +322,16 @@ LESSONS = [
         "key": "next",
         "title": "Where to go from here",
         "body": (
-            "That covers the core tool set. A few things worth knowing:\n\n"
-            "  - Escape interrupts almost anything: a long reply, speech,\n"
-            "    a song, a running search.\n"
-            "  - 'health check' reports what is actually working right now\n"
-            "    rather than what is configured.\n"
-            "  - Ask 'explain <anything>' for a deeper look at any single\n"
-            "    command or subsystem.\n"
-            "  - 'tutorial' brings this walkthrough back any time."
+            "What it does:\n"
+            "You now know the main ways to talk, listen, play music, search,\n"
+            "work with projects, and inspect the app safely.\n\n"
+            "Try it:\n"
+            "Type 'health check' to see what is working, 'help' to see commands,\n"
+            "or 'explain <anything>' when you want help with one feature.\n\n"
+            "Good to know:\n"
+            "Escape interrupts many active tasks, including a long reply, speech,\n"
+            "a song, or a search. Type 'tutorial' whenever you want to return to\n"
+            "this guide."
         ),
         "commands": ["health check", "explain", "tutorial"],
     },
@@ -266,6 +340,10 @@ LESSONS = [
 # Subsystem explanations for `explain <topic>` when the topic is a concept
 # rather than a specific command.
 TOPICS = {
+    "time": "time",
+    "clock": "time",
+    "date": "time",
+    "returning": "time",
     "voice": "voice",
     "speech": "voice",
     "audio": "voice",
@@ -381,11 +459,22 @@ def _command_lines(names, catalog):
         entry = catalog.get(name)
 
         if entry is None:
-            lines.append(f"  {name:<22}  (no longer available)")
+            lines.extend([
+                f"  {name}",
+                "    This command is no longer available.",
+            ])
             continue
 
-        marker = "*" if entry["dev_only"] else " "
-        lines.append(f" {marker}{entry['usage']:<22}  {entry['description']}")
+        availability = (
+            "Developer mode must be on."
+            if entry["dev_only"]
+            else "Available anytime."
+        )
+        lines.extend([
+            f"  {entry['usage']}",
+            f"    {entry['description']}.",
+            f"    {availability}",
+        ])
 
     return lines
 
@@ -407,12 +496,17 @@ def render_lesson(index, include_navigation=True):
 
     if lines:
         out.append("")
-        out.append("Commands in this section:")
+        out.append("Commands you can try:")
         out.extend(lines)
 
-        if any(catalog.get(n, {}).get("dev_only") for n in lesson["commands"]):
-            out.append("")
-            out.append("  * needs developer mode ('dev mode')")
+        if any("<" in catalog.get(n, {}).get("usage", "")
+               or "[" in catalog.get(n, {}).get("usage", "")
+               for n in lesson["commands"]):
+            out.extend([
+                "",
+                "  Replace words in <angle brackets> with your own text.",
+                "  Words in [square brackets] are optional.",
+            ])
 
     if include_navigation:
         out.append("")
@@ -457,8 +551,8 @@ def overview():
         "TUTORIAL",
         "=" * 58,
         "",
-        "A walkthrough of TORMENT_NEXUS's core systems and common workflows.",
-        "Roughly five minutes if you read it straight through.",
+        "This beginner-friendly guide explains what TORMENT_NEXUS can do.",
+        "You can read it in order or jump directly to a section.",
         "",
     ]
 
@@ -470,9 +564,9 @@ def overview():
 
     out.extend([
         "",
-        "'next' or 'tutorial next' moves through two sections at a time.",
-        "'tutorial 5' jumps to a section.",
-        "'explain <topic>' digs into any single piece.",
+        "Type 'next' or 'tutorial next' to read the next two sections.",
+        "Type a section number, such as 'tutorial 5', to jump to it.",
+        "Type 'explain <topic>' for help with one command or feature.",
     ])
 
     return "\n".join(out)
@@ -495,22 +589,40 @@ def explain(topic):
     # An exact command name is the most specific answer available.
     if topic in catalog:
         entry = catalog[topic]
+        availability = (
+            "Developer mode must be on. Type 'dev mode' first."
+            if entry["dev_only"]
+            else "Available anytime."
+        )
         out = [
-            f"{entry['usage']}",
+            f"HOW TO USE: {entry['usage']}",
             "=" * 58,
             "",
+            "What it does:",
             entry["description"] + ".",
             "",
-            f"Group: {entry['group']}",
+            "What to type:",
+            entry["usage"],
+            "",
+            "Availability:",
+            availability,
         ]
 
-        if entry["dev_only"]:
-            out.append("Requires developer mode ('dev mode' first).")
+        if "<" in entry["usage"] or "[" in entry["usage"]:
+            out.extend([
+                "",
+                "Replace words in <angle brackets> with your own text.",
+                "Words in [square brackets] are optional.",
+            ])
 
         for lesson in LESSONS:
             if topic in lesson["commands"]:
-                out.extend(["", f"Covered in tutorial section "
-                                f"'{lesson['title']}':", "", lesson["body"]])
+                out.extend([
+                    "",
+                    f"Related tutorial: {lesson['title']}",
+                    "",
+                    lesson["body"],
+                ])
                 break
 
         return "\n".join(out)
@@ -536,7 +648,7 @@ def explain(topic):
     lines = _command_lines(lesson["commands"], catalog)
 
     if lines:
-        out.extend(["", "Related commands:"] + lines)
+        out.extend(["", "Commands you can try:"] + lines)
 
     return "\n".join(out)
 
@@ -544,9 +656,9 @@ def explain(topic):
 def first_run_invitation():
     """Short pitch shown once on a brand new install."""
     return (
-        "It looks like this is a fresh install.\n\n"
-        "Type 'tutorial' for a five-minute walkthrough of the core system.\n"
-        "If voice input is available, you can say it instead; typing always\n"
-        "works. Or just start talking and ask 'explain <anything>' when you\n"
-        "want detail. 'help' lists the commands at any time."
+        "Welcome! It looks like this is your first time opening TORMENT_NEXUS.\n\n"
+        "Type 'tutorial' for a beginner-friendly tour. If voice input is ready,\n"
+        "you can say it instead; typing always works.\n\n"
+        "You can also begin with a normal question. Type 'help' to see available\n"
+        "commands, or 'explain <anything>' whenever you want more detail."
     )

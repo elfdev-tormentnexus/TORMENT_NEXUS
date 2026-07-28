@@ -4,6 +4,18 @@ _START_REQUESTED = False
 _DAISY_REQUESTED = False
 
 
+class SilentReply(str):
+    """A command result that should be shown but not spoken in audio mode."""
+
+
+def silent_reply(text):
+    return SilentReply(text)
+
+
+def is_silent_reply(reply):
+    return isinstance(reply, SilentReply)
+
+
 def request_start():
     global _START_REQUESTED
     _START_REQUESTED = True

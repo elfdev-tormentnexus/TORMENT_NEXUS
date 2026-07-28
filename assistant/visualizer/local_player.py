@@ -22,9 +22,11 @@ does not touch this one.
 """
 
 import contextlib
+from difflib import SequenceMatcher
 import os
 import queue
 import threading
+import unicodedata
 
 
 # Formats libsndfile handles locally. Kept explicit rather than accepting
@@ -38,6 +40,11 @@ BLOCK_FRAMES = 2048
 # front of it. Eight blocks is roughly 0.37s at 44.1kHz -- enough to ride
 # out a slow read on a Pi's SD card without a noticeable stop delay.
 QUEUE_BLOCKS = 8
+
+# Fuzzy matching is the last resort, after exact/prefix/substring matching.
+# The margin keeps two similarly named mixes from being guessed silently.
+FUZZY_MATCH_MINIMUM = 0.80
+FUZZY_MATCH_MARGIN = 0.08
 
 
 class LocalPlaybackError(Exception):
@@ -100,36 +107,71 @@ def available_tracks():
     return found
 
 
+def _match_text(value):
+    """Comparable words for filenames, punctuation, and casual typing."""
+    value = unicodedata.normalize("NFKC", str(value or "")).casefold()
+    return " ".join(
+        "".join(character if character.isalnum() else " "
+                for character in value).split()
+    )
+
+
 def find_track(query):
     """
     Resolve a typed name to one track.
 
-    Matching widens only as far as it has to: exact, then prefix, then
-    substring. A single match at any stage wins outright, so "play
-    breakcore" is unambiguous even once the folder fills up with names
-    that merely contain the word.
+    Matching widens only as far as it has to: exact, then prefix, substring,
+    and finally a conservative typo match. A single match at any stage wins
+    outright, so "play breakcore" is unambiguous even once the folder fills
+    up with names that merely contain the word.
     """
-    query = (query or "").strip().lower()
+    query = _match_text(query)
 
     if not query:
         return None, []
 
     tracks = available_tracks()
+    comparable = [(track, _match_text(track[0])) for track in tracks]
 
     for test in (
         lambda name: name == query,
         lambda name: name.startswith(query),
         lambda name: query in name,
     ):
-        matches = [t for t in tracks if test(t[0].lower())]
+        matches = [track for track, name in comparable if test(name)]
 
         if len(matches) == 1:
             return matches[0], []
         if len(matches) > 1:
             return None, [name for name, _ in matches]
 
-    return None, []
+    # Very short fragments are too easy to match accidentally. Longer titles
+    # tolerate a typo or casual abbreviation ("wna" versus "wanna"), but only
+    # when one candidate is clearly better than the rest.
+    if len(query) < 6:
+        return None, []
 
+    scored = sorted(
+        ((SequenceMatcher(None, query, name).ratio(), track)
+         for track, name in comparable),
+        key=lambda item: item[0],
+        reverse=True,
+    )
+
+    if not scored or scored[0][0] < FUZZY_MATCH_MINIMUM:
+        return None, []
+
+    best_score = scored[0][0]
+    contenders = [
+        track for score, track in scored
+        if score >= FUZZY_MATCH_MINIMUM
+        and best_score - score < FUZZY_MATCH_MARGIN
+    ]
+
+    if len(contenders) == 1:
+        return contenders[0], []
+
+    return None, [name for name, _ in contenders]
 
 class LocalPlayer:
     """One output stream, one track at a time."""
@@ -142,6 +184,7 @@ class LocalPlayer:
         self._blocks = None
         self._stop_reading = None
         self._name = None
+        self._path = None
         self._paused = False
         self._frames_played = 0
         self._total_frames = 0
@@ -217,6 +260,7 @@ class LocalPlayer:
         with self._lock:
             self._handle = handle
             self._name = name
+            self._path = os.path.abspath(path)
             self._paused = False
             self._frames_played = 0
             self._total_frames = handle.frames
@@ -255,6 +299,67 @@ class LocalPlayer:
 
         return True
 
+    def play_next(self):
+        """
+        Start the next file in the name-sorted local library.
+
+        The current path is retained after a track naturally ends, so Space
+        can still advance rather than forgetting its place between songs.
+        This transport never falls through to Spotify or browser playback.
+        """
+        tracks = available_tracks()
+
+        if not tracks:
+            raise LocalPlaybackError(
+                "No local songs are available. Add audio files to the music "
+                "folder first."
+            )
+
+        with self._lock:
+            current_path = self._path
+            current_name = self._name
+
+        if current_path is None and current_name is None:
+            raise LocalPlaybackError(
+                "No local song is active. Play one from the music library "
+                "before using Space to skip."
+            )
+
+        if len(tracks) == 1:
+            raise LocalPlaybackError(
+                "There is only one song in the local music library."
+            )
+
+        normalized_path = (
+            os.path.normcase(os.path.abspath(current_path))
+            if current_path
+            else None
+        )
+        current_index = None
+
+        for index, (name, path) in enumerate(tracks):
+            same_path = (
+                normalized_path is not None
+                and os.path.normcase(os.path.abspath(path))
+                == normalized_path
+            )
+            if same_path or (
+                normalized_path is None
+                and current_name is not None
+                and name == current_name
+            ):
+                current_index = index
+                break
+
+        if current_index is None:
+            raise LocalPlaybackError(
+                "The current song is no longer in the local music library."
+            )
+
+        next_name, next_path = tracks[(current_index + 1) % len(tracks)]
+        self.play(next_name, next_path)
+        return next_name
+
     def pause(self):
         with self._lock:
             if self._stream is None or self._paused:
@@ -282,6 +387,7 @@ class LocalPlayer:
             self._stream = self._handle = self._reader = None
             self._blocks = self._stop_reading = None
             self._name = None
+            self._path = None
             self._paused = False
             self._frames_played = self._total_frames = self._samplerate = 0
 

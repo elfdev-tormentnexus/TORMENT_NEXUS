@@ -25,8 +25,16 @@ are for developers only; they are not installable packages.
 
 - First model and voice responses can be slower while local caches warm up.
 - Typed input works in voice mode even without a microphone.
+- `audio mode` turns voice on; `text mode` turns it off. Type `audio mode`
+  again whenever you want to re-enable it.
 - `Escape` is the general cancellation route for speech, music, and long
   interactions.
+- Long typed messages keep the newest text visible, and long answers use a
+  page-at-a-time view. Space, Enter, or Down advances a page; Up or Backspace
+  goes back; Escape or Q closes it.
+- The assistant reads the Windows local clock during each reply. It can know
+  the current date and time, session age, and the gap since the last completed
+  conversation. It does not run thoughts or have experiences while closed.
 - `health check` reports what is working on the current machine.
 - Web search needs a separately configured local SearXNG service.
 - Observed serial repair is opt-in through developer mode. A full three-edit
@@ -61,6 +69,13 @@ recipient may extract an authorized GGUF locally, place it at the default
 T-Deck support, local music, Spotify controls, and microphone input are
 optional. A beta recipient should not pair personal hardware or connect an
 account unless that is part of a deliberate test.
+
+Local songs are matched by filename with conservative tolerance for casual
+spelling. A successful local-song start is displayed rather than spoken so the
+voice does not cover the opening. In music mode, scenes rotate every 2:45,
+colours change every 20 seconds, Left/Right changes scene, Space advances to
+the next local song, [ and ] adjust local playback volume, and Ctrl+B exits.
+Space never skips Spotify or browser audio.
 
 `spotify` and `spotify search <query>` only open the already installed
 desktop client. They do not copy, inspect, or package Spotify's profile, and

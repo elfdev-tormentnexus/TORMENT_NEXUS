@@ -16,6 +16,12 @@
   <a href="#documentation">Documentation</a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/v0.1.0-beta.3">
+    Latest beta: v0.1.0-beta.3
+  </a>
+</p>
+
 ## Beta status
 
 TORMENT_NEXUS is in active beta. This public repository is the **source and
@@ -38,6 +44,9 @@ claim of consciousness or personhood.
 - Speaks through an offline Piper-based voice pipeline and can optionally use
   offline speech recognition.
 - Uses a local memory store with visible, removable saved facts.
+- Reads the local system clock on each turn so it can understand the current
+  date and time, session age, and gaps between completed conversations without
+  pretending it was conscious or active while the program was closed.
 - Routes plain-language requests to guarded project, music, search, and
   hardware tools.
 - Offers reviewable self-editing workflows, including an opt-in watched batch
@@ -56,6 +65,7 @@ claim of consciousness or personhood.
 | Area | Default behaviour |
 | --- | --- |
 | Conversation, model, memory, and speech | Local to the machine |
+| Time awareness | Reads the computer's local clock and saved conversation timestamps; no location service or network request |
 | Web search | Optional; queries leave the machine only when `search` is used through configured SearXNG |
 | Music metadata lookup | Optional; the text in `spotify search` is sent to MusicBrainz, then the selected title and artist are opened in Spotify |
 | Hardware | Optional; requires deliberate local setup and pairing |
@@ -173,9 +183,10 @@ goals
 
 Music mode starts on the original **radial tunnel** scene, then rotates every
 2 minutes 45 seconds through spectrum cathedral, orbital reactor, and corrupt
-cube. Press **Left/Right** to select a scene immediately, **Space** to cycle
-its colour palette, and **Ctrl+B** to leave visualizer mode. While it is open,
-**[** and **]** adjust the volume of local-library playback in 5% steps.
+cube. Its colour palette changes automatically every 20 seconds. Press
+**Left/Right** to select a scene immediately, **Space** to play the next song
+in the local music library, and **Ctrl+B** to leave visualizer mode. While it
+is open, **[** and **]** adjust local-library playback volume in 5% steps.
 `volume <0-100>` provides the same local-player control from the terminal;
 Spotify and browser audio retain their own volume controls.
 
@@ -185,6 +196,7 @@ Spotify and browser audio retain their own volume controls.
 - [Beta guide](docs/BETA_GUIDE.md) -- capabilities, limits, privacy, and
   handoff expectations.
 - [Testing guide](docs/TESTING.md) -- repeatable beta checks and bug reports.
+- [Changelog](CHANGELOG.md) -- user-facing changes in each beta.
 - [Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md) -- use a separately
   provided compatible local model with the source checkout.
 - [Release checklist](docs/RELEASE_CHECKLIST.md) -- how a maintainer produces

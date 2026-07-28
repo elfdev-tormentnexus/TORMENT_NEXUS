@@ -20,7 +20,7 @@ assistant/main.py
 | Area | Responsibility |
 | --- | --- |
 | `assistant/main.py` | Session lifecycle, streaming replies, activity state, and mode changes. |
-| `assistant/core/` | Configuration, persona, model-server ownership, authentication, tutorial, and health checks. |
+| `assistant/core/` | Configuration, persona, grounded time awareness, model-server ownership, authentication, tutorial, and health checks. |
 | `assistant/ui/` | Animated terminal, input handling, voice state, and music visualizer controls. |
 | `assistant/voice/` | Offline speech synthesis, optional recognition, and playback cancellation. |
 | `assistant/commands/` | Explicit commands and natural-language routing. |
@@ -54,6 +54,12 @@ language.
 The model, memory, UI, and speech pipeline run locally once provisioned. Web
 search, Spotify controls, and hardware bridges are optional integrations.
 Their availability is reported by `health check` rather than assumed.
+
+Time awareness is also local. `core/time_awareness.py` reads the operating
+system clock and the timestamp of the last completed conversation turn, then
+places the current time, session age, and elapsed gap in per-turn context. The
+stable prompt forbids turning that clock data into claims of hidden thought,
+waiting, work, feeling, or consciousness between turns.
 
 ## Deployment targets
 

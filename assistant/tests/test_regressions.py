@@ -1,4 +1,5 @@
 from collections import Counter
+from datetime import datetime, timezone
 import inspect
 import json
 import os
@@ -21,6 +22,7 @@ from core import file_utils
 from core import health_check
 from core import llm_server
 from core import persona
+from core import time_awareness
 from core import tutorial
 from core.stream_filter import StreamFilter
 from editing import edit_guard
@@ -41,6 +43,7 @@ from voice import session as voice_session
 from visualizer import local_player
 from visualizer import music_metadata
 from visualizer import spotify_control
+from visualizer.cube import CubeVisualizer
 from visualizer.radial import RadialVisualizer
 from visualizer.spectrum import SpectrumVisualizer
 from visualizer.reactor import ReactorVisualizer
@@ -1101,6 +1104,11 @@ class ModelBoundaryTests(unittest.TestCase):
         self.assertIn("speaker may be the creator or a guest", prompt)
         self.assertIn("Never assume the current operator's identity", prompt)
         self.assertIn("skip named greetings or sign-offs", prompt)
+        self.assertIn("Trusted local clock", prompt)
+        self.assertIn(
+            "Time passing is not evidence of hidden experience",
+            prompt,
+        )
 
     def test_local_model_requests_use_authentication(self):
         self.assertTrue(config.MODEL_API_KEY)
@@ -1227,6 +1235,71 @@ class RuntimeHealthTests(unittest.TestCase):
 
 
 class InputDraftTests(unittest.TestCase):
+    def test_long_input_keeps_the_cursor_and_newest_text_visible(self):
+        visible = ui._visible_input_line(
+            "YOU > ",
+            "this sentence is much wider than the prompt row",
+            18,
+        )
+
+        self.assertEqual(len(visible), 18)
+        self.assertTrue(visible.startswith("\u2026"))
+        self.assertTrue(visible.endswith("prompt row\u2588"))
+
+    def test_live_wrapping_preserves_lists_and_line_breaks(self):
+        wrapped = ui._wrapped_display_lines(
+            "AI > groceries:\n- cheese\n- bacon\n- eggs",
+            40,
+        )
+
+        self.assertEqual(
+            wrapped,
+            ["AI > groceries:", "- cheese", "- bacon", "- eggs"],
+        )
+
+    def test_long_response_pages_forward_then_returns_to_bottom(self):
+        engine = ui._engine
+        old_running = engine.running
+        old_width = engine.width
+        old_height = engine.height
+        old_header = engine.header_height
+        old_lines = engine.page_lines
+        old_index = engine.page_index
+        seen_pages = []
+
+        engine.running = True
+        engine.width = 50
+        engine.height = 15
+        engine.header_height = 5
+
+        def next_page():
+            seen_pages.append(engine.page_index)
+            return " "
+
+        try:
+            with mock.patch.object(
+                engine,
+                "update_size",
+            ), mock.patch.object(
+                ui,
+                "get_char",
+                side_effect=next_page,
+            ):
+                paged = ui.page_text_if_needed(
+                    "\n".join(f"step {number}" for number in range(12)),
+                )
+        finally:
+            engine.running = old_running
+            engine.width = old_width
+            engine.height = old_height
+            engine.header_height = old_header
+            engine.page_lines = old_lines
+            engine.page_index = old_index
+
+        self.assertTrue(paged)
+        self.assertEqual(seen_pages, [0, 1])
+        self.assertIsNone(engine.page_lines)
+
     def test_blocking_prompt_restores_type_ahead_draft(self):
         was_running = ui._engine.running
         old_input = ui._engine.current_input
@@ -2172,7 +2245,11 @@ class MusicVisualizerTests(unittest.TestCase):
         palette = tuple(f"color-{index}" for index in range(9))
         features = self._features()
 
-        for scene_class in (SpectrumVisualizer, ReactorVisualizer):
+        for scene_class in (
+            SpectrumVisualizer,
+            ReactorVisualizer,
+            CubeVisualizer,
+        ):
             with self.subTest(scene=scene_class.__name__):
                 visualizer = scene_class(palette)
                 visualizer.step(0.08, features, 48, 16)
@@ -2180,6 +2257,35 @@ class MusicVisualizerTests(unittest.TestCase):
                 self.assertEqual(len(frame), 16)
                 self.assertTrue(all(len(row) == 48 for row in frame))
                 self.assertTrue(any(cell for row in frame for cell in row))
+
+    def test_followup_scenes_have_white_chrome_highlights(self):
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        palette = tuple(f"color-{index}" for index in range(9))
+        features = self._features()
+
+        for scene_class in (
+            SpectrumVisualizer,
+            ReactorVisualizer,
+            CubeVisualizer,
+        ):
+            with self.subTest(scene=scene_class.__name__):
+                visualizer = scene_class(palette)
+                visualizer.step(0.08, features, 48, 16)
+                frame = visualizer.render(48, 16, features)
+                self.assertTrue(
+                    any(
+                        cell and cell[1] == palette[-1]
+                        for row in frame
+                        for cell in row
+                    )
+                )
+
+    def test_original_radial_tunnel_remains_the_first_scene(self):
+        self.assertEqual(ui._engine._MUSIC_SCENES[0], "radial tunnel")
 
 
 class AudioModeUiTests(unittest.TestCase):
@@ -2194,6 +2300,7 @@ class AudioModeUiTests(unittest.TestCase):
         ui._engine.music_scene_index = 0
         ui._engine.music_volume_percent = 100
         ui._engine._music_scene_started_at = 0.0
+        ui._engine._music_palette_started_at = 0.0
         ui.set_voice_mode(False)
 
     def test_live_input_reports_lines_and_escape_separately(self):
@@ -2280,7 +2387,7 @@ class AudioModeUiTests(unittest.TestCase):
         ui.set_voice_speaking(True)
         self.assertTrue(ui._engine.voice_speaking)
 
-    def test_space_cycles_visualizer_palette_without_typing(self):
+    def test_space_skips_to_next_local_track_without_typing(self):
         engine = ui._engine
         engine.music_mode = True
         engine.music_visualizer = SimpleNamespace(
@@ -2288,17 +2395,77 @@ class AudioModeUiTests(unittest.TestCase):
         )
         engine.music_palette_index = 0
         engine.current_input = "keep this draft"
+        player = mock.Mock()
+        player.play_next.return_value = "second song"
 
-        with mock.patch.object(ui, "get_char", return_value=" "):
+        with mock.patch.object(
+            local_player,
+            "get_player",
+            return_value=player,
+        ), mock.patch.object(ui, "get_char", return_value=" "):
             self.assertIsNone(ui.poll_input_event())
 
+        player.play_next.assert_called_once_with()
+        self.assertEqual(engine.music_palette_index, 0)
+        self.assertEqual(engine.current_input, "keep this draft")
+        self.assertIn("second song", engine.music_status)
+
+    def test_blocking_input_also_uses_space_for_next_local_track(self):
+        engine = ui._engine
+        engine.music_mode = True
+        player = mock.Mock()
+        player.play_next.return_value = "second song"
+
+        with mock.patch.object(engine, "running", True), \
+                mock.patch.object(
+                    local_player,
+                    "get_player",
+                    return_value=player,
+                ), \
+                mock.patch.object(
+                    ui,
+                    "get_char",
+                    side_effect=[" ", "\r"],
+                ), \
+                mock.patch.object(ui, "print_framed"):
+            result = ui.input_framed(
+                "YOU >",
+                initial_text="keep this draft",
+            )
+
+        player.play_next.assert_called_once_with()
+        self.assertEqual(result, "keep this draft")
+        self.assertIn("second song", engine.music_status)
+
+    def test_palette_cycles_automatically_every_twenty_seconds(self):
+        engine = ui.LayeredDisplayEngine()
+        engine.music_mode = True
+        engine.music_palette_index = 0
+        engine.music_scene_index = 0
+        engine._music_scene_started_at = 120.0
+        engine._music_palette_started_at = 99.0
+        engine.music_visualizer = SimpleNamespace(
+            palette=engine._MUSIC_PALETTES[0][1],
+            step=mock.Mock(),
+            render=lambda width, height, _features: [
+                [None] * width for _ in range(height)
+            ],
+        )
+        canvas = [
+            [ui.CanvasCell() for _ in range(30)]
+            for _ in range(8)
+        ]
+
+        with mock.patch.object(ui.time, "time", return_value=120.0):
+            engine._draw_music(canvas, 30, 8)
+
+        self.assertEqual(engine._MUSIC_PALETTE_ROTATION_SECONDS, 20)
         self.assertEqual(engine.music_palette_index, 1)
         self.assertEqual(
             engine.music_visualizer.palette,
             tuple(engine._MUSIC_PALETTES[1][1]),
         )
-        self.assertEqual(engine.current_input, "keep this draft")
-        self.assertIn("ultraviolet", engine.music_status)
+        self.assertIn("automatically", engine.music_status)
 
     def test_palette_cycle_does_not_start_music_mode(self):
         ui._engine.music_mode = False
@@ -2332,6 +2499,105 @@ class AudioModeUiTests(unittest.TestCase):
         self.assertIn("70%", result)
         entry = next(c for c in command_handlers.COMMANDS if c["name"] == "volume")
         self.assertFalse(entry["dev_only"])
+
+
+class TimeAwarenessTests(unittest.TestCase):
+    def test_clock_reports_current_time_session_age_and_previous_gap(self):
+        started = datetime(2026, 7, 27, 12, 0, tzinfo=timezone.utc)
+        history = (
+            "\n[2026-07-25 09:30:00+00:00]\n"
+            "User: see you later\nAssistant: Later.\n"
+        )
+        clock = time_awareness.TimeAwareness(
+            history,
+            session_started=started,
+        )
+
+        now = datetime(2026, 7, 27, 12, 30, tzinfo=timezone.utc)
+        context = clock.context(now)
+
+        self.assertIn(
+            time_awareness._display_time(now.astimezone()),
+            context,
+        )
+        self.assertIn("about 30 minutes", context)
+        self.assertIn(
+            time_awareness._display_time(
+                datetime(
+                    2026,
+                    7,
+                    25,
+                    9,
+                    30,
+                    tzinfo=timezone.utc,
+                ).astimezone()
+            ),
+            context,
+        )
+        self.assertIn("2 days, 3 hours", context)
+
+    def test_completed_turn_becomes_the_next_turns_reference_point(self):
+        started = datetime(2026, 7, 27, 12, 0, tzinfo=timezone.utc)
+        clock = time_awareness.TimeAwareness(
+            "",
+            session_started=started,
+        )
+        clock.note_interaction(
+            datetime(2026, 7, 27, 12, 10, tzinfo=timezone.utc)
+        )
+
+        context = clock.context(
+            datetime(2026, 7, 27, 12, 15, tzinfo=timezone.utc)
+        )
+
+        self.assertIn("about 5 minutes", context)
+        self.assertNotIn("fresh conversational history", context)
+
+    def test_clock_change_is_reported_instead_of_inventing_elapsed_time(self):
+        clock = time_awareness.TimeAwareness(
+            "[2026-07-28 12:00:00+00:00]\n",
+            session_started=datetime(
+                2026,
+                7,
+                27,
+                12,
+                0,
+                tzinfo=timezone.utc,
+            ),
+        )
+
+        context = clock.context(
+            datetime(2026, 7, 27, 12, 30, tzinfo=timezone.utc)
+        )
+
+        self.assertIn("system clock is earlier", context)
+        self.assertNotIn("Time since that turn: 0", context)
+
+    def test_completed_conversation_updates_clock_and_persisted_timestamp(self):
+        turn_count = len(assistant_main.session_turns)
+
+        try:
+            with mock.patch.object(
+                assistant_main._time_awareness,
+                "note_interaction",
+            ) as note, mock.patch.object(
+                assistant_main.mem,
+                "append_history",
+            ) as append:
+                assistant_main._record_conversation_turn(
+                    "hello",
+                    "hey",
+                    allow_memory=False,
+                )
+
+            note.assert_called_once()
+            saved = append.call_args.args[0]
+            self.assertRegex(
+                saved,
+                r"\[\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}\]",
+            )
+        finally:
+            del assistant_main.session_turns[turn_count:]
 
 
 class PromptEfficiencyTests(unittest.TestCase):
@@ -2740,6 +3006,61 @@ class LocalMusicTests(unittest.TestCase):
         self.assertEqual(match[0], "core")
         self.assertEqual(ambiguous, [])
 
+    def test_casual_abbreviation_resolves_the_local_song(self):
+        self._add("i rly wanna stay at ur house.mp3")
+
+        for query in (
+            "i rly wna stay at ur house",
+            "i really want to stay at your house",
+            "I Wanna Stay At Your House",
+        ):
+            match, ambiguous = local_player.find_track(query)
+            self.assertIsNotNone(match, query)
+            self.assertEqual(match[0], "i rly wanna stay at ur house")
+            self.assertEqual(ambiguous, [])
+
+    def test_close_fuzzy_names_are_reported_rather_than_guessed(self):
+        self._add("neon dream.mp3")
+        self._add("neon dreams.mp3")
+
+        match, ambiguous = local_player.find_track("neon dreem")
+
+        self.assertIsNone(match)
+        self.assertEqual(sorted(ambiguous), ["neon dream", "neon dreams"])
+
+    def test_next_local_track_follows_the_sorted_library_and_wraps(self):
+        first_path = self._add("alpha.mp3")
+        second_path = self._add("beta.mp3")
+        player = local_player.get_player()
+
+        with player._lock:
+            player._name = "alpha"
+            player._path = first_path
+
+        with mock.patch.object(player, "play", return_value=True) as play:
+            self.assertEqual(player.play_next(), "beta")
+            play.assert_called_once_with("beta", second_path)
+
+        with player._lock:
+            player._name = "beta"
+            player._path = second_path
+
+        with mock.patch.object(player, "play", return_value=True) as play:
+            self.assertEqual(player.play_next(), "alpha")
+            play.assert_called_once_with("alpha", first_path)
+
+    def test_next_local_track_requires_an_active_song(self):
+        self._add("alpha.mp3")
+        self._add("beta.mp3")
+        player = local_player.get_player()
+        player.stop()
+
+        with self.assertRaisesRegex(
+            local_player.LocalPlaybackError,
+            "No local song is active",
+        ):
+            player.play_next()
+
     def test_playing_a_local_track_never_reaches_spotify(self):
         self._add("breakcore.mp3")
         played = {}
@@ -2761,6 +3082,70 @@ class LocalMusicTests(unittest.TestCase):
 
         self.assertEqual(played.get("name"), "breakcore")
         self.assertIn("breakcore", result)
+
+    def test_abbreviated_local_title_never_reaches_spotify(self):
+        self._add("i rly wanna stay at ur house.mp3")
+        played = {}
+
+        def fake_play(name, path):
+            played["name"] = name
+            return True
+
+        with mock.patch.object(command_handlers, "_get_spotify") as spotify:
+            with mock.patch.object(
+                local_player.get_player(), "play", side_effect=fake_play
+            ), mock.patch.object(
+                local_player.get_player(), "position", return_value=(0.0, 90.0)
+            ):
+                result = command_handlers.try_handle_command(
+                    "play i rly wna stay at ur house"
+                )
+
+            spotify.assert_not_called()
+
+        self.assertEqual(played.get("name"), "i rly wanna stay at ur house")
+        self.assertIn("i rly wanna stay at ur house", result)
+        self.assertTrue(voice_session.is_silent_reply(result))
+
+    def test_successful_local_start_is_displayed_without_speech(self):
+        reply = voice_session.silent_reply(
+            "MUSIC\n\nPlaying i rly wanna stay at ur house (local)"
+        )
+        voice = SimpleNamespace()
+        input_state = SimpleNamespace()
+
+        with mock.patch.object(
+            assistant_main,
+            "_speak_voice_reply",
+        ) as speak, mock.patch.object(
+            assistant_main.ui,
+            "print_framed",
+        ) as shown:
+            completed = assistant_main._deliver_voice_command_reply(
+                voice,
+                reply,
+                input_state,
+            )
+
+        self.assertTrue(completed)
+        speak.assert_not_called()
+        shown.assert_called_once()
+        self.assertIn("Playing i rly", shown.call_args.args[0])
+
+    def test_music_failure_remains_an_ordinary_spoken_reply(self):
+        with mock.patch.object(
+            local_player,
+            "find_track",
+            return_value=(("broken song", "broken.mp3"), []),
+        ), mock.patch.object(
+            local_player.get_player(),
+            "play",
+            side_effect=local_player.LocalPlaybackError("cannot decode"),
+        ):
+            result = command_handlers._play_local_track("broken song")
+
+        self.assertIn("MUSIC FAILED", result)
+        self.assertFalse(voice_session.is_silent_reply(result))
 
     def test_unknown_name_falls_through_to_spotify(self):
         self._add("breakcore.mp3")
@@ -2951,6 +3336,32 @@ class TutorialTests(unittest.TestCase):
             ["goals", "set goals", "work on goals", "goal done"],
         )
 
+    def test_every_lesson_uses_the_same_beginner_friendly_structure(self):
+        for lesson in tutorial.LESSONS:
+            with self.subTest(lesson=lesson["key"]):
+                self.assertIn("What it does:\n", lesson["body"])
+                self.assertIn("Try it:\n", lesson["body"])
+                self.assertIn("Good to know:\n", lesson["body"])
+
+    def test_tutorial_explains_long_input_and_paged_answers(self):
+        talking = next(lesson for lesson in tutorial.LESSONS
+                       if lesson["key"] == "talking")["body"]
+
+        self.assertIn("newest text", talking)
+        self.assertIn("ellipsis", talking)
+        self.assertIn("one page at a time", talking)
+        self.assertIn("Space", talking)
+        self.assertIn("Escape", talking)
+
+    def test_tutorial_explains_grounded_time_awareness(self):
+        lesson = next(lesson for lesson in tutorial.LESSONS
+                      if lesson["key"] == "time")
+
+        self.assertIn("local clock", lesson["body"])
+        self.assertIn("previous completed", lesson["body"])
+        self.assertIn("not background consciousness", lesson["body"])
+        self.assertIn("Time and returning", tutorial.explain("clock"))
+
     def test_tutorial_mentions_voice_first_and_visualizer_controls(self):
         self.assertIn("say it instead", tutorial.first_run_invitation())
         music = next(lesson for lesson in tutorial.LESSONS
@@ -2959,6 +3370,26 @@ class TutorialTests(unittest.TestCase):
         self.assertIn("Ctrl+B", music)
         self.assertIn("2:45", music)
         self.assertIn("Left/Right", music)
+        self.assertIn("every 20 seconds", music)
+        self.assertIn("Space plays the next song", music)
+
+    def test_tutorial_explains_quiet_checkins_and_music_start(self):
+        voice = next(lesson for lesson in tutorial.LESSONS
+                     if lesson["key"] == "voice")["body"]
+        music = next(lesson for lesson in tutorial.LESSONS
+                     if lesson["key"] == "music")["body"]
+
+        self.assertIn("not spoken by default", voice)
+        self.assertIn("does not cover the opening", music)
+        self.assertIn("i rly wna stay at ur house", music)
+
+    def test_voice_tutorial_explains_how_to_turn_voice_back_on(self):
+        voice = next(lesson for lesson in tutorial.LESSONS
+                     if lesson["key"] == "voice")["body"]
+
+        self.assertIn("'text mode' to turn voice off", voice)
+        self.assertIn("'audio mode' whenever you want", voice)
+        self.assertIn("turn it back on", voice)
 
     def test_tutorial_explains_the_spotify_number_picker(self):
         lesson = next(lesson for lesson in tutorial.LESSONS
@@ -3036,7 +3467,12 @@ class TutorialTests(unittest.TestCase):
             command_handlers.handle_explain_topic("explain a nonexistent thing"))
 
     def test_explain_covers_commands_and_subsystems(self):
-        self.assertIn("developer mode", tutorial.explain("suggest").lower())
+        explanation = tutorial.explain("suggest")
+
+        self.assertIn("What it does:", explanation)
+        self.assertIn("What to type:", explanation)
+        self.assertIn("Availability:", explanation)
+        self.assertIn("developer mode", explanation.lower())
         self.assertIn("Speaking and listening", tutorial.explain("voice"))
 
     def test_explain_file_still_belongs_to_the_file_reader(self):
@@ -3383,6 +3819,31 @@ class IdleCheckInTests(unittest.TestCase):
 
         # Too long to speak before its own timer runs; falls back instead.
         self.assertIn(line, assistant_main._IDLE_FALLBACK_LINES)
+
+    def test_idle_check_in_is_visual_only_by_default(self):
+        with mock.patch.object(
+            assistant_main,
+            "_idle_check_in_line",
+            return_value="Still there?",
+        ), mock.patch.object(
+            assistant_main,
+            "IDLE_CHECKIN_SPEAK",
+            False,
+        ), mock.patch.object(
+            assistant_main.offline_voice,
+            "OfflineVoice",
+        ) as voice, mock.patch.object(
+            assistant_main.ui,
+            "print_framed",
+        ), mock.patch.object(
+            assistant_main.ui,
+            "input_framed",
+            return_value=ui.IDLE,
+        ):
+            result = assistant_main._run_idle_check_in()
+
+        self.assertIs(result, ui.IDLE)
+        voice.assert_not_called()
 
     def test_timings_are_bounded(self):
         # The grace period is measured from the end of speech, so it has

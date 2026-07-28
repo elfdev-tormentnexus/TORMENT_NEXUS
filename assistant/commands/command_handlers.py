@@ -1555,7 +1555,12 @@ def _play_local_track(query):
     status = f"Playing {name} (local)"
     ui.set_music_status(status[:70])
 
-    return f"MUSIC\n{'=' * 58}\n\n{status} - {_clock(total)}"
+    # Playback has already started. Speaking this confirmation now would talk
+    # over the opening of the song, so audio mode displays it silently. Text
+    # mode still receives an ordinary string-compatible result.
+    return voice_session.silent_reply(
+        f"MUSIC\n{'=' * 58}\n\n{status} - {_clock(total)}"
+    )
 
 
 @command("music mode", f"Toggle the audio-reactive visualizer "

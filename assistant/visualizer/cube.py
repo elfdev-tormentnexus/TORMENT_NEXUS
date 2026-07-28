@@ -1,29 +1,17 @@
 """
-Audio-reactive wireframe cube, rendered as braille pixels in the terminal.
+Audio-reactive cyber-dream cube rendered with terminal braille pixels.
 
-A 3-axis rotating cube that drifts around the screen and bounces off the
-edges, DVD-screensaver style, and comes apart under the music: bass
-inflates it, mids spin it, treble shreds it.
-
-Corruption is strictly pixel-based -- braille dot fields and solid block
-glyphs. No letters, digits, or punctuation are ever used as "damage",
-because those read as text that failed to render rather than as an image
-breaking up, which is the opposite of the intended effect.
-
-Rendering is braille (U+2800..U+28FF): every character cell carries a
-2x4 dot matrix, so the effective resolution is eight times the terminal's
-character grid.
+The moving cube remains a nod to old screensavers, but the scene now has
+the visual language around it that makes that reference land: recursive
+chrome geometry, spectral afterimages, a warped wireframe floor, orbital
+glints, and controlled scanline corruption on treble hits.
 """
 
 import math
-import random
 
 
-# Braille dot bit layout inside one cell:
-#   1 4
-#   2 5
-#   3 6
-#   7 8
+CELL_W = 2
+CELL_H = 4
 _BRAILLE_WEIGHTS = (
     (0x01, 0x08),
     (0x02, 0x10),
@@ -31,267 +19,450 @@ _BRAILLE_WEIGHTS = (
     (0x40, 0x80),
 )
 
-CELL_W = 2
-CELL_H = 4
-
-# Solid-block material for heavy corruption. Deliberately pixel-like:
-# fills and half-blocks, nothing that could be mistaken for a character.
-_BLOCKS = ("░", "▒", "▓", "█", "▀", "▄", "▌", "▐")
-
 _VERTICES = (
-    (-1, -1, -1), (1, -1, -1), (1, 1, -1), (-1, 1, -1),
-    (-1, -1, 1), (1, -1, 1), (1, 1, 1), (-1, 1, 1),
+    (-1, -1, -1),
+    (1, -1, -1),
+    (1, 1, -1),
+    (-1, 1, -1),
+    (-1, -1, 1),
+    (1, -1, 1),
+    (1, 1, 1),
+    (-1, 1, 1),
 )
 
 _EDGES = (
-    (0, 1), (1, 2), (2, 3), (3, 0),
-    (4, 5), (5, 6), (6, 7), (7, 4),
-    (0, 4), (1, 5), (2, 6), (3, 7),
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 0),
+    (4, 5),
+    (5, 6),
+    (6, 7),
+    (7, 4),
+    (0, 4),
+    (1, 5),
+    (2, 6),
+    (3, 7),
 )
+
+# All are single-cell pixel glyphs. High transients can briefly replace a
+# dense braille cell with one of these overexposed fragments.
+_BLOCKS = ("░", "▒", "▓", "█", "▀", "▄", "▌", "▐")
 
 
 class CubeVisualizer:
-    def __init__(self, palette):
-        """palette: ordered dim -> bright ANSI colour strings."""
-        self.palette = palette
-        self.angle = [0.35, 0.6, 0.1]
-        self.spin = [0.9, 1.3, 0.5]
+    """A recursive chrome cube drifting through a warped cyberspace grid."""
 
-        # Position and velocity in character cells. Velocity is in cells
-        # per second so motion is frame-rate independent.
+    def __init__(self, palette):
+        self.palette = tuple(palette)
+        self.angle = [0.35, 0.60, 0.10]
+        self.spin = [0.72, 1.08, 0.42]
         self.x = 12.0
         self.y = 6.0
-        self.vx = 11.0
-        self.vy = 5.0
-
+        self.vx = 8.5
+        self.vy = 3.8
+        self.time = 0.0
         self.flash = 0.0
+        self.pulse = 0.0
         self.bounces = 0
+        self.bass = 0.0
+        self.mid = 0.0
+        self.treble = 0.0
         self._np = None
-
-    # -- geometry --------------------------------------------------------
 
     @staticmethod
     def _rotate(point, angle):
-        """Rotate about X, then Y, then Z -- the three axes, in order."""
         x, y, z = point
         ax, ay, az = angle
 
-        cos, sin = math.cos(ax), math.sin(ax)
-        y, z = y * cos - z * sin, y * sin + z * cos
+        cosine, sine = math.cos(ax), math.sin(ax)
+        y, z = y * cosine - z * sine, y * sine + z * cosine
 
-        cos, sin = math.cos(ay), math.sin(ay)
-        x, z = x * cos + z * sin, -x * sin + z * cos
+        cosine, sine = math.cos(ay), math.sin(ay)
+        x, z = x * cosine + z * sine, -x * sine + z * cosine
 
-        cos, sin = math.cos(az), math.sin(az)
-        x, y = x * cos - y * sin, x * sin + y * cos
-
+        cosine, sine = math.cos(az), math.sin(az)
+        x, y = x * cosine - y * sine, x * sine + y * cosine
         return x, y, z
 
-    def _project(self, point, scale_x, scale_y):
+    @staticmethod
+    def _project(point, scale_x, scale_y):
         x, y, z = point
-        # Perspective divide. The camera sits back far enough that the
-        # cube never turns inside out at the near corners.
-        depth = 3.4
+        depth = 3.55
         factor = depth / (depth + z)
         return x * factor * scale_x, y * factor * scale_y
 
-    # -- frame -----------------------------------------------------------
-
     def step(self, dt, features, width, height):
-        """Advance rotation and DVD-style travel by dt seconds."""
-        bass = features.get("bass", 0.0)
-        mid = features.get("mid", 0.0)
-        beat = features.get("beat", 0.0)
+        """Advance the object with smooth music-driven rotation and travel."""
+        dt = max(0.0, float(dt))
+        response = min(1.0, dt * 7.0)
+        bass = self._clamp(features.get("bass", 0.0))
+        mid = self._clamp(features.get("mid", 0.0))
+        treble = self._clamp(features.get("treble", 0.0))
+        beat = self._clamp(features.get("beat", 0.0))
 
-        # Mids drive spin, so busier passages visibly tumble faster.
-        rate = 1.0 + mid * 2.2 + beat * 1.5
+        self.bass += (bass - self.bass) * response
+        self.mid += (mid - self.mid) * response
+        self.treble += (treble - self.treble) * response
+        self.pulse = max(beat, self.pulse * math.exp(-dt * 4.2))
+        self.time += dt * (0.58 + self.mid * 1.55)
 
+        rate = 0.72 + self.mid * 1.8 + self.pulse * 0.75
         for axis in range(3):
             self.angle[axis] += self.spin[axis] * rate * dt
 
-        speed = 1.0 + bass * 0.8
-        self.x += self.vx * speed * dt
-        self.y += self.vy * speed * dt
+        width = max(1, int(width))
+        height = max(1, int(height))
+        half_w = max(2.0, min(width * 0.23, height * 0.46))
+        half_h = max(1.0, half_w * 0.48)
 
-        half_w = max(6.0, min(width, height * 2.2) * 0.18)
-        half_h = half_w * 0.5
+        if width <= half_w * 2.0:
+            self.x = width * 0.5
+        else:
+            self.x += self.vx * (0.62 + self.bass * 0.55) * dt
+            if self.x - half_w < 0:
+                self.x = half_w
+                self.vx = abs(self.vx)
+                self._bounce()
+            elif self.x + half_w > width:
+                self.x = width - half_w
+                self.vx = -abs(self.vx)
+                self._bounce()
 
-        if self.x - half_w < 0:
-            self.x = half_w
-            self.vx = abs(self.vx)
-            self._bounce()
-        elif self.x + half_w > width:
-            self.x = width - half_w
-            self.vx = -abs(self.vx)
-            self._bounce()
+        if height <= half_h * 2.0:
+            self.y = height * 0.42
+        else:
+            self.y += self.vy * (0.68 + self.bass * 0.42) * dt
+            if self.y - half_h < 0:
+                self.y = half_h
+                self.vy = abs(self.vy)
+                self._bounce()
+            elif self.y + half_h > height:
+                self.y = height - half_h
+                self.vy = -abs(self.vy)
+                self._bounce()
 
-        if self.y - half_h < 0:
-            self.y = half_h
-            self.vy = abs(self.vy)
-            self._bounce()
-        elif self.y + half_h > height:
-            self.y = height - half_h
-            self.vy = -abs(self.vy)
-            self._bounce()
-
-        self.flash = max(0.0, self.flash - dt * 2.4)
+        self.flash = max(0.0, self.flash - dt * 2.2)
 
     def _bounce(self):
         self.bounces += 1
         self.flash = 1.0
 
     def render(self, width, height, features):
-        """
-        Returns rows of (char, colour) tuples, or None per cell where
-        nothing should be drawn so the background shows through.
-        """
         if self._np is None:
             import numpy as np
             self._np = np
 
         np = self._np
+        width = max(1, int(width))
+        height = max(1, int(height))
+        pixel_w = width * CELL_W
+        pixel_h = height * CELL_H
+        intensity = np.zeros((pixel_h, pixel_w), dtype=np.float32)
+        highlight = np.zeros((pixel_h, pixel_w), dtype=bool)
+        level = self._clamp(features.get("level", 0.0))
 
-        bass = features.get("bass", 0.0)
-        treble = features.get("treble", 0.0)
-        level = features.get("level", 0.0)
-        beat = features.get("beat", 0.0)
+        self._draw_starfield(intensity)
+        self._draw_grid(intensity)
 
-        pixel_w = max(8, width * CELL_W)
-        pixel_h = max(8, height * CELL_H)
-        buffer = np.zeros((pixel_h, pixel_w), dtype=bool)
+        centre_x = min(pixel_w - 1, max(0, int(self.x * CELL_W)))
+        centre_y = min(pixel_h - 1, max(0, int(self.y * CELL_H)))
+        base = max(
+            1.5,
+            min(pixel_w, pixel_h * 2.0) * 0.145,
+        )
+        scale_x = base * (1.0 + self.bass * 0.58 + level * 0.20)
+        scale_y = (
+            base
+            * 0.50
+            * (1.0 + level * 0.58 - self.bass * 0.10)
+        )
 
-        # Bass inflates the cube; level stretches it out of square. The
-        # axes are driven separately so loud passages visibly deform it
-        # rather than just scaling it up.
-        base = min(pixel_w, pixel_h * 2) * 0.14
-        scale_x = base * (1.0 + bass * 0.75 + level * 0.35)
-        scale_y = base * 0.5 * (1.0 + level * 0.9 - bass * 0.2)
-
-        centre_x = self.x * CELL_W
-        centre_y = self.y * CELL_H
-
-        points = [
-            self._project(self._rotate(v, self.angle), scale_x, scale_y)
-            for v in _VERTICES
-        ]
-
-        for a, b in _EDGES:
-            x0, y0 = points[a]
-            x1, y1 = points[b]
-            self._line(
-                buffer,
-                centre_x + x0, centre_y + y0,
-                centre_x + x1, centre_y + y1,
+        # Two restrained afterimages turn movement into a translucent trail
+        # instead of a single screensaver object crossing an empty field.
+        speed = max(1.0, math.hypot(self.vx, self.vy))
+        trail_x = self.vx / speed
+        trail_y = self.vy / speed
+        for distance, strength in ((9.0, 0.14), (4.5, 0.24)):
+            self._draw_cube(
+                intensity,
+                highlight,
+                centre_x - trail_x * distance,
+                centre_y - trail_y * distance * 1.4,
+                scale_x,
+                scale_y,
+                tuple(value - distance * 0.006 for value in self.angle),
+                strength,
+                False,
             )
 
-        if treble > 0.05 or beat > 0.05:
-            self._corrupt_pixels(buffer, treble, beat)
+        # Nested frames resemble a chrome software logo opening inward.
+        self._draw_cube(
+            intensity,
+            highlight,
+            centre_x,
+            centre_y,
+            scale_x,
+            scale_y,
+            tuple(self.angle),
+            0.72 + level * 0.22,
+            True,
+        )
+        self._draw_cube(
+            intensity,
+            highlight,
+            centre_x,
+            centre_y,
+            scale_x * 0.55,
+            scale_y * 0.55,
+            (
+                -self.angle[1],
+                self.angle[2] + self.time * 0.35,
+                self.angle[0],
+            ),
+            0.46 + self.mid * 0.30,
+            self.pulse > 0.35,
+        )
 
-        return self._to_cells(buffer, width, height, bass, treble, beat, level)
+        self._draw_orbit(
+            intensity,
+            highlight,
+            centre_x,
+            centre_y,
+            scale_x * 1.55,
+            scale_y * 1.18,
+        )
+        self._apply_scanline_bend(intensity, highlight)
 
-    # -- drawing ---------------------------------------------------------
+        intensity = np.clip(intensity, 0.0, 1.0)
+        return self._to_cells(
+            intensity,
+            highlight,
+            width,
+            height,
+        )
 
-    def _line(self, buffer, x0, y0, x1, y1):
+    def _draw_starfield(self, intensity):
+        """Sparse deterministic pixels drift like a synthetic star field."""
         np = self._np
-        height, width = buffer.shape
+        pixel_h, pixel_w = intensity.shape
+        yy, xx = np.indices((pixel_h, pixel_w), dtype=np.float32)
+        field = (
+            np.sin(xx * 37.7 + yy * 73.1 + self.time * 1.7)
+            * np.sin(xx * 91.3 - yy * 29.9 - self.time)
+        )
+        stars = field > 0.992 - self.treble * 0.025
+        intensity[stars] = np.maximum(
+            intensity[stars],
+            0.28 + self.treble * 0.34,
+        )
 
-        span = max(abs(x1 - x0), abs(y1 - y0))
-        count = int(span) + 2
+    def _draw_grid(self, intensity):
+        """Warped perspective wireframe floor with a low vanishing point."""
+        np = self._np
+        pixel_h, pixel_w = intensity.shape
+        x = np.linspace(-1.2, 1.2, pixel_w, dtype=np.float32)
+        y = np.linspace(-0.9, 0.9, pixel_h, dtype=np.float32)
+        xx, yy = np.meshgrid(x, y)
+        floor = np.clip((yy - 0.12) / 0.78, 0.0, 1.0)
+        depth = floor + 0.06
+        wobble = np.sin(self.time * 0.7 + yy * 4.0) * 0.045
+        vertical = np.exp(
+            -(
+                np.abs(
+                    np.sin(((xx + wobble) / depth) * math.pi * 1.4)
+                )
+                / 0.075
+            ) ** 2
+        )
+        horizontal = np.exp(
+            -(
+                np.abs(np.sin(5.4 / depth - self.time * 1.9))
+                / 0.095
+            ) ** 2
+        )
+        grid = np.maximum(vertical * 0.64, horizontal)
+        grid *= (floor > 0.0) * (0.09 + floor * 0.31)
+        intensity[:] = np.maximum(intensity, grid)
 
+    def _draw_cube(
+        self,
+        intensity,
+        highlight,
+        centre_x,
+        centre_y,
+        scale_x,
+        scale_y,
+        angle,
+        strength,
+        bright_vertices,
+    ):
+        points = [
+            self._project(self._rotate(vertex, angle), scale_x, scale_y)
+            for vertex in _VERTICES
+        ]
+
+        for start, end in _EDGES:
+            x0, y0 = points[start]
+            x1, y1 = points[end]
+            self._line(
+                intensity,
+                centre_x + x0,
+                centre_y + y0,
+                centre_x + x1,
+                centre_y + y1,
+                strength,
+            )
+
+        if bright_vertices:
+            height, width = highlight.shape
+            for point_x, point_y in points:
+                x = int(round(centre_x + point_x))
+                y = int(round(centre_y + point_y))
+                if 0 <= x < width and 0 <= y < height:
+                    highlight[y, x] = True
+                    intensity[y, x] = 1.0
+
+    def _draw_orbit(
+        self,
+        intensity,
+        highlight,
+        centre_x,
+        centre_y,
+        radius_x,
+        radius_y,
+    ):
+        np = self._np
+        samples = max(32, int(radius_x * 5.0))
+        phase = np.linspace(0.0, math.tau, samples, dtype=np.float32)
+        tilt = self.angle[2] * 0.45
+        local_x = np.cos(phase) * radius_x
+        local_y = np.sin(phase) * radius_y
+        cosine = math.cos(tilt)
+        sine = math.sin(tilt)
+        xs = centre_x + local_x * cosine - local_y * sine
+        ys = centre_y + local_x * sine * 0.45 + local_y * cosine
+
+        for index in range(samples - 1):
+            self._line(
+                intensity,
+                xs[index],
+                ys[index],
+                xs[index + 1],
+                ys[index + 1],
+                0.28 + self.mid * 0.30,
+            )
+
+        for offset in (0.0, math.pi):
+            bead_phase = self.time * (1.4 + self.treble) + offset
+            local_x = math.cos(bead_phase) * radius_x
+            local_y = math.sin(bead_phase) * radius_y
+            x = int(round(
+                centre_x + local_x * cosine - local_y * sine
+            ))
+            y = int(round(
+                centre_y + local_x * sine * 0.45 + local_y * cosine
+            ))
+            if 0 <= y < intensity.shape[0] and 0 <= x < intensity.shape[1]:
+                intensity[y, x] = 1.0
+                highlight[y, x] = True
+
+    def _apply_scanline_bend(self, intensity, highlight):
+        """Treble bends selected raster lines; beats briefly smear them."""
+        np = self._np
+        height, _width = intensity.shape
+        bends = int(height * (self.treble * 0.08 + self.pulse * 0.05))
+
+        for index in range(bends):
+            row = int(
+                (self.time * 17.0 + index * 13.0)
+                % max(1, height)
+            )
+            direction = -1 if index % 2 else 1
+            shift = direction * max(
+                1,
+                int(1 + self.treble * 4.0),
+            )
+            intensity[row] = np.roll(intensity[row], shift)
+            highlight[row] = np.roll(highlight[row], shift)
+
+        if self.pulse > 0.45 and height > 2:
+            row = int(self.time * 11.0) % (height - 1)
+            intensity[row + 1] = np.maximum(
+                intensity[row + 1],
+                intensity[row] * self.pulse * 0.72,
+            )
+
+    def _line(self, target, x0, y0, x1, y1, value):
+        np = self._np
+        height, width = target.shape
+        count = int(max(abs(x1 - x0), abs(y1 - y0))) + 2
         if count < 2:
             return
-
         xs = np.linspace(x0, x1, count).astype(np.int32)
         ys = np.linspace(y0, y1, count).astype(np.int32)
         keep = (xs >= 0) & (xs < width) & (ys >= 0) & (ys < height)
-        buffer[ys[keep], xs[keep]] = True
+        target[ys[keep], xs[keep]] = np.maximum(
+            target[ys[keep], xs[keep]],
+            value,
+        )
 
-    def _corrupt_pixels(self, buffer, treble, beat):
-        """
-        Tear the raster apart. Pixels only: rows slide sideways, dots drop
-        out, and bands of the image smear downward. Nothing here inserts a
-        glyph -- this stage operates purely on the dot field.
-        """
+    def _to_cells(self, intensity, highlight, width, height):
         np = self._np
-        height, width = buffer.shape
+        threshold = 0.16
+        dots = intensity > threshold
+        dots |= highlight
+        grid = dots.reshape(height, CELL_H, width, CELL_W)
+        weights = np.asarray(_BRAILLE_WEIGHTS, dtype=np.uint16)
+        bits = (grid * weights[None, :, None, :]).sum(axis=(1, 3))
+        strength = intensity.reshape(
+            height,
+            CELL_H,
+            width,
+            CELL_W,
+        ).max(axis=(1, 3))
+        bright = highlight.reshape(
+            height,
+            CELL_H,
+            width,
+            CELL_W,
+        ).any(axis=(1, 3))
+        top = len(self.palette) - 1
+        rows = []
 
-        # Horizontal row displacement -- the classic broken-scanline slip.
-        shear_rows = int(height * min(0.5, treble * 0.55 + beat * 0.35))
-
-        for _ in range(shear_rows):
-            row = random.randrange(height)
-            shift = random.randint(-6, 6) * max(1, int(1 + treble * 4))
-            buffer[row] = np.roll(buffer[row], shift)
-
-        # Dot dropout, strongest on transients.
-        drop = treble * 0.18 + beat * 0.25
-
-        if drop > 0.01:
-            mask = np.random.random(buffer.shape) < drop
-            buffer &= ~mask
-
-        # Vertical smear: a band of the image bleeds down over itself.
-        if beat > 0.4:
-            top = random.randrange(0, max(1, height - 4))
-            depth = random.randint(2, max(3, int(height * 0.12)))
-            band = buffer[top:top + depth]
-
-            if band.size:
-                buffer[top:top + depth] |= np.roll(band, 1, axis=0)
-
-    def _to_cells(self, buffer, width, height, bass, treble, beat, level):
-        np = self._np
-        pixel_h, pixel_w = buffer.shape
-
-        rows = pixel_h // CELL_H
-        cols = pixel_w // CELL_W
-        trimmed = buffer[:rows * CELL_H, :cols * CELL_W]
-
-        # Vectorised braille pack: fold the dot field into (row, 4, col, 2)
-        # and weight each dot by its bit.
-        grid = trimmed.reshape(rows, CELL_H, cols, CELL_W)
-        weights = np.array(_BRAILLE_WEIGHTS, dtype=np.uint16)
-        bits = (grid * weights[None, :, None, :]).sum(axis=(1, 3)).astype(np.int32)
-
-        palette = self.palette
-        top = len(palette) - 1
-
-        # Intensity picks the palette entry; a bounce or a beat pushes the
-        # whole cube brighter for a moment.
-        heat = min(1.0, bass * 0.5 + level * 0.4 + beat * 0.6 + self.flash)
-        base_index = int(round(heat * top))
-
-        block_chance = beat * 0.22 + treble * 0.10
-
-        out = []
-
-        for row in range(min(rows, height)):
-            line = []
-            bit_row = bits[row]
-
-            for col in range(min(cols, width)):
-                value = int(bit_row[col])
-
-                if not value:
-                    line.append(None)
+        for y in range(height):
+            row = []
+            for x in range(width):
+                packed = int(bits[y, x])
+                if not packed:
+                    row.append(None)
                     continue
 
-                # Occasional solid-block fragments read as overexposed
-                # raster cells. Still pixels, never text.
-                if block_chance > 0 and random.random() < block_chance:
-                    char = random.choice(_BLOCKS)
-                    index = min(top, base_index + 1)
+                cell_strength = float(strength[y, x])
+                if (
+                    self.pulse > 0.55
+                    and cell_strength > 0.72
+                    and (x + y + int(self.time * 10.0)) % 11 == 0
+                ):
+                    glyph = _BLOCKS[(x * 3 + y) % len(_BLOCKS)]
                 else:
-                    char = chr(0x2800 + value)
-                    index = base_index
+                    glyph = chr(0x2800 + packed)
 
-                    # Sparse cells sit dimmer, which gives the wireframe
-                    # some depth instead of a flat single-colour outline.
-                    if bin(value).count("1") <= 2:
-                        index = max(0, index - 1)
+                if bright[y, x]:
+                    colour = top
+                else:
+                    colour = min(
+                        max(0, top - 1),
+                        max(0, int(cell_strength * top)),
+                    )
+                row.append((glyph, self.palette[colour]))
+            rows.append(row)
 
-                line.append((char, palette[index]))
+        return rows
 
-            out.append(line)
-
-        return out
+    @staticmethod
+    def _clamp(value):
+        try:
+            return max(0.0, min(1.0, float(value)))
+        except (TypeError, ValueError):
+            return 0.0

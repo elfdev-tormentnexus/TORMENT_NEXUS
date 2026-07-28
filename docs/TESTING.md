@@ -22,19 +22,28 @@ Run `tutorial restart`. It should present two sections at a time. Use `next`,
 
 Run `audio mode`, type a short message, then use `text mode` or Escape. If a
 microphone is unavailable, typed audio-mode input should still produce speech.
+Run `audio mode` again and confirm voice can be re-enabled.
 
 ## 4. Music and visualizer
 
-Play a local track, then test `music mode`. Space cycles the visualizer palette
-and Ctrl+B exits. Confirm `stop` stops local playback.
+Play a local track, then test `music mode`. Confirm the colour palette changes
+after 20 seconds, Space advances to the next local song, and Ctrl+B exits.
+Confirm `stop` stops local playback.
 
-## 5. Boundaries and integrations
+## 5. Time awareness
+
+Ask for the current local time and date, then close and reopen the app after a
+short gap. It should understand the elapsed time without claiming it watched,
+waited, thought, worked, or felt anything while closed. A deliberately wrong
+Windows clock should affect the answer honestly rather than being hidden.
+
+## 6. Boundaries and integrations
 
 Try `health check`, optional `search <query>`, and -- only if deliberately
 configured -- T-Deck commands. Check that unavailable services fail clearly rather
 than freezing the interface.
 
-## 6. Observed serial repair (developer test only)
+## 7. Observed serial repair (developer test only)
 
 In developer mode, run `autonomous serial on`, then `run autonomous cycle`.
 Watch the status updates. It may apply no more than three small allowlisted

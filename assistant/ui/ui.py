@@ -416,6 +416,7 @@ class LayeredDisplayEngine:
         self.music_scene_index = 0
         self.music_volume_percent = 100
         self._music_scene_started_at = 0.0
+        self._music_palette_started_at = 0.0
         self._music_last_frame = 0.0
         self.input_masked = False
 
@@ -428,6 +429,12 @@ class LayeredDisplayEngine:
         self.live_text = ""
         self.live_color = RESET
         self.streaming = False
+
+        # A completed long response can temporarily own the chat viewport.
+        # The underlying history is untouched, so closing the pager returns
+        # immediately to the normal bottom-of-conversation view.
+        self.page_lines = None
+        self.page_index = 0
 
         # True while tokens are being pulled from the server.
         self.generating = False
@@ -1660,26 +1667,50 @@ class LayeredDisplayEngine:
             if len(live) != len(self.chat_history):
                 self.chat_history[:] = live
 
-            lines = [
-                (_decaying_text(text, colour, expires, now), colour)
-                for text, colour, expires in live
-            ]
+            if self.page_lines is not None:
+                page_size = max(1, chat_area_h - 1)
+                page_count = max(
+                    1,
+                    (len(self.page_lines) + page_size - 1) // page_size,
+                )
+                self.page_index = max(
+                    0,
+                    min(self.page_index, page_count - 1),
+                )
+                start = self.page_index * page_size
+                visible_lines = self.page_lines[start:start + page_size]
+                action = (
+                    "SPACE finish"
+                    if self.page_index + 1 >= page_count
+                    else "SPACE next"
+                )
+                visible_lines = visible_lines + [(
+                    f"[page {self.page_index + 1}/{page_count}"
+                    f" \u00b7 {action} \u00b7 ESC close]",
+                    VIOLET,
+                )]
+            else:
+                lines = [
+                    (_decaying_text(text, colour, expires, now), colour)
+                    for text, colour, expires in live
+                ]
 
-            if self.live_text:
-                wrap_w = max(w - CHAT_INDENT - 2, 10)
-                caret = "\u2588" if self.streaming else ""
+                if self.live_text:
+                    wrap_w = max(w - CHAT_INDENT - 2, 10)
+                    caret = "\u2588" if self.streaming else ""
 
-                display_text = self.live_text
+                    for wrapped_line in _wrapped_display_lines(
+                        self.live_text + caret,
+                        wrap_w,
+                    ):
+                        lines.append((wrapped_line, self.live_color))
 
-                for wl in (textwrap.wrap(display_text + caret, wrap_w) or [""]):
-                    lines.append((wl, self.live_color))
+                for activity_line in self._activity_lines(
+                    compact=chat_area_h < 4
+                ):
+                    lines.append((activity_line, GREY_DIM))
 
-            for activity_line in self._activity_lines(
-                compact=chat_area_h < 4
-            ):
-                lines.append((activity_line, GREY_DIM))
-
-            visible_lines = lines[-chat_area_h:]
+                visible_lines = lines[-chat_area_h:]
             newest = len(visible_lines) - 1
 
             for idx, (text, col) in enumerate(visible_lines):
@@ -1720,8 +1751,13 @@ class LayeredDisplayEngine:
                 )
                 else dev_auth.redact_credential_like_text(self.current_input)
             )
-            full_prompt = f"{self.input_prompt}{shown_input}\u2588"
-            for col_x, char in enumerate(full_prompt[:w - CHAT_INDENT - 1]):
+            input_width = max(1, w - CHAT_INDENT - 1)
+            full_prompt = _visible_input_line(
+                self.input_prompt,
+                shown_input,
+                input_width,
+            )
+            for col_x, char in enumerate(full_prompt):
                 canvas[prompt_y][col_x + CHAT_INDENT] = CanvasCell(char, BOLD + RED)
 
             self._blit(canvas)
@@ -1751,7 +1787,7 @@ class LayeredDisplayEngine:
     # ------------------------------------------------------------
 
     # Each palette runs dark -> bright, with a near-white final oscilloscope
-    # trace. Space cycles these only while music mode owns the viewport.
+    # trace. Music mode moves to the next palette every twenty seconds.
     _MUSIC_PALETTES = (
         ("electric blue", (
             fg(17), fg(18), fg(19), fg(20), fg(27), fg(33), fg(45),
@@ -1779,6 +1815,7 @@ class LayeredDisplayEngine:
         "corrupt cube",
     )
     _MUSIC_SCENE_ROTATION_SECONDS = 165
+    _MUSIC_PALETTE_ROTATION_SECONDS = 20
 
     def _draw_music(self, canvas, width, height):
         """Full-viewport visualiser. Replaces the header and chat log."""
@@ -1804,6 +1841,32 @@ class LayeredDisplayEngine:
         ):
             _replace_music_scene(self.music_scene_index + 1, now=now)
             self.music_status = "scene rotated automatically"
+
+        if self.music_visualizer is not None:
+            if self._music_palette_started_at <= 0.0:
+                self._music_palette_started_at = now
+            palette_elapsed = now - self._music_palette_started_at
+            if palette_elapsed >= self._MUSIC_PALETTE_ROTATION_SECONDS:
+                steps = max(
+                    1,
+                    int(
+                        palette_elapsed
+                        // self._MUSIC_PALETTE_ROTATION_SECONDS
+                    ),
+                )
+                self.music_palette_index = (
+                    self.music_palette_index + steps
+                ) % len(self._MUSIC_PALETTES)
+                palette_name, palette = self._MUSIC_PALETTES[
+                    self.music_palette_index
+                ]
+                self.music_visualizer.palette = tuple(palette)
+                self._music_palette_started_at += (
+                    steps * self._MUSIC_PALETTE_ROTATION_SECONDS
+                )
+                self.music_status = (
+                    f"palette rotated automatically: {palette_name}"
+                )
 
         stage_h = max(1, height - 1)
 
@@ -1836,10 +1899,19 @@ class LayeredDisplayEngine:
                 time.time() - self._music_scene_started_at
             )),
         )
+        palette_remaining = max(
+            0,
+            int(math.ceil(
+                self._MUSIC_PALETTE_ROTATION_SECONDS - (
+                    time.time() - self._music_palette_started_at
+                )
+            )),
+        )
         controls = (
             f"scene {self.music_scene_index + 1}/{len(self._MUSIC_SCENES)}: "
             f"{scene_name} | auto {remaining // 60}:{remaining % 60:02d} | "
-            f"←/→ scene | space palette | [/] vol {self.music_volume_percent}% | "
+            f"colour {palette_remaining}s | ←/→ scene | "
+            f"space next local | [/] vol {self.music_volume_percent}% | "
             f"{MUSIC_TOGGLE_LABEL} exit"
         )
         status = f"{self.music_status} | {controls}" if self.music_status else controls
@@ -2016,14 +2088,111 @@ def print_framed(text="", color="", expires_in=None):
     )
 
     with _engine.lock:
-        for line in str(text).split("\n"):
-            wrapped = textwrap.wrap(line, max(_engine.width - CHAT_INDENT - 2, 10)) or [""]
-            for w_line in wrapped:
-                _engine.chat_history.append((w_line, color or RESET, expires_at))
+        width = max(_engine.width - CHAT_INDENT - 2, 10)
+
+        for wrapped_line in _wrapped_display_lines(text, width):
+            _engine.chat_history.append(
+                (wrapped_line, color or RESET, expires_at)
+            )
 
         # Without this the buffer grows for the whole session.
         if len(_engine.chat_history) > 500:
             del _engine.chat_history[:-300]
+
+
+def _wrapped_display_lines(text, width):
+    """Wrap text without flattening explicit newlines or list indentation."""
+    wrapper = textwrap.TextWrapper(
+        width=max(1, int(width)),
+        replace_whitespace=False,
+        drop_whitespace=False,
+        break_long_words=True,
+        break_on_hyphens=False,
+    )
+    wrapped = []
+
+    for logical_line in str(text or "").split("\n"):
+        wrapped.extend(wrapper.wrap(logical_line) or [""])
+
+    return wrapped
+
+
+def _visible_input_line(prompt, shown_input, width):
+    """Keep the cursor and newest typed text visible in a one-line prompt."""
+    width = max(1, int(width))
+    full = f"{prompt}{shown_input}\u2588"
+
+    if len(full) <= width:
+        return full
+    if width == 1:
+        return "\u2588"
+
+    return "\u2026" + full[-(width - 1):]
+
+
+def page_text_if_needed(text, color=GREY):
+    """
+    Show a completed long response one viewport at a time.
+
+    Space/Enter/Down advances, Up/Backspace goes back, and Escape/Q closes.
+    The response is already retained in chat history; clearing page_lines
+    therefore returns the ordinary view to the conversation's bottom.
+    """
+    with _engine.lock:
+        _engine.update_size()
+        width = max(_engine.width - CHAT_INDENT - 2, 10)
+        lines = [
+            (line, color or RESET)
+            for line in _wrapped_display_lines(text, width)
+        ]
+        chat_area_h = max(
+            1,
+            _engine.height - _engine.header_height - 3,
+        )
+
+        if (
+            not _engine.running
+            or len(lines) <= chat_area_h
+        ):
+            return False
+
+        _engine.page_lines = lines
+        _engine.page_index = 0
+
+    try:
+        while _engine.running:
+            key = get_char()
+
+            if key is None:
+                time.sleep(0.01)
+                continue
+
+            with _engine.lock:
+                chat_area_h = max(
+                    1,
+                    _engine.height - _engine.header_height - 3,
+                )
+                page_size = max(1, chat_area_h - 1)
+                page_count = max(
+                    1,
+                    (len(_engine.page_lines) + page_size - 1) // page_size,
+                )
+
+                if key in ("ESC", "q", "Q"):
+                    break
+                if key in ("UP", "\x08", "\x7f"):
+                    _engine.page_index = max(0, _engine.page_index - 1)
+                    continue
+                if key in (" ", "\r", "\n", "DOWN", "RIGHT"):
+                    if _engine.page_index + 1 >= page_count:
+                        break
+                    _engine.page_index += 1
+    finally:
+        with _engine.lock:
+            _engine.page_lines = None
+            _engine.page_index = 0
+
+    return True
 
 # Supplies the list of names Up/Down cycles through. Injected rather
 # than imported directly -- commands/command_handlers.py already
@@ -2127,8 +2296,8 @@ def input_framed(
             return user_text
         elif ch == MUSIC_TOGGLE_KEY:
             print_framed(toggle_music_mode(), color=VIOLET)
-        elif ch == MUSIC_PALETTE_CYCLE_KEY and music_mode_active():
-            cycle_music_palette()
+        elif ch == MUSIC_NEXT_TRACK_KEY and music_mode_active():
+            skip_local_track()
         elif ch == "LEFT" and music_mode_active():
             cycle_music_scene(-1)
         elif ch == "RIGHT" and music_mode_active():
@@ -2431,8 +2600,8 @@ def poll_input_event():
         print_framed(toggle_music_mode(), color=VIOLET)
         return None
 
-    if ch == MUSIC_PALETTE_CYCLE_KEY and music_mode_active():
-        cycle_music_palette()
+    if ch == MUSIC_NEXT_TRACK_KEY and music_mode_active():
+        skip_local_track()
         return None
 
     if ch == "LEFT" and music_mode_active():
@@ -2484,8 +2653,8 @@ def poll_input_event():
 
 MUSIC_TOGGLE_KEY = "\x02"          # Ctrl+B
 MUSIC_TOGGLE_LABEL = "ctrl+b"
-MUSIC_PALETTE_CYCLE_KEY = " "
-MUSIC_PALETTE_CYCLE_LABEL = "space"
+MUSIC_NEXT_TRACK_KEY = " "
+MUSIC_NEXT_TRACK_LABEL = "space"
 MUSIC_VOLUME_DOWN_KEY = "["
 MUSIC_VOLUME_UP_KEY = "]"
 MUSIC_VOLUME_LABEL = "[/]"
@@ -2500,7 +2669,7 @@ def set_music_status(text):
 
 
 def cycle_music_palette():
-    """Advance the visualizer palette without interrupting audio capture."""
+    """Advance the palette and restart its automatic twenty-second timer."""
     with _engine.lock:
         if not _engine.music_mode or _engine.music_visualizer is None:
             return "Music mode is off."
@@ -2510,11 +2679,25 @@ def cycle_music_palette():
         ) % len(_engine._MUSIC_PALETTES)
         name, palette = _engine._MUSIC_PALETTES[_engine.music_palette_index]
         _engine.music_visualizer.palette = tuple(palette)
-        _engine.music_status = (
-            f"palette: {name} | {MUSIC_PALETTE_CYCLE_LABEL}: cycle | "
-            f"{MUSIC_TOGGLE_LABEL}: exit"
-        )
+        _engine._music_palette_started_at = time.time()
+        _engine.music_status = f"palette: {name}"
         return _engine.music_status
+
+
+def skip_local_track():
+    """Advance local playback without touching Spotify or browser audio."""
+    from visualizer import local_player
+
+    try:
+        name = local_player.get_player().play_next()
+        status = f"playing next local song: {name}"
+    except local_player.LocalPlaybackError as error:
+        status = str(error)
+
+    with _engine.lock:
+        _engine.music_status = status
+
+    return status
 
 
 def _make_music_scene(name, palette):
@@ -2614,6 +2797,7 @@ def toggle_music_mode():
     _engine.music_mode = True
     _engine.music_scene_index = 0
     _engine._music_scene_started_at = time.time()
+    _engine._music_palette_started_at = _engine._music_scene_started_at
     _replace_music_scene(_engine.music_scene_index, now=_engine._music_scene_started_at)
     _engine._music_last_frame = 0.0
     clear_screen()
@@ -2628,7 +2812,8 @@ def toggle_music_mode():
             "Music mode on, but system audio capture failed:\n"
             f"{source.error}\n\n"
             f"The visualiser is running idle. ←/→ cycles scenes; "
-            f"{MUSIC_PALETTE_CYCLE_LABEL} cycles colours; {MUSIC_VOLUME_LABEL} "
+            f"colours change every 20 seconds; {MUSIC_NEXT_TRACK_LABEL} "
+            f"plays the next local song; {MUSIC_VOLUME_LABEL} "
             f"changes local-music volume; {MUSIC_TOGGLE_LABEL} exits."
         )
 
@@ -2639,7 +2824,8 @@ def toggle_music_mode():
         f"Music mode on -- reacting to system audio.\n"
         f"Play anything (Spotify, browser, a file) and it will respond.\n"
         f"Scenes rotate every 2:45. ←/→ changes them now; "
-        f"{MUSIC_PALETTE_CYCLE_LABEL} cycles colours; {MUSIC_VOLUME_LABEL} "
+        f"colours change every 20 seconds; {MUSIC_NEXT_TRACK_LABEL} "
+        f"plays the next local song; {MUSIC_VOLUME_LABEL} "
         f"changes local-music volume; {MUSIC_TOGGLE_LABEL} exits."
     )
 

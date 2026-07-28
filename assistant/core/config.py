@@ -526,8 +526,10 @@ except ValueError:
 # ------------------------------------------------------------------
 # Idle check-in
 #
-# After a long silence the assistant speaks up once to see whether
-# anyone is still there, and shuts down cleanly if nobody answers.
+# After a long silence the assistant checks whether anyone is still there,
+# then shuts down cleanly if nobody answers. The check is visual by default:
+# unsolicited speech is startling when the app has been quiet in the
+# background. It can be opted back in explicitly.
 #
 # The shutdown is the point: a local model holds gigabytes of RAM, and a
 # session left open overnight keeps all of it. Asking first, rather than
@@ -538,6 +540,10 @@ except ValueError:
 IDLE_CHECKIN_ENABLED = (
     os.environ.get("TORMENT_NEXUS_IDLE_CHECKIN", "1").strip().lower()
     not in {"0", "false", "off", "no"}
+)
+IDLE_CHECKIN_SPEAK = (
+    os.environ.get("TORMENT_NEXUS_IDLE_SPEAK", "0").strip().lower()
+    in {"1", "true", "on", "yes"}
 )
 
 # Silence before the check-in. Minimum 60s so a misconfiguration cannot

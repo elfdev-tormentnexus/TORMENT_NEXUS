@@ -76,6 +76,7 @@ INCLUDE_FILES = [
     # A package built for someone to review is missing its most useful
     # file if the front door is left behind.
     "README.md",
+    "CHANGELOG.md",
     "docs/ARCHITECTURE.md",
     "docs/BETA_GUIDE.md",
     "docs/BRING_YOUR_OWN_GGUF.md",
@@ -829,22 +830,46 @@ FIRST RUN
     of RAM is comfortable; 16 GB is better if you want the voice running at
     the same time.
 
-    Type "help" to see the commands.
+    Type "tutorial" for the beginner-friendly walkthrough. Type "help" to
+    see available commands or "explain <anything>" for one focused guide.
 
 SOME THINGS TO TRY
     help              list every command
-    dev mode          unlock the developer tools
+    health check      show what is working on this computer
     music library     list local tracks it can play offline
     audio mode        talk to it out loud
     sing daisy bell   ask politely
 
 VOICE
-    Speech is generated locally. If its delivery is not to your taste, three
-    environment variables retune it without touching code:
+    Speech and listening run locally. "audio mode" turns voice on and
+    "text mode" turns it off. Type "audio mode" again whenever you want
+    voice back. Typing still works when no microphone is available.
 
-        TORMENT_NEXUS_CARRIER_HZ       pitch of the carrier (default 145)
-        TORMENT_NEXUS_PITCH_FLATTEN    monotone-ness, 0 to 1 (default 0.45)
-        TORMENT_NEXUS_VOWEL_STRETCH    how drawn-out vowels are (default 1.6)
+MUSIC AND VISUALIZER
+    Put your own MP3, WAV, FLAC, or OGG files in assistant\music, then type
+    "music library" or "play <track>". A successful start message is shown
+    instead of spoken, so the voice does not cover the opening.
+
+    In music mode:
+        Left/Right     change visualizer scene
+        Space          play the next local song
+        [ and ]        change local-song volume
+        Ctrl+B         exit music mode
+
+    Scenes rotate every 2 minutes 45 seconds. Colours change automatically
+    every 20 seconds. Space affects local music only, never Spotify or a
+    browser.
+
+TIME AND RETURNING
+    TORMENT_NEXUS reads this computer's local clock during each reply. It
+    knows the current date and time, how long this session has been open,
+    and the gap since the previous completed conversation. This does not
+    mean it watched, waited, thought, worked, or felt anything while closed.
+
+LONG TEXT
+    Long typed messages keep the newest text visible. Long answers appear
+    one page at a time: Space, Enter, or Down advances; Up or Backspace goes
+    back; Escape or Q closes the page view.
 
 THE GLITCHING ICON (optional)
     tools\start_glitch.bat makes the desktop icon corrupt itself now and
