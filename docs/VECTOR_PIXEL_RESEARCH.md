@@ -229,8 +229,21 @@ own tests.
 
 - Does PQ recall hold at this project's realistic ceiling? Run the probe
   once the corpus passes ~1,000 vectors.
-- Does dimension **reordering** before encoding improve PNG's filters?
-  Near-constant dimensions grouped together should predict better. Untested.
+- ~~Does dimension **reordering** before encoding improve PNG's filters?~~
+  **Answered 2026-07-28: no.** Real SABLEVEC1 PNGs over the 67-vector cache,
+  natural order 26,872 bytes; sorted by variance 26,841 (99.88%); sorted by
+  mean 26,638 (99.13%); random control 26,851 (99.92%). Everything inside
+  0.9%, and random beats variance-sorting. The permutation round-trips
+  identically, which is the point: information that survives arbitrary
+  rearrangement was never stored in the arrangement. Row index is insertion
+  order and column index is the model's emission order — both arbitrary, so
+  neither can carry meaning, and PNG's filters have no real adjacency to
+  exploit. The layout is a rendering, not a structure.
+- The **alpha channel is unused** — pinned at 255, so the container carries
+  3 bytes per pixel where 4 are available. That is a genuine 33% capacity
+  increase and the only literal extra dimension on offer here, unlike
+  rearrangement. Untested, and fragile: premultiplication in some image
+  pipelines mangles alpha silently.
 - Is per-dimension quantisation range better than global? Dimensions with
   narrow spread currently waste most of their 256 levels.
 - Can retrieval run directly against the quantised form without
