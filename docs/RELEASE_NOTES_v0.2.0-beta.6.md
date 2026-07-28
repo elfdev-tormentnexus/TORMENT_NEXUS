@@ -2,10 +2,10 @@
 
 **Release status:** Beta 6 release candidate  
 **Target platform:** 64-bit Windows  
-**Full regression-suite count:** **verified at release** after the final clean
-source freeze  
-**Package checksums and manifest file count:** generated and inserted only
-after the final package is rebuilt
+**Full regression-suite count:** **639 passed, 2 skipped** on the packaged
+commit `97711ca`  
+**Package checksums and manifest file count:** **339 hashed files**; every
+checksum is listed under [Package checksums](#package-checksums)
 
 Do not publish these notes while either verification line above is still
 provisional.
@@ -164,9 +164,9 @@ runtime caches.
 
 Download the generated Beta 6 assets into one folder:
 
-1. `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01`
-2. every later consecutive `.partNN` file shown in the release
-3. `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat`
+1. `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01` through `.part06` —
+   all six are required
+2. `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat`
 
 Run the reassembler. It joins the exact generated part set and automatically
 checks the complete ZIP against its embedded SHA-256. A mismatch is deleted
@@ -180,26 +180,47 @@ GitHub's automatic **Source code (zip)** and **Source code (tar.gz)** downloads
 are developer source snapshots. They do not contain the model weights,
 self-contained Python environment, or ready-to-run Windows package.
 
+### Package checksums
+
+SHA-256, with sizes in bytes. The reassembler checks the rejoined ZIP against
+the first value automatically; the rest are for verifying individual downloads.
+
+| Asset | Bytes | SHA-256 |
+| --- | --- | --- |
+| `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip` | 12,380,706,363 | `AC66CA1ACA80BFE21163BA41F0DB11AEA215617FAD0F48FF24FFA6A37B0AB1A9` |
+| `.zip.part01` | 2,080,374,784 | `B8B4B15876D0BFE8172B357DE8D057FCE31EDADBCDA878DA54444B4207192BD1` |
+| `.zip.part02` | 2,080,374,784 | `77EA52AC0F61BFE6451CC7EBC15A9D5EF7B80EA324C435BFC08932FB9D093799` |
+| `.zip.part03` | 2,080,374,784 | `BB529F78BC989C070B822B48509838E5FB1B374DF08B64E41FAC80D4EA96A891` |
+| `.zip.part04` | 2,080,374,784 | `FCD6AF853B42626177C683EA68A21329FDDABC031F476CE772FC7D5C929DDEFF` |
+| `.zip.part05` | 2,080,374,784 | `B74AA7B6147C463F4269DC6ACDD4D3781711C66560D6EBBAE7B1002B6F06E789` |
+| `.zip.part06` | 1,978,832,443 | `A346A56A148A7EAE8BFA55F284DDC3028518DDB90E10EC2E730F1236448B236B` |
+| `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` | 2,503 | `3A7BC77FF8D2BA0174D67028F2036C16D5B2A32ED480FBDE6050295830FEAF6D` |
+
 ### Optional full-maintenance model add-on
 
 Advanced users who deliberately want the preserved 14B full-maintenance
 profile must also download:
 
 1. all five consecutive assets from
-   `TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b.part01` through
-   `.part05`;
-2. `INSTALL_TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b.bat`;
-3. `TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b-MANIFEST.json`;
-4. `TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b-SHA256SUMS.txt`; and
-5. `TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b-README.txt`.
+   `Qwen2.5-Coder-14B-Instruct-abliterated-Q4_K_M.gguf.part01` through
+   `.part05`; and
+2. `INSTALL_FULL_MAINTENANCE_14B.bat`.
 
 Place the installer and every model part inside the extracted
 `TORMENT_NEXUS` folder, run the installer, and let its baked-in SHA-256 check
 finish before starting `start_full_maintenance_coder.bat`. The launcher then
 shows the full-maintenance warning and requires the exact typed acknowledgement.
-The model-pack manifest records the exact reviewed 14B size, SHA-256, source
-revision, and uploader-declared license; the declaration is evidence, not an
-independent legal conclusion.
+
+The installer verifies the rejoined file against the SHA-256 below and refuses
+to install a mismatch. There is no separate manifest, checksum list, or README
+asset for this add-on; the installer itself carries the checksum.
+
+| Add-on detail | Value |
+| --- | --- |
+| Rejoined model | `Qwen2.5-Coder-14B-Instruct-abliterated-Q4_K_M.gguf` |
+| Bytes | 8,988,111,200 |
+| SHA-256 | `E89A7AE4E2B456BF33C75CFF35664751DF20FF273E551D7CF7640AA9E84D3B79` |
+| Parts | 5 × 1,797,622,240 bytes |
 
 ## Known limitations
 
