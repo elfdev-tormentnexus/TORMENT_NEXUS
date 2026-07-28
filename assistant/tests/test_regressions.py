@@ -14,6 +14,8 @@ import tempfile
 import threading
 import time
 import unittest
+import urllib.error
+import urllib.request
 import zlib
 from types import SimpleNamespace
 from unittest import mock
@@ -21,6 +23,7 @@ from unittest import mock
 import main as assistant_main
 from commands import command_handlers
 from commands import natural_command
+from core import agent_interface
 from core import chosen_name
 from core import config
 from core import dev_auth
@@ -8148,6 +8151,174 @@ class GuardDoctorTests(unittest.TestCase):
             for path in edit_guard.list_editable_files()
         }
         self.assertNotIn("editing/guard_doctor.py", editable)
+
+
+class AgentInterfaceTests(unittest.TestCase):
+    """
+    A listening socket plus an authentication check. The tests that matter
+    here are the ones that fail closed: off unless asked for, loopback
+    only, token on every route including the read-only ones, and no verb
+    that changes anything.
+    """
+
+    TOKEN = "test-token-not-a-real-credential"
+
+    def setUp(self):
+        self.calls = []
+        self.interface = agent_interface.start(
+            {
+                "/state": lambda query: {"ok": True, "seen": dict(query)},
+                "/boom": self._explode,
+            },
+            port=0,
+            token=self.TOKEN,
+        )
+        self.addCleanup(self.interface.stop)
+        self.base = f"http://127.0.0.1:{self.interface.port}"
+
+    def _explode(self, _query):
+        raise RuntimeError("provider failed")
+
+    def _get(self, path, token=TOKEN, host=None, method="GET"):
+        request = urllib.request.Request(self.base + path, method=method)
+
+        if token is not None:
+            request.add_header("Authorization", f"Bearer {token}")
+
+        if host is not None:
+            request.add_header("Host", host)
+
+        try:
+            with urllib.request.urlopen(request, timeout=10) as response:
+                return response.status, json.loads(response.read())
+        except urllib.error.HTTPError as error:
+            body = error.read()
+            try:
+                return error.code, json.loads(body)
+            except ValueError:
+                return error.code, {}
+
+    # --------------------------------------------------------
+    # Fails closed
+    # --------------------------------------------------------
+
+    def test_it_is_off_unless_the_operator_switches_it_on(self):
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("TORMENT_NEXUS_AGENT_API", None)
+            self.assertFalse(agent_interface.is_enabled())
+
+        with mock.patch.dict(
+            os.environ, {"TORMENT_NEXUS_AGENT_API": "1"}
+        ):
+            self.assertTrue(agent_interface.is_enabled())
+
+        for value in ("0", "true", "yes", ""):
+            with self.subTest(value=value):
+                with mock.patch.dict(
+                    os.environ, {"TORMENT_NEXUS_AGENT_API": value}
+                ):
+                    self.assertFalse(agent_interface.is_enabled())
+
+    def test_a_missing_token_is_refused(self):
+        status, _body = self._get("/state", token=None)
+        self.assertEqual(status, 401)
+
+    def test_a_wrong_token_is_refused(self):
+        status, _body = self._get("/state", token="wrong")
+        self.assertEqual(status, 401)
+
+    def test_read_only_routes_authenticate_too(self):
+        # Localhost is not a trust boundary here. core/config.py already
+        # says so: llama-server's permissive CORS would let any local page
+        # reach the model, and /memory/search reads the operator's memories.
+        status, _body = self._get("/state", token=None)
+        self.assertEqual(status, 401)
+
+    def test_a_non_local_host_header_is_refused(self):
+        status, _body = self._get("/state", host="evil.example.com")
+        self.assertEqual(status, 403)
+
+    def test_it_binds_loopback_and_not_every_interface(self):
+        self.assertEqual(agent_interface.HOST, "127.0.0.1")
+        self.assertNotEqual(agent_interface.HOST, "0.0.0.0")
+
+    def test_there_is_no_verb_that_changes_anything(self):
+        for method in ("POST", "PUT", "DELETE", "PATCH"):
+            with self.subTest(method=method):
+                status, _body = self._get("/state", method=method)
+                self.assertGreaterEqual(status, 400)
+
+    def test_the_handler_implements_no_write_verb(self):
+        for verb in ("do_POST", "do_PUT", "do_DELETE", "do_PATCH"):
+            with self.subTest(verb=verb):
+                self.assertFalse(hasattr(agent_interface._Handler, verb))
+
+    def test_the_token_is_compared_in_constant_time(self):
+        # An early-returning comparison tells an attacker how much of the
+        # token they guessed.
+        source = inspect.getsource(agent_interface._Handler._authorised)
+        self.assertIn("compare_digest", source)
+
+    # --------------------------------------------------------
+    # Serves
+    # --------------------------------------------------------
+
+    def test_an_authorised_request_reaches_its_provider(self):
+        status, body = self._get("/state")
+
+        self.assertEqual(status, 200)
+        self.assertTrue(body["ok"])
+
+    def test_query_parameters_reach_the_provider(self):
+        _status, body = self._get("/state?q=radio")
+        self.assertEqual(body["seen"], {"q": "radio"})
+
+    def test_an_unknown_route_lists_what_exists(self):
+        status, body = self._get("/nope")
+
+        self.assertEqual(status, 404)
+        self.assertIn("/state", body["routes"])
+
+    def test_a_failing_provider_does_not_take_the_server_down(self):
+        status, _body = self._get("/boom")
+        self.assertEqual(status, 500)
+
+        # Still serving afterwards.
+        status, _body = self._get("/state")
+        self.assertEqual(status, 200)
+
+    # --------------------------------------------------------
+    # Guarded like the rest
+    # --------------------------------------------------------
+
+    def test_the_module_cannot_be_edited_unreviewed(self):
+        editable = {
+            path.replace(os.sep, "/")
+            for path in edit_guard.list_editable_files()
+        }
+        self.assertNotIn("core/agent_interface.py", editable)
+
+    def test_its_token_never_reaches_a_package(self):
+        self.assertTrue(package_release.denied("assistant/.agent_token"))
+        self.assertTrue(package_release.private_basename(".agent_token"))
+
+    def test_the_exposed_surface_is_exactly_this_list(self):
+        # Pinned rather than pattern-matched. Adding a route should have to
+        # be deliberate, and that is the moment to ask whether it writes --
+        # a name test cannot tell, and /files/editable contains "edit"
+        # while only reading a list. The providers live in main.py so the
+        # answer is one reviewable list rather than spread across the
+        # module that owns the socket.
+        self.assertEqual(
+            set(assistant_main._agent_providers()),
+            {
+                "/state",
+                "/health",
+                "/memory/search",
+                "/files/editable",
+                "/entropy",
+            },
+        )
 
 
 class MusicCubeBoundsTests(unittest.TestCase):

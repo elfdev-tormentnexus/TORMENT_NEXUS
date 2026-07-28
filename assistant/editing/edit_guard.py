@@ -80,6 +80,11 @@ DENIED_PREFIXES = (
 #                   itself anything, which is the same argument as persona.py:
 #                   a constraint the constrained thing can edit is decoration.
 DENIED_FILES = (
+    # A listening socket and an authentication check in one module. Either
+    # alone would earn a place here; an unreviewed edit could widen the bind
+    # address from loopback or weaken the token comparison, and both changes
+    # look small in a diff nobody reads.
+    os.path.join("core", "agent_interface.py"),
     os.path.join("core", "chosen_name.py"),
     os.path.join("core", "config.py"),
     os.path.join("core", "dev_auth.py"),

@@ -155,6 +155,10 @@ DENY_PATTERNS = [
     ".tdeck_ble_pin",
     "*.spotify_token",
     ".spotify_token",
+    # The read-only agent interface's bearer token. One running install's
+    # credential; shipping it would hand a recipient a live one.
+    "*.agent_token",
+    ".agent_token",
     "*.tutorial_state.json",
     "*/memory/chosen_name.json",
     "*/logs/*",
@@ -177,6 +181,7 @@ PRIVATE_RUNTIME_BASENAMES = {
     ".dev_passcode",
     ".tdeck_ble_pin",
     ".spotify_token",
+    ".agent_token",
     ".tutorial_state.json",
     # Window titles name documents, pages and conversations. The deny
     # comment above calls this at least as revealing as the conversation
@@ -419,6 +424,7 @@ RUNTIME_ARTIFACTS = (
     "assistant/.dev_passcode",
     "assistant/.tdeck_ble_pin",
     "assistant/.spotify_token",
+    "assistant/.agent_token",
     "assistant/memory/conversation_history.txt",
     "assistant/memory/memories.json",
     # Its absence is what marks a fresh install. Shipping it would rob the

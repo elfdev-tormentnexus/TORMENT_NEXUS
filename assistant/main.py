@@ -78,6 +78,9 @@ from commands.command_handlers import (
 from ui import ui
 from core import chosen_name
 from core.persona import PERSONA, PERSONA_SHOTS
+from core import agent_interface
+from core import health_check
+from editing import edit_guard
 from editing import edit_engine
 from editing import edit_intent
 from editing import autonomous_engine
@@ -471,6 +474,78 @@ def _update_retrieval_panel(active, relevant):
         )
     except Exception:
         pass
+
+
+def _agent_providers():
+    """
+    Everything the read-only agent interface exposes, in one place.
+
+    Written here rather than in core/agent_interface.py so that what a
+    connected agent can see is decided at the call site and is reviewable
+    as a single list, instead of being spread across the module that
+    happens to own the socket.
+
+    Every entry reads. None of them writes, restarts, edits, or sets a
+    goal -- that surface goes through dev_auth and does not exist yet.
+    """
+    started_at = time.time()
+
+    def state(_query):
+        return {
+            "model": MODEL_DISPLAY_NAME,
+            "model_role": MODEL_ROLE,
+            "uptime_seconds": round(time.time() - started_at, 1),
+            "developer_mode": is_dev_mode(),
+            "panel_active": ui.panel_active(),
+            "memories": len(mem.active_memories()),
+        }
+
+    def health(_query):
+        return {
+            "blockers": health_check.validation_blockers(),
+            "warnings": health_check.advisory_warnings(),
+        }
+
+    def memory_search(query):
+        term = query.get("q", "")
+
+        if not term:
+            return {"query": "", "results": [], "note": "pass ?q=<terms>"}
+
+        found = memory_logic.select_relevant(
+            mem.active_memories(), term, limit=10
+        )
+
+        return {
+            "query": term,
+            "results": [item.get("memory", "") for item in found],
+            # The point of exposing this: retrieval is literal word overlap,
+            # so an empty result for an obviously relevant question is the
+            # finding, not a malfunction.
+            "retrieval": "word-overlap",
+        }
+
+    def editable_files(_query):
+        return {
+            "human_reviewed": sorted(edit_guard.list_editable_files()),
+            "unattended": sorted(edit_guard.list_autonomous_files()),
+        }
+
+    def entropy(_query):
+        recent = list(ui._engine.field.entropy)[-64:]
+
+        return {
+            "recent": [round(value, 4) for value in recent],
+            "count": len(recent),
+        }
+
+    return {
+        "/state": state,
+        "/health": health,
+        "/memory/search": memory_search,
+        "/files/editable": editable_files,
+        "/entropy": entropy,
+    }
 
 
 # Entropy over only the top few candidates has a narrow dynamic range. At
@@ -2376,6 +2451,22 @@ def main():
         print("Preparing offline voice interface...")
         _prepare_voice_for_startup()
 
+    # Off unless the operator switched it on. It is a listening socket and
+    # an authentication boundary, so it starts by decision rather than by
+    # default, and a failure to bind must not stop the assistant running.
+    agent_api = None
+
+    if agent_interface.is_enabled():
+        try:
+            agent_api = agent_interface.start(_agent_providers())
+            print(
+                "Read-only agent interface on "
+                f"http://127.0.0.1:{agent_api.port} "
+                f"(token in assistant{os.sep}.agent_token)"
+            )
+        except Exception as error:
+            print(f"Agent interface could not start: {error}")
+
     ui.set_voice_mode(VOICE_ON_STARTUP)
     ui.print_startup_screen(MODEL_PATH, display_name=MODEL_DISPLAY_NAME)
 
@@ -2455,6 +2546,15 @@ def main():
     finally:
         _system_awareness.stop()
         memory_worker.stop()
+
+        # Close the listening socket with the app rather than leaving it
+        # held by a daemon thread until the process happens to exit.
+        if agent_api is not None:
+            try:
+                agent_api.stop()
+            except Exception:
+                pass
+
         stop_server(server_process)
         # Never leave the terminal with a restricted scroll region,
         # even if something above blew up.
