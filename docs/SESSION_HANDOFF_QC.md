@@ -30,23 +30,33 @@ Then, at the operator's direction, three planning documents for experimental
 work: `VECTOR_PANEL_PLAN.md`, `BETA5_DLC_PLAN.md`, and the tiering that keeps
 "DLC" meaning an optional heavy download.
 
-## The one open decision — the operator's, not yours
+## Decided — recognition and formulation are protected
 
-`voice/offline_voice.py` is on `AUTONOMOUS_ALLOWED_FILES`, the tier that runs
-unattended with no human trigger, and it holds the microphone (`sounddevice`).
-The capability gate blocks it *gaining* anything; it cannot block it changing
-what it already does.
+The operator's call: protect the central elements. Applied.
 
-Bounded by: 40-line cap, one edit per process run, import check, audit log,
-backup and rollback, and suggestion input isolated from chat and web.
+- `voice/offline_voice.py` removed from `AUTONOMOUS_ALLOWED_FILES` and added
+  to `MAINTENANCE_DENIED_FILES`. It holds the microphone, the recogniser and
+  speech synthesis. The allowlist rationale ("presentation, voice") was true
+  of how replies *sound* and false of the half that owns capture; both share
+  one 98KB file.
+- `core/stream_filter.py` added to `MAINTENANCE_DENIED_FILES`. It decides
+  which model output the operator ever sees, and only the 7B tier had been
+  excluded from it. An unreviewed change could suppress output and look
+  exactly like the model having said less.
 
-Three options were put to the operator: leave it, drop it from the autonomous
-six, or split mic capture into its own protected module. **Do not change this
-unilaterally.** It was left exactly as found, deliberately.
+Both stay editable with a human reviewing the diff. The unattended surface is
+now five files, none holding hardware or display capability.
 
-`guard doctor` also reports four lower-stakes modules with the same shape:
+**The follow-up worth doing:** split capture and recognition out of
+`offline_voice.py` into their own protected module. That would let the prosody
+tuning — genuinely a good self-improvement target — return to the unattended
+list without dragging the microphone with it. Not done here because splitting
+a 2,800-line file is a refactor, and this was a boundary decision.
+
+`guard doctor` still reports four lower-stakes modules with the same shape:
 `core/health_check.py`, `memory/memory_extractor.py`,
-`visualizer/music_metadata.py`, `visualizer/local_player.py`.
+`visualizer/music_metadata.py`, `visualizer/local_player.py`. Unresolved by
+design — each is a question, not a bug.
 
 ## Next, in order
 

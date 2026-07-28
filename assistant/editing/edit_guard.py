@@ -95,11 +95,22 @@ DENIED_FILES = (
 )
 
 # Unattended edits get a deliberately smaller surface than changes a human
-# previews and confirms. These modules can improve presentation, voice,
-# relevance, and read-only project understanding without rewriting startup,
+# previews and confirms. These modules can improve presentation, relevance,
+# and read-only project understanding without rewriting startup,
 # authentication, command authorization, persistence, or network boundaries.
+#
+# voice/offline_voice.py was here on a "presentation, voice" rationale, which
+# is true of the half that decides how replies sound and false of the half
+# that owns the microphone and the recogniser. Both live in one 98KB file, so
+# the whole thing came along. The capability gate cannot help: it blocks a
+# module gaining sounddevice and cannot block a module that already has it
+# from changing what it does with captured audio.
+#
+# Removed rather than split, because splitting a 2,800-line file is a
+# refactor and this is a boundary decision. Splitting capture and recognition
+# into their own protected module would let the prosody tuning return here,
+# which is the outcome worth having.
 AUTONOMOUS_ALLOWED_FILES = (
-    os.path.join("voice", "offline_voice.py"),
     os.path.join("voice", "session.py"),
     os.path.join("memory", "extraction_rules.py"),
     os.path.join("memory", "memory_logic.py"),
@@ -134,6 +145,15 @@ MAINTENANCE_DENIED_FILES = (
     os.path.join("memory", "memory_worker.py"),
     os.path.join("core", "system_awareness.py"),
     os.path.join("core", "wifi_experimental.py"),
+    # The last gate between what the model generated and what the operator
+    # reads. It decides which spans are hidden and when to hang up on a
+    # hallucinated turn marker. An unreviewed change here could suppress
+    # output without anything else noticing -- the same argument persona.py
+    # gets, one layer further down the pipe.
+    os.path.join("core", "stream_filter.py"),
+    # Capture, recognition and speech synthesis. Off the unattended list
+    # entirely; this keeps it off the unreviewed 14B path as well.
+    os.path.join("voice", "offline_voice.py"),
 )
 
 _SENSITIVE_IMPORT_ROOTS = {

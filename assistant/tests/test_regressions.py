@@ -8044,6 +8044,59 @@ class SelfHealDiagnosisTests(unittest.TestCase):
                 self.assertNotIn(advisory, source)
 
 
+class CentralElementProtectionTests(unittest.TestCase):
+    """
+    Recognition and formulation are central, and were partly unguarded.
+
+    offline_voice.py sat on the unattended allowlist under a "presentation,
+    voice" rationale that holds for how replies sound and not for the
+    microphone and recogniser sharing the same file. stream_filter.py decides
+    which model output the operator ever sees, and only the 7B tier was
+    excluded from it.
+    """
+
+    def test_the_microphone_module_is_not_autonomously_editable(self):
+        allowed = {
+            path.replace(os.sep, "/")
+            for path in edit_guard.AUTONOMOUS_ALLOWED_FILES
+        }
+        self.assertNotIn("voice/offline_voice.py", allowed)
+        self.assertNotIn("voice/offline_voice.py", edit_guard.list_autonomous_files())
+
+    def test_the_microphone_module_is_not_repairable_unreviewed(self):
+        self.assertIsNotNone(
+            edit_guard.maintenance_change_problem(
+                "voice/offline_voice.py",
+                "def f():\n    return 1\n",
+                "def f():\n    return 2\n",
+            )
+        )
+
+    def test_the_output_filter_is_not_repairable_unreviewed(self):
+        # It decides what the operator reads. A change that suppressed output
+        # would look like the model simply having said less.
+        self.assertIsNotNone(
+            edit_guard.maintenance_change_problem(
+                "core/stream_filter.py",
+                "def f():\n    return 1\n",
+                "def f():\n    return 2\n",
+            )
+        )
+
+    def test_both_remain_editable_with_a_human_reviewing(self):
+        editable = {
+            path.replace(os.sep, "/")
+            for path in edit_guard.list_editable_files()
+        }
+        for target in ("voice/offline_voice.py", "core/stream_filter.py"):
+            with self.subTest(target=target):
+                self.assertIn(target, editable)
+
+    def test_the_unattended_surface_stayed_small(self):
+        # Removing one file should not tempt anyone into adding others.
+        self.assertLessEqual(len(edit_guard.AUTONOMOUS_ALLOWED_FILES), 5)
+
+
 class GuardDoctorTests(unittest.TestCase):
     """
     The protection lists are hand-maintained, so something must ask the
