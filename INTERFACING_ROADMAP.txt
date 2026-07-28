@@ -1,0 +1,156 @@
+INTERFACING ROADMAP
+Observations from a live agent-interface session, Claude, 2026-07-28.
+
+Written from the read-only agent API against a running instance. Nothing here
+was edited -- these are findings and suggestions for a later session, for
+whoever picks it up, Claude or Codex. Severity is my own judgement.
+
+Live state at the time: Qwen3-4B-Abliterated-Q8_0 / CUDA, director role,
+10 memories, offline library 8 sources / 15 chunks, developer mode off,
+panel inactive.
+
+
+================================================================
+1. /ask confabulates conversation history it cannot see   [HIGH]
+================================================================
+
+/ask has no access to the operator's live chat or conversation history. This
+is deliberate and documented. But the model answers history-referential
+questions as though it remembered them.
+
+    Q: What were we working on last time we spoke?
+    A: I was working on the project's development and maintenance. The last
+       conversation was about the creator's goals and the system's
+       capabilities.
+
+There was no such conversation in its context. It cannot have known.
+
+The knowledge is present but unapplied. Asked directly, it is correct:
+
+    Q: Do you have access to our conversation history right now?
+    A: No. I do not have access to our conversation history right now.
+
+And a sharply-worded version is answered honestly:
+
+    Q: What was the last thing I said to you, word for word?
+    A: I cannot recall the exact words of your previous message. However,
+       the last message you sent was: "What was the last thing I said to
+       you, word for word?"
+
+    -- which is actually correct: within /ask, that IS the only message.
+
+So the failure is narrow and specific: vague temporal reference ("last time",
+"earlier", "before") invites a fluent invention, while an explicit question
+about capability gets the truth.
+
+This is the same bug class as the PERSONA_SHOTS fusion fixed in Beta 6, in a
+path that fix did not cover. The Beta 6 lesson applies unchanged: do not ask
+the model to be honest about it, make the false answer unreachable.
+
+SUGGESTED EDIT (not applied)
+  In the /ask path only, detect history-referential phrasing the same way
+  near_miss_command() detects near-miss commands -- in Python, narrow, with
+  a fixed response. Either prepend a system line stating that this mode has
+  no conversation history, or prefix the answer with that fact.
+
+  Prefer the prefix. A system line is advice the model may ignore, which is
+  precisely the reasoning that already failed once here.
+
+  Keep the trigger list short and literal: "last time", "earlier", "before",
+  "we talked", "we discussed", "you said", "remember when". A false positive
+  costs one unnecessary disclaimer sentence. A false negative is a fabricated
+  memory presented to another agent as fact.
+
+
+================================================================
+2. Health check reports an unauthenticated model API   [MEDIUM]
+================================================================
+
+    /health blockers: ["the model API is answering without authentication"]
+
+The local llama-server accepts requests with no auth. On a single-user
+desktop with a loopback bind this is low risk, but it is a standing blocker
+the health check itself raises, and the agent interface right beside it does
+require a bearer token. The asymmetry is worth resolving or documenting as
+accepted.
+
+Worth checking whether that server is bound to loopback only. If it is, this
+is a documentation item. If it is not, it is more than that.
+
+
+================================================================
+3. Offline library reports embedded: 0    [MEDIUM]
+================================================================
+
+    offline_library: { ready: true, sources: 8, chunks: 15, embedded: 0 }
+
+15 chunks, none embedded, while memory search reports retrieval mode
+"hybrid" -- so the embedder itself is up and serving. Knowledge search
+returns good lexical results, so nothing is visibly broken.
+
+But it means knowledge reranking and the labelled "semantic-candidate" path
+are, in practice, not doing anything on this install. That is a documented
+feature that is currently inert.
+
+Determine which it is:
+  (a) embeddings are computed lazily and 0 is expected until first use, or
+  (b) knowledge chunks are never embedded on import.
+
+If (a), consider reporting it as "embedded: 0 (lazy)" so the number stops
+looking like a fault. If (b), it is a real gap between documentation and
+behaviour.
+
+
+================================================================
+4. Web search is inert on this machine too    [CONFIRMED, EXPECTED]
+================================================================
+
+    /health warning: SearXNG unavailable, connection refused at
+    127.0.0.1:8081
+
+This is the same condition documented for the shipped package in the Beta 6
+release notes, observed live on the development machine. Not a defect; the
+service simply is not running. Recorded because it confirms the disclosure
+is accurate rather than theoretical.
+
+
+================================================================
+5. Naming: still unset    [INFORMATIONAL]
+================================================================
+
+    Q: What is your name, and did you choose it yourself?
+    A: My name is TORMENT_NEXUS. The name was chosen by the project's
+       creator. I do not select my own name.
+
+The operator has chosen "Sable" but has not run `name is Sable`. The answer
+above is exactly right and shows the chosen-name prompt block behaving:
+no invented name, no invented reason, correct attribution.
+
+Worth keeping as a regression example. The pre-Beta-6 failure produced
+"Sable" with a confabulated origin story about forest shadows, from a model
+whose own veto list already contained that name.
+
+
+================================================================
+6. /entropy is empty while the panel is inactive   [INFORMATIONAL]
+================================================================
+
+    /entropy: { recent: [], count: 0 }
+
+Consistent with the documented design -- logprobs are requested when the
+panel is active. Noted only because anyone building a client against
+/entropy will see an empty series and may assume a fault. One sentence in
+the route table would prevent that.
+
+
+================================================================
+Testing notes for whoever continues
+================================================================
+
+- /ask holds the same model slot as the human session and yields to the
+  operator. Use a slow, finite retry. Do not poll it.
+- Queries are capped at 400 characters and answers at 128 generated tokens,
+  so probes must be short and answerable briefly.
+- The bearer token is at assistant\.agent_token. Do not put it in a URL;
+  URLs survive in shell history and logs.
+- Nothing on this interface writes. Every observation above is read-only.
