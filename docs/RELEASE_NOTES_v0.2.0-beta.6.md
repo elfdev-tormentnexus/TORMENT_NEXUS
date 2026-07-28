@@ -103,14 +103,31 @@ Download these assets into one folder:
 1. `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01` through `.part06` —
    all six are required
 2. `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat`
+3. `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` — 15 KB, optional but
+   recommended
 
-Run the reassembler. It joins the exact generated part set and automatically
-checks the complete ZIP against its embedded SHA-256. A mismatch is deleted
-instead of being presented as an installable package.
+Run the reassembler and leave it alone. It does the whole sequence:
 
-After it reports **Verified**, extract
-`TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip`, open the extracted
-`TORMENT_NEXUS` folder, and run `setup.bat`.
+1. joins the exact generated part set;
+2. checks the complete ZIP against its embedded SHA-256, and **deletes a
+   mismatch** rather than presenting a damaged archive as installable;
+3. extracts the package;
+4. applies the documentation patch if it is present.
+
+Then open the `TORMENT_NEXUS` folder and run `setup.bat`.
+
+Allow roughly 40 GB free while this runs — the parts, the joined ZIP and the
+extracted folder briefly coexist. If a `TORMENT_NEXUS` folder already exists
+beside the script, extraction is skipped and the existing one is kept.
+
+**What the patch is for.** The bundled `docs/` folder is inside the archive,
+so documents corrected after the 13 GB package was built are out of date in
+every copy already zipped. Rebuilding 12 GB to fix a markdown file is a poor
+trade, so the corrected documents ship as this small separate asset instead.
+It replaces documentation only — no code, launcher, or model file — so the
+installed tree still matches the published archive checksum. If you skip it,
+nothing breaks; the bundled notes are simply the older version and this page
+remains authoritative.
 
 GitHub's automatic **Source code (zip)** and **Source code (tar.gz)** downloads
 are developer source snapshots. They do not contain the model weights,
@@ -130,7 +147,8 @@ the first value automatically; the rest are for verifying individual downloads.
 | `.zip.part04` | 2,080,374,784 | `FCD6AF853B42626177C683EA68A21329FDDABC031F476CE772FC7D5C929DDEFF` |
 | `.zip.part05` | 2,080,374,784 | `B74AA7B6147C463F4269DC6ACDD4D3781711C66560D6EBBAE7B1002B6F06E789` |
 | `.zip.part06` | 1,978,832,443 | `A346A56A148A7EAE8BFA55F284DDC3028518DDB90E10EC2E730F1236448B236B` |
-| `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` | 2,503 | `3A7BC77FF8D2BA0174D67028F2036C16D5B2A32ED480FBDE6050295830FEAF6D` |
+| `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` | 3,906 | `9FE13AA4097E21C68CCBB3814541AC831408A63DA037ECF63E3103A96AFDA5BB` |
+| `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` | 15,038 | `81E8517EBE97A2FD833AD2A6A2889D94EC619D904EDD2DA555FEBD1FECED2F90` |
 
 ### Optional full-maintenance model add-on
 
@@ -186,6 +204,46 @@ data, and does not use semantic resemblance alone to inject a manual into
 ordinary conversation. `library remove` deletes the live copy and searchable
 rows synchronously, with a best-effort database compaction that is not a
 forensic erase of backups or storage-device remnants.
+
+### Honesty fixes in ordinary conversation
+
+These came from reading the assistant's own conversation log, and each one is
+a case where it produced a fluent, specific account of something that had not
+happened. All are enforced in Python rather than by asking the model to
+behave.
+
+- Persona examples no longer reach the model as if they were recent
+  conversation. Previously they arrived as the six most recent turns, and the
+  assistant fused them into a confident report of a conversation with the
+  operator that never took place.
+- Input that resembles a real command but is not one is now answered directly
+  instead of narrated as completed. "finish goals" used to return "I am done
+  with the goals" without anything having run.
+- "Choose a name" now reaches the actual naming ceremony instead of inventing
+  a name and a reason for it in chat.
+- History trimming cuts on exchange boundaries, so the log no longer begins
+  mid-record.
+- The operator can set a name directly with `name is NAME`. It is recorded as
+  operator-chosen, and the model is told it did not choose it.
+
+### Music visualizer and loudness matching
+
+All eight scenes gained a wall-clock anchor layer, and scene reactivity was
+raised across the board. The acid lattice drew lines roughly three times
+thinner than the braille raster and rendered as speckle; the datastream
+horizon floated six rows above the bottom. Both are fixed, and the neon
+horizon's skyline now uses the project's corruption idiom.
+
+Track loudness is matched at playback (`visualizer/loudness.py`). Measured
+across the development library of 41 tracks, a 20.0 dB spread narrowed to
+1.4 dB with the loudest normalised peak at 0.985 against a 0.985 ceiling and
+no clipping. This is gated RMS, not ITU-R BS.1770 LUFS; K-weighting is
+documented in the module as the honest next step.
+
+### Onboarding
+
+`tutorial` now opens with a prose introduction covering the whole system
+rather than a bare list of commands.
 
 ### Real retrieval and entropy displays
 
@@ -284,12 +342,15 @@ Maintainer checklist. This section is kept in the repository copy and is
 stripped from the published release body.
 
 1. Freeze all editors and commit the intended source.
-2. Require a clean-tree package build from the tagged commit.
-3. Run the complete regression suite and insert the exact passing count.
-4. Smoke-test a disposable extraction, then rebuild the final clean package.
-5. Verify the package manifest and privacy scan.
-6. Split the versioned ZIP and record the SHA-256 of the ZIP, every part, and
+2. Finalise every document that ships **inside** the package before building
+   it. `docs/` is packaged, so release notes and `CHANGELOG.md` written after
+   the build are stale in the archive even when the release page is correct.
+3. Require a clean-tree package build from the tagged commit.
+4. Run the complete regression suite and insert the exact passing count.
+5. Smoke-test a disposable extraction, then rebuild the final clean package.
+6. Verify the package manifest and privacy scan.
+7. Split the versioned ZIP and record the SHA-256 of the ZIP, every part, and
    the generated helper.
-7. Upload as a draft prerelease and compare every remote asset size and digest.
-8. Publish only when the tag, README, installation guide, release body,
+8. Upload as a draft prerelease and compare every remote asset size and digest.
+9. Publish only when the tag, README, installation guide, release body,
    filenames, test count, and checksums all agree.

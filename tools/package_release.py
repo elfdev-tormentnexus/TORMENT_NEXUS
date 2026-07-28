@@ -71,6 +71,14 @@ MAX_ASSET_BYTES = 2 * 1024**3 - 64 * 1024**2
 # omitted and leave every recipient with a corrupt archive.
 REASSEMBLER_NAME = f"REASSEMBLE_{ARCHIVE_STEM}.bat"
 
+# Documentation that ships inside the archive is frozen at build time, so a
+# correction made afterwards is stale in every copy already zipped. The
+# reassembler applies this small optional asset after it extracts. It is
+# documentation only and never touches a manifest-hashed file, so the
+# installed tree still matches the published archive checksum. Built by
+# tools/build_docs_patch.py; absent is fine and the install continues.
+DOCS_PATCH_NAME = f"{PACKAGE_NAME}-{RELEASE_VERSION}-docs-patch.zip"
+
 PYTHON_VERSION = "3.14.6"
 EMBED_URL = (f"https://www.python.org/ftp/python/{PYTHON_VERSION}"
              f"/python-{PYTHON_VERSION}-embed-amd64.zip")
@@ -1184,7 +1192,53 @@ def _write_reassembler(part_paths, target, archive_sha256):
         ")",
         "",
         "echo Verified: %ZIP%",
-        "echo Right-click the ZIP, choose Extract All, then run setup.bat.",
+        "echo.",
+        "",
+        "REM %~dp0 ends with a backslash, which can escape the closing quote",
+        "REM when handed to PowerShell and silently corrupt the path.",
+        'set "ROOT=%HERE%"',
+        'if "%ROOT:~-1%"=="\\" set "ROOT=%ROOT:~0,-1%"',
+        "",
+        'set "INSTALL=%ROOT%\\' + PACKAGE_NAME + '"',
+        'if exist "%INSTALL%\\setup.bat" (',
+        "    echo Existing folder found - keeping it and skipping extraction.",
+        "    goto :apply_patch",
+        ")",
+        "",
+        "echo Extracting the package. This takes a while at this size...",
+        "powershell -NoProfile -ExecutionPolicy Bypass -Command "
+        "\"Add-Type -AssemblyName System.IO.Compression.FileSystem; "
+        "[System.IO.Compression.ZipFile]::ExtractToDirectory('%ZIP%', "
+        "'%ROOT%')\"",
+        "if errorlevel 1 (",
+        "    echo.",
+        "    echo Could not extract automatically. Right-click the ZIP and",
+        "    echo choose Extract All, then run setup.bat inside it.",
+        "    pause",
+        "    exit /b 1",
+        ")",
+        "",
+        ":apply_patch",
+        f'set "DOCPATCH=%ROOT%\\{DOCS_PATCH_NAME}"',
+        'if not exist "%DOCPATCH%" (',
+        "    echo Documentation patch not present - skipping it.",
+        "    goto :finished",
+        ")",
+        "",
+        "echo Applying the documentation patch...",
+        "powershell -NoProfile -ExecutionPolicy Bypass -Command "
+        "\"Expand-Archive -LiteralPath '%DOCPATCH%' -DestinationPath "
+        "'%ROOT%' -Force\"",
+        "if errorlevel 1 (",
+        "    echo.",
+        "    echo The documentation patch did not apply. This is harmless:",
+        "    echo only bundled documents are affected and the release page",
+        "    echo always has the current versions.",
+        ")",
+        "",
+        ":finished",
+        "echo.",
+        f"echo Done. Open the {PACKAGE_NAME} folder and run setup.bat.",
         "pause",
         "",
     ))

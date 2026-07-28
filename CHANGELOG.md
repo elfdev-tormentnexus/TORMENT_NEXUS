@@ -33,6 +33,24 @@ explicit.
   one-cycle autonomous-repair, and full-maintenance launchers. The ordinary
   companion launcher does not require a terminal confirmation and instead
   points first-time users to the mandatory in-app disclosure.
+- Added an offline practical-reference shelf: eight bundled safety and
+  resilience cards plus a separate library for operator-supplied TXT,
+  Markdown, HTML, JSON, CSV, PDF, EPUB, and DOCX documents. Automatic chat
+  context requires a real full-text word match; semantic widening is explicit
+  and labeled.
+- Fixed five ways the assistant could report something that had not happened:
+  persona examples arriving as recent conversation, unregistered input
+  answered as if performed, "choose a name" bypassing the naming ceremony,
+  history trimmed mid-record, and fabricated hardware readings. Each is
+  enforced in Python rather than by instructing the model. Added `name is
+  NAME` so the operator can set a name directly, recorded as operator-chosen.
+- Reworked the music visualizer: a wall-clock anchor layer across all eight
+  scenes, higher scene reactivity, and fixes to the acid lattice line width
+  and the datastream horizon. Added playback loudness matching, which
+  narrowed a 20.0 dB spread to 1.4 dB across a 41-track library with no
+  clipping. This is gated RMS, not ITU-R BS.1770 LUFS.
+- Replaced the `tutorial` command's bare command list with a prose
+  introduction to the whole system.
 
 The bundled conversational model remains
 `Qwen3-4B-abliterated-bf16_q8_0` in the **director** role. The bundled
@@ -41,8 +59,7 @@ on-demand editing model remains
 **autonomous-coder** role. The 14B full-maintenance model is still a separate,
 optional desktop artifact and is not part of the base Windows archive.
 
-Full regression-suite count: **verified at release** after the final clean
-source freeze.
+Full regression-suite count: **639 passed, 2 skipped**.
 
 ## v0.2.0-beta.5 — 2026-07-28
 
