@@ -33,6 +33,7 @@ from editing import edit_generator
 from editing import edit_engine
 from editing import goal_engine
 from editing import autonomous_engine
+from editing import guard_doctor
 from editing import maintenance_engine
 from editing import self_heal_state
 from hardware import tdeck
@@ -8041,6 +8042,54 @@ class SelfHealDiagnosisTests(unittest.TestCase):
         for advisory in ("_search_health", "setup_issues", "disk_usage"):
             with self.subTest(advisory=advisory):
                 self.assertNotIn(advisory, source)
+
+
+class GuardDoctorTests(unittest.TestCase):
+    """
+    The protection lists are hand-maintained, so something must ask the
+    opposite question: not "is this file listed" but "does this module do
+    something that should have listed it". Both gaps 5.1 closed had the same
+    shape -- a module or file added after the list was written.
+    """
+
+    def test_it_surveys_the_whole_project(self):
+        _findings, surveyed = guard_doctor.audit()
+        self.assertGreater(surveyed, 50)
+
+    def test_protected_modules_are_not_reported(self):
+        findings, _surveyed = guard_doctor.audit()
+        reported = {item["file"] for item in findings}
+
+        # Covered by MAINTENANCE_DENIED_FILES and DENIED_FILES respectively.
+        self.assertNotIn("web/search_engine.py", reported)
+        self.assertNotIn("hardware/tdeck.py", reported)
+
+    def test_modules_inside_a_denied_prefix_are_not_reported(self):
+        findings, _surveyed = guard_doctor.audit()
+        for item in findings:
+            with self.subTest(file=item["file"]):
+                self.assertFalse(item["file"].startswith("editing/"))
+
+    def test_a_reported_module_names_why(self):
+        findings, _surveyed = guard_doctor.audit()
+
+        for item in findings:
+            with self.subTest(file=item["file"]):
+                self.assertTrue(item["capabilities"])
+                for capability in item["capabilities"]:
+                    self.assertIn(capability, guard_doctor.CAPABILITY_GROUPS)
+
+    def test_the_report_renders(self):
+        text = guard_doctor.report()
+        self.assertIn("GUARD DOCTOR", text)
+        self.assertIn("Surveyed", text)
+
+    def test_the_checker_cannot_be_edited_by_the_thing_it_checks(self):
+        editable = {
+            path.replace(os.sep, "/")
+            for path in edit_guard.list_editable_files()
+        }
+        self.assertNotIn("editing/guard_doctor.py", editable)
 
 
 if __name__ == "__main__":
