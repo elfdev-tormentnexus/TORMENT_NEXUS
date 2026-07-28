@@ -63,6 +63,7 @@ download instructions, so nobody discovers it after fetching 12 GB.
 | Semantic retrieval and embeddings | On when the local embedding service is healthy | Local-only vector retrieval; degrades to lexical matching when absent |
 | Web search | Backend set to self-hosted SearXNG on `127.0.0.1:8081` | See the note below — the search service is **not** part of this download |
 | Foreground activity awareness | Off | Records application, window title, idle time and load locally |
+| Interface mode (optional add-on, own launcher) | Not in the base package; opens only via its own launcher | Opens the read-only agent interface on loopback for as long as that window is open |
 | Wi-Fi sensing bridge (`TORMENT_NEXUS_WIFI_EXPERIMENT=1` plus a status file) | Off, and no default file path | Reads one small aggregate JSON record written by a separately authorised external collector. It never changes a wireless driver, enters monitor mode, transmits packets, or records raw radio measurements |
 | Radar / room sensing hardware | Not present | The LD2450 has not arrived; no radar capability ships |
 
@@ -149,6 +150,40 @@ the first value automatically; the rest are for verifying individual downloads.
 | `.zip.part06` | 1,978,832,443 | `A346A56A148A7EAE8BFA55F284DDC3028518DDB90E10EC2E730F1236448B236B` |
 | `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` | 3,906 | `9FE13AA4097E21C68CCBB3814541AC831408A63DA037ECF63E3103A96AFDA5BB` |
 | `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` | 15,038 | `81E8517EBE97A2FD833AD2A6A2889D94EC619D904EDD2DA555FEBD1FECED2F90` |
+
+### Optional interface-mode add-on
+
+Interface mode is the ordinary assistant with the read-only agent interface
+open on loopback. It has its own launcher because that interface is a
+listening socket and an authentication boundary: which windows have it open
+should be visible, not remembered. The window title and an inverted icon both
+say so.
+
+It is a separate add-on because the launcher lives outside the packaged tree
+and did not make the base archive. Everything it depends on — the agent
+interface module, the `AGENT_WATCH` echo, and the fallback launcher — is
+already in the base package, so the add-on is 3 KB.
+
+Download `INSTALL_INTERFACE_MODE.bat` and
+`TORMENT_NEXUS-v0.2.0-beta.6-interface-mode.zip`, place both **inside** the
+extracted `TORMENT_NEXUS` folder, and run the installer. It verifies the
+payload against the SHA-256 below, installs the launcher, its icon and its
+documentation, and creates a desktop shortcut.
+
+| Add-on detail | Value |
+| --- | --- |
+| Payload | `TORMENT_NEXUS-v0.2.0-beta.6-interface-mode.zip` |
+| Bytes | 3,295 |
+| SHA-256 | `C8F40B3E45A95E890F0BEB33FB377452BF6C8B535B14990FD625A73BF747BB1C` |
+| Installer | `INSTALL_INTERFACE_MODE.bat`, 2,464 bytes |
+| Installer SHA-256 | `712A21B72B582CE24AB66F37DC8CB2AF08171ED60CDA197E00747869D623E5BD` |
+
+While interface mode runs, a connected agent can read state, search memory and
+the knowledge library, and ask the director a question. Nothing on that
+interface writes, edits, or restarts. The bearer token is written to
+`assistant\.agent_token`, and closing the window closes the interface. Every
+other launcher leaves it closed — installing this add-on does not open
+anything by itself.
 
 ### Optional full-maintenance model add-on
 

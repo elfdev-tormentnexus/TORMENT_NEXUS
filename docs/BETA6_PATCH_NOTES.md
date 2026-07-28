@@ -5,7 +5,24 @@ Found while auditing the release page against what actually shipped,
 correct, and the package works. Both need a rebuilt package to fix, which
 is why they are here instead of in the release.
 
-## 1. `start_interface_mode.bat` is tracked but not packaged
+## 1. `start_interface_mode.bat` is tracked but not packaged — SHIPPING AS AN ADD-ON
+
+**Resolved for Beta 6 as an optional add-on.**
+`tools/build_interface_mode_dlc.py` builds a 3 KB payload plus an installer
+with the payload's SHA-256 baked in, in the same shape as the 14B model pack.
+Verified against a real extracted install: checksum checked, launcher, icon
+and documentation placed, desktop shortcut created, exit 0.
+
+It stays deliberately *outside* the documentation patch. That patch claims the
+installed tree still matches the published archive checksum, which is only
+true because it touches documentation and nothing else; adding a launcher to
+it would quietly break that guarantee. A separate add-on the operator chooses
+keeps both statements true.
+
+The packaging question below is still open for the next release: decide
+whether interface mode belongs in the base staged tree.
+
+
 
 The launcher is in the repository and is **not** in the archive. The five
 launchers that do ship are `setup.bat`, `start_assistant.bat`,
