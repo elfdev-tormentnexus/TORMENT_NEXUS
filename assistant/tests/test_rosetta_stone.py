@@ -138,6 +138,75 @@ class StoneCompatibilityTests(unittest.TestCase):
                          stone["core_count"] + stone["project_count"])
 
 
+class ProfileCenteringTests(unittest.TestCase):
+    """Centering must change the geometry, not merely rescale the scores.
+
+    The first attempt standardised each vector's similarities across the
+    anchors. That is a monotonic transform of one vector's own scores, so
+    it cannot reorder anything -- it produced different-looking numbers in
+    exactly the same order and looked like it was working.
+    """
+
+    def _stone(self, anchor_vectors, texts):
+        return {
+            "magic": rs.MAGIC,
+            "core_count": len(anchor_vectors),
+            "project_count": 0,
+            "anchors_core": texts,
+            "anchors_project": [],
+            "anchor_vectors": anchor_vectors,
+        }
+
+    def test_centering_can_reorder_the_ranking(self):
+        # A strong shared direction is what anisotropy looks like: every
+        # anchor points mostly the same way, so raw cosine ranks by that
+        # common component instead of by what differs.
+        # "popular" carries a large common component and nothing specific,
+        # which is what wins under raw cosine in an anisotropic space. The
+        # target is really about "third".
+        anchors = [
+            [10.0, 0.0, 0.0],   # popular
+            [1.0, 1.0, 0.0],    # second
+            [1.0, 0.0, 1.0],    # third
+        ]
+        texts = ["popular", "second", "third"]
+        stone = self._stone(anchors, texts)
+        target = [1.0, 0.2, 0.9]
+
+        raw = [t for _, t in rs.profile(target, stone, top=3, center=False)]
+        centred = [t for _, t in rs.profile(target, stone, top=3, center=True)]
+        self.assertNotEqual(raw, centred,
+                            "centering left the ranking untouched, which is "
+                            "the monotonic-rescale bug returning")
+
+    def test_uncentered_profile_is_plain_cosine(self):
+        anchors = [[1.0, 0.0], [0.0, 1.0]]
+        stone = self._stone(anchors, ["x", "y"])
+        rows = rs.profile([1.0, 0.0], stone, top=1, center=False)
+        self.assertEqual(rows[0][1], "x")
+        self.assertAlmostEqual(rows[0][0], 1.0)
+
+    def test_profile_returns_at_most_top_rows(self):
+        anchors = [[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]]
+        stone = self._stone(anchors, ["x", "y", "z"])
+        self.assertEqual(len(rs.profile([1.0, 0.0], stone, top=2)), 2)
+
+    def test_profile_respects_the_core_project_boundary(self):
+        stone = {
+            "magic": rs.MAGIC,
+            "core_count": 2,
+            "project_count": 1,
+            "anchors_core": ["x", "y"],
+            "anchors_project": ["p"],
+            "anchor_vectors": [[1.0, 0.0], [0.0, 1.0], [1.0, 1.0]],
+        }
+        core_only = [t for _, t in rs.profile([1.0, 0.0], stone, top=9)]
+        self.assertNotIn("p", core_only)
+        with_project = [t for _, t in
+                        rs.profile([1.0, 0.0], stone, top=9, use_project=True)]
+        self.assertIn("p", with_project)
+
+
 class SpearmanTests(unittest.TestCase):
     def test_identical_orderings_correlate_perfectly(self):
         self.assertAlmostEqual(rs.spearman([1, 2, 3, 4], [1, 2, 3, 4]), 1.0)

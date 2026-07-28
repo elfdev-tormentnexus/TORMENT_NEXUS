@@ -432,9 +432,88 @@ def cmd_measure(args):
           "ceiling any translation could reach.")
 
 
+def profile(vector, stone, top=6, use_project=False, center=True):
+    """The anchors a vector is nearest to, strongest first.
+
+    This is the readable form. A 384- or 768-dimensional vector says
+    nothing to a person; "0.71 to 'a promise made to a dying person'" says
+    something to a person, to this project's own operator, and to any other
+    model that can read English -- with no embedder and no shared weights.
+
+    Raw cosine is a poor readout because sentence embeddings are
+    anisotropic: they occupy a narrow cone, so everything scores around 0.5
+    against everything and the ranking is dominated by which anchors are
+    generally popular rather than which ones this vector is actually about.
+    Centering reports each score as standard deviations from that vector's
+    own mean across anchors, which asks the useful question -- what is this
+    distinctively close to -- instead of the useless one.
+    """
+    n = stone["core_count"] + (stone["project_count"] if use_project else 0)
+    anchors = (stone["anchors_core"]
+               + (stone["anchors_project"] if use_project else []))[:n]
+    vecs = stone["anchor_vectors"][:n]
+
+    if center and len(vecs) > 1:
+        # Remove the common direction, not the common score. Standardising
+        # the similarities per vector is monotonic and cannot reorder
+        # anything; subtracting the mean anchor vector from both sides
+        # changes the geometry, which is what anisotropy calls for.
+        mean_vec = [sum(col) / len(vecs) for col in zip(*vecs)]
+        vecs = [[x - m for x, m in zip(a, mean_vec)] for a in vecs]
+        vector = [x - m for x, m in zip(vector, mean_vec)]
+
+    scored = sorted(zip((cosine(vector, a) for a in vecs), anchors),
+                    reverse=True)
+    return scored[:top]
+
+
+def cmd_describe(args):
+    stone = build_stone(args.url, args.key, args.use_project)
+
+    if args.cache:
+        # The cache stores vectors under a sha256 of the text and keeps no
+        # text at all, so this describes memories it cannot read.
+        with open(args.cache, encoding="utf-8") as fh:
+            blob = json.load(fh)
+        cached = blob.get("vectors", {})
+        print(f"cache: {len(cached)} vectors, model {blob.get('model','?')}")
+        if blob.get("model", "").split(":")[0] not in stone["model"]:
+            print("  warning: cache model and stone model may differ; "
+                  "these coordinates would not mean the same thing")
+        items = list(cached.items())[:args.limit]
+        for key, vec in items:
+            print(f"\n  {key[:16]}...  (text not stored)")
+            for score, text in profile(vec, stone, args.top, args.use_project):
+                print(f"    {score:+.3f}  {text}")
+        return
+
+    vectors = embed(args.text, args.url, args.key)
+    for text, vec in zip(args.text, vectors):
+        print(f"\n{text}")
+        rows = profile(vec, stone, args.top, args.use_project)
+        if args.json:
+            print(json.dumps([{"anchor": t, "score": round(s, 4)}
+                              for s, t in rows], indent=2))
+        else:
+            for score, anchor in rows:
+                print(f"  {score:+.3f}  {anchor}")
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
+
+    d = sub.add_parser("describe",
+                       help="say what a vector is about, in English anchors")
+    d.add_argument("--url", required=True)
+    d.add_argument("--key")
+    d.add_argument("text", nargs="*", default=[])
+    d.add_argument("--cache", help="describe a cache of vectors instead")
+    d.add_argument("--limit", type=int, default=5)
+    d.add_argument("--top", type=int, default=6)
+    d.add_argument("--use-project", action="store_true")
+    d.add_argument("--json", action="store_true")
+    d.set_defaults(func=cmd_describe)
 
     b = sub.add_parser("build", help="write this model's side of the stone")
     b.add_argument("--url", required=True)
