@@ -6,12 +6,14 @@ import json
 import os
 import re
 from pathlib import Path
+import subprocess
 import sys
 import shutil
 import tempfile
 import threading
 import time
 import unittest
+import zlib
 from types import SimpleNamespace
 from unittest import mock
 
@@ -40,6 +42,7 @@ from hardware import tdeck
 from memory import memory_worker
 from memory import memory_extractor
 from memory import memory_logic
+from memory import memory_vectors
 from project import project_analyzer
 from project import project_builder
 from ui import ui
@@ -8145,6 +8148,155 @@ class GuardDoctorTests(unittest.TestCase):
         self.assertNotIn("editing/guard_doctor.py", editable)
 
 
+class RepositoryVisibilityTests(unittest.TestCase):
+    """
+    A source file git ignores commits clean and is simply absent for
+    everyone else -- worse than a missing file, because the tree looks
+    right. Unanchored directory patterns are how that happens by accident:
+    written bare, `memory/` matches a directory of that name at every
+    depth, and assistant/memory/ went with it.
+    """
+
+    def _repo(self):
+        repo = Path(assistant_main.__file__).resolve().parent.parent
+
+        if not (repo / ".git").exists():
+            self.skipTest("not a git checkout")
+
+        if shutil.which("git") is None:
+            self.skipTest("git is not on PATH")
+
+        return repo
+
+    def _ignored(self, repo, paths):
+        # NUL-separated, and in bytes on purpose. Text mode translates \n to
+        # \r\n on Windows, git takes the \r as part of the path, and every
+        # entry but the last silently stops matching -- which reads as "no
+        # source file is ignored" no matter how badly .gitignore is written.
+        result = subprocess.run(
+            ["git", "check-ignore", "-z", "--stdin"],
+            input="\0".join(paths).encode("utf-8"),
+            capture_output=True,
+            cwd=str(repo),
+        )
+        return {
+            entry.decode("utf-8")
+            for entry in result.stdout.split(b"\0")
+            if entry
+        }
+
+    def test_the_check_itself_can_detect_an_ignored_file(self):
+        # Guards the above: this whole class passes vacuously if the paths
+        # never reach git in a form it matches.
+        repo = self._repo()
+
+        self.assertEqual(
+            self._ignored(repo, ["assistant/memory/memories.json"]),
+            {"assistant/memory/memories.json"},
+        )
+
+    def test_no_source_file_under_assistant_is_invisible_to_git(self):
+        repo = self._repo()
+        sources = [
+            str(path.relative_to(repo)).replace(os.sep, "/")
+            for path in (repo / "assistant").rglob("*.py")
+            if "__pycache__" not in path.parts
+        ]
+
+        self.assertTrue(sources)
+        self.assertEqual(self._ignored(repo, sources), set())
+
+    def test_the_private_files_are_still_ignored(self):
+        # The other half. Anchoring the pattern must not have exposed the
+        # conversations and memories it was sitting in front of.
+        repo = self._repo()
+        private = [
+            "assistant/memory/memories.json",
+            "assistant/memory/conversation_history.txt",
+            "assistant/memory/activity_log.jsonl",
+            "assistant/memory/chosen_name.json",
+            "assistant/memory/wifi_sensing_status.json",
+            "assistant/.model_api_key",
+            "assistant/.dev_passcode",
+            "assistant/.tutorial_state.json",
+        ]
+
+        self.assertEqual(self._ignored(repo, private), set(private))
+
+
+class MemoryVectorTests(unittest.TestCase):
+    """
+    The cloud is built from the tokens retrieval actually ranks on. If these
+    drift apart the panel becomes an accurate picture of a system that is
+    not running, which is worse than no panel.
+    """
+
+    def test_a_memory_vectorises_to_the_configured_width(self):
+        built = memory_vectors.vectors([{"memory": "the radio is a T-Deck"}])
+
+        self.assertEqual(len(built), 1)
+        self.assertEqual(len(built[0]), memory_vectors.DIMENSIONS)
+
+    def test_vectors_are_normalised_so_length_does_not_dominate(self):
+        short = memory_vectors.vectors([{"memory": "raspberry pi"}])[0]
+        long_text = " ".join(f"word{n}" for n in range(60))
+        long = memory_vectors.vectors([{"memory": long_text}])[0]
+
+        for vector in (short, long):
+            magnitude = sum(value * value for value in vector) ** 0.5
+            self.assertAlmostEqual(magnitude, 1.0, places=6)
+
+    def test_bucketing_is_stable_across_processes(self):
+        # crc32, not hash(): hash() is salted per process and would relayout
+        # the whole cloud on every restart for no visible reason.
+        self.assertEqual(
+            memory_vectors._bucket("raspberry", 64),
+            zlib.crc32(b"raspberry") % 64,
+        )
+
+    def test_an_empty_memory_does_not_divide_by_zero(self):
+        built = memory_vectors.vectors([{"memory": ""}, {}])
+
+        self.assertEqual(len(built), 2)
+        for vector in built:
+            self.assertEqual(sum(vector), 0.0)
+
+    def test_shared_vocabulary_places_memories_nearer_than_none(self):
+        built = memory_vectors.vectors([
+            {"memory": "the raspberry pi runs the assistant"},
+            {"memory": "the raspberry pi has eight gigabytes"},
+            {"memory": "kestrels hover above motorway verges"},
+        ])
+
+        def distance(a, b):
+            return sum((x - y) ** 2 for x, y in zip(a, b)) ** 0.5
+
+        self.assertLess(
+            distance(built[0], built[1]),
+            distance(built[0], built[2]),
+        )
+
+    def test_a_memory_sharing_no_vocabulary_is_reported_isolated(self):
+        memories = [
+            {"memory": "the raspberry pi runs the assistant"},
+            {"memory": "the raspberry pi has eight gigabytes"},
+            {"memory": "kestrels hover above motorway verges"},
+        ]
+
+        self.assertEqual(memory_vectors.isolated(memories), [2])
+
+    def test_the_documented_retrieval_failure_is_real(self):
+        # The case BETA5_DLC_PLAN.md cites: ask about "the radio" and a
+        # memory phrased "the T-Deck mesh transmitter" is filtered out
+        # before ranking, because retrieval is literal word overlap.
+        memories = [{"memory": "The T-Deck mesh transmitter is in the drawer."}]
+
+        self.assertEqual(
+            memory_logic.select_relevant(memories, "where is the radio"),
+            [],
+        )
+
+
 class RetrievalPanelLayoutTests(unittest.TestCase):
     """
     Reserving the gutter moves chat wrap, the pager and the corruption
@@ -8156,11 +8308,14 @@ class RetrievalPanelLayoutTests(unittest.TestCase):
     NARROW = (80, 48)
     SHORT = (160, 16)
 
-    def _frame(self, size, chat=(), music=False):
+    def _frame(self, size, chat=(), music=False, vectors=None):
         """Render one frame and hand back the engine and its finished canvas."""
         engine = ui.LayeredDisplayEngine()
         engine.music_mode = music
         engine.chat_history[:] = list(chat)
+
+        if vectors:
+            engine.field.set_memories(vectors)
 
         with mock.patch.object(
             ui.shutil,
@@ -8215,6 +8370,9 @@ class RetrievalPanelLayoutTests(unittest.TestCase):
         self.assertNotEqual(canvas[len(canvas) - 2][column].char, ui._PANEL_RULE)
 
     def test_chat_text_never_crosses_into_the_gutter(self):
+        # Asserted against the conversation's own characters rather than
+        # against blankness: the panel draws into that region now, so
+        # "nothing is there" would only be testing that it stayed empty.
         engine, canvas = self._frame(
             self.WIDE,
             chat=[("X" * 400, ui.GREY, None)],
@@ -8225,9 +8383,9 @@ class RetrievalPanelLayoutTests(unittest.TestCase):
         self.assertLess(column, self.WIDE[0])
 
         for y in range(engine.header_height, separator_y):
-            for x in range(column + 1, self.WIDE[0]):
+            for x in range(column, self.WIDE[0]):
                 with self.subTest(row=y, col=x):
-                    self.assertEqual(canvas[y][x].char, " ")
+                    self.assertNotEqual(canvas[y][x].char, "X")
 
     def test_a_dropped_panel_gives_the_width_back_to_the_chat(self):
         engine, canvas = self._frame(
@@ -8240,6 +8398,101 @@ class RetrievalPanelLayoutTests(unittest.TestCase):
         )
 
         self.assertGreater(widest, self.NARROW[0] - ui.CHAT_INDENT - 4)
+
+    def _panel_chars(self, engine, canvas):
+        """Every character drawn inside the panel interior."""
+        column = engine.content_width()
+        separator_y = len(canvas) - 3
+
+        return [
+            canvas[y][x].char
+            for y in range(engine.header_height, separator_y - 1)
+            for x in range(column + 1, self.WIDE[0])
+        ]
+
+    def test_memories_are_drawn_into_the_panel(self):
+        vectors = memory_vectors.vectors([
+            {"memory": f"memory number {n} about raspberry pi and radios"}
+            for n in range(40)
+        ])
+        engine, canvas = self._frame(self.WIDE, vectors=vectors)
+        drawn = [char for char in self._panel_chars(engine, canvas)
+                 if char not in (" ", "─")]
+
+        self.assertTrue(drawn)
+
+    def test_an_empty_field_draws_nothing_but_its_own_rule(self):
+        engine, canvas = self._frame(self.WIDE)
+        drawn = {char for char in self._panel_chars(engine, canvas)}
+
+        self.assertTrue(drawn <= {" ", "─"})
+
+    def test_retrieval_lights_the_memories_it_returned(self):
+        field = ui.vector_panel.Field()
+        field.set_memories(memory_vectors.vectors([
+            {"memory": f"memory {n} about pi and radios"} for n in range(6)
+        ]))
+        field.retrieve([2, 4])
+
+        lit = [i for i, point in enumerate(field.points) if point["glow"]]
+        self.assertEqual(lit, [2, 4])
+
+    def test_a_retrieval_glow_outlasts_the_reply_it_explains(self):
+        # The field decays once per drawn frame. A glow shorter than a
+        # generation would fade during the one moment it is worth seeing.
+        engine = ui.LayeredDisplayEngine()
+        seconds = engine.field.glow_steps * ui.CHAT_FRAME_SECONDS
+
+        self.assertGreaterEqual(seconds, 15.0)
+
+    def test_a_turn_maps_retrieved_memories_by_identity(self):
+        # Two memories with identical text are separate points in the cloud.
+        # Matching on equality would light the wrong one.
+        active = [
+            {"memory": "the raspberry pi is on the desk"},
+            {"memory": "the raspberry pi is on the desk"},
+            {"memory": "kestrels hover above motorway verges"},
+        ]
+        relevant = [active[1]]
+
+        with mock.patch.object(
+            assistant_main, "_projected_memory_count", None
+        ), mock.patch.object(
+            assistant_main.ui, "set_memory_points"
+        ), mock.patch.object(
+            assistant_main.ui, "light_memories"
+        ) as light:
+            assistant_main._update_retrieval_panel(active, relevant)
+
+        self.assertEqual(list(light.call_args.args[0]), [1])
+
+    def test_the_projection_is_not_repeated_for_an_unchanged_store(self):
+        active = [{"memory": "the raspberry pi is on the desk"}]
+
+        with mock.patch.object(
+            assistant_main, "_projected_memory_count", None
+        ), mock.patch.object(
+            assistant_main.ui, "set_memory_points"
+        ) as project, mock.patch.object(assistant_main.ui, "light_memories"):
+            assistant_main._update_retrieval_panel(active, [])
+            assistant_main._update_retrieval_panel(active, [])
+
+        self.assertEqual(project.call_count, 1)
+
+    def test_a_panel_failure_never_takes_the_turn_down(self):
+        # The panel is an observation of the assistant. An observation that
+        # can take the assistant down with it is worse than none.
+        with mock.patch.object(
+            assistant_main, "_projected_memory_count", None
+        ), mock.patch.object(
+            assistant_main.ui,
+            "set_memory_points",
+            side_effect=RuntimeError("projection exploded"),
+        ):
+            assistant_main._update_retrieval_panel(
+                [{"memory": "anything at all"}],
+                [],
+            )
 
     def test_the_transcript_wraps_to_the_content_measure(self):
         engine = ui._engine

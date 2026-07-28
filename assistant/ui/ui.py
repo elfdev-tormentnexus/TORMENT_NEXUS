@@ -9,6 +9,7 @@ import threading
 
 from core import chosen_name
 from core import dev_auth
+from ui import vector_panel
 
 if os.name == "nt":
     import msvcrt
@@ -409,7 +410,17 @@ PANEL_WIDTH = 44            # interior cells, matching the verified 44x40 render
 PANEL_BORDER = 1            # the rule dividing it from the conversation
 PANEL_MIN_CHAT_WIDTH = 60   # chat measure that must survive reserving it
 PANEL_MIN_HEIGHT = 20       # rows below which there is nothing worth drawing
+PANEL_STRIP_ROWS = 8        # rows the entropy strip takes when there is room
 _PANEL_RULE = "\u2502"      # vertical divider
+
+# The field decays once per drawn frame, so its lifetimes are stated in
+# seconds here and converted against the redraw interval. A retrieval has to
+# outlast the generation that follows it -- fading mid-reply would hide the
+# memories during the only moment they are worth looking at.
+CHAT_FRAME_SECONDS = 0.08    # 12.5 FPS is plenty for a conversation
+MUSIC_FRAME_SECONDS = 0.04   # audio capture updates roughly every 23 ms
+PANEL_GLOW_SECONDS = 20.0
+PANEL_ECHO_SECONDS = 1.2
 
 # --- restrained terminal corruption ---
 # These effects are deliberately canvas-only: the actual input buffer and
@@ -652,6 +663,10 @@ class LayeredDisplayEngine:
         self.render_thread = None
         self._last_render_error = ""
         self.panel_enabled = True
+        self.field = vector_panel.Field(
+            glow_steps=PANEL_GLOW_SECONDS / CHAT_FRAME_SECONDS,
+            echo_steps=PANEL_ECHO_SECONDS / CHAT_FRAME_SECONDS,
+        )
 
     def update_size(self):
         s = shutil.get_terminal_size(fallback=(80, 24))
@@ -2113,21 +2128,50 @@ class LayeredDisplayEngine:
 
     def _draw_panel(self, canvas, content_w, top, bottom):
         """
-        Draw the retrieval panel's divider down the reserved gutter.
+        Draw the retrieval panel: the divider, then the field beside it.
 
-        The interior is left as the blank canvas it already is. Nothing is
-        rendered into it here on purpose: the geometry is the risky half of
-        this feature -- it moves chat wrap, the pager and the corruption
-        targets all at once -- and a rendering pass landing in the same
-        change would make a layout regression look like a renderer bug.
+        The field decays one step per drawn frame rather than on a timer, so
+        a retrieval glow fades at the rate the panel is actually being
+        redrawn instead of racing ahead of it on a slow terminal.
         """
         if content_w >= self.width or content_w < 0:
             return
 
+        top = max(0, top)
+        bottom = min(bottom, len(canvas) - 1)
+        rows = bottom - top + 1
+
+        if rows < 1:
+            return
+
         colour = fg(C_RED_DEEP)
 
-        for y in range(max(0, top), min(bottom, len(canvas) - 1) + 1):
+        for y in range(top, bottom + 1):
             canvas[y][content_w] = CanvasCell(_PANEL_RULE, colour)
+
+        interior = self.width - content_w - 1
+
+        if interior < 1:
+            return
+
+        self.field.decay()
+
+        # The strip never takes more than a third. At the smallest height
+        # that still passes the gate there are only a few rows to divide,
+        # and a fixed eight would leave the cloud a single row.
+        strip_rows = max(2, min(PANEL_STRIP_ROWS, rows // 3))
+
+        panel_rows = self.field.render_cells(
+            interior,
+            rows,
+            strip_rows=strip_rows,
+        )
+
+        for offset, row in enumerate(panel_rows):
+            y = top + offset
+
+            for column, (char, style) in enumerate(row):
+                canvas[y][content_w + 1 + column] = CanvasCell(char, style)
 
     def render_frame(self):
         with self.lock:
@@ -2491,11 +2535,12 @@ class LayeredDisplayEngine:
                     except OSError:
                         pass
 
-            # Audio capture updates roughly every 23 ms.  A 25 FPS redraw is
-            # the practical terminal equivalent of the tight response from a
-            # classic desktop music player, without making normal chat redraw
-            # more often than necessary.
-            time.sleep(0.04 if self.music_mode else 0.08)
+            # A 25 FPS redraw is the practical terminal equivalent of the
+            # tight response from a classic desktop music player, without
+            # making normal chat redraw more often than necessary.
+            time.sleep(
+                MUSIC_FRAME_SECONDS if self.music_mode else CHAT_FRAME_SECONDS
+            )
 
     def start(self):
         self.running = True
@@ -3444,6 +3489,30 @@ def exit_music_mode():
 def toggle_music_mode():
     """Enter or leave the full-screen visualizer."""
     return exit_music_mode() if _engine.music_mode else enter_music_mode()
+
+
+def set_memory_points(vectors):
+    """
+    Re-project the memory cloud.
+
+    Measured at a full 500-entry store: 191 ms. That is why this is driven
+    by the store changing rather than by the render loop, and why the caller
+    checks before calling. Drawing the projected result is 0.56 ms a frame.
+    """
+    with _engine.lock:
+        _engine.field.set_memories(list(vectors))
+
+
+def light_memories(indices):
+    """
+    Light the memories retrieval actually returned this turn.
+
+    Indices are positions in the same list handed to set_memory_points(),
+    which is the caller's job to keep true. A wrong index lights a wrong
+    memory, and the panel has no way to know.
+    """
+    with _engine.lock:
+        _engine.field.retrieve(list(indices))
 
 
 def set_dev_mode(flag):

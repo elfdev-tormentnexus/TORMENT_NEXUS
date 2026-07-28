@@ -29,6 +29,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from core.stream_filter import StreamFilter
 from memory import memory_logic
 from memory import memory_extractor
+from memory import memory_vectors
 from memory import extraction_rules
 
 
@@ -439,11 +440,45 @@ Core memory:
 """
 
 
+# Memories the panel was last projected from. Re-projecting costs 191 ms at
+# a full store, so it happens when the store changes rather than every turn.
+_projected_memory_count = None
+
+
+def _update_retrieval_panel(active, relevant):
+    """
+    Show the panel what this turn retrieved, and from what.
+
+    Deliberately best-effort: the panel is an observation of the assistant,
+    and an observation that can take the assistant down with it is worse
+    than no observation. A turn must not fail because a diagram did.
+    """
+    global _projected_memory_count
+
+    try:
+        if len(active) != _projected_memory_count:
+            ui.set_memory_points(memory_vectors.vectors(active))
+            _projected_memory_count = len(active)
+
+        # select_relevant() hands back the same dicts it was given, so
+        # identity maps them to their position. Equality would not: two
+        # memories with the same text are separate points in the cloud.
+        chosen = {id(item) for item in relevant}
+        ui.light_memories(
+            index
+            for index, item in enumerate(active)
+            if id(item) in chosen
+        )
+    except Exception:
+        pass
+
+
 def _runtime_context_prompt(user_input="", search_context=None):
     """Per-turn memory and web evidence, kept outside the reusable prefix."""
-    relevant = memory_logic.select_relevant(
-        mem.active_memories(), user_input, limit=4
-    )
+    active = mem.active_memories()
+    relevant = memory_logic.select_relevant(active, user_input, limit=4)
+
+    _update_retrieval_panel(active, relevant)
 
     memory_text = "\n".join(
         "- " + item["memory"] for item in relevant

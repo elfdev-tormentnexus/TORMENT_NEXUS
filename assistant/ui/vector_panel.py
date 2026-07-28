@@ -156,7 +156,12 @@ def project(vectors, previous=None):
 class Field:
     """Holds panel state. Fed by the caller; never reads anything itself."""
 
-    def __init__(self):
+    def __init__(self, glow_steps=GLOW_STEPS, echo_steps=ECHO_STEPS):
+        # Counted in decay() calls, which the caller makes once per drawn
+        # frame -- so the lifetime in seconds depends on its frame rate, and
+        # the caller is the only one that knows it.
+        self.glow_steps = max(1, int(glow_steps))
+        self.echo_steps = max(1, int(echo_steps))
         self.points = []          # [{x, y, hue, fidelity, glow, echo}]
         self._components = None
         self.entropy = []         # recent per-token entropy, 0..1
@@ -183,7 +188,7 @@ class Field:
         """Light the memories `select_relevant()` actually returned."""
         for index in indices:
             if 0 <= index < len(self.points):
-                self.points[index]["glow"] = GLOW_STEPS
+                self.points[index]["glow"] = self.glow_steps
 
     def push_token(self, probabilities, echoed=()):
         """
@@ -203,7 +208,7 @@ class Field:
 
         for index in echoed:
             if 0 <= index < len(self.points):
-                self.points[index]["echo"] = ECHO_STEPS
+                self.points[index]["echo"] = self.echo_steps
 
     def decay(self):
         for point in self.points:
@@ -214,15 +219,41 @@ class Field:
     # RENDER
     # --------------------------------------------------------
 
-    def render(self, width, height, strip_rows=8):
-        """Return `height` ANSI strings, each `width` cells wide."""
+    def render_cells(self, width, height, strip_rows=8):
+        """
+        The panel as `height` rows of (char, style) pairs, `width` wide.
+
+        The terminal UI composites into a cell grid of its own and cannot
+        accept pre-joined ANSI lines, while the standalone preview wants
+        exactly those. Both come from here so the two cannot drift apart.
+        """
         cloud_rows = max(1, height - strip_rows - 1)
 
-        lines = self._render_cloud(width, cloud_rows)
-        lines.append(_fg((70, 30, 40)) + "─" * width + RESET)
-        lines.extend(self._render_strip(width, strip_rows))
+        rows = self._render_cloud(width, cloud_rows)
+        rows.append([("─", _fg((70, 30, 40)))] * width)
+        rows.extend(self._render_strip(width, strip_rows))
 
-        return lines[:height]
+        return rows[:height]
+
+    def render(self, width, height, strip_rows=8):
+        """Return `height` ANSI strings, each `width` cells wide."""
+        lines = []
+
+        for row in self.render_cells(width, height, strip_rows):
+            out = []
+            last = None
+
+            for char, style in row:
+                if style != last:
+                    out.append(style)
+                    last = style
+
+                out.append(char)
+
+            out.append(RESET)
+            lines.append("".join(out))
+
+        return lines
 
     def _render_cloud(self, width, rows):
         # Two vertical pixels per cell via the half block.
@@ -241,12 +272,15 @@ class Field:
             sat = 0.35 + 0.45 * point["fidelity"]
 
             if point["glow"]:
-                lift = point["glow"] / GLOW_STEPS
+                lift = point["glow"] / self.glow_steps
                 value = min(1.0, value + 0.45 * lift)
                 sat = min(1.0, sat + 0.35 * lift)
 
             if point["echo"]:
-                value = min(1.0, value + 0.5 * (point["echo"] / ECHO_STEPS))
+                value = min(
+                    1.0,
+                    value + 0.5 * (point["echo"] / self.echo_steps),
+                )
 
             pixels[row][col] = _hsv(point["hue"], sat, value)
 
@@ -280,36 +314,28 @@ class Field:
     @staticmethod
     def _pack(pixels, width, rows):
         """Two pixel rows per text row: foreground is top, background bottom."""
-        lines = []
+        packed = []
 
         for row in range(rows):
             top_row = pixels[row * 2]
             bottom_row = pixels[row * 2 + 1]
             out = []
-            last = None
 
             for col in range(width):
                 top, bottom = top_row[col], bottom_row[col]
 
                 if top is None and bottom is None:
-                    if last is not None:
-                        out.append(RESET)
-                        last = None
-                    out.append(" ")
+                    out.append((" ", RESET))
                     continue
 
-                style = _fg(top or (0, 0, 0)) + _bg(bottom or (0, 0, 0))
+                out.append((
+                    HALF_BLOCK,
+                    _fg(top or (0, 0, 0)) + _bg(bottom or (0, 0, 0)),
+                ))
 
-                if style != last:
-                    out.append(style)
-                    last = style
+            packed.append(out)
 
-                out.append(HALF_BLOCK)
-
-            out.append(RESET)
-            lines.append("".join(out))
-
-        return lines
+        return packed
 
 
 # ============================================================
