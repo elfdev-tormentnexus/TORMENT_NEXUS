@@ -99,7 +99,30 @@ profile.
 
 ## Installing the Windows package
 
-Download these assets into one folder:
+### The short way
+
+Download one file — `DOWNLOAD_TORMENT_NEXUS_v0.2.0-beta.6.bat` — put it in an
+empty folder, and run it. It fetches all twelve files the package needs,
+checks every one against its SHA-256, and offers to run the reassembler when
+it is done. That covers the six archive parts, the reassembler, the
+documentation patch, and both guard patches.
+
+It resumes. A dropped transfer at 2 GB a part is not a restart: anything
+already present and intact is skipped, so running it again fetches only what
+is missing. A file that fails its checksum is deleted rather than kept, and
+named at the end so you know what to retry.
+
+It uses `curl.exe`, which ships with Windows 10 1803 and later. The optional
+14B full-maintenance model is **not** included — that is a separate 8.4 GB
+download described further down, and quietly bundling it into a one-click
+fetch would defeat the point of documenting what it does.
+
+Allow roughly 40 GB free overall. The parts, the joined ZIP and the extracted
+folder all exist at once for part of the process.
+
+### The manual way
+
+Or download these assets into one folder yourself:
 
 1. `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01` through `.part06` —
    all six are required
@@ -167,6 +190,7 @@ the first value automatically; the rest are for verifying individual downloads.
 
 | Asset | Bytes | SHA-256 |
 | --- | --- | --- |
+| `DOWNLOAD_TORMENT_NEXUS_v0.2.0-beta.6.bat` | 5,159 | `82F74302195EA36DD89E67E6C8FE71F2BD3DBE9EE9D5F0D3C9A84758F00C8ABA` |
 | `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip` | 12,380,706,363 | `AC66CA1ACA80BFE21163BA41F0DB11AEA215617FAD0F48FF24FFA6A37B0AB1A9` |
 | `.zip.part01` | 2,080,374,784 | `B8B4B15876D0BFE8172B357DE8D057FCE31EDADBCDA878DA54444B4207192BD1` |
 | `.zip.part02` | 2,080,374,784 | `77EA52AC0F61BFE6451CC7EBC15A9D5EF7B80EA324C435BFC08932FB9D093799` |
@@ -175,7 +199,7 @@ the first value automatically; the rest are for verifying individual downloads.
 | `.zip.part05` | 2,080,374,784 | `B74AA7B6147C463F4269DC6ACDD4D3781711C66560D6EBBAE7B1002B6F06E789` |
 | `.zip.part06` | 1,978,832,443 | `A346A56A148A7EAE8BFA55F284DDC3028518DDB90E10EC2E730F1236448B236B` |
 | `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` | 4,792 | `0ABE31679EE4688785807749DBCA2C13E5F2D862CB7DCCAF319EB14A2C24D1F9` |
-| `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` | 23,936 | `67BA3B1F2AE70B917C220AFFF2A57C0DB905E9BF86F3EC5DB34EA963163CE744` |
+| `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` | 24,316 | `B0839EBC009FAF2E92CB6FF9584568C4B17D13EBA46F30AC1E26C542D5D351E5` |
 
 ### Optional interface-mode add-on
 
