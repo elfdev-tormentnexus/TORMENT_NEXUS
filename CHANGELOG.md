@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+- Moved the abliterated Qwen2.5-Coder 7B default into `models/` and added a
+  separate opt-in desktop launcher for the experimental abliterated 4B Q8,
+  leaving the Q5 companion untouched as the default and Raspberry Pi model.
+- Added role-bound desktop CUDA launch profiles: the deployed abliterated
+  Qwen3 4B companion is the director, Qwen2.5-Coder 7B is the bounded
+  autonomous coder, and the on-demand abliterated Qwen2.5-Coder 14B Instruct
+  profile is reserved for full test-driven maintenance. Profiles use distinct
+  prompt caches and server identities, so they cannot silently reuse each
+  other's model process; the original CPU/Pi-compatible launch remains
+  unchanged. Guards, backups, validation, and rollback—not model alignment—
+  enforce edit safety.
+- Reworked low-end visualizer analysis around adaptive spectral-flux kick
+  onsets, a short refractory period, and time-based release. High or midrange
+  leakage can no longer inflate the bass meter into a false kick.
+- Added the aqua player as the default music scene: a glossy black-glass,
+  chrome-rimmed player panel with a dual oscilloscope, gel equalizer, orbital
+  spectrum, and beat bloom.
+- Rebuilt the datastream rain into a layered, spectrum-reactive falling-code
+  curtain with curved strands, a bass data horizon, and a short beat scan
+  fault instead of uniformly noisy glyph columns.
+- Added acid lattice: an original acid-green triangulated mesh with jagged
+  voids and beat fracture bursts, informed by the supplied music-video visual
+  language without using footage.
+- Applied the same restrained, time-aligned digital voice finish to ordinary
+  speech that Daisy Bell uses, while keeping singing slightly stronger and
+  preserving consonant timing.
+- Added a canvas-only terminal corruption layer: typed characters phase in
+  briefly, and sparse fragments appear only in empty gutters and separator
+  chrome outside music mode.
 - Made every successful local `play <track>` request open the music visualizer
   automatically.
 - Prevented terminal wrapping and background audio diagnostics from producing

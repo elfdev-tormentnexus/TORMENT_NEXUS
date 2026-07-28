@@ -39,6 +39,7 @@ from editing import edit_guard
 from editing import edit_generator
 from editing import patch_engine
 from editing import suggestion_engine
+from core.config import MODEL_ROLE, MODEL_ROLE_AUTONOMOUS_CODER
 from core.file_utils import ensure_file, append_file
 from ui import ui
 
@@ -72,6 +73,13 @@ def run_cycle(limit=RUN_LIMIT):
     """
     global _last_applied_record
     _last_applied_record = None
+
+    if MODEL_ROLE != MODEL_ROLE_AUTONOMOUS_CODER:
+        _log(
+            "REFUSED: autonomous repair is available only to the "
+            "autonomous-coder profile"
+        )
+        return None
 
     if _applied_this_run >= limit:
         return None

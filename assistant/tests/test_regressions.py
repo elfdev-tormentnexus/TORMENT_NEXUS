@@ -31,6 +31,7 @@ from editing import edit_generator
 from editing import edit_engine
 from editing import goal_engine
 from editing import autonomous_engine
+from editing import maintenance_engine
 from editing import self_heal_state
 from hardware import tdeck
 from memory import memory_worker
@@ -43,6 +44,7 @@ from voice import offline_voice
 from voice import session as voice_session
 from core import system_awareness
 from visualizer import datastream
+from visualizer import audio_source
 from visualizer import local_player
 from visualizer import music_metadata
 from visualizer import reactivity
@@ -55,6 +57,8 @@ from visualizer.grid import GridVisualizer
 from visualizer.plasma import PlasmaVisualizer
 from visualizer.datastream import DatastreamVisualizer
 from visualizer.wormhole import WormholeVisualizer
+from visualizer.y2k_player import Y2KPlayerVisualizer
+from visualizer.acid_lattice import AcidLatticeVisualizer
 
 # The desktop icon animator lives beside the assistant package, not in it.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
@@ -135,6 +139,11 @@ class AutonomousSerialTests(unittest.TestCase):
             return f"edit {autonomous_engine._applied_this_run}"
 
         with mock.patch.object(
+            autonomous_engine,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_AUTONOMOUS_CODER,
+            create=True,
+        ), mock.patch.object(
             autonomous_engine.suggestion_engine,
             "generate",
             return_value=([suggestion], None),
@@ -150,6 +159,57 @@ class AutonomousSerialTests(unittest.TestCase):
 
 
 class SelfHealRewardTests(unittest.TestCase):
+    def test_reward_markers_bind_the_autonomous_actor_role(self):
+        records = [{"target": "memory/memory_logic.py", "backup": "x.bak"}]
+        bonus = {"target": "memory/memory_logic.py", "backup": "bonus.bak"}
+
+        with mock.patch.object(self_heal_state, "_write") as write:
+            self_heal_state.begin_batch_reward(
+                records,
+                config.MODEL_ROLE_AUTONOMOUS_CODER,
+            )
+            batch = write.call_args.args[0]
+
+            self_heal_state.begin_bonus_validation(
+                bonus,
+                config.MODEL_ROLE_AUTONOMOUS_CODER,
+            )
+            validated_bonus = write.call_args.args[0]
+
+        self.assertEqual(
+            batch["actor_role"],
+            config.MODEL_ROLE_AUTONOMOUS_CODER,
+        )
+        self.assertEqual(
+            validated_bonus["actor_role"],
+            config.MODEL_ROLE_AUTONOMOUS_CODER,
+        )
+
+    def test_unbound_or_wrong_role_reward_marker_fails_closed(self):
+        with tempfile.TemporaryDirectory() as folder:
+            state_path = os.path.join(folder, "self_heal_state.json")
+            state = {
+                "phase": self_heal_state.PHASE_VALIDATE_BATCH,
+                "records": [
+                    {"target": "memory/memory_logic.py", "backup": "x.bak"}
+                ],
+                "actor_role": config.MODEL_ROLE_DIRECTOR,
+                "expires_at": time.time() + 60,
+            }
+            with open(state_path, "w", encoding="utf-8") as handle:
+                json.dump(state, handle)
+
+            with mock.patch.object(self_heal_state, "STATE_FILE", state_path):
+                self.assertIsNone(self_heal_state.load())
+
+            self.assertFalse(os.path.exists(state_path))
+
+        with self.assertRaises(ValueError):
+            self_heal_state.begin_batch_reward(
+                [{"target": "memory/memory_logic.py", "backup": "x.bak"}],
+                config.MODEL_ROLE_DIRECTOR,
+            )
+
     def test_validation_requires_health_and_the_fixed_regression_run(self):
         completed = SimpleNamespace(returncode=0, stdout="tests ok", stderr="")
 
@@ -177,6 +237,7 @@ class SelfHealRewardTests(unittest.TestCase):
         state = {
             "phase": self_heal_state.PHASE_VALIDATE_BATCH,
             "records": [{"target": "memory/memory_logic.py", "backup": "x.bak"}],
+            "actor_role": config.MODEL_ROLE_AUTONOMOUS_CODER,
         }
         record = {
             "target": "memory/memory_logic.py",
@@ -187,6 +248,10 @@ class SelfHealRewardTests(unittest.TestCase):
             self_heal_state,
             "load",
             return_value=state,
+        ), mock.patch.object(
+            assistant_main,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_AUTONOMOUS_CODER,
         ), mock.patch.object(
             self_heal_state,
             "validate_restart",
@@ -203,20 +268,59 @@ class SelfHealRewardTests(unittest.TestCase):
             message, reload_needed = assistant_main._resume_earned_self_heal_reward()
 
         cycle.assert_called_once_with()
-        mark.assert_called_once_with(record)
+        mark.assert_called_once_with(
+            record,
+            config.MODEL_ROLE_AUTONOMOUS_CODER,
+        )
         self.assertTrue(reload_needed)
         self.assertIn("BONUS APPLIED", message)
 
-    def test_failed_validation_restores_the_batch_and_withholds_credit(self):
+    def test_mismatched_profile_validates_but_cannot_spend_another_models_credit(self):
         state = {
             "phase": self_heal_state.PHASE_VALIDATE_BATCH,
             "records": [{"target": "memory/memory_logic.py", "backup": "x.bak"}],
+            "actor_role": config.MODEL_ROLE_AUTONOMOUS_CODER,
         }
 
         with mock.patch.object(
             self_heal_state,
             "load",
             return_value=state,
+        ), mock.patch.object(
+            assistant_main,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_DIRECTOR,
+        ), mock.patch.object(
+            self_heal_state,
+            "validate_restart",
+            return_value=(True, "Health check and regression validation passed."),
+        ), mock.patch.object(
+            autonomous_engine,
+            "run_cycle",
+        ) as cycle, mock.patch.object(self_heal_state, "clear") as clear:
+            message, reload_needed = assistant_main._resume_earned_self_heal_reward()
+
+        cycle.assert_not_called()
+        clear.assert_not_called()
+        self.assertFalse(reload_needed)
+        self.assertIn("SELF-HEAL", message)
+        self.assertIn("profile", message.lower())
+
+    def test_failed_validation_restores_the_batch_and_withholds_credit(self):
+        state = {
+            "phase": self_heal_state.PHASE_VALIDATE_BATCH,
+            "records": [{"target": "memory/memory_logic.py", "backup": "x.bak"}],
+            "actor_role": config.MODEL_ROLE_AUTONOMOUS_CODER,
+        }
+
+        with mock.patch.object(
+            self_heal_state,
+            "load",
+            return_value=state,
+        ), mock.patch.object(
+            assistant_main,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_DIRECTOR,
         ), mock.patch.object(
             self_heal_state,
             "validate_restart",
@@ -232,6 +336,242 @@ class SelfHealRewardTests(unittest.TestCase):
         clear.assert_called_once_with()
         self.assertTrue(reload_needed)
         self.assertIn("VALIDATION FAILED", message)
+
+
+class MaintenanceEngineTests(unittest.TestCase):
+    """The 14B repair loop must remain bounded and transactional."""
+
+    def test_non_maintenance_role_cannot_start_diagnostics(self):
+        with mock.patch.object(
+            maintenance_engine,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_DIRECTOR,
+        ), mock.patch.object(
+            self_heal_state,
+            "validate_restart",
+        ) as validate, mock.patch.object(
+            maintenance_engine.suggestion_engine,
+            "generate",
+        ) as generate:
+            result = maintenance_engine.run_session()
+
+        validate.assert_not_called()
+        generate.assert_not_called()
+        self.assertFalse(result["applied"])
+        self.assertIn("FULL SELF-HEAL REFUSED", result["message"])
+
+    def test_healthy_project_does_not_call_the_repair_model(self):
+        with tempfile.TemporaryDirectory() as folder:
+            state_path = os.path.join(folder, "maintenance_state.json")
+            with mock.patch.object(
+                maintenance_engine,
+                "STATE_FILE",
+                state_path,
+            ), mock.patch.object(
+                maintenance_engine,
+                "MODEL_ROLE",
+                config.MODEL_ROLE_FULL_MAINTENANCE,
+            ), mock.patch.object(
+                self_heal_state,
+                "validate_restart",
+                return_value=(True, "Health and regression checks passed."),
+            ), mock.patch.object(
+                maintenance_engine.suggestion_engine,
+                "generate",
+            ) as generate:
+                result = maintenance_engine.run_session()
+
+        generate.assert_not_called()
+        self.assertFalse(result["applied"])
+        self.assertIn("No repair was needed", result["message"])
+
+    def test_verified_repair_clears_its_transaction_marker(self):
+        suggestion = {
+            "title": "repair a local issue",
+            "file": "memory/memory_logic.py",
+            "change": "repair the local issue",
+        }
+
+        with tempfile.TemporaryDirectory() as folder:
+            state_path = os.path.join(folder, "maintenance_state.json")
+            with mock.patch.object(
+                maintenance_engine,
+                "STATE_FILE",
+                state_path,
+            ), mock.patch.object(
+                maintenance_engine,
+                "MODEL_ROLE",
+                config.MODEL_ROLE_FULL_MAINTENANCE,
+            ), mock.patch.object(
+                self_heal_state,
+                "validate_restart",
+                side_effect=[
+                    (False, "Regression validation failed."),
+                    (True, "Health and regression checks passed."),
+                ],
+            ), mock.patch.object(
+                maintenance_engine.suggestion_engine,
+                "generate",
+                return_value=([suggestion], None),
+            ) as generate, mock.patch.object(
+                maintenance_engine,
+                "_try_apply",
+                return_value=("applied", "memory/memory_logic.py (+1 -1)"),
+            ) as apply, mock.patch.object(
+                maintenance_engine,
+                "_clear_state",
+                return_value=None,
+            ) as clear:
+                result = maintenance_engine.run_session()
+
+        generate.assert_called_once_with(
+            autonomous=False,
+            diagnostic="Regression validation failed.",
+        )
+        apply.assert_called_once()
+        clear.assert_called_once_with()
+        self.assertTrue(result["applied"])
+        self.assertIn("FULL SELF-HEAL VERIFIED", result["message"])
+
+    def test_failed_full_session_restores_every_recorded_edit(self):
+        suggestion = {
+            "title": "repair a local issue",
+            "file": "memory/memory_logic.py",
+            "change": "repair the local issue",
+        }
+        record = {
+            "target": "memory/memory_logic.py",
+            "backup": "first.bak",
+        }
+
+        def apply_once(_suggestion, records):
+            records.append(record)
+            return "applied", "memory/memory_logic.py (+1 -1)"
+
+        with tempfile.TemporaryDirectory() as folder:
+            state_path = os.path.join(folder, "maintenance_state.json")
+            with mock.patch.object(
+                maintenance_engine,
+                "STATE_FILE",
+                state_path,
+            ), mock.patch.object(
+                maintenance_engine,
+                "MODEL_ROLE",
+                config.MODEL_ROLE_FULL_MAINTENANCE,
+            ), mock.patch.object(
+                self_heal_state,
+                "validate_restart",
+                side_effect=[
+                    (False, "Initial regression failure."),
+                    (False, "Still failing after the attempted repair."),
+                ],
+            ), mock.patch.object(
+                maintenance_engine.suggestion_engine,
+                "generate",
+                side_effect=[([suggestion], None), ([], None)],
+            ), mock.patch.object(
+                maintenance_engine,
+                "_try_apply",
+                side_effect=apply_once,
+            ), mock.patch.object(
+                maintenance_engine,
+                "_rollback",
+                return_value=[],
+            ) as rollback:
+                result = maintenance_engine.run_session()
+
+        rollback.assert_called_once_with([record])
+        self.assertFalse(result["applied"])
+        self.assertIn("FULL SELF-HEAL ROLLED BACK", result["message"])
+
+    def test_interrupted_session_is_restored_before_normal_startup(self):
+        records = [{"target": "memory/memory_logic.py", "backup": "x.bak"}]
+        state = {
+            "version": maintenance_engine.STATE_VERSION,
+            "phase": "active",
+            "records": records,
+        }
+
+        with tempfile.TemporaryDirectory() as folder:
+            state_path = os.path.join(folder, "maintenance_state.json")
+            with open(state_path, "w", encoding="utf-8") as handle:
+                json.dump(state, handle)
+
+            with mock.patch.object(
+                maintenance_engine,
+                "STATE_FILE",
+                state_path,
+            ), mock.patch.object(
+                maintenance_engine,
+                "MODEL_ROLE",
+                config.MODEL_ROLE_DIRECTOR,
+            ), mock.patch.object(
+                maintenance_engine,
+                "_read_state",
+                return_value=(state, None),
+            ), mock.patch.object(
+                maintenance_engine,
+                "_rollback",
+                return_value=[],
+            ) as rollback:
+                message = maintenance_engine.recover_incomplete_session()
+
+        rollback.assert_called_once_with(records)
+        self.assertIn("FULL MAINTENANCE RECOVERED", message)
+
+    def test_full_session_refuses_new_capability_before_creating_a_backup(self):
+        suggestion = {
+            "file": "memory/memory_logic.py",
+            "change": "try an unsafe change",
+        }
+        original = "def label():\n    return 'old'\n"
+        updated = "def label():\n    return 'new'\n"
+
+        with mock.patch.object(
+            maintenance_engine.edit_guard,
+            "locate",
+            return_value="memory/memory_logic.py",
+        ), mock.patch.object(
+            maintenance_engine.edit_guard,
+            "read",
+            return_value=original,
+        ), mock.patch.object(
+            maintenance_engine.edit_generator,
+            "generate_edit",
+            return_value=(
+                {"find": "old", "replace": "new", "explanation": "unsafe"},
+                None,
+            ),
+        ), mock.patch.object(
+            maintenance_engine.patch_engine,
+            "apply_edit",
+            return_value=(updated, None),
+        ), mock.patch.object(
+            maintenance_engine.edit_guard,
+            "check_syntax",
+            return_value=None,
+        ), mock.patch.object(
+            maintenance_engine.patch_engine,
+            "diff_stats",
+            return_value=(1, 1),
+        ), mock.patch.object(
+            maintenance_engine.edit_guard,
+            "change_capability_problem",
+            return_value="the patch adds a protected operation",
+        ) as capability, mock.patch.object(
+            maintenance_engine.edit_guard,
+            "backup",
+        ) as backup:
+            status, detail = maintenance_engine._try_apply(suggestion, [])
+
+        capability.assert_called_once_with(
+            "memory/memory_logic.py",
+            original,
+            updated,
+        )
+        backup.assert_not_called()
+        self.assertEqual(status, "skip")
+        self.assertIn("protected operation", detail)
 
 
 class PathSafetyTests(unittest.TestCase):
@@ -499,9 +839,18 @@ class CommandTests(unittest.TestCase):
         self.assertIn("masked prompt", reply)
 
     def test_observed_serial_mode_is_explicit_and_clears_with_dev_mode(self):
-        enabled = command_handlers.handle_autonomous_serial("autonomous serial on")
-        status = command_handlers.handle_autonomous_serial("autonomous serial status")
-        exited = command_handlers.handle_exit_dev_mode("exit dev mode")
+        with mock.patch.object(
+            command_handlers,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_AUTONOMOUS_CODER,
+        ):
+            enabled = command_handlers.handle_autonomous_serial(
+                "autonomous serial on"
+            )
+            status = command_handlers.handle_autonomous_serial(
+                "autonomous serial status"
+            )
+            exited = command_handlers.handle_exit_dev_mode("exit dev mode")
 
         self.assertIn("ON", enabled)
         self.assertIn("ON", status)
@@ -512,6 +861,10 @@ class CommandTests(unittest.TestCase):
         command_handlers.AUTONOMOUS_SERIAL_MODE = True
 
         with mock.patch.object(
+            command_handlers,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_AUTONOMOUS_CODER,
+        ), mock.patch.object(
             autonomous_engine,
             "run_observed_serial",
             return_value=["first edit", "second edit"],
@@ -535,6 +888,165 @@ class CommandTests(unittest.TestCase):
             reply = command_handlers.handle_tdeck_scan("tdeck scan")
 
         self.assertIn("found", reply)
+
+
+class ModelRoleRoutingTests(unittest.TestCase):
+    """The model role selects a job; it never grants broader authority."""
+
+    def setUp(self):
+        self.old_dev_mode = command_handlers.DEV_MODE
+        self.old_dev_expiry = command_handlers.DEV_MODE_EXPIRES_AT
+        self.old_serial_mode = command_handlers.AUTONOMOUS_SERIAL_MODE
+        command_handlers.DEV_MODE = True
+        command_handlers.DEV_MODE_EXPIRES_AT = 0.0
+        command_handlers.AUTONOMOUS_SERIAL_MODE = False
+
+    def tearDown(self):
+        command_handlers.DEV_MODE = self.old_dev_mode
+        command_handlers.DEV_MODE_EXPIRES_AT = self.old_dev_expiry
+        command_handlers.AUTONOMOUS_SERIAL_MODE = self.old_serial_mode
+
+    def test_director_can_create_a_handoff_plan(self):
+        with mock.patch.object(
+            command_handlers,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_DIRECTOR,
+        ), mock.patch.object(
+            command_handlers.change_planner,
+            "save_plan",
+            return_value="memory/change_plans/plan_example.txt",
+        ) as save:
+            reply = command_handlers.handle_modify_plan(
+                "modify plan voice/offline_voice.py improve phrasing"
+            )
+
+        save.assert_called_once()
+        self.assertIn("CHANGE PLAN CREATED", reply)
+
+    def test_autonomous_coder_cannot_create_the_directors_plan(self):
+        with mock.patch.object(
+            command_handlers,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_AUTONOMOUS_CODER,
+        ), mock.patch.object(
+            command_handlers.change_planner,
+            "save_plan",
+        ) as save:
+            reply = command_handlers.handle_modify_plan(
+                "modify plan voice/offline_voice.py improve phrasing"
+            )
+
+        save.assert_not_called()
+        self.assertIn("director profile", reply)
+
+    def test_director_cannot_preview_a_code_edit(self):
+        with mock.patch.object(
+            command_handlers,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_DIRECTOR,
+        ), mock.patch.object(edit_engine, "preview_plan") as preview:
+            reply = command_handlers.handle_preview_plan("preview plan")
+
+        preview.assert_not_called()
+        self.assertIn("autonomous coder", reply)
+
+    def test_autonomous_coder_can_preview_an_approved_plan(self):
+        with mock.patch.object(
+            command_handlers,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_AUTONOMOUS_CODER,
+        ), mock.patch.object(
+            command_handlers,
+            "_run_with_activity",
+            side_effect=lambda _status, operation: operation(),
+        ), mock.patch.object(
+            edit_engine,
+            "preview_plan",
+            return_value="PROPOSED EDIT",
+        ) as preview:
+            reply = command_handlers.handle_preview_plan("preview plan")
+
+        preview.assert_called_once_with()
+        self.assertEqual(reply, "PROPOSED EDIT")
+
+    def test_director_cannot_trigger_an_autonomous_repair(self):
+        with mock.patch.object(
+            command_handlers,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_DIRECTOR,
+        ), mock.patch.object(autonomous_engine, "run_cycle") as cycle:
+            reply = command_handlers.handle_run_autonomous_cycle(
+                "run autonomous cycle"
+            )
+
+        cycle.assert_not_called()
+        self.assertIn("autonomous coder", reply)
+
+    def test_full_maintenance_profile_cannot_use_the_7b_autonomous_loop(self):
+        with mock.patch.object(
+            command_handlers,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_FULL_MAINTENANCE,
+        ), mock.patch.object(autonomous_engine, "run_cycle") as cycle:
+            reply = command_handlers.handle_run_autonomous_cycle(
+                "run autonomous cycle"
+            )
+
+        cycle.assert_not_called()
+        self.assertIn("autonomous coder", reply)
+
+    def test_autonomous_coder_cannot_set_companion_subgoals(self):
+        with mock.patch.object(
+            command_handlers,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_AUTONOMOUS_CODER,
+        ), mock.patch.object(goal_engine, "propose_goals") as propose:
+            reply = command_handlers.handle_set_goals("set goals")
+
+        propose.assert_not_called()
+        self.assertIn("director profile", reply)
+
+    def test_only_the_full_maintenance_profile_can_start_full_self_heal(self):
+        for role in (
+            config.MODEL_ROLE_DIRECTOR,
+            config.MODEL_ROLE_AUTONOMOUS_CODER,
+        ):
+            with self.subTest(role=role), mock.patch.object(
+                command_handlers,
+                "MODEL_ROLE",
+                role,
+            ):
+                reply = command_handlers.handle_full_self_heal("full self heal")
+
+            self.assertIn("full-maintenance coder", reply)
+
+    def test_full_maintenance_profile_runs_the_transactional_session(self):
+        session_result = {
+            "applied": True,
+            "message": "FULL SELF-HEAL VERIFIED",
+        }
+
+        with mock.patch.object(
+            command_handlers,
+            "MODEL_ROLE",
+            config.MODEL_ROLE_FULL_MAINTENANCE,
+        ), mock.patch.object(
+            command_handlers,
+            "_run_with_activity",
+            side_effect=lambda _status, operation: operation(),
+        ), mock.patch.object(
+            maintenance_engine,
+            "run_session",
+            return_value=session_result,
+        ) as session, mock.patch.object(
+            edit_engine,
+            "mark_restart_pending",
+        ) as restart:
+            reply = command_handlers.handle_full_self_heal("full self heal")
+
+        session.assert_called_once_with()
+        restart.assert_called_once_with()
+        self.assertEqual(reply, session_result["message"])
 
 
 class NaturalCommandTests(unittest.TestCase):
@@ -1858,6 +2370,38 @@ class VoiceModeTests(unittest.TestCase):
         self.assertEqual(len(encoded), len(source))
         self.assertLessEqual(int(np.max(np.abs(encoded))), 32_767)
 
+    def test_digital_voice_texture_adds_a_small_time_aligned_edge(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        timeline = np.arange(1_600, dtype=np.float32) / 16_000.0
+        source = (
+            0.28 * np.sin(2.0 * np.pi * 172.0 * timeline)
+            + 0.10 * np.sin(2.0 * np.pi * 1_140.0 * timeline)
+        ).astype(np.float32)
+        plain = offline_voice._digital_voice_texture(
+            np,
+            source,
+            0.94,
+            edge_strength=0.0,
+            drive=1.06,
+        )
+        textured = offline_voice._digital_voice_texture(
+            np,
+            source,
+            0.94,
+            edge_strength=offline_voice._SPEECH_DIGITAL_EDGE,
+            drive=1.06,
+        )
+
+        self.assertEqual(textured.shape, source.shape)
+        self.assertEqual(textured.dtype, np.float32)
+        self.assertTrue(np.all(np.isfinite(textured)))
+        self.assertLessEqual(float(np.max(np.abs(textured))), 1.0)
+        self.assertFalse(np.allclose(textured, plain))
+
     def test_encoded_robot_effect_has_no_delayed_echo_taps(self):
         try:
             import numpy as np
@@ -1942,6 +2486,49 @@ class VoiceModeTests(unittest.TestCase):
             0.0,
         )
 
+    def test_speech_and_singing_share_the_digital_voice_finish(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        source = np.zeros(800, dtype=np.int16)
+        machine = np.full((1_600, 1), 0.10, dtype=np.float32)
+
+        with mock.patch.object(
+            offline_voice,
+            "_machine_vocoder",
+            return_value=machine,
+        ), mock.patch.object(
+            offline_voice,
+            "_digital_voice_texture",
+            wraps=offline_voice._digital_voice_texture,
+        ) as texture:
+            offline_voice._encoded_robot_effect(
+                np,
+                source,
+                16_000,
+                0.94,
+            )
+            offline_voice._encoded_robot_effect(
+                np,
+                source,
+                16_000,
+                1.0,
+                output_samples=1_600,
+                pitch_lock=True,
+            )
+
+        self.assertEqual(texture.call_count, 2)
+        self.assertEqual(
+            texture.call_args_list[0].kwargs["edge_strength"],
+            offline_voice._SPEECH_DIGITAL_EDGE,
+        )
+        self.assertEqual(
+            texture.call_args_list[1].kwargs["edge_strength"],
+            offline_voice._SUNG_DIGITAL_EDGE,
+        )
+
     def test_cadence_curve_has_asymmetric_pitch_plateaus(self):
         try:
             import numpy as np
@@ -1963,6 +2550,25 @@ class VoiceModeTests(unittest.TestCase):
         # carrier steps, then lands in a lower phrase-ending plateau.
         self.assertGreater(float(np.max(curve)), 0.5)
         self.assertLess(float(np.min(curve)), -1.3)
+
+    def test_chromatic_carrier_frequencies_land_on_grid_relative_to_carrier(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        # Deliberately choose in-between offsets spanning more than one octave.
+        carrier = 168.0
+        source = np.asarray([-14.4, -0.49, 0.0, 0.51, 19.7], dtype=np.float32)
+        snapped = offline_voice._chromatic_carrier_frequencies(
+            np,
+            carrier,
+            source,
+        )
+        semitones = 12.0 * np.log2(snapped / carrier)
+
+        self.assertTrue(np.allclose(semitones, np.rint(semitones), atol=1e-5))
+        self.assertFalse(np.allclose(semitones, source))
 
     def test_cadence_pattern_matches_reference_jump_depth(self):
         pattern = offline_voice._CADENCE_SEMITONE_PATTERN
@@ -2165,6 +2771,7 @@ class VoiceModeTests(unittest.TestCase):
         self.assertGreater(len(set(biases)), len(lines) // 2)
         limit = offline_voice._UTTERANCE_PITCH_LIMIT
         self.assertTrue(all(abs(bias) <= limit for bias in biases))
+        self.assertTrue(all(bias == round(bias) for bias in biases))
         self.assertEqual(offline_voice._utterance_pitch_bias(""), 0.0)
 
     def test_spectral_tilt_damps_the_top_without_touching_the_bottom(self):
@@ -2612,6 +3219,188 @@ class VoiceModeTests(unittest.TestCase):
         self.assertEqual(mixed.dtype, np.int16)
         self.assertLessEqual(int(np.max(np.abs(mixed))), 32_767)
 
+    def test_daisy_song_uses_the_shared_arranger_without_changing_audio(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        song = offline_voice.DAISY_SONG
+        sample_rate = 8_000
+        sample_count = int(round(
+            sum(item[2] for item in song.score)
+            * song.eighth_seconds
+            * sample_rate
+        ))
+        vocal = (
+            np.sin(
+                np.arange(sample_count, dtype=np.float32)
+                * (2.0 * np.pi * 172.0 / sample_rate)
+            )
+            * 11_000
+        ).astype(np.int16)
+
+        self.assertEqual(song.score, offline_voice.DAISY_PERFORMANCE)
+        self.assertEqual(song.chords, offline_voice.DAISY_PERFORMANCE_CHORDS)
+        self.assertEqual(song.cache_path, config.VOICE_DAISY_CACHE)
+        self.assertTrue(np.array_equal(
+            offline_voice._song_computer_accompaniment(
+                song,
+                np,
+                sample_rate,
+                sample_count,
+            ),
+            offline_voice._daisy_computer_accompaniment(
+                np,
+                sample_rate,
+                sample_count,
+            ),
+        ))
+        self.assertTrue(np.array_equal(
+            offline_voice._mix_song(song, np, vocal, sample_rate),
+            offline_voice._mix_daisy_performance(np, vocal, sample_rate),
+        ))
+
+    def test_daisy_public_method_delegates_to_the_shared_song_player(self):
+        voice = offline_voice.OfflineVoice.__new__(offline_voice.OfflineVoice)
+        cancelled = lambda: False
+        phase_changed = mock.Mock()
+
+        with mock.patch.object(
+            offline_voice.OfflineVoice,
+            "sing",
+            return_value=True,
+        ) as sing:
+            self.assertTrue(voice.sing_daisy_bell(cancelled, phase_changed))
+
+        sing.assert_called_once_with(
+            offline_voice.DAISY_SONG,
+            cancelled,
+            phase_changed,
+        )
+
+
+class AudioSourceAnalysisTests(unittest.TestCase):
+    """Synthetic checks for the music-mode analyser, without loopback I/O."""
+
+    def _source(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        source = audio_source.AudioSource()
+        source._np = np
+        source._buffer = np.zeros(audio_source.WINDOW, dtype=np.float32)
+        source._stereo_buffer = np.zeros(
+            (audio_source.WINDOW, 2),
+            dtype=np.float32,
+        )
+        source._window = np.hanning(audio_source.WINDOW).astype(np.float32)
+        source._spectrum_smooth = np.zeros(
+            audio_source.SPECTRUM_BINS,
+            dtype=np.float32,
+        )
+        source._prepare_analysis_state()
+        return source
+
+    def _tone(self, frequency, amplitude):
+        import numpy as np
+
+        sample_numbers = np.arange(audio_source.WINDOW)
+        return (
+            amplitude
+            * np.sin(
+                2.0
+                * np.pi
+                * frequency
+                * sample_numbers
+                / audio_source.SAMPLE_RATE
+            )
+        ).astype(np.float32)
+
+    def _feed(self, source, samples, now):
+        source._buffer[:] = samples
+        source._stereo_buffer[:] = samples[:, None]
+        with mock.patch.object(
+            audio_source.time,
+            "monotonic",
+            return_value=now,
+        ):
+            return source.features()
+
+    def test_low_frequency_transient_triggers_without_midrange_false_bass(self):
+        kick = self._source()
+        midrange = self._source()
+
+        self._feed(kick, self._tone(60.0, 0.001), 0.0)
+        kick_features = self._feed(kick, self._tone(60.0, 0.65), 0.08)
+        self._feed(midrange, self._tone(1_000.0, 0.001), 0.0)
+        mid_features = self._feed(
+            midrange,
+            self._tone(1_000.0, 0.65),
+            0.08,
+        )
+
+        self.assertGreater(kick_features["beat"], 0.80)
+        self.assertGreater(kick_features["bass"], 0.70)
+        self.assertGreater(kick_features["kick"], 0.80)
+        self.assertLess(mid_features["beat"], 0.05)
+        self.assertLess(mid_features["bass"], 0.05)
+        self.assertLess(mid_features["kick"], 0.05)
+
+    def test_first_kick_after_silence_has_a_flux_baseline(self):
+        import numpy as np
+
+        source = self._source()
+        silent = np.zeros(audio_source.WINDOW, dtype=np.float32)
+        self._feed(source, silent, 0.0)
+        arrived = self._feed(source, self._tone(60.0, 0.65), 0.08)
+
+        self.assertGreater(arrived["beat"], 0.80)
+
+    def test_sustained_bass_decays_instead_of_retriggering(self):
+        source = self._source()
+        self._feed(source, self._tone(60.0, 0.001), 0.0)
+        arrived = self._feed(source, self._tone(60.0, 0.65), 0.08)
+        held_once = self._feed(source, self._tone(60.0, 0.65), 0.16)
+        held_twice = self._feed(source, self._tone(60.0, 0.65), 0.24)
+
+        self.assertGreater(arrived["beat"], held_once["beat"])
+        self.assertGreater(held_once["beat"], held_twice["beat"])
+        self.assertLess(held_twice["beat"], 0.30)
+
+    def test_kick_refractory_rejects_double_hits_but_allows_next_beat(self):
+        source = self._source()
+        self._feed(source, self._tone(60.0, 0.001), 0.0)
+        first = self._feed(source, self._tone(60.0, 0.65), 0.08)
+        self._feed(source, self._tone(60.0, 0.001), 0.10)
+        too_soon = self._feed(source, self._tone(60.0, 0.65), 0.13)
+        self._feed(source, self._tone(60.0, 0.001), 0.28)
+        next_beat = self._feed(source, self._tone(60.0, 0.65), 0.38)
+
+        self.assertGreater(first["beat"], 0.90)
+        self.assertLess(too_soon["beat"], 0.80)
+        self.assertGreater(next_beat["beat"], 0.90)
+
+    def test_beat_release_is_independent_of_redraw_count(self):
+        import numpy as np
+
+        silence = np.zeros(audio_source.WINDOW, dtype=np.float32)
+
+        def decay_at(times):
+            source = self._source()
+            source.beat = 1.0
+            source._last_feature_at = 0.0
+            for now in times:
+                self._feed(source, silence, now)
+            return source.beat
+
+        sparse = decay_at((0.12,))
+        frequent = decay_at((0.04, 0.08, 0.12))
+
+        self.assertAlmostEqual(sparse, frequent, places=6)
+
 
 class MusicVisualizerTests(unittest.TestCase):
     def _features(self):
@@ -2693,6 +3482,7 @@ class MusicVisualizerTests(unittest.TestCase):
         features = self._features()
 
         for scene_class in (
+            Y2KPlayerVisualizer,
             SpectrumVisualizer,
             ReactorVisualizer,
             CubeVisualizer,
@@ -2700,6 +3490,7 @@ class MusicVisualizerTests(unittest.TestCase):
             PlasmaVisualizer,
             DatastreamVisualizer,
             WormholeVisualizer,
+            AcidLatticeVisualizer,
         ):
             with self.subTest(scene=scene_class.__name__):
                 visualizer = scene_class(palette)
@@ -2719,6 +3510,7 @@ class MusicVisualizerTests(unittest.TestCase):
         features = self._features()
 
         for scene_class in (
+            Y2KPlayerVisualizer,
             SpectrumVisualizer,
             ReactorVisualizer,
             CubeVisualizer,
@@ -2726,6 +3518,7 @@ class MusicVisualizerTests(unittest.TestCase):
             PlasmaVisualizer,
             DatastreamVisualizer,
             WormholeVisualizer,
+            AcidLatticeVisualizer,
         ):
             with self.subTest(scene=scene_class.__name__):
                 visualizer = scene_class(palette)
@@ -2739,8 +3532,8 @@ class MusicVisualizerTests(unittest.TestCase):
                     )
                 )
 
-    def test_original_radial_tunnel_remains_the_first_scene(self):
-        self.assertEqual(ui._engine._MUSIC_SCENES[0], "radial tunnel")
+    def test_aqua_player_is_the_default_scene(self):
+        self.assertEqual(ui._engine._MUSIC_SCENES[0], "aqua player")
 
     def test_every_scene_lifts_quiet_audio_and_transients(self):
         features = {
@@ -2817,10 +3610,12 @@ class MusicVisualizerTests(unittest.TestCase):
         features = self._features()
 
         for scene_class in (
+            Y2KPlayerVisualizer,
             GridVisualizer,
             PlasmaVisualizer,
             DatastreamVisualizer,
             WormholeVisualizer,
+            AcidLatticeVisualizer,
         ):
             with self.subTest(scene=scene_class.__name__):
                 visualizer = scene_class(palette)
@@ -2840,10 +3635,12 @@ class MusicVisualizerTests(unittest.TestCase):
             self.skipTest("numpy is installed by the optional voice setup")
 
         for scene_class in (
+            Y2KPlayerVisualizer,
             GridVisualizer,
             PlasmaVisualizer,
             DatastreamVisualizer,
             WormholeVisualizer,
+            AcidLatticeVisualizer,
         ):
             with self.subTest(scene=scene_class.__name__):
                 visualizer = scene_class(("dim", "bright"))
@@ -2892,6 +3689,24 @@ class MusicVisualizerTests(unittest.TestCase):
             return float(np.mean(before != visualizer._glyphs))
 
         self.assertGreater(churn(loud_features), churn(quiet_features) + 0.10)
+
+    def test_acid_lattice_fracture_requires_a_new_beat_onset(self):
+        """Sustained loudness must not pin the scene's hard-cut burst on."""
+        palette = tuple(f"color-{index}" for index in range(9))
+        visualizer = AcidLatticeVisualizer(palette)
+        loud = dict(self._features(), beat=0.9)
+
+        visualizer.step(0.05, loud, 60, 20)
+        first_burst = visualizer.fracture
+        visualizer.step(0.05, loud, 60, 20)
+        sustained_burst = visualizer.fracture
+
+        visualizer.step(0.05, dict(loud, beat=0.0), 60, 20)
+        visualizer.step(0.05, loud, 60, 20)
+        returned_burst = visualizer.fracture
+
+        self.assertGreater(first_burst, sustained_burst)
+        self.assertGreater(returned_burst, sustained_burst)
 
     def test_wormhole_recycled_star_does_not_streak_across_the_screen(self):
         """
@@ -2957,6 +3772,8 @@ class AudioModeUiTests(unittest.TestCase):
         ui._engine.music_volume_percent = 100
         ui._engine._music_scene_started_at = 0.0
         ui._engine._music_palette_started_at = 0.0
+        ui._engine._clear_input_phase()
+        ui._engine._clear_ambient_chrome_corruption()
         ui.set_voice_mode(False)
 
     def test_full_frame_never_writes_the_wrap_triggering_bottom_right_cell(self):
@@ -3058,6 +3875,104 @@ class AudioModeUiTests(unittest.TestCase):
             self.assertIsNone(ui.poll_input_event())
             self.assertEqual(ui.poll_input_event(), ("line", "hi"))
             self.assertEqual(ui.poll_input_event(), ("escape", None))
+
+    def test_typed_character_phases_on_the_canvas_without_mutating_input(self):
+        engine = ui.LayeredDisplayEngine()
+        full_prompt = "YOU > x\u2588"
+        canvas = [[
+            ui.CanvasCell(char, ui.BOLD + ui.RED)
+            for char in (" " * ui.CHAT_INDENT + full_prompt + " ")
+        ]]
+
+        with mock.patch.object(ui.time, "monotonic", return_value=10.0):
+            engine._append_current_input_character("x")
+
+        target_x = ui.CHAT_INDENT + len(full_prompt) - 2
+        with mock.patch.object(ui.random, "choice", return_value="\u2592"):
+            engine._draw_input_phase(canvas, 0, full_prompt, 10.01)
+
+        self.assertEqual(engine.current_input, "x")
+        self.assertEqual(canvas[0][target_x].char, "\u2592")
+
+        # Each terminal refresh starts from a fresh canvas, so the bright
+        # follow-through receives the real character rather than its prior
+        # frame's temporary grain.
+        canvas = [[
+            ui.CanvasCell(char, ui.BOLD + ui.RED)
+            for char in (" " * ui.CHAT_INDENT + full_prompt + " ")
+        ]]
+        engine._draw_input_phase(canvas, 0, full_prompt, 10.12)
+        self.assertEqual(canvas[0][target_x].char, "x")
+        self.assertEqual(engine.current_input, "x")
+
+    def test_masked_typing_phases_the_mask_not_the_secret_character(self):
+        engine = ui.LayeredDisplayEngine()
+        full_prompt = "PASS > \u2022\u2588"
+        canvas = [[
+            ui.CanvasCell(char, ui.BOLD + ui.RED)
+            for char in (" " * ui.CHAT_INDENT + full_prompt + " ")
+        ]]
+
+        with mock.patch.object(ui.time, "monotonic", return_value=10.0):
+            engine._append_current_input_character("7")
+
+        target_x = ui.CHAT_INDENT + len(full_prompt) - 2
+        with mock.patch.object(ui.random, "choice", return_value="\u2591"):
+            engine._draw_input_phase(canvas, 0, full_prompt, 10.01)
+
+        self.assertEqual(engine.current_input, "7")
+        self.assertNotEqual(canvas[0][target_x].char, "7")
+        self.assertIn(canvas[0][target_x].char, ui._INPUT_PHASE_GLYPHS)
+
+    def test_ambient_corruption_only_uses_empty_gutters_or_separator(self):
+        engine = ui.LayeredDisplayEngine()
+        width, height = 20, 12
+        separator_y = height - 3
+        canvas = [
+            [ui.CanvasCell() for _ in range(width)]
+            for _ in range(height)
+        ]
+        for x in range(width):
+            canvas[separator_y][x] = ui.CanvasCell(ui._SEPARATOR, ui.RED)
+        canvas[4][ui.CHAT_INDENT] = ui.CanvasCell("M", ui.GREY)
+        engine._ambient_corruption_next_at = 5.0
+
+        with mock.patch.object(ui.random, "uniform", return_value=2.0), \
+                mock.patch.object(ui.random, "random", return_value=0.0), \
+                mock.patch.object(ui.random, "randrange", return_value=0), \
+                mock.patch.object(ui.random, "choice", return_value="\u2593"):
+            engine._draw_ambient_chrome_corruption(canvas, 5.0)
+
+        self.assertEqual(canvas[4][ui.CHAT_INDENT].char, "M")
+        self.assertEqual(canvas[separator_y][1].char, "\u2593")
+
+    def test_corruption_effects_are_disabled_for_music_mode(self):
+        engine = ui.LayeredDisplayEngine()
+        engine.music_mode = True
+        engine._input_phase_started_at = 10.0
+        engine._input_phase_input_length = 1
+        engine.current_input = "x"
+        full_prompt = "YOU > x\u2588"
+        canvas = [[
+            ui.CanvasCell(char, ui.BOLD + ui.RED)
+            for char in (" " * ui.CHAT_INDENT + full_prompt + " ")
+        ]]
+        target_x = ui.CHAT_INDENT + len(full_prompt) - 2
+
+        engine._draw_input_phase(canvas, 0, full_prompt, 10.01)
+        self.assertEqual(canvas[0][target_x].char, "x")
+
+        chrome = [
+            [ui.CanvasCell(ui._SEPARATOR, ui.RED) for _ in range(10)]
+            for _ in range(6)
+        ]
+        before = [[cell.char for cell in row] for row in chrome]
+        engine._ambient_corruption_next_at = 0.0
+        engine._draw_ambient_chrome_corruption(chrome, 10.0)
+        self.assertEqual(
+            [[cell.char for cell in row] for row in chrome],
+            before,
+        )
 
     def test_voice_face_is_larger_than_normal_face(self):
         engine = ui.LayeredDisplayEngine()
@@ -3232,7 +4147,7 @@ class AudioModeUiTests(unittest.TestCase):
 
         self.assertEqual(engine.music_scene_index, 1)
         self.assertEqual(engine.current_input, "keep this draft")
-        self.assertIn("spectrum cathedral", engine.music_status)
+        self.assertIn("radial tunnel", engine.music_status)
 
     def test_volume_command_is_visible_without_developer_mode(self):
         with mock.patch.object(ui, "set_music_volume", return_value=70) as setter:
@@ -3459,6 +4374,115 @@ class ServerOwnershipTests(unittest.TestCase):
                 os.environ.pop(llm_server._OWNED_PID_ENV, None)
             else:
                 os.environ[llm_server._OWNED_PID_ENV] = old
+
+
+class ServerProfileTests(unittest.TestCase):
+    def _start_with_profile(self, gpu_layers, alias):
+        process = mock.Mock()
+        process.pid = 24680
+        process.poll.return_value = None
+
+        with tempfile.TemporaryDirectory() as folder:
+            log_path = os.path.join(folder, "llama.log")
+            cache_path = os.path.join(folder, "cache")
+
+            with mock.patch.object(
+                llm_server.os.path,
+                "isfile",
+                return_value=True,
+            ), mock.patch.object(
+                llm_server,
+                "SERVER_LOG_FILE",
+                log_path,
+            ), mock.patch.object(
+                llm_server,
+                "PROMPT_CACHE_DIR",
+                cache_path,
+            ), mock.patch.object(
+                llm_server,
+                "LLAMA_GPU_LAYERS",
+                gpu_layers,
+            ), mock.patch.object(
+                llm_server,
+                "SERVER_ALIAS",
+                alias,
+            ), mock.patch.object(
+                llm_server,
+                "is_alive",
+                side_effect=[False, True],
+            ), mock.patch.object(
+                llm_server.subprocess,
+                "Popen",
+                return_value=process,
+            ) as popen:
+                started = llm_server.start_server()
+                arguments = popen.call_args.args[0]
+                llm_server.stop_server(started)
+
+        return arguments
+
+    def test_legacy_launch_does_not_add_profile_arguments(self):
+        arguments = self._start_with_profile(None, "")
+
+        self.assertNotIn("-ngl", arguments)
+        self.assertNotIn("--alias", arguments)
+
+    def test_desktop_profile_adds_gpu_layers_and_alias(self):
+        arguments = self._start_with_profile(16, "maintenance-coder")
+
+        self.assertEqual(
+            arguments[arguments.index("-ngl") + 1],
+            "16",
+        )
+        self.assertEqual(
+            arguments[arguments.index("--alias") + 1],
+            "maintenance-coder",
+        )
+
+    def test_mismatched_profile_refuses_to_reuse_live_server(self):
+        with mock.patch.object(
+            llm_server,
+            "SERVER_ALIAS",
+            "maintenance-coder",
+        ), mock.patch.object(
+            llm_server,
+            "is_alive",
+            return_value=True,
+        ), mock.patch.object(
+            llm_server,
+            "accepts_unauthenticated_requests",
+            return_value=False,
+        ), mock.patch.object(
+            llm_server,
+            "active_server_model_id",
+            return_value="desktop-companion",
+        ), mock.patch.object(llm_server.subprocess, "Popen") as popen:
+            with self.assertRaisesRegex(RuntimeError, "Expected profile"):
+                llm_server.start_server()
+
+        popen.assert_not_called()
+
+    def test_matching_profile_reuses_its_live_server(self):
+        with mock.patch.object(
+            llm_server,
+            "SERVER_ALIAS",
+            "desktop-companion",
+        ), mock.patch.object(
+            llm_server,
+            "is_alive",
+            return_value=True,
+        ), mock.patch.object(
+            llm_server,
+            "accepts_unauthenticated_requests",
+            return_value=False,
+        ), mock.patch.object(
+            llm_server,
+            "active_server_model_id",
+            return_value="desktop-companion",
+        ), mock.patch.object(llm_server.subprocess, "Popen") as popen:
+            self.assertIsNone(llm_server.start_server())
+
+        popen.assert_not_called()
 
 
 class SpotifyDesktopTests(unittest.TestCase):

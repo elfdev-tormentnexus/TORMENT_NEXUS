@@ -396,6 +396,20 @@ _RAIL = "\u258f"          # thin left rail
 _RAIL_ACTIVE = "\u2590"   # marker on the newest line
 _SEPARATOR = "\u2500"     # rule above the input row
 
+# --- restrained terminal corruption ---
+# These effects are deliberately canvas-only: the actual input buffer and
+# chat history remain pristine. A typed character gets one very short visual
+# phase-in, while occasional fragments appear only in chrome (rails, rules,
+# and empty gutters), never over conversation text.
+INPUT_PHASE_SECONDS = 0.20
+INPUT_PHASE_GLITCH_PORTION = 0.30
+_INPUT_PHASE_GLYPHS = ("\u2591", "\u2592", "\u2593", "\u2584")
+
+AMBIENT_CORRUPTION_MIN_GAP = 1.6
+AMBIENT_CORRUPTION_MAX_GAP = 3.8
+AMBIENT_CORRUPTION_SECONDS = 0.18
+_AMBIENT_CORRUPTION_GLYPHS = ("\u2591", "\u2592", "\u2593", "\u2580", "\u2584", "\u00b7")
+
 # Dimming ramps, keyed by the colour a line was written in. Older lines
 # step down the ramp so the backlog recedes instead of competing with
 # whatever just arrived.
@@ -523,6 +537,17 @@ class LayeredDisplayEngine:
         self.chat_history = []
         self.current_input = ""
         self.input_prompt = ""
+
+        # A transient visual-only receipt for the latest typed character.
+        # It stores timing and length only, never a second copy of the text.
+        self._input_phase_started_at = -1.0
+        self._input_phase_input_length = -1
+
+        # Sparse chrome fragments live for a few frames, then leave the
+        # regular terminal layout entirely intact.
+        self._ambient_corruption_next_at = -1.0
+        self._ambient_corruption_until = 0.0
+        self._ambient_corruption_cells = ()
 
         # --- music visualizer mode ---
         # When active the whole viewport becomes the visualiser; the chat
@@ -1851,6 +1876,187 @@ class LayeredDisplayEngine:
             FACE_FLASH_FRAMES,
         )
 
+    # ------------------------------------------------------------
+    # INPUT / CHROME CORRUPTION
+    # ------------------------------------------------------------
+
+    def _clear_input_phase(self):
+        self._input_phase_started_at = -1.0
+        self._input_phase_input_length = -1
+
+    def _clear_ambient_chrome_corruption(self):
+        self._ambient_corruption_next_at = -1.0
+        self._ambient_corruption_until = 0.0
+        self._ambient_corruption_cells = ()
+
+    def _set_current_input(self, text):
+        """Replace a draft without making pre-filled text look newly typed."""
+        self.current_input = str(text or "")
+        self._clear_input_phase()
+
+    def _append_current_input_character(self, char):
+        """Append a real keystroke and queue its canvas-only phase-in."""
+        self.current_input += char
+
+        # Music mode owns the terminal completely. It can still retain a
+        # draft in the background, but it must never paint terminal chrome
+        # effects over a visualizer frame.
+        if self.music_mode:
+            self._clear_input_phase()
+            return
+
+        self._input_phase_started_at = time.monotonic()
+        self._input_phase_input_length = len(self.current_input)
+
+    def _delete_current_input_character(self):
+        self.current_input = self.current_input[:-1]
+        # A backspace cancels a still-pending phase rather than moving the
+        # effect onto the preceding character.
+        self._clear_input_phase()
+
+    def _draw_input_phase(self, canvas, prompt_y, full_prompt, now):
+        """Overlay the latest typed cell briefly without touching its text."""
+        if (
+            self.music_mode
+            or self._input_phase_started_at < 0.0
+            or self._input_phase_input_length <= 0
+        ):
+            return
+
+        elapsed = max(0.0, now - self._input_phase_started_at)
+
+        # The input changed after this keystroke (submission, backspace, or
+        # replacement), so there is no safe target left to animate.
+        if (
+            elapsed >= INPUT_PHASE_SECONDS
+            or len(self.current_input) != self._input_phase_input_length
+        ):
+            self._clear_input_phase()
+            return
+
+        # The rendered prompt always ends in a cursor. The cell immediately
+        # before it is the newest visible input character, whether it is a
+        # normal character, a masking bullet, or a redaction placeholder.
+        # That keeps secrets safe: we never retain or inspect the keystroke.
+        if len(full_prompt) < 2 or not (0 <= prompt_y < len(canvas)):
+            return
+
+        target_x = CHAT_INDENT + len(full_prompt) - 2
+
+        if not (0 <= target_x < len(canvas[prompt_y])):
+            return
+
+        target = canvas[prompt_y][target_x]
+
+        if target.char in (" ", "\u2588"):
+            return
+
+        phase = elapsed / INPUT_PHASE_SECONDS
+
+        if phase < INPUT_PHASE_GLITCH_PORTION:
+            # The character is briefly represented as signal grain, then
+            # returns at high contrast. This is one cell for a small fraction
+            # of a second, keeping the prompt readable rather than noisy.
+            canvas[prompt_y][target_x] = CanvasCell(
+                random.choice(_INPUT_PHASE_GLYPHS),
+                fg(C_RED_BLOOD),
+            )
+        else:
+            canvas[prompt_y][target_x] = CanvasCell(
+                target.char,
+                BOLD + fg(C_RED_BRIGHT),
+            )
+
+        # A single adjacent grain gives the phase-in a small directional tail
+        # when there is unused prompt space. It never replaces another input
+        # character or any stored conversation text.
+        tail_x = target_x - 1
+        if (
+            phase < 0.58
+            and tail_x >= CHAT_INDENT
+            and canvas[prompt_y][tail_x].char == " "
+        ):
+            canvas[prompt_y][tail_x] = CanvasCell(
+                random.choice(_INPUT_PHASE_GLYPHS),
+                fg(C_RED_DEEP),
+            )
+
+    def _draw_ambient_chrome_corruption(self, canvas, now):
+        """Occasionally place a tiny transient fragment in safe UI chrome."""
+        if self.music_mode:
+            self._clear_ambient_chrome_corruption()
+            return
+
+        height = len(canvas)
+        width = len(canvas[0]) if height else 0
+
+        if width < 3 or height < 4:
+            return
+
+        if self._ambient_corruption_next_at < 0.0:
+            # Do not flash immediately on startup. Let the normal interface
+            # settle before the first tiny chrome disturbance arrives.
+            self._ambient_corruption_next_at = now + random.uniform(
+                AMBIENT_CORRUPTION_MIN_GAP,
+                AMBIENT_CORRUPTION_MAX_GAP,
+            )
+        elif now >= self._ambient_corruption_next_at:
+            candidates = []
+            separator_y = height - 3
+
+            # The separator is intentionally a legal target: it is interface
+            # chrome, not a text line. Only choose cells that the normal draw
+            # pass actually assigned as a separator.
+            if 0 <= separator_y < height:
+                candidates.extend(
+                    (x, separator_y)
+                    for x in range(1, width - 1)
+                    if canvas[separator_y][x].char == _SEPARATOR
+                )
+
+            # The left gutter is reserved by CHAT_INDENT and the far-right
+            # column sits outside all message slices. They are safe places
+            # for a fragment only when presently blank.
+            for y in range(0, height - 2):
+                for x in (1, width - 1):
+                    if canvas[y][x].char == " ":
+                        candidates.append((x, y))
+
+            self._ambient_corruption_next_at = now + random.uniform(
+                AMBIENT_CORRUPTION_MIN_GAP,
+                AMBIENT_CORRUPTION_MAX_GAP,
+            )
+            self._ambient_corruption_cells = []
+
+            if candidates:
+                count = 1 if random.random() < 0.82 else 2
+
+                for _ in range(min(count, len(candidates))):
+                    index = random.randrange(len(candidates))
+                    x, y = candidates.pop(index)
+                    self._ambient_corruption_cells.append((
+                        x,
+                        y,
+                        random.choice(_AMBIENT_CORRUPTION_GLYPHS),
+                        fg(C_RED_BLOOD),
+                    ))
+
+                self._ambient_corruption_until = (
+                    now + AMBIENT_CORRUPTION_SECONDS
+                )
+
+        if now >= self._ambient_corruption_until:
+            self._ambient_corruption_cells = ()
+            return
+
+        for x, y, char, color in self._ambient_corruption_cells:
+            if (
+                0 <= y < height
+                and 0 <= x < width
+                and canvas[y][x].char in (" ", _SEPARATOR)
+            ):
+                canvas[y][x] = CanvasCell(char, color)
+
     def render_frame(self):
         with self.lock:
             self.time_counter += 0.08
@@ -1983,6 +2189,14 @@ class LayeredDisplayEngine:
             for col_x, char in enumerate(full_prompt):
                 canvas[prompt_y][col_x + CHAT_INDENT] = CanvasCell(char, BOLD + RED)
 
+            self._draw_input_phase(
+                canvas,
+                prompt_y,
+                full_prompt,
+                now,
+            )
+            self._draw_ambient_chrome_corruption(canvas, now)
+
             self._blit(canvas)
 
     @staticmethod
@@ -2041,9 +2255,11 @@ class LayeredDisplayEngine:
             fg(159), WHITE,
         )),
     )
-    # The original radial tunnel remains first: it is the visual identity
-    # already established for music mode.
+    # Start with the dedicated player display; it establishes the glossy,
+    # hardware-like visual language before the rotation moves into the more
+    # abstract scenes.
     _MUSIC_SCENES = (
+        "aqua player",
         "radial tunnel",
         "spectrum cathedral",
         "orbital reactor",
@@ -2052,6 +2268,7 @@ class LayeredDisplayEngine:
         "plasma flow",
         "datastream rain",
         "wormhole",
+        "acid lattice",
     )
     _MUSIC_SCENE_ROTATION_SECONDS = 165
     _MUSIC_PALETTE_ROTATION_SECONDS = 20
@@ -2194,7 +2411,11 @@ class LayeredDisplayEngine:
                     except OSError:
                         pass
 
-            time.sleep(0.08)
+            # Audio capture updates roughly every 23 ms.  A 25 FPS redraw is
+            # the practical terminal equivalent of the tight response from a
+            # classic desktop music player, without making normal chat redraw
+            # more often than necessary.
+            time.sleep(0.04 if self.music_mode else 0.08)
 
     def start(self):
         self.running = True
@@ -2478,7 +2699,7 @@ def _cycle_command(direction):
     else:
         _engine.cycle_index = (_engine.cycle_index + direction) % len(names)
 
-    _engine.current_input = names[_engine.cycle_index]
+    _engine._set_current_input(names[_engine.cycle_index])
 
 
 def safe_user_text(text):
@@ -2517,7 +2738,7 @@ def input_framed(
     # A response can finish while the user is still composing the next
     # message. Restore that draft instead of clearing it at the next
     # blocking prompt.
-    _engine.current_input = initial_text or ""
+    _engine._set_current_input(initial_text or "")
     _engine.input_masked = bool(masked)
     _engine.cycle_index = -1
 
@@ -2543,7 +2764,7 @@ def input_framed(
             user_text = _engine.current_input
             shown = "[hidden]" if masked else safe_user_text(user_text)
             print_framed(f"{label} {shown}", color)
-            _engine.current_input = ""
+            _engine._set_current_input("")
             _engine.input_masked = False
             _engine.cycle_index = -1
             return user_text
@@ -2560,7 +2781,7 @@ def input_framed(
         elif ch == MUSIC_VOLUME_UP_KEY and music_mode_active():
             cycle_music_volume(5)
         elif ch == "ESC" and allow_cancel:
-            _engine.current_input = ""
+            _engine._set_current_input("")
             _engine.input_masked = False
             _engine.cycle_index = -1
             print_framed(f"{label} [cancelled]", color)
@@ -2570,15 +2791,15 @@ def input_framed(
         elif ch == "DOWN" and allow_cycle:
             _cycle_command(-1)
         elif ch in ("\x08", "\x7f"):
-            _engine.current_input = _engine.current_input[:-1]
+            _engine._delete_current_input_character()
             _engine.cycle_index = -1
         elif len(ch) == 1 and ord(ch) >= 32:
-            _engine.current_input += ch
+            _engine._append_current_input_character(ch)
             _engine.cycle_index = -1
 
     # Engine stopped mid-input; return a string so callers that do
     # user_input.lower() don't hit AttributeError on None.
-    _engine.current_input = ""
+    _engine._set_current_input("")
     _engine.input_masked = False
     return ""
 
@@ -2601,7 +2822,7 @@ def input_secret(label="OWNER PASSCODE >"):
         # unrelated runtime error never leaves "OWNER PASSCODE" on screen.
         with _engine.lock:
             _engine.input_prompt = previous_prompt
-            _engine.current_input = ""
+            _engine._set_current_input("")
             _engine.input_masked = False
             _engine.cycle_index = -1
 
@@ -2816,7 +3037,7 @@ def begin_input(label):
     while the person types.
     """
     _engine.input_prompt = label + " "
-    _engine.current_input = ""
+    _engine._set_current_input("")
     _engine.input_masked = False
     _engine.cycle_index = -1
 
@@ -2877,7 +3098,7 @@ def poll_input_event():
         return ("escape", None)
     if ch in ("\r", "\n"):
         user_text = _engine.current_input
-        _engine.current_input = ""
+        _engine._set_current_input("")
         _engine.cycle_index = -1
         return ("line", user_text)
     elif ch == "UP":
@@ -2885,10 +3106,10 @@ def poll_input_event():
     elif ch == "DOWN":
         _cycle_command(-1)
     elif ch in ("\x08", "\x7f"):
-        _engine.current_input = _engine.current_input[:-1]
+        _engine._delete_current_input_character()
         _engine.cycle_index = -1
     elif len(ch) == 1 and ord(ch) >= 32:
-        _engine.current_input += ch
+        _engine._append_current_input_character(ch)
         _engine.cycle_index = -1
 
     return None
@@ -2965,6 +3186,9 @@ def skip_local_track():
 
 def _make_music_scene(name, palette):
     """Construct a visualizer lazily; normal chat never imports these scenes."""
+    if name == "aqua player":
+        from visualizer.y2k_player import Y2KPlayerVisualizer
+        return Y2KPlayerVisualizer(palette)
     if name == "radial tunnel":
         from visualizer.radial import RadialVisualizer
         return RadialVisualizer(palette)
@@ -2989,6 +3213,9 @@ def _make_music_scene(name, palette):
     if name == "wormhole":
         from visualizer.wormhole import WormholeVisualizer
         return WormholeVisualizer(palette)
+    if name == "acid lattice":
+        from visualizer.acid_lattice import AcidLatticeVisualizer
+        return AcidLatticeVisualizer(palette)
     raise ValueError(f"Unknown music scene: {name}")
 
 
@@ -3054,7 +3281,7 @@ def enter_music_mode():
     _visualizer_output_guard.start()
     try:
         from visualizer.audio_source import AudioSource
-        _make_music_scene("radial tunnel", _engine._MUSIC_PALETTES[0][1])
+        _make_music_scene("aqua player", _engine._MUSIC_PALETTES[0][1])
     except Exception as error:
         _visualizer_output_guard.stop()
         return f"Music mode unavailable: {error}"
@@ -3069,6 +3296,8 @@ def enter_music_mode():
     palette_name, _palette = _engine._MUSIC_PALETTES[_engine.music_palette_index]
     _engine.music_audio = source if started else None
     _engine.music_mode = True
+    _engine._clear_input_phase()
+    _engine._clear_ambient_chrome_corruption()
     _engine.music_scene_index = 0
     _engine._music_scene_started_at = time.time()
     _engine._music_palette_started_at = _engine._music_scene_started_at
@@ -3116,6 +3345,8 @@ def exit_music_mode():
     _engine.music_audio = None
     _engine.music_visualizer = None
     _engine.music_mode = False
+    _engine._clear_input_phase()
+    _engine._clear_ambient_chrome_corruption()
     _visualizer_output_guard.stop()
     clear_screen()
     return "Music mode off."

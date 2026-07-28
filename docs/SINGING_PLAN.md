@@ -3,6 +3,13 @@
 Written for the next maintainer session. Two features, in this order — the
 first builds the machinery the second needs.
 
+> **Continuation status (2026-07-28):** the Part 1 `Song` dataclass and
+> generic build/mix/sing wrappers now exist in the current working tree. This
+> document remains the design and safety contract for that refactor, but it
+> does **not** mean Come Josephine is playable: its public-domain score
+> transcription, original lyrics, command/session plumbing, and listening
+> validation are still open. `sing what you want` is also still unimplemented.
+
 ## Hard constraint, decided already
 
 Only public-domain melodies may be encoded in this repository. Daisy Bell
@@ -147,8 +154,9 @@ Concretely:
 
 ## Verification, for both
 
-`python -m unittest tests.test_regressions` from `assistant/`. Currently
-**309 tests**.
+`python -m unittest tests.test_regressions` from `assistant/`. The suite count
+evolves; use the completed run in the current handoff rather than this plan as
+the source of truth.
 
 Add tests that mirror the existing Daisy ones:
 

@@ -8,6 +8,12 @@ from ui import ui
 from core import file_utils
 from core import health_check
 from core import dev_auth
+from core.config import (
+    MODEL_ROLE,
+    MODEL_ROLE_AUTONOMOUS_CODER,
+    MODEL_ROLE_DIRECTOR,
+    MODEL_ROLE_FULL_MAINTENANCE,
+)
 from project import project_mapper
 from project import project_analyzer
 from project import project_builder
@@ -37,6 +43,24 @@ DEV_MODE = False
 DEV_MODE_EXPIRES_AT = 0.0
 DEV_MODE_DURATION_SECONDS = 15 * 60
 AUTONOMOUS_SERIAL_MODE = False
+
+_ROLE_LABELS = {
+    MODEL_ROLE_DIRECTOR: "director",
+    MODEL_ROLE_AUTONOMOUS_CODER: "autonomous coder",
+    MODEL_ROLE_FULL_MAINTENANCE: "full-maintenance coder",
+}
+
+
+def _role_denial(action, *allowed_roles):
+    allowed = " or ".join(
+        _ROLE_LABELS.get(role, role)
+        for role in allowed_roles
+    )
+    current = _ROLE_LABELS.get(MODEL_ROLE, "restricted")
+    return (
+        f"{action} belongs to the {allowed} profile. "
+        f"Current profile: {current}."
+    )
 
 
 def is_dev_mode():
@@ -1206,6 +1230,9 @@ def handle_modify_plan(user_input):
     if not DEV_MODE or not _match_prefix(user_input, "modify plan "):
         return False
 
+    if MODEL_ROLE != MODEL_ROLE_DIRECTOR:
+        return _role_denial("Plan creation", MODEL_ROLE_DIRECTOR)
+
     request = user_input[len("modify plan "):].strip()
     parts = request.split(" ", 1)
 
@@ -1236,6 +1263,9 @@ def handle_modify_plan(user_input):
 def handle_approve_plan(user_input):
     if not DEV_MODE or not _match_exact(user_input, "approve plan"):
         return False
+
+    if MODEL_ROLE != MODEL_ROLE_DIRECTOR:
+        return _role_denial("Plan approval", MODEL_ROLE_DIRECTOR)
 
     plans_folder = os.path.join(PROJECT_ROOT, "memory", "change_plans")
 
@@ -1277,6 +1307,16 @@ def handle_preview_plan(user_input):
     if not DEV_MODE or not _match_exact(user_input, "preview plan"):
         return False
 
+    if MODEL_ROLE not in {
+        MODEL_ROLE_AUTONOMOUS_CODER,
+        MODEL_ROLE_FULL_MAINTENANCE,
+    }:
+        return _role_denial(
+            "Plan preview",
+            MODEL_ROLE_AUTONOMOUS_CODER,
+            MODEL_ROLE_FULL_MAINTENANCE,
+        )
+
     return _run_with_activity(
         "Opening change preview",
         edit_engine.preview_plan,
@@ -1288,6 +1328,16 @@ def handle_confirm_edit(user_input):
     if not DEV_MODE or not _match_exact(user_input, "confirm edit"):
         return False
 
+    if MODEL_ROLE not in {
+        MODEL_ROLE_AUTONOMOUS_CODER,
+        MODEL_ROLE_FULL_MAINTENANCE,
+    }:
+        return _role_denial(
+            "Edit confirmation",
+            MODEL_ROLE_AUTONOMOUS_CODER,
+            MODEL_ROLE_FULL_MAINTENANCE,
+        )
+
     return _run_with_activity(
         "Applying confirmed code edit",
         edit_engine.confirm_edit,
@@ -1298,6 +1348,16 @@ def handle_confirm_edit(user_input):
 def handle_cancel_edit(user_input):
     if not DEV_MODE or not _match_exact(user_input, "cancel edit"):
         return False
+
+    if MODEL_ROLE not in {
+        MODEL_ROLE_AUTONOMOUS_CODER,
+        MODEL_ROLE_FULL_MAINTENANCE,
+    }:
+        return _role_denial(
+            "Edit cancellation",
+            MODEL_ROLE_AUTONOMOUS_CODER,
+            MODEL_ROLE_FULL_MAINTENANCE,
+        )
 
     return edit_engine.cancel_edit()
 
@@ -1313,6 +1373,16 @@ def handle_rollback(user_input):
     ):
         return False
 
+    if MODEL_ROLE not in {
+        MODEL_ROLE_AUTONOMOUS_CODER,
+        MODEL_ROLE_FULL_MAINTENANCE,
+    }:
+        return _role_denial(
+            "Code rollback",
+            MODEL_ROLE_AUTONOMOUS_CODER,
+            MODEL_ROLE_FULL_MAINTENANCE,
+        )
+
     rest = user_input[len("rollback"):].strip()
 
     return _run_with_activity(
@@ -1326,6 +1396,16 @@ def handle_list_backups(user_input):
     if not DEV_MODE or not _match_exact(user_input, "list backups"):
         return False
 
+    if MODEL_ROLE not in {
+        MODEL_ROLE_AUTONOMOUS_CODER,
+        MODEL_ROLE_FULL_MAINTENANCE,
+    }:
+        return _role_denial(
+            "Backup inspection",
+            MODEL_ROLE_AUTONOMOUS_CODER,
+            MODEL_ROLE_FULL_MAINTENANCE,
+        )
+
     return edit_engine.list_backups()
 
 
@@ -1334,6 +1414,16 @@ def handle_list_backups(user_input):
 def handle_suggest(user_input):
     if not DEV_MODE or not _match_exact(user_input, "suggest"):
         return False
+
+    if MODEL_ROLE not in {
+        MODEL_ROLE_AUTONOMOUS_CODER,
+        MODEL_ROLE_FULL_MAINTENANCE,
+    }:
+        return _role_denial(
+            "Code suggestions",
+            MODEL_ROLE_AUTONOMOUS_CODER,
+            MODEL_ROLE_FULL_MAINTENANCE,
+        )
 
     suggestions, error = _run_with_activity(
         "Inspecting code for improvement ideas",
@@ -1363,6 +1453,16 @@ def handle_suggest(user_input):
 def handle_do_suggestion(user_input):
     if not DEV_MODE or not _match_prefix(user_input, "do "):
         return False
+
+    if MODEL_ROLE not in {
+        MODEL_ROLE_AUTONOMOUS_CODER,
+        MODEL_ROLE_FULL_MAINTENANCE,
+    }:
+        return _role_denial(
+            "Suggested edits",
+            MODEL_ROLE_AUTONOMOUS_CODER,
+            MODEL_ROLE_FULL_MAINTENANCE,
+        )
 
     arg = user_input[len("do "):].strip()
 
@@ -2134,6 +2234,9 @@ def handle_set_goals(user_input):
     if not DEV_MODE or not _match_exact(user_input, "set goals"):
         return False
 
+    if MODEL_ROLE != MODEL_ROLE_DIRECTOR:
+        return _role_denial("Sub-goal creation", MODEL_ROLE_DIRECTOR)
+
     from editing import goal_engine
 
     if not goal_engine.ENABLED:
@@ -2160,6 +2263,9 @@ def handle_work_on_goals(user_input):
     if not DEV_MODE or not _match_exact(user_input, "work on goals"):
         return False
 
+    if MODEL_ROLE != MODEL_ROLE_DIRECTOR:
+        return _role_denial("Sub-goal work", MODEL_ROLE_DIRECTOR)
+
     from editing import goal_engine
 
     if not goal_engine.ENABLED:
@@ -2184,6 +2290,9 @@ def handle_goal_done(user_input):
     if not DEV_MODE or not _match_prefix(user_input, "goal done "):
         return False
 
+    if MODEL_ROLE != MODEL_ROLE_DIRECTOR:
+        return _role_denial("Closing sub-goals", MODEL_ROLE_DIRECTOR)
+
     argument = user_input[len("goal done "):].strip()
 
     if not argument.isdigit():
@@ -2205,6 +2314,12 @@ def handle_goal_done(user_input):
 def handle_run_autonomous_cycle(user_input):
     if not DEV_MODE or not _match_exact(user_input, "run autonomous cycle"):
         return False
+
+    if MODEL_ROLE != MODEL_ROLE_AUTONOMOUS_CODER:
+        return _role_denial(
+            "Autonomous self-repair",
+            MODEL_ROLE_AUTONOMOUS_CODER,
+        )
 
     # This command deliberately occupies the local model while it
     # proposes and validates an edit. Make that work visible instead
@@ -2254,7 +2369,7 @@ def handle_run_autonomous_cycle(user_input):
             if len(records) == completed and all(record.get("backup")
                                                  for record in records):
                 try:
-                    self_heal_state.begin_batch_reward(records)
+                    self_heal_state.begin_batch_reward(records, MODEL_ROLE)
                     reward_note = (
                         "\n\nA single bonus repair has been earned. After the "
                         "restart, TORMENT_NEXUS will run its fixed health and "
@@ -2287,6 +2402,12 @@ def handle_autonomous_serial(user_input):
     if not DEV_MODE or not _match_prefix(user_input, "autonomous serial"):
         return False
 
+    if MODEL_ROLE != MODEL_ROLE_AUTONOMOUS_CODER:
+        return _role_denial(
+            "Observed serial self-repair",
+            MODEL_ROLE_AUTONOMOUS_CODER,
+        )
+
     argument = user_input[len("autonomous serial"):].strip().lower()
 
     if argument in ("", "status"):
@@ -2314,6 +2435,32 @@ def handle_autonomous_serial(user_input):
         return "Observed serial mode: OFF. The next cycle is limited to one edit."
 
     return "Usage: autonomous serial [on|off|status]"
+
+
+@command("full self heal",
+         "Run a bounded, test-driven 14B repair session",
+         group="editing")
+def handle_full_self_heal(user_input):
+    if not DEV_MODE or not _match_exact(user_input, "full self heal"):
+        return False
+
+    if MODEL_ROLE != MODEL_ROLE_FULL_MAINTENANCE:
+        return _role_denial(
+            "Full self-heal",
+            MODEL_ROLE_FULL_MAINTENANCE,
+        )
+
+    from editing import maintenance_engine
+
+    result = _run_with_activity(
+        "Running full self-heal diagnostics",
+        maintenance_engine.run_session,
+    )
+
+    if result["applied"]:
+        edit_engine.mark_restart_pending()
+
+    return result["message"]
 
 
 # ============================================================

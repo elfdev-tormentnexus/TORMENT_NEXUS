@@ -10,6 +10,7 @@ say different things, so a metric describes delivery traits, not accuracy.
 from __future__ import annotations
 
 import argparse
+import copy
 import io
 import json
 import math
@@ -57,7 +58,23 @@ def resample(audio: np.ndarray, source_rate: int, target_rate: int = TARGET_RATE
     return np.interp(new_x, old_x, audio).astype(np.float32)
 
 
-def decode_reference(path: str, ffmpeg: str):
+def decode_reference(path: str, ffmpeg: str | None = None):
+    """Decode a reference recording without requiring a system ffmpeg."""
+    try:
+        import soundfile as sf
+
+        audio, rate = sf.read(path, always_2d=True, dtype="float32")
+        mono = audio.mean(axis=1)
+        if rate % TARGET_RATE == 0:
+            return mono[::rate // TARGET_RATE].astype(np.float32)
+        return resample(mono, rate)
+    except Exception as soundfile_error:
+        if not ffmpeg:
+            raise RuntimeError(
+                "Could not decode the reference with soundfile. Supply "
+                "--ffmpeg only if a compatible local executable is available."
+            ) from soundfile_error
+
     command = [
         ffmpeg,
         "-hide_banner",
@@ -89,12 +106,19 @@ def render_current(text: str = SAMPLE_TEXT):
 
     from core.config import (
         VOICE_CADENCE_STRENGTH,
+        VOICE_PITCH_FLATTEN,
+        VOICE_PITCH_SEMITONES,
+        VOICE_ROBOT_FORMANT_SHIFT,
         VOICE_ROBOT_STRENGTH,
+        VOICE_SPEECH_CARRIER_HZ,
+        VOICE_SPEECH_CLAUSE_PAUSE_SECONDS,
         VOICE_SPEECH_LENGTH_SCALE,
         VOICE_SPEECH_NOISE_SCALE,
         VOICE_SPEECH_NOISE_W_SCALE,
+        VOICE_SPEECH_PAUSE_SECONDS,
         VOICE_TTS_MODEL,
         VOICE_TTS_SPEAKER,
+        VOICE_VOWEL_STRETCH,
     )
     import voice.offline_voice as offline_voice
 
@@ -109,19 +133,64 @@ def render_current(text: str = SAMPLE_TEXT):
     if VOICE_TTS_SPEAKER is not None:
         configuration.speaker_id = VOICE_TTS_SPEAKER
 
-    target = io.BytesIO()
-    with wave.open(target, "wb") as handle:
-        voice.synthesize_wav(text, handle, syn_config=configuration)
+    segments = []
+    sample_rate = None
+    chunks = offline_voice._speech_chunks(text)
 
-    raw, sample_rate = read_wav_bytes(target.getvalue())
-    shaped = offline_voice._encoded_robot_effect(
-        np,
-        (raw * 32767.0).astype(np.int16),
-        sample_rate,
-        VOICE_ROBOT_STRENGTH,
-        cadence_strength=VOICE_CADENCE_STRENGTH,
-    )
-    return np.asarray(shaped, dtype=np.float32) / 32768.0, sample_rate
+    for index, chunk in enumerate(chunks):
+        chunk_config = configuration
+        adjusted_scale = offline_voice._speech_length_scale_for_chunk(
+            chunk,
+            configuration.length_scale,
+        )
+        if abs(adjusted_scale - configuration.length_scale) > 1e-6:
+            chunk_config = copy.copy(configuration)
+            chunk_config.length_scale = adjusted_scale
+
+        target = io.BytesIO()
+        with wave.open(target, "wb") as handle:
+            voice.synthesize_wav(chunk, handle, syn_config=chunk_config)
+
+        raw, chunk_rate = read_wav_bytes(target.getvalue())
+        if sample_rate is None:
+            sample_rate = chunk_rate
+        elif sample_rate != chunk_rate:
+            raise RuntimeError("Piper changed sample rate during one reply")
+
+        pitch_bias = offline_voice._utterance_pitch_bias(chunk)
+        shaped = offline_voice._encoded_robot_effect(
+            np,
+            (raw * 32767.0).astype(np.int16),
+            sample_rate,
+            VOICE_ROBOT_STRENGTH,
+            carrier_hz=(
+                VOICE_SPEECH_CARRIER_HZ
+                * (2.0 ** (pitch_bias / 12.0))
+            ),
+            formant_shift=VOICE_ROBOT_FORMANT_SHIFT,
+            cadence_strength=VOICE_CADENCE_STRENGTH,
+            pitch_offset=VOICE_PITCH_SEMITONES,
+            vowel_stretch=VOICE_VOWEL_STRETCH,
+            pitch_flatten=VOICE_PITCH_FLATTEN,
+        )
+        segments.append(np.asarray(shaped, dtype=np.float32) / 32768.0)
+
+        if index + 1 < len(chunks):
+            ends_sentence = chunk.rstrip().endswith((".", "!", "?", ":"))
+            gap = (
+                VOICE_SPEECH_PAUSE_SECONDS
+                if ends_sentence
+                else VOICE_SPEECH_CLAUSE_PAUSE_SECONDS
+            )
+            segments.append(np.zeros(
+                max(1, int(round(gap * sample_rate))),
+                dtype=np.float32,
+            ))
+
+    if not segments or sample_rate is None:
+        return np.zeros(1, dtype=np.float32), TARGET_RATE
+
+    return np.concatenate(segments), sample_rate
 
 
 def write_wav(path: str, audio: np.ndarray, rate: int):
@@ -271,7 +340,13 @@ def best_excerpt(audio: np.ndarray, seconds: float = 10.0):
     window = int(seconds * TARGET_RATE)
     if len(audio) <= window:
         return audio, 0.0
-    energy = energy_track(audio)
+    # The supplied reference collections can run for tens of minutes. Their
+    # 40ms analysis frames would duplicate several hundred megabytes merely
+    # to locate one excerpt, so use non-overlapping 10ms RMS blocks here.
+    # Full overlapping frames are still used below for the selected excerpt.
+    usable = len(audio) // HOP
+    blocks = audio[:usable * HOP].reshape(usable, HOP)
+    energy = np.sqrt(np.mean(blocks * blocks, axis=1) + 1e-12)
     width = max(1, int(seconds * TARGET_RATE / HOP))
     if len(energy) <= width:
         return audio[:window], 0.0
@@ -400,7 +475,10 @@ def write_visual(path: str, report: dict):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("reference")
-    parser.add_argument("--ffmpeg", required=True)
+    parser.add_argument(
+        "--ffmpeg",
+        help="Optional fallback decoder when soundfile cannot read the reference",
+    )
     parser.add_argument("--text", default=SAMPLE_TEXT)
     parser.add_argument("--sample-name", default="torment_nexus_normal_speech_sample.wav")
     parser.add_argument(

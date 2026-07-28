@@ -36,10 +36,18 @@ remain active and that bass, beat, melody, and treble changes produce obvious
 scene movement. Confirm the colour palette changes after 20 seconds, Space
 advances to the next local song, Left/Right changes scenes, and Ctrl+B exits.
 
-Press Right through all eight scenes and confirm each one draws: radial
-tunnel, spectrum cathedral, orbital reactor, corrupt cube, neon horizon,
-plasma flow, datastream rain, and wormhole. Resize the terminal while a scene
-is running and confirm it reflows without an exception or leftover columns.
+Press Right through all ten scenes and confirm each one draws: aqua player,
+radial tunnel, spectrum cathedral, orbital reactor, corrupt cube, neon
+horizon, plasma flow, datastream rain, wormhole, and acid lattice. The aqua
+player should show a glossy bezel, oscilloscope, gel meter, and an obvious
+flash on a kick.
+The datastream rain should look like a layered falling-code curtain with a
+low spectrum horizon; a kick should create only a brief scan-fault sweep, not
+turn the entire scene into permanent static.
+Acid lattice should show an original acid-green triangulated mesh with jagged
+voids and brief beat fracture bursts, not a copied video frame or footage.
+Resize the terminal while a scene is running and confirm it reflows without an
+exception or leftover columns.
 
 ## 4b. Voice delivery and the reactive face
 

@@ -14,6 +14,7 @@ import time
 
 from core import file_utils
 from core import health_check
+from core.config import MODEL_ROLE_AUTONOMOUS_CODER
 from editing import edit_guard
 
 
@@ -56,23 +57,43 @@ def load():
         clear()
         return None
 
+    # This is a narrowly-earned 7B autonomous-coder credit, not a general
+    # restart-time permission. Older/unbound markers fail closed rather than
+    # letting whichever profile happens to start next spend it.
+    if state.get("actor_role") != MODEL_ROLE_AUTONOMOUS_CODER:
+        clear()
+        return None
+
     return state
 
 
-def begin_batch_reward(records):
+def _require_autonomous_actor(actor_role):
+    if actor_role != MODEL_ROLE_AUTONOMOUS_CODER:
+        raise ValueError(
+            "Only the autonomous-coder profile can earn a self-heal credit."
+        )
+
+
+def begin_batch_reward(records, actor_role):
     """Record the one possible bonus earned by a complete serial batch."""
+    _require_autonomous_actor(actor_role)
+
     _write({
         "phase": PHASE_VALIDATE_BATCH,
         "records": records,
+        "actor_role": actor_role,
         "expires_at": time.time() + REWARD_WINDOW_SECONDS,
     })
 
 
-def begin_bonus_validation(record):
+def begin_bonus_validation(record, actor_role):
     """Replace the batch marker with the single earned edit to validate."""
+    _require_autonomous_actor(actor_role)
+
     _write({
         "phase": PHASE_VALIDATE_BONUS,
         "records": [record],
+        "actor_role": actor_role,
         "expires_at": time.time() + REWARD_WINDOW_SECONDS,
     })
 

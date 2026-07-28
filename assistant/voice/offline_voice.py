@@ -2,15 +2,15 @@
 Half-duplex, fully offline speech input and output.
 
 Listening uses Sherpa-ONNX, a small quantized Moonshine English model, and
-Silero VAD. A dedicated feminine Piper voice supplies ordinary speech, and a
-clean variable-speed cadence adds measured two-way robotic inflections without spectral
-reconstruction, echo, or a resonant carrier. A fixed carrier is used only when
-a song needs exact notes.
+Silero VAD. A dedicated feminine Piper voice supplies ordinary speech, whose
+vocal tract is retained while a dry chromatic carrier supplies the deliberately
+constrained machine pitch. A fixed carrier also gives songs their exact notes.
 Optional packages are imported only when audio mode is requested, so normal
 text chat has no voice dependency or startup cost.
 """
 
 import copy
+from dataclasses import dataclass
 import hashlib
 import io
 import os
@@ -55,6 +55,20 @@ class VoiceSetupError(RuntimeError):
 
 class VoiceRuntimeError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class Song:
+    """The musical material and cache identity for one offline performance."""
+
+    name: str
+    score: tuple
+    eighth_seconds: float
+    harmony: dict
+    chords: tuple
+    intro_melody: tuple
+    cache_path: str
+    accompaniment_gain: float
 
 
 _ASR_FILES = {
@@ -504,7 +518,7 @@ _UTTERANCE_PITCH_LIMIT = 4.5
 
 
 def _utterance_pitch_bias(text):
-    """A stable per-sentence pitch offset in semitones."""
+    """A stable chromatic per-sentence pitch offset in semitones."""
     if not text or _UTTERANCE_PITCH_SPREAD <= 0.0:
         return 0.0
 
@@ -518,10 +532,14 @@ def _utterance_pitch_bias(text):
     unit = ((digest[0] + digest[1]) / 510.0) * 2.0 - 1.0
     semitones = unit / _UNIT_DRAW_STD * _UTTERANCE_PITCH_SPREAD
 
-    return max(
+    bounded = max(
         -_UTTERANCE_PITCH_LIMIT,
         min(_UTTERANCE_PITCH_LIMIT, semitones),
     )
+    # Keep phrase-to-phrase movement on the same chromatic grid as the
+    # carrier. The text-derived choice still gives different sentences their
+    # own stable placement, but it never leaves the voice between notes.
+    return float(round(bounded))
 
 def _cadence_semitone_curve(
     np,
@@ -1272,6 +1290,21 @@ def _spectral_tilt(np, signal, sample_rate, corner_hz, db_per_octave):
     return shaped[:, 0] if was_mono else shaped
 
 
+def _chromatic_carrier_frequencies(np, carrier_hz, semitone_offsets):
+    """Snap offsets from a carrier's reference note to the chromatic grid.
+
+    This is the digital equivalent of a chromatic pitch-correction pass: the
+    carrier can change between phraselets, but it cannot glide or retain
+    within-syllable vibrato.  The spectral envelope remains untouched, so it
+    does not make Piper's articulation sound sung.
+    """
+    offsets = np.asarray(semitone_offsets, dtype=np.float32)
+    return (
+        max(1e-6, float(carrier_hz))
+        * np.power(2.0, np.rint(offsets) / 12.0)
+    ).astype(np.float32)
+
+
 def _machine_vocoder(
     np,
     source,
@@ -1346,9 +1379,15 @@ def _machine_vocoder(
             right=0.0,
         ).astype(np.float32)
 
-    carrier_frequencies = carrier_hz * np.power(
-        2.0,
-        semitone_samples / 12.0,
+    # Constrain the complete carrier after sentence bias, cadence, and
+    # declination have been applied. The sentence carrier itself is already
+    # on that grid, so this gives spoken syllable groups the same discrete
+    # chromatic placement as a manual pitch-correction pass while retaining
+    # a reference tuning that can be measured against the target voice.
+    carrier_frequencies = _chromatic_carrier_frequencies(
+        np,
+        carrier_hz,
+        semitone_samples,
     )
     carrier_phase = np.cumsum(
         (2.0 * np.pi * carrier_frequencies) / float(sample_rate),
@@ -1490,6 +1529,48 @@ def _machine_vocoder(
     return output
 
 
+_SPEECH_DIGITAL_EDGE = 0.022
+_SUNG_DIGITAL_EDGE = 0.035
+
+
+def _digital_voice_texture(
+    np,
+    audio,
+    strength,
+    *,
+    edge_strength,
+    drive,
+):
+    """Add a small, time-aligned digital finish to a machine voice.
+
+    The carrier vocoder already supplies the characteristic synthetic pitch.
+    This final pass supplies the restrained quantisation and clock-like
+    transients that make the sung voice feel deliberately rendered rather than
+    merely filtered.  It never resamples, delays, or mixes a second copy of
+    the signal, so consonants remain aligned and ordinary replies stay clear.
+    """
+    if audio.size == 0:
+        return audio
+
+    strength = max(0.0, min(1.0, float(strength)))
+    edge_strength = max(0.0, min(0.08, float(edge_strength))) * strength
+    drive = max(0.90, min(1.20, float(drive)))
+    textured = audio.astype(np.float32, copy=False)
+
+    # The levels are intentionally modest: this is a controlled digital
+    # texture, not audible bit-crushing.  Stronger machine treatment makes
+    # the stepping a little more apparent, like the sung rendering.
+    levels = max(128, int(round(512 - 256 * strength)))
+    textured = np.round(textured * levels) / levels
+
+    if edge_strength and len(textured) > 1:
+        edge = np.zeros_like(textured)
+        edge[1:] = textured[1:] - textured[:-1]
+        textured = textured + edge * edge_strength
+
+    return np.tanh(textured * drive).astype(np.float32)
+
+
 def _encoded_robot_effect(
     np,
     audio,
@@ -1566,12 +1647,6 @@ def _encoded_robot_effect(
             _TILT_DB_PER_OCTAVE,
         )
 
-        # Light quantisation, as in the sung path. It is what gives the
-        # voice its digital edge rather than sounding merely filtered.
-        levels = max(160, int(round(512 - 256 * strength)))
-        robot = np.round(robot * levels) / levels
-        robot = np.tanh(robot * 1.06)
-
     else:
         # Register shift and cadence wobble are deliberately handled by
         # different tools. PSOLA does the multi-semitone drop because it
@@ -1598,23 +1673,30 @@ def _encoded_robot_effect(
         target_samples = len(robot)
 
     if pitch_lock:
-        # A tiny one-sample edge is retained only for the deliberately
-        # synthetic singing voice. Ordinary speech remains untouched.
-        edge = np.zeros_like(robot)
-        edge[1:] = robot[1:] - robot[:-1]
-        robot += edge * 0.035
-
-    if pitch_lock:
         clean = _resize_matrix(np, matrix, target_samples)
         encoded = clean * (1.0 - strength) + robot * strength
-        # Daisy's sung notes intentionally retain a restrained digital edge.
-        levels = max(128, int(round(512 - 256 * strength)))
-        encoded = np.round(encoded * levels) / levels
-        encoded = np.tanh(encoded * 1.08)
+        encoded = _digital_voice_texture(
+            np,
+            encoded,
+            strength,
+            edge_strength=_SUNG_DIGITAL_EDGE,
+            drive=1.08,
+        )
     else:
         # Do not mix a time-warped voice against its original. Even a quiet
         # dry copy would create comb filtering and a cheap chorus/vocoder tone.
         encoded = robot
+
+        if VOICE_SPEECH_VOCODER:
+            # Give normal replies the same restrained rendered edge as Daisy
+            # Bell, just below the song's setting so sibilants stay clean.
+            encoded = _digital_voice_texture(
+                np,
+                encoded,
+                strength,
+                edge_strength=_SPEECH_DIGITAL_EDGE,
+                drive=1.06,
+            )
 
     peak = float(np.max(np.abs(encoded)))
 
@@ -1785,6 +1867,17 @@ DAISY_PERFORMANCE_CHORDS = (
     + DAISY_CHORD_PROGRESSION
 )
 
+DAISY_SONG = Song(
+    name="Daisy Bell",
+    score=DAISY_PERFORMANCE,
+    eighth_seconds=DAISY_EIGHTH_SECONDS,
+    harmony=DAISY_HARMONY,
+    chords=DAISY_PERFORMANCE_CHORDS,
+    intro_melody=DAISY_INTRO_MELODY,
+    cache_path=VOICE_DAISY_CACHE,
+    accompaniment_gain=VOICE_DAISY_ACCOMPANIMENT_GAIN,
+)
+
 
 def _midi_frequency(note):
     return 440.0 * (2.0 ** ((float(note) - 69.0) / 12.0))
@@ -1856,7 +1949,7 @@ def _add_daisy_tone(
     )
 
 
-def _daisy_computer_accompaniment(np, sample_rate, output_samples):
+def _song_computer_accompaniment(song, np, sample_rate, output_samples):
     """
     Render synchronized bass-and-chord waltz accompaniment from oscillators.
 
@@ -1867,7 +1960,7 @@ def _daisy_computer_accompaniment(np, sample_rate, output_samples):
     accompaniment = np.zeros(output_samples, dtype=np.float32)
     eighth_samples = max(
         1,
-        int(round(DAISY_EIGHTH_SECONDS * sample_rate)),
+        int(round(song.eighth_seconds * sample_rate)),
     )
     beat_samples = eighth_samples * 2
     measure_samples = eighth_samples * 6
@@ -1875,13 +1968,13 @@ def _daisy_computer_accompaniment(np, sample_rate, output_samples):
     bass_note = max(1, int(round(beat_samples * 0.78)))
     stagger = max(1, int(round(sample_rate * 0.006)))
 
-    for measure_index, chord_name in enumerate(DAISY_PERFORMANCE_CHORDS):
+    for measure_index, chord_name in enumerate(song.chords):
         measure_start = measure_index * measure_samples
 
         if measure_start >= output_samples:
             break
 
-        voicing = DAISY_HARMONY[chord_name]
+        voicing = song.harmony[chord_name]
         bass, upper = voicing[0], voicing[1:]
         _add_daisy_tone(
             np,
@@ -1930,7 +2023,7 @@ def _daisy_computer_accompaniment(np, sample_rate, output_samples):
     # texture, and it stops exactly where the singing starts.
     position = 0
 
-    for midi_note, units in DAISY_INTRO_MELODY:
+    for midi_note, units in song.intro_melody:
         duration = units * eighth_samples
 
         if midi_note is not None:
@@ -1956,13 +2049,24 @@ def _daisy_computer_accompaniment(np, sample_rate, output_samples):
     return accompaniment.astype(np.float32)
 
 
-def _mix_daisy_performance(np, vocal, sample_rate):
+def _daisy_computer_accompaniment(np, sample_rate, output_samples):
+    """Backward-compatible Daisy Bell wrapper for the generic arranger."""
+    return _song_computer_accompaniment(
+        DAISY_SONG,
+        np,
+        sample_rate,
+        output_samples,
+    )
+
+
+def _mix_song(song, np, vocal, sample_rate):
     """Mix the generated accompaniment below the machine-sung vocal."""
     if vocal.ndim > 1:
         vocal = vocal.mean(axis=1)
 
     voice = vocal.astype(np.float32) / 32768.0
-    accompaniment = _daisy_computer_accompaniment(
+    accompaniment = _song_computer_accompaniment(
+        song,
         np,
         sample_rate,
         len(voice),
@@ -1990,7 +2094,7 @@ def _mix_daisy_performance(np, vocal, sample_rate):
     ).astype(np.float32)
     accompaniment_gain = np.maximum(
         0.12,
-        VOICE_DAISY_ACCOMPANIMENT_GAIN - 0.14 * vocal_presence,
+        song.accompaniment_gain - 0.14 * vocal_presence,
     )
     mixed = voice * 0.86 + accompaniment * accompaniment_gain
     mixed = np.tanh(mixed * 1.08)
@@ -2002,6 +2106,11 @@ def _mix_daisy_performance(np, vocal, sample_rate):
     return (
         np.clip(mixed, -1.0, 1.0) * 32767.0
     ).astype(np.int16)
+
+
+def _mix_daisy_performance(np, vocal, sample_rate):
+    """Backward-compatible Daisy Bell wrapper for the generic song mixer."""
+    return _mix_song(DAISY_SONG, np, vocal, sample_rate)
 
 
 class OfflineVoice:
@@ -2451,12 +2560,12 @@ class OfflineVoice:
         end = min(len(audio), int(active[-1]) + margin)
         return audio[start:end]
 
-    def _load_daisy_cache(self):
-        if not os.path.isfile(VOICE_DAISY_CACHE):
+    def _load_song_cache(self, song):
+        if not os.path.isfile(song.cache_path):
             return None
 
         try:
-            with wave.open(VOICE_DAISY_CACHE, "rb") as wav_file:
+            with wave.open(song.cache_path, "rb") as wav_file:
                 if wav_file.getsampwidth() != 2 or wav_file.getnchannels() != 1:
                     return None
 
@@ -2470,10 +2579,10 @@ class OfflineVoice:
         except (OSError, EOFError, wave.Error):
             return None
 
-    def _save_daisy_cache(self, audio, sample_rate):
-        folder = os.path.dirname(VOICE_DAISY_CACHE)
+    def _save_song_cache(self, song, audio, sample_rate):
+        folder = os.path.dirname(song.cache_path)
         os.makedirs(folder, exist_ok=True)
-        temporary = VOICE_DAISY_CACHE + ".tmp"
+        temporary = song.cache_path + ".tmp"
 
         try:
             with wave.open(temporary, "wb") as wav_file:
@@ -2482,7 +2591,7 @@ class OfflineVoice:
                 wav_file.setframerate(sample_rate)
                 wav_file.writeframes(audio.astype(self.np.int16).tobytes())
 
-            os.replace(temporary, VOICE_DAISY_CACHE)
+            os.replace(temporary, song.cache_path)
         finally:
             if os.path.isfile(temporary):
                 try:
@@ -2490,23 +2599,19 @@ class OfflineVoice:
                 except OSError:
                     pass
 
-    def _build_daisy_audio(self, cancelled, phase_changed=None):
+    def _build_song_audio(self, song, cancelled, phase_changed=None):
         self._load_piper()
         token_cache = {}
         segments = []
         sample_rate = int(self.piper_voice.config.sample_rate)
         voiced_total = sum(
             1
-            for text, _note, _units in DAISY_PERFORMANCE
+            for text, _note, _units in song.score
             if text
         )
         voiced_index = 0
 
-        continuation_start = len(DAISY_CHORUS) + 1
-
-        for score_index, (text, note, duration_units) in enumerate(
-            DAISY_PERFORMANCE
-        ):
+        for text, note, duration_units in song.score:
             if cancelled():
                 return None
 
@@ -2515,7 +2620,7 @@ class OfflineVoice:
                 int(
                     round(
                         duration_units
-                        * DAISY_EIGHTH_SECONDS
+                        * song.eighth_seconds
                         * sample_rate
                     )
                 ),
@@ -2530,13 +2635,8 @@ class OfflineVoice:
             voiced_index += 1
 
             if phase_changed:
-                section = (
-                    "second Daisy Bell verse"
-                    if score_index >= continuation_start
-                    else "Daisy Bell"
-                )
                 phase_changed(
-                    f"building {section} "
+                    f"building {song.name} "
                     f"{voiced_index}/{voiced_total}"
                 )
 
@@ -2556,7 +2656,8 @@ class OfflineVoice:
 
                 if token_rate != sample_rate:
                     raise VoiceRuntimeError(
-                        "Piper changed sample rate while building Daisy Bell."
+                        "Piper changed sample rate while building "
+                        f"{song.name}."
                     )
 
                 token_audio = self._trim_speech(token_audio, sample_rate)
@@ -2604,23 +2705,24 @@ class OfflineVoice:
         if phase_changed:
             phase_changed("synthesizing computer accompaniment")
 
-        song = _mix_daisy_performance(
+        performance = _mix_song(
+            song,
             self.np,
             vocal,
             sample_rate,
         )
-        self._save_daisy_cache(song, sample_rate)
-        return song, sample_rate
+        self._save_song_cache(song, performance, sample_rate)
+        return performance, sample_rate
 
-    def sing_daisy_bell(self, cancelled, phase_changed=None):
-        """Build once, cache, and perform the public-domain chorus."""
-        cached = self._load_daisy_cache()
+    def sing(self, song, cancelled, phase_changed=None):
+        """Build once, cache, and perform one public-domain song."""
+        cached = self._load_song_cache(song)
 
         if cached is None:
             if phase_changed:
-                phase_changed("building Daisy Bell voice")
+                phase_changed(f"building {song.name} voice")
 
-            cached = self._build_daisy_audio(cancelled, phase_changed)
+            cached = self._build_song_audio(song, cancelled, phase_changed)
 
         if cached is None or cancelled():
             return False
@@ -2628,15 +2730,31 @@ class OfflineVoice:
         audio, sample_rate = cached
 
         if phase_changed:
-            phase_changed("singing Daisy Bell")
+            phase_changed(f"singing {song.name}")
 
         try:
             return self._play_audio(audio, sample_rate, cancelled)
         except Exception as error:
             self.sd.stop()
             raise VoiceRuntimeError(
-                f"Daisy Bell playback failed: {error}"
+                f"{song.name} playback failed: {error}"
             ) from error
+
+    def _load_daisy_cache(self):
+        """Backward-compatible wrapper for Daisy Bell's dedicated cache."""
+        return self._load_song_cache(DAISY_SONG)
+
+    def _save_daisy_cache(self, audio, sample_rate):
+        """Backward-compatible wrapper for Daisy Bell's dedicated cache."""
+        self._save_song_cache(DAISY_SONG, audio, sample_rate)
+
+    def _build_daisy_audio(self, cancelled, phase_changed=None):
+        """Backward-compatible wrapper for the generic song builder."""
+        return self._build_song_audio(DAISY_SONG, cancelled, phase_changed)
+
+    def sing_daisy_bell(self, cancelled, phase_changed=None):
+        """Perform Daisy Bell without changing its public voice API."""
+        return self.sing(DAISY_SONG, cancelled, phase_changed)
 
     def speak(self, text, cancelled, phase_changed=None, progress=None):
         """Synthesize and play a reply. False means Escape interrupted it."""

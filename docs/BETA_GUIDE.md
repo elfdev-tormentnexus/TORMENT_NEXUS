@@ -85,7 +85,11 @@ instead of spoken so the voice does not cover the opening. Each scene uses a
 different, heightened response to bass, beats, melody, treble, stereo movement,
 and waveform detail. In music mode:
 
-- there are eight scenes, rotating every 2 minutes 45 seconds;
+- there are ten scenes, starting with a black-glass aqua player display and
+  rotating every 2 minutes 45 seconds; a full pass takes about 28 minutes;
+- acid lattice is an original acid-green triangulated mesh with jagged voids
+  and beat fracture bursts, inspired by the supplied video's visual language
+  without using footage;
 - colours change every 20 seconds;
 - Left and Right change the scene;
 - Space plays the next local song;

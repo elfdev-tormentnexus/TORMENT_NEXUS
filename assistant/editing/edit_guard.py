@@ -319,23 +319,15 @@ def _capabilities(tree):
     return imports, calls
 
 
-def autonomous_change_problem(relative_path, original, updated):
+def change_capability_problem(relative_path, original, updated):
+    """Explain whether a patch adds a protected runtime capability.
+
+    Both autonomous repair profiles may retain capabilities already present in
+    an editable module, but neither may introduce process, network, dynamic
+    code, or additional filesystem capability.  The normal 7B cycle adds a
+    smaller file allowlist on top of this shared boundary; the explicit 14B
+    repair session uses the wider human-editable surface but keeps this rule.
     """
-    Explain why an unattended edit is outside its safety budget, or None.
-
-    Existing capabilities remain usable; the cycle is blocked only when its
-    patch adds a new network/process/filesystem capability or targets a module
-    outside the explicit unattended allowlist.
-    """
-    normalized = _policy_key(relative_path)
-    allowed = {_policy_key(path) for path in AUTONOMOUS_ALLOWED_FILES}
-
-    if normalized not in allowed:
-        return (
-            f"{relative_path} requires a human-reviewed edit; unattended "
-            "cycles cannot modify that module"
-        )
-
     try:
         old_tree = ast.parse(original, filename=relative_path)
         new_tree = ast.parse(updated, filename=relative_path)
@@ -369,6 +361,20 @@ def autonomous_change_problem(relative_path, original, updated):
         )
 
     return None
+
+
+def autonomous_change_problem(relative_path, original, updated):
+    """Explain why a normal unattended edit is outside its safety budget."""
+    normalized = _policy_key(relative_path)
+    allowed = {_policy_key(path) for path in AUTONOMOUS_ALLOWED_FILES}
+
+    if normalized not in allowed:
+        return (
+            f"{relative_path} requires a human-reviewed edit; unattended "
+            "cycles cannot modify that module"
+        )
+
+    return change_capability_problem(relative_path, original, updated)
 
 
 def locate(name):
@@ -477,10 +483,40 @@ def backup(relative_path):
     return os.path.relpath(dest, PROJECT_ROOT)
 
 
-def write(relative_path, content):
+def _checked_existing_backup(relative_path, backup_path):
+    """Validate a pre-created backup before a transactional replacement.
+
+    Full-maintenance sessions persist their rollback record before changing a
+    file.  Letting them supply that already-created backup closes the small
+    crash window between making a backup and recording it, without allowing a
+    caller to point ``write`` at an arbitrary path.
     """
-    Validate, back up, then replace atomically. Raises GuardError
-    before touching anything if the content will not parse.
+    if not isinstance(backup_path, str) or not backup_path.strip():
+        raise GuardError("A transactional write needs a real backup path.")
+
+    name = os.path.basename(backup_path)
+    expected_prefix = (
+        relative_path.replace("\\", "_").replace("/", "_") + "."
+    ).casefold()
+
+    if not name.casefold().startswith(expected_prefix) or not name.endswith(".bak"):
+        raise GuardError("The supplied backup does not belong to this file.")
+
+    source = os.path.join(BACKUP_FOLDER, name)
+    if not os.path.isfile(source):
+        raise GuardError("The supplied transactional backup is missing.")
+
+    return os.path.relpath(source, PROJECT_ROOT)
+
+
+def write(relative_path, content, backup_path=None):
+    """
+    Validate, back up, then replace atomically.
+
+    ``backup_path`` is only for trusted transaction orchestration.  When it
+    is supplied, it must be an existing backup made for this exact file; the
+    usual public path still creates its own timestamped backup.  Raises
+    GuardError before touching the target if the content will not parse.
     """
     full = resolve(relative_path)
 
@@ -489,7 +525,10 @@ def write(relative_path, content):
     if problem:
         raise GuardError(f"Refusing to write: the result has a syntax error.\n{problem}")
 
-    backup_path = backup(relative_path) if os.path.exists(full) else None
+    if backup_path is None:
+        backup_path = backup(relative_path) if os.path.exists(full) else None
+    else:
+        backup_path = _checked_existing_backup(relative_path, backup_path)
 
     folder = os.path.dirname(full)
 

@@ -15,7 +15,12 @@ generation that could come out differently.
 import os
 import re
 
-from core.config import DEBUG as DEBUG_INTENT
+from core.config import (
+    DEBUG as DEBUG_INTENT,
+    MODEL_ROLE,
+    MODEL_ROLE_AUTONOMOUS_CODER,
+    MODEL_ROLE_FULL_MAINTENANCE,
+)
 
 from editing import approval_manager
 from editing import pending_edit
@@ -180,6 +185,20 @@ def request_edit(user_message):
         if DEBUG_INTENT:
             print(f"[intent] {why_not}")
         return None
+
+    if MODEL_ROLE not in {
+        MODEL_ROLE_AUTONOMOUS_CODER,
+        MODEL_ROLE_FULL_MAINTENANCE,
+    }:
+        return (
+            "CODE EDIT HANDOFF\n"
+            + "=" * 42
+            + "\n\nThis profile can define and approve the work, but it "
+            "does not generate code diffs. In developer mode, use 'modify "
+            "plan <file> <change>' and 'approve plan', then reopen the 7B "
+            "coder or 14B full-maintenance profile and run 'preview plan'. "
+            "Nothing has been written."
+        )
 
     return propose(intent["file"], intent["change"])
 

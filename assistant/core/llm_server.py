@@ -8,6 +8,10 @@ import requests
 from core.config import (
     CONTEXT_SIZE,
     LLAMA_CACHE_RAM_MB,
+    LLAMA_CACHE_TYPE_K,
+    LLAMA_CACHE_TYPE_V,
+    LLAMA_FLASH_ATTN,
+    LLAMA_GPU_LAYERS,
     LLAMA_SERVER,
     LLAMA_THREADS,
     MODEL_API_KEY,
@@ -16,6 +20,7 @@ from core.config import (
     MODEL_REQUEST_HEADERS,
     PROMPT_CACHE_DIR,
     SERVER_HOST,
+    SERVER_ALIAS,
     SERVER_LOG_FILE,
     SERVER_PORT,
     SERVER_URL,
@@ -58,6 +63,29 @@ def accepts_unauthenticated_requests(timeout=2):
         return False
 
 
+def active_server_model_id(timeout=2):
+    """Return the authenticated server's advertised model id, if available."""
+    try:
+        response = requests.get(
+            SERVER_URL + "/v1/models",
+            headers=MODEL_REQUEST_HEADERS,
+            timeout=timeout,
+        )
+
+        if response.status_code != 200:
+            return None
+
+        models = response.json().get("data", [])
+
+        if not models or not isinstance(models[0], dict):
+            return None
+
+        model_id = models[0].get("id")
+        return str(model_id) if model_id else None
+    except Exception:
+        return None
+
+
 def start_server():
     """
     Launch llama-server, or reuse one that is already running.
@@ -77,6 +105,18 @@ def start_server():
                 f"{SERVER_URL}. Stop that older server and launch TORMENT_NEXUS "
                 "again so it can start the protected model endpoint."
             )
+
+        if SERVER_ALIAS:
+            active_alias = active_server_model_id()
+
+            if active_alias != SERVER_ALIAS:
+                found = active_alias or "no profile alias"
+                raise RuntimeError(
+                    "A different authenticated llama-server is already using "
+                    f"{SERVER_URL}. Expected profile '{SERVER_ALIAS}', found "
+                    f"'{found}'. Exit the other TORMENT_NEXUS profile before "
+                    "starting this one."
+                )
 
         print("Reusing the model server already running.")
         return None
@@ -136,6 +176,21 @@ def start_server():
 
     if LLAMA_THREADS is not None:
         arguments.extend(("-t", str(LLAMA_THREADS)))
+
+    if LLAMA_GPU_LAYERS is not None:
+        arguments.extend(("-ngl", str(LLAMA_GPU_LAYERS)))
+
+    if LLAMA_FLASH_ATTN is not None:
+        arguments.extend(("-fa", LLAMA_FLASH_ATTN))
+
+    if LLAMA_CACHE_TYPE_K is not None:
+        arguments.extend(("-ctk", LLAMA_CACHE_TYPE_K))
+
+    if LLAMA_CACHE_TYPE_V is not None:
+        arguments.extend(("-ctv", LLAMA_CACHE_TYPE_V))
+
+    if SERVER_ALIAS:
+        arguments.extend(("--alias", SERVER_ALIAS))
 
     try:
         process = subprocess.Popen(

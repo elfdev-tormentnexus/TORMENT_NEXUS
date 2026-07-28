@@ -118,7 +118,7 @@ answers.
   machine is working. It may remark on this during a long silence.
 - Find and play music placed in its local music folder, including casually
   typed song names, and keep playing through the library on its own.
-- Display a psychedelic Y2K music visualizer with eight rotating scenes and
+- Display a glossy Y2K music visualizer with ten rotating scenes and
   colours, all reacting to the music.
 - Show long replies one page at a time so instructions do not disappear above
   the screen.
@@ -203,11 +203,16 @@ In music mode:
 | `[` / `]` | Lower / raise local-song volume |
 | Ctrl+B | Leave music mode |
 
-There are eight scenes: the radial tunnel, spectrum cathedral, orbital
-reactor, corrupt cube, neon horizon, plasma flow, datastream rain, and
-wormhole. They rotate every 2 minutes 45 seconds, so a full pass takes about
-22 minutes, and colours change automatically every 20 seconds. Use Left and
-Right to reach one without waiting.
+There are ten scenes: the aqua player, radial tunnel, spectrum cathedral,
+orbital reactor, corrupt cube, neon horizon, plasma flow, datastream rain,
+wormhole, and acid lattice. The aqua player is the default: a black-glass,
+chrome-rimmed oscilloscope and gel-meter display. Scenes rotate every 2 minutes 45 seconds,
+so a full pass takes about 28 minutes, and colours change automatically every
+20 seconds. Use Left and Right to reach one without waiting.
+
+Acid lattice is an original acid-green triangulated mesh, cut by jagged voids
+and beat fracture bursts, inspired by the supplied music video's visual
+language without using any footage.
 
 Space affects local music only; it does not control Spotify or browser audio.
 Each scene gives different emphasis to bass, beats, melody, treble, stereo

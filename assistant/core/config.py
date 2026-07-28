@@ -49,8 +49,35 @@ MODEL_PATH = (
 
 # What the UI header shows. Kept separate from MODEL_PATH's filename
 # so the on-disk name can stay descriptive (matching what it was
-# downloaded as) while the header shows a shorter label.
-MODEL_DISPLAY_NAME = "Qwen3-4B-I-2507-Q5_K_M"
+# downloaded as) while the header shows a shorter label. Desktop profiles
+# may override it without changing the Pi-safe default model path.
+MODEL_DISPLAY_NAME = (
+    os.environ.get("TORMENT_NEXUS_MODEL_DISPLAY_NAME", "").strip()
+    or "Qwen3-4B-I-2507-Q5_K_M"
+)
+
+# Models have distinct jobs, but the authority boundary is still trusted Python
+# code rather than a model's alignment behavior. An unknown explicit value is
+# restricted instead of silently becoming the director.
+MODEL_ROLE_DIRECTOR = "director"
+MODEL_ROLE_AUTONOMOUS_CODER = "autonomous-coder"
+MODEL_ROLE_FULL_MAINTENANCE = "full-maintenance"
+MODEL_ROLE_RESTRICTED = "restricted"
+MODEL_ROLES = {
+    MODEL_ROLE_DIRECTOR,
+    MODEL_ROLE_AUTONOMOUS_CODER,
+    MODEL_ROLE_FULL_MAINTENANCE,
+}
+_configured_model_role = os.environ.get("TORMENT_NEXUS_MODEL_ROLE", "").strip().lower()
+MODEL_ROLE = (
+    _configured_model_role
+    if _configured_model_role in MODEL_ROLES
+    else (
+        MODEL_ROLE_DIRECTOR
+        if not _configured_model_role
+        else MODEL_ROLE_RESTRICTED
+    )
+)
 SERVER_URL = (
     os.environ.get("TORMENT_NEXUS_SERVER_URL", "").strip()
     or "http://127.0.0.1:8080"
@@ -66,6 +93,11 @@ try:
     SERVER_PORT = _SERVER_PARSED.port or 8080
 except ValueError:
     SERVER_PORT = 8080
+
+# An explicit server identity prevents one launch profile from silently
+# reusing another profile's authenticated model process on the same port.
+# Leave this blank for the original single-profile launch behaviour.
+SERVER_ALIAS = os.environ.get("TORMENT_NEXUS_SERVER_ALIAS", "").strip()
 
 
 def _load_or_create_model_api_key():
@@ -166,7 +198,10 @@ try:
     )
 except ValueError:
     ACTIVITY_RETENTION_DAYS = 14.0
-PROMPT_CACHE_DIR = os.path.join(ASSISTANT_ROOT, "cache", "prompt")
+PROMPT_CACHE_DIR = (
+    os.environ.get("TORMENT_NEXUS_PROMPT_CACHE_DIR", "").strip()
+    or os.path.join(ASSISTANT_ROOT, "cache", "prompt")
+)
 
 # Audio files here play with no network, no account, and no Spotify.
 # Whatever is dropped in becomes a track named after its filename.
@@ -280,6 +315,48 @@ try:
 except ValueError:
     LLAMA_THREADS = _DEFAULT_LLAMA_THREADS
 
+
+def _optional_bounded_int_env(name, minimum, maximum):
+    raw = os.environ.get(name, "").strip()
+
+    if not raw:
+        return None
+
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+
+    return max(minimum, min(maximum, value))
+
+
+# Unset deliberately means "do not pass -ngl" so the existing CPU/Pi launch
+# remains unchanged. Desktop profiles set this explicitly: 99 for the 4B
+# companion, and the measured 16 for the 7B Q8 maintenance model.
+LLAMA_GPU_LAYERS = _optional_bounded_int_env(
+    "TORMENT_NEXUS_LLAMA_GPU_LAYERS",
+    0,
+    999,
+)
+
+_configured_flash_attn = os.environ.get(
+    "TORMENT_NEXUS_LLAMA_FLASH_ATTN",
+    "",
+).strip().lower()
+LLAMA_FLASH_ATTN = (
+    _configured_flash_attn
+    if _configured_flash_attn in {"on", "off", "auto"}
+    else None
+)
+LLAMA_CACHE_TYPE_K = os.environ.get(
+    "TORMENT_NEXUS_LLAMA_CACHE_TYPE_K",
+    "",
+).strip().lower() or None
+LLAMA_CACHE_TYPE_V = os.environ.get(
+    "TORMENT_NEXUS_LLAMA_CACHE_TYPE_V",
+    "",
+).strip().lower() or None
+
 LLAMA_CACHE_RAM_MB = _bounded_int_env(
     "TORMENT_NEXUS_LLAMA_CACHE_RAM_MB",
     256,
@@ -378,9 +455,11 @@ try:
 except ValueError:
     VOICE_ROBOT_FORMANT_SHIFT = 1.12
 
-# Alternating two-way playback-rate plateaus give ordinary replies a deliberate,
-# asymmetric machine cadence while keeping the source waveform intact. A value
-# of 0 disables cadence shaping; 1 uses the full pattern.
+# A restrained set of asymmetric note plateaus gives ordinary replies a
+# deliberate machine cadence. The speech vocoder snaps each plateau to a
+# chromatic grid, so this controls only deliberate group-to-group movement;
+# it cannot reintroduce within-syllable pitch wobble. A value of 0 disables
+# those deliberate steps entirely.
 try:
     VOICE_CADENCE_STRENGTH = max(
         0.0,
@@ -389,13 +468,13 @@ try:
             float(
                 os.environ.get(
                     "TORMENT_NEXUS_CADENCE_STRENGTH",
-                    "0.88",
+                    "0.35",
                 )
             ),
         ),
     )
 except ValueError:
-    VOICE_CADENCE_STRENGTH = 0.88
+    VOICE_CADENCE_STRENGTH = 0.35
 
 # Very low variation and slower phoneme timing give ordinary replies a
 # deliberately controlled delivery before the cadence resampler changes the
@@ -532,20 +611,26 @@ VOICE_SPEECH_VOCODER = (
 )
 
 # Pitch of that carrier, in Hz. The reference recordings measured 130.6
-# and 149.5; the sung path defaults to 172.
+# and 149.5; the sung path defaults to 172.  The vocoder snaps the resulting
+# carrier (including its small phrase offsets) to a chromatic pitch grid,
+# which suppresses within-syllable pitch modulation while retaining deliberate
+# note-to-note steps between speech groups.
 #
-# Raised 7% from 145.0 on listening feedback: 145 * 1.07 = 155.15, which
-# is about 1.17 semitones up. Because the vocoder decouples pitch from
-# the spectral envelope, moving the carrier alone shifts register without
-# touching the formants -- so this reads as a higher voice rather than a
-# smaller speaker, which is exactly what resampling could never do here.
+# The live path gives each sentence its own stable chromatic pitch bias, so a
+# monolithic render does not represent actual playback.  This value anchors
+# that chromatic grid; it is not assumed to equal the measured output F0,
+# because the vocal-tract envelope can lead a pitch tracker toward a nearby
+# harmonic.  Keep it close to the measured register and validate a full live
+# reply when tuning it.  Because the vocoder decouples pitch from the spectral
+# envelope, moving the carrier alone shifts register without making the voice
+# sound like a smaller speaker.
 try:
     VOICE_SPEECH_CARRIER_HZ = max(
         60.0,
-        min(400.0, float(os.environ.get("TORMENT_NEXUS_CARRIER_HZ", "155.0"))),
+        min(400.0, float(os.environ.get("TORMENT_NEXUS_CARRIER_HZ", "168.0"))),
     )
 except ValueError:
-    VOICE_SPEECH_CARRIER_HZ = 155.0
+    VOICE_SPEECH_CARRIER_HZ = 168.0
 
 # ------------------------------------------------------------------
 # Idle check-in

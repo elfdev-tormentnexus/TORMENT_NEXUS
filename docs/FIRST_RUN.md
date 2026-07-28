@@ -87,16 +87,22 @@ new local song:
 | `[` / `]` | Change local-song volume in 5% steps |
 | Ctrl+B | Exit the visualizer |
 
-There are eight scenes. The scene changes every 2 minutes 45 seconds, so
-seeing all of them takes about 22 minutes; Left and Right reach one without
-waiting. The colour palette changes every 20 seconds. Space does not skip
-Spotify or browser audio.
+There are ten scenes. The default aqua player is a black-glass, chrome-rimmed
+oscilloscope and gel-meter display; the other scenes follow it in rotation.
+The scene changes every 2 minutes 45 seconds, so seeing all of them takes
+about 28 minutes; Left and Right reach one without waiting. The colour palette
+changes every 20 seconds. Space does not skip Spotify or browser audio.
 
 The scenes use different response profiles: bass expands the tunnel and
 reactor and drives the neon horizon forward, spectrum detail raises the
 cathedral, mids and treble drive the cube's motion and corruption, mids move
-the plasma flow, treble sets the speed of the datastream rain, and beats throw
-the wormhole starfield forward.
+the plasma flow, and the datastream rain combines a bass data horizon, a
+mid-driven code curtain, treble rain speed, and a brief beat scan fault.
+Beats throw the wormhole starfield forward.
+
+Acid lattice is an original acid-green triangulated mesh cut by jagged voids;
+beats throw brief fracture bursts through it. Its visual language draws from
+the supplied music-video reference without using any footage.
 
 Local-library repeat is on by default. A finished local song advances to the
 next filename, and the last song returns to the first. Use:

@@ -70,9 +70,12 @@ aplay -l
 ## How the default machine voice works
 
 The default `en_US-hfc_female-medium` Piper model provides articulation and the
-source timbre. TORMENT_NEXUS then applies a dry machine treatment and stepped
-cadence. The speaking path does not contain an actor recording, sampled
-dialogue, echo, chorus, delay, or cloud voice service.
+source timbre. TORMENT_NEXUS then applies a dry machine treatment: a chromatic
+carrier constrains pitch, while a slightly raised formant envelope keeps the
+source bright and feminine. Both ordinary speech and singing receive a small,
+time-aligned digital finish (gentle quantisation and a restrained transient
+edge) without adding a delayed copy. The speaking path does not contain an
+actor recording, sampled dialogue, echo, chorus, delay, or cloud voice service.
 
 The microphone path is half-duplex: the application closes its microphone
 before playing a reply so that it does not transcribe its own speaker.
@@ -87,7 +90,7 @@ sing daisy bell
 
 The performance uses fixed note and syllable timing with a generated
 computer-organ backing. No historical recording or music sample is included.
-Its generated cache filename begins with `daisy_bell_machine_v10_` and includes
+Its generated cache filename begins with `daisy_bell_machine_v11_` and includes
 the current mix and voice settings, preventing an older singer configuration
 from being reused accidentally.
 
@@ -107,6 +110,7 @@ beta users do not need them.
 | `TORMENT_NEXUS_ROBOT_VOICE=0` | Use the unprocessed Piper output. |
 | `TORMENT_NEXUS_ROBOT_STRENGTH` | Set overall machine treatment from `0.0` to `1.0`. |
 | `TORMENT_NEXUS_CADENCE_STRENGTH` | Set stepped cadence strength from `0.0` to `1.0`. |
+| `TORMENT_NEXUS_CARRIER_HZ` | Set the base pitch of the speaking carrier in Hz. |
 | `TORMENT_NEXUS_ROBOT_FORMANT_SHIFT` | Adjust the formant treatment used by speech and Daisy Bell. |
 | `TORMENT_NEXUS_INPUT_DEVICE` | Select an input device name or numeric index. |
 | `TORMENT_NEXUS_OUTPUT_DEVICE` | Select an output device name or numeric index. |

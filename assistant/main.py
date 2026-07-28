@@ -48,6 +48,8 @@ from core.config import (
     PROMPT_CACHE_DIR,
     CONTEXT_SIZE,
     AUTONOMOUS_ON_STARTUP,
+    MODEL_ROLE,
+    MODEL_ROLE_AUTONOMOUS_CODER,
     VOICE_ON_STARTUP,
     IDLE_CHECKIN_ENABLED,
     IDLE_CHECKIN_SPEAK,
@@ -74,6 +76,7 @@ from core.persona import PERSONA, PERSONA_SHOTS
 from editing import edit_engine
 from editing import edit_intent
 from editing import autonomous_engine
+from editing import maintenance_engine
 from editing import self_heal_state
 from web import search_engine
 from web import search_intent
@@ -208,6 +211,18 @@ def _resume_earned_self_heal_reward():
             False,
         )
 
+    if state.get("actor_role") != MODEL_ROLE:
+        return (
+            "SELF-HEAL CREDIT WAITING\n" + "=" * 58
+            + "\n\n"
+            + detail
+            + "\n\nThis credit belongs to the "
+            + f"{state.get('actor_role', 'recorded')} profile, but the "
+            + f"current profile is {MODEL_ROLE}. Reopen the 7B autonomous "
+            "coder before the credit expires; this profile will not spend it.",
+            False,
+        )
+
     ui.set_generating(True)
     ui.set_status("Spending earned self-heal credit")
     try:
@@ -227,7 +242,7 @@ def _resume_earned_self_heal_reward():
             False,
         )
 
-    self_heal_state.begin_bonus_validation(record)
+    self_heal_state.begin_bonus_validation(record, state["actor_role"])
     return (
         "SELF-HEAL BONUS APPLIED\n" + "=" * 58
         + f"\n\n{detail}\n\n{bonus}\n\n"
@@ -2201,6 +2216,14 @@ def main():
     ui.set_voice_mode(VOICE_ON_STARTUP)
     ui.print_startup_screen(MODEL_PATH, display_name=MODEL_DISPLAY_NAME)
 
+    # A full-maintenance session writes an atomic rollback marker before each
+    # replacement. If that session was interrupted, restore its whole batch
+    # before the normal UI or any automatic cycle can continue. This runs
+    # independently of the currently loaded model profile.
+    recovery_message = maintenance_engine.recover_incomplete_session()
+    if recovery_message:
+        ui.print_framed(f"AI > {recovery_message}", color=ui.YELLOW)
+
     # Offer the walkthrough on a brand new install, but do not launch into
     # it. Someone who just installed this may want to type at it, not sit
     # through twelve sections, and a tutorial that hijacks the first
@@ -2235,6 +2258,7 @@ def main():
 
     if (
         AUTONOMOUS_ON_STARTUP
+        and MODEL_ROLE == MODEL_ROLE_AUTONOMOUS_CODER
         and os.environ.get("TORMENT_NEXUS_DISABLE_AUTONOMOUS") != "1"
         and os.environ.get("TORMENT_NEXUS_AUTONOMOUS_CYCLE_DONE") != "1"
     ):

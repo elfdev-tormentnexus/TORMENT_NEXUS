@@ -2,6 +2,19 @@
 
 
 _PROFILES = {
+    # The player panel has its own physical meters, so it favors quick bass
+    # arrivals, sharp beat flashes, and a generously readable spectrum.
+    "aqua player": {
+        "bass": (1.56, 0.60),
+        "mid": (1.34, 0.70),
+        "treble": (1.42, 0.66),
+        "level": (1.42, 0.68),
+        "beat": (2.20, 0.64),
+        "stereo_width": (1.44, 0.68),
+        "spectrum": (1.60, 0.58),
+        "waveform": 1.56,
+        "pan": 1.34,
+    },
     "radial tunnel": {
         "bass": (1.42, 0.68),
         "mid": (1.22, 0.76),
@@ -73,18 +86,18 @@ _PROFILES = {
         "waveform": 1.30,
         "pan": 1.30,
     },
-    # Column speed rides on treble and glyph corruption rides on beats,
-    # so those two carry the scene and the rest stays out of the way.
+    # The data curtain now uses bass for its low horizon, mids for the sheet's
+    # curvature, treble for rain speed, and beats for its brief scan fault.
     "datastream rain": {
-        "bass": (1.26, 0.76),
-        "mid": (1.32, 0.72),
-        "treble": (1.70, 0.54),
-        "level": (1.34, 0.74),
-        "beat": (2.10, 0.66),
-        "stereo_width": (1.20, 0.82),
-        "spectrum": (1.44, 0.62),
-        "waveform": 1.34,
-        "pan": 1.16,
+        "bass": (1.46, 0.64),
+        "mid": (1.48, 0.62),
+        "treble": (1.62, 0.56),
+        "level": (1.40, 0.70),
+        "beat": (2.20, 0.64),
+        "stereo_width": (1.24, 0.78),
+        "spectrum": (1.54, 0.58),
+        "waveform": 1.38,
+        "pan": 1.22,
     },
     # The most transient-driven scene there is: a beat throws the whole
     # starfield forward, so this carries the strongest beat gain.
@@ -98,6 +111,19 @@ _PROFILES = {
         "spectrum": (1.30, 0.70),
         "waveform": 1.42,
         "pan": 1.38,
+    },
+    # A harsh, skeletal scene: bass pulls its void upward, mid/treble grow
+    # the triangular field, and onsets alone release its short hard-cut burst.
+    "acid lattice": {
+        "bass": (1.66, 0.57),
+        "mid": (1.56, 0.60),
+        "treble": (1.64, 0.57),
+        "level": (1.44, 0.68),
+        "beat": (2.32, 0.62),
+        "stereo_width": (1.42, 0.68),
+        "spectrum": (1.48, 0.62),
+        "waveform": 1.36,
+        "pan": 1.42,
     },
 }
 
