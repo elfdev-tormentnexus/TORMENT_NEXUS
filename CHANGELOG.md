@@ -13,6 +13,14 @@
   `name keep` writes it, `name again` re-rolls, `name forget` clears it. The
   chosen name appears in the header and nowhere else: TORMENT_NEXUS remains
   the project, the application, the launcher, and the terminal window title.
+- Taught the director to answer to the name it chose. Once one is recorded it
+  goes into the cached prompt prefix alongside the persona, with the reason
+  that was written down at the time so it can say why it is called that
+  instead of inventing one. The reason is labelled as a note rather than a
+  memory, marked as not a description of anything it is currently doing, and
+  reserved for questions about the name -- without those three, it variously
+  claimed to be sampling the front window right now, denied having picked the
+  name at all, and recited the reason as a greeting.
 - Moved the abliterated Qwen2.5-Coder 7B default into `models/` and added a
   separate opt-in desktop launcher for the experimental abliterated 4B Q8,
   leaving the Q5 companion untouched as the default and Raspberry Pi model.

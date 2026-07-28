@@ -72,6 +72,7 @@ from commands.command_handlers import (
     visible_command_names,
 )
 from ui import ui
+from core import chosen_name
 from core.persona import PERSONA, PERSONA_SHOTS
 from editing import edit_engine
 from editing import edit_intent
@@ -346,9 +347,20 @@ _prompt_cache_ready.set()
 
 
 def _stable_system_prompt():
-    """The immutable prefix that llama.cpp can retain between every turn."""
-    return f"""{PERSONA}
+    """
+    The immutable prefix that llama.cpp can retain between every turn.
 
+    A chosen name belongs here rather than in the per-turn context: it is a
+    fixed fact for the whole session, and it is only ever changed by a
+    deliberate command. Renaming does invalidate the prefix cache, since
+    _prompt_cache_filename() hashes exactly this text -- which is correct, and
+    costs one slower turn on a ceremony that happens approximately once.
+    """
+    own_name = chosen_name.prompt_block()
+    identity = f"\n{own_name}\n" if own_name else ""
+
+    return f"""{PERSONA}
+{identity}
 Rules:
 - Give exactly ONE response.
 - Do not continue the conversation on the user's behalf.

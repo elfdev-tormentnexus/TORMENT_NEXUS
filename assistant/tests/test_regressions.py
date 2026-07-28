@@ -1146,6 +1146,101 @@ class ChosenNameTests(unittest.TestCase):
         self.assertEqual(chosen_name.header_title(), "TORMENT_NEXUS")
         self.assertFalse(chosen_name.clear())
 
+    # -- knowing its own name ----------------------------------------
+
+    def test_an_unnamed_director_is_told_nothing_at_all(self):
+        # The persona already says TORMENT_NEXUS is what it answers to when
+        # nothing has been chosen. A block saying "you have no name" would
+        # only invite it to raise the subject.
+        self.assertEqual(chosen_name.prompt_block(), "")
+        self.assertNotIn("Your own name", assistant_main._stable_system_prompt())
+
+    def test_a_named_director_is_told_which_name(self):
+        file_utils.save_json(self.state, {
+            "name": "Witness",
+            "why": "samples the front window and holds observations",
+        })
+
+        block = chosen_name.prompt_block()
+
+        self.assertIn("You are called Witness", block)
+        self.assertIn("Answer to it", block)
+
+        # And the split survives: the project keeps its name.
+        self.assertIn("TORMENT_NEXUS is still the project", block)
+
+    def test_the_recorded_reason_is_offered_as_a_note_not_a_memory(self):
+        # A model left to explain its own name will narrate having chosen it,
+        # which is a claim about an inner life that did not happen. Handing
+        # over the stored reason, labelled, is what it needs to answer "why
+        # are you called that" without confabulating.
+        file_utils.save_json(self.state, {
+            "name": "Witness",
+            "why": "samples the front window and holds observations",
+        })
+
+        block = chosen_name.prompt_block()
+
+        self.assertIn("samples the front window", block)
+        self.assertIn("not a memory", block)
+        self.assertIn("not evidence of an inner life", block)
+
+    def test_the_reason_is_marked_as_not_a_description_of_current_activity(self):
+        # Found live. The recorded reason describes something in the system,
+        # and handed that line the model reported doing it: asked whether it
+        # was there it answered "sampling the front window every 20 seconds as
+        # configured", which is a capability claim with nothing behind it.
+        file_utils.save_json(self.state, {
+            "name": "Witness",
+            "why": "samples the front window every 20 seconds",
+        })
+
+        block = chosen_name.prompt_block()
+
+        self.assertIn("does not describe anything you are doing now", block)
+
+    def test_the_note_does_not_deny_that_the_name_was_picked_here(self):
+        # Also found live. "You did not experience choosing the name" was
+        # compressed by the model into "I did not choose it myself", which is
+        # false in the other direction. The name was picked here; only the
+        # experience of picking it never happened.
+        file_utils.save_json(self.state, {"name": "Witness", "why": "a note"})
+
+        block = chosen_name.prompt_block()
+
+        self.assertIn("no recollection of the ceremony", block)
+        self.assertNotIn("did not choose", block)
+
+    def test_a_rambling_reason_cannot_bloat_every_prompt(self):
+        file_utils.save_json(self.state, {
+            "name": "Witness",
+            "why": "because " * 400,
+        })
+
+        self.assertLess(len(chosen_name.prompt_block()), 900)
+
+    def test_the_name_reaches_the_prompt_the_model_actually_sees(self):
+        file_utils.save_json(self.state, {"name": "Witness", "why": "a note"})
+
+        self.assertIn("Witness", assistant_main._stable_system_prompt())
+
+    def test_renaming_does_not_reuse_the_previous_prefix_cache(self):
+        # The chosen name sits inside the cached prefix, so the cache identity
+        # has to move with it. Serving the old prefix would leave the model
+        # answering to a name it no longer has.
+        file_utils.save_json(self.state, {"name": "Witness", "why": "a note"})
+        first = assistant_main._prompt_cache_filename()
+
+        file_utils.save_json(self.state, {"name": "Sluice", "why": "a note"})
+        second = assistant_main._prompt_cache_filename()
+
+        chosen_name.clear()
+        unnamed = assistant_main._prompt_cache_filename()
+
+        self.assertNotEqual(first, second)
+        self.assertNotEqual(first, unnamed)
+        self.assertNotEqual(second, unnamed)
+
     # -- the command surface -----------------------------------------
 
     def test_name_does_not_swallow_ordinary_sentences(self):

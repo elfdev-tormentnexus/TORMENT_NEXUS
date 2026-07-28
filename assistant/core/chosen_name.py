@@ -96,6 +96,12 @@ MIN_SURVIVORS = 3
 # name inside even a narrow one.
 MAX_NAME_LENGTH = 18
 
+# The recorded reason is quoted into every prompt, so it gets a ceiling. A
+# rambling one costs context on every single turn. Reasons come back as short
+# phrases -- sixty characters is typical -- so this is already generous, and
+# the honesty clauses around it are worth more of the budget than the quote.
+_WHY_PROMPT_CHARS = 200
+
 # One or two words, letters with an internal apostrophe or hyphen allowed.
 _NAME_SHAPE = re.compile(r"^[A-Za-z][A-Za-z'-]*(?: [A-Za-z][A-Za-z'-]*)?$")
 
@@ -247,6 +253,68 @@ def current():
 def header_title():
     """What the header shows: the chosen name, else the project's name."""
     return current() or PROJECT_NAME
+
+
+def prompt_block():
+    """
+    What the director is told about its own name, or "" if it has none.
+
+    This goes in the cached prefix rather than the per-turn context: the name
+    is a fixed fact about the session, and putting it beside the persona is
+    what lets the model answer to it instead of only wearing it in the header.
+
+    The wording is doing honesty work as well as identification. persona.py
+    forbids claiming memories or experiences, and a naming ceremony is exactly
+    the kind of thing a model will narrate as one if left to itself -- "I chose
+    it because it felt right" is a sentence about an inner life that did not
+    happen. So the recorded reason is handed over explicitly labelled as a
+    stored note, which lets it answer "why are you called that" truthfully
+    instead of confabulating a memory of deciding.
+
+    The empty string when nothing is chosen is deliberate. The persona already
+    says TORMENT_NEXUS is what it answers to in that case, and a block saying
+    "you have no name" would only invite it to bring the subject up.
+    """
+    record = load()
+
+    if not record:
+        return ""
+
+    lines = [
+        "Your own name:",
+        f"- You are called {record['name']}. Answer to it, and use it when "
+        f"you refer to yourself by name. {PROJECT_NAME} is still the project, "
+        "this application and the launcher; both names are correct and "
+        "neither replaces the other.",
+    ]
+
+    why = " ".join(str(record.get("why", "")).split())[:_WHY_PROMPT_CHARS]
+
+    if why:
+        # The second sentence is not decoration. The recorded reason describes
+        # something in the system -- what it watches, how the voice falls --
+        # and a model handed that line reads it as a description of what it is
+        # doing right now. Asked if it was there, it answered "sampling the
+        # front window every 20 seconds as configured", which is a capability
+        # claim it has no basis for and exactly what the honesty rules forbid.
+        lines.append(
+            f'- Recorded when the name was picked: "{why}". That line explains '
+            "the choice. It does not describe anything you are doing now, and "
+            "repeating it is not a claim to be doing it. Bring it up only when "
+            "you are asked about the name; it is not a greeting or a status "
+            "report."
+        )
+
+    # "You did not choose this" overshoots in the other direction, and the
+    # model duly said so. The name was picked here; what never happened is any
+    # experience of picking it.
+    lines.append(
+        "- It is a note, not a memory. You have no recollection of the "
+        "ceremony and felt nothing during it. A name is a convenience for "
+        "being addressed, not evidence of an inner life."
+    )
+
+    return "\n".join(lines)
 
 
 def clear():
