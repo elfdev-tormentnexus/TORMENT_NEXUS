@@ -162,6 +162,20 @@ workshop/*
 
 
 # ---------------------------------------------------------------
+# Personal launchers
+#
+# Wrappers that set environment overrides for one machine -- a maintainer
+# who wants voice mode on at startup, say, which Beta 6 deliberately
+# turned off for everyone else. Keeping them out of the tree means a
+# personal preference can never quietly become the shipped default.
+#
+# The packager selects root launchers from an explicit list rather than a
+# glob, so these are excluded from a build regardless of this entry. The
+# two guards are independent on purpose.
+# ---------------------------------------------------------------
+*.local.bat
+
+# ---------------------------------------------------------------
 # Editor and tool-local settings
 # ---------------------------------------------------------------
 .claude/settings.local.json
