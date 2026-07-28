@@ -79,6 +79,15 @@ REASSEMBLER_NAME = f"REASSEMBLE_{ARCHIVE_STEM}.bat"
 # tools/build_docs_patch.py; absent is fine and the install continues.
 DOCS_PATCH_NAME = f"{PACKAGE_NAME}-{RELEASE_VERSION}-docs-patch.zip"
 
+# The opposite case, and the reason the two are separate assets. This one
+# replaces assistant/main.py, which the manifest hashes, so applying it makes
+# the installed tree diverge from the published archive on purpose. The
+# reassembler therefore names it and explains it but never runs it: the
+# choice is the operator's, and an unmentioned choice is not one. Built by
+# tools/build_ask_guard_patch.py.
+ASK_GUARD_PATCH_NAME = f"{PACKAGE_NAME}-{RELEASE_VERSION}-ask-guard-patch.zip"
+ASK_GUARD_INSTALLER = "INSTALL_ASK_GUARD_PATCH.bat"
+
 PYTHON_VERSION = "3.14.6"
 EMBED_URL = (f"https://www.python.org/ftp/python/{PYTHON_VERSION}"
              f"/python-{PYTHON_VERSION}-embed-amd64.zip")
@@ -1239,6 +1248,31 @@ def _write_reassembler(part_paths, target, archive_sha256):
         ":finished",
         "echo.",
         f"echo Done. Open the {PACKAGE_NAME} folder and run setup.bat.",
+        "echo.",
+        # The reassembler deliberately does not apply this one. It replaces a
+        # manifest-hashed file, so running it is the operator's decision --
+        # but the decision cannot be made by someone who never learns it
+        # exists, and this screen is the last thing they read.
+        f'set "ASKGUARD=%ROOT%\\{ASK_GUARD_INSTALLER}"',
+        'if exist "%ASKGUARD%" (',
+        "    echo One manual step is left, and nothing else will prompt",
+        "    echo for it. Move these two files into the "
+        f"{PACKAGE_NAME}",
+        f"    echo folder, then run {ASK_GUARD_INSTALLER}:",
+        "    echo.",
+        f"    echo     {ASK_GUARD_INSTALLER}",
+        f"    echo     {ASK_GUARD_PATCH_NAME}",
+        "    echo.",
+        "    echo It corrects an interface that answered questions about",
+        "    echo past conversations it never had. This script does not",
+        "    echo apply it, because unlike the documentation patch it",
+        "    echo replaces a file the release manifest hashes.",
+        ") else (",
+        f"    echo An optional patch named {ASK_GUARD_INSTALLER}",
+        "    echo on the release page corrects an interface that answered",
+        "    echo questions about past conversations it never had. It is",
+        "    echo applied by hand and is safe to skip.",
+        ")",
         "pause",
         "",
     ))

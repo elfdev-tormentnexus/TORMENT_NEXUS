@@ -116,7 +116,9 @@ Run the reassembler and leave it alone. It does the whole sequence:
 2. checks the complete ZIP against its embedded SHA-256, and **deletes a
    mismatch** rather than presenting a damaged archive as installable;
 3. extracts the package;
-4. applies the documentation patch if it is present.
+4. applies the documentation patch if it is present;
+5. finishes by naming the one step it deliberately does **not** perform —
+   the `/ask` guard patch below.
 
 Then open the `TORMENT_NEXUS` folder and run `setup.bat`.
 
@@ -164,8 +166,8 @@ the first value automatically; the rest are for verifying individual downloads.
 | `.zip.part04` | 2,080,374,784 | `FCD6AF853B42626177C683EA68A21329FDDABC031F476CE772FC7D5C929DDEFF` |
 | `.zip.part05` | 2,080,374,784 | `B74AA7B6147C463F4269DC6ACDD4D3781711C66560D6EBBAE7B1002B6F06E789` |
 | `.zip.part06` | 1,978,832,443 | `A346A56A148A7EAE8BFA55F284DDC3028518DDB90E10EC2E730F1236448B236B` |
-| `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` | 3,906 | `9FE13AA4097E21C68CCBB3814541AC831408A63DA037ECF63E3103A96AFDA5BB` |
-| `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` | 18,018 | `6199E40E6958E4FF83B2D09F1F600F4B447A510C33D31715570C1E04B8A9DE80` |
+| `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` | 4,796 | `90FB1C8FF448D70AF7C155B0735747D7E5D8BDDC1F31C2A7D17CA45E9DFF5E7F` |
+| `TORMENT_NEXUS-v0.2.0-beta.6-docs-patch.zip` | 18,056 | `2CD4EFB6BB6F965A25176AD3014D47A1F12C88684F84D449C358ABBC40B87276` |
 
 ### Optional interface-mode add-on
 
