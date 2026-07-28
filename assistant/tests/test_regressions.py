@@ -53,6 +53,7 @@ from core import system_awareness
 from core import wifi_experimental
 from visualizer import datastream
 from visualizer import audio_source
+from visualizer import cube as cube_visual
 from visualizer import local_player
 from visualizer import music_metadata
 from visualizer import reactivity
@@ -8147,6 +8148,89 @@ class GuardDoctorTests(unittest.TestCase):
             for path in edit_guard.list_editable_files()
         }
         self.assertNotIn("editing/guard_doctor.py", editable)
+
+
+class MusicCubeBoundsTests(unittest.TestCase):
+    """
+    The bounce box and the drawn shape were separate formulas in different
+    units -- cells against pixels -- and disagreed by up to four times, so
+    the cube turned around long after most of it had left the screen.
+    _line() clips out-of-bounds pixels silently, which is why this degraded
+    into a visual oddity instead of failing.
+    """
+
+    FIELDS = ((160, 44), (120, 34), (80, 24))
+
+    def _cube(self, bass=0.0):
+        instance = cube_visual.CubeVisualizer(palette=(0,) * 9)
+        instance.bass = bass
+        return instance
+
+    def _drawn_half_width(self, cube, width, height, level, samples=6):
+        """Furthest any projected vertex reaches, over the rotation space."""
+        scale_x, scale_y = cube._scales(width, height, level)
+        step = math.tau / samples
+        worst = 0.0
+
+        for i in range(samples):
+            for j in range(samples):
+                for k in range(samples):
+                    angle = (i * step, j * step, k * step)
+
+                    for vertex in cube_visual._VERTICES:
+                        x, _y = cube_visual.CubeVisualizer._project(
+                            cube_visual.CubeVisualizer._rotate(vertex, angle),
+                            scale_x,
+                            scale_y,
+                        )
+                        worst = max(worst, abs(x))
+
+        return worst
+
+    def test_the_drawn_cube_is_contained_at_ordinary_loudness(self):
+        for width, height in self.FIELDS:
+            for bass, level in ((0.0, 0.0), (0.5, 0.5)):
+                with self.subTest(field=(width, height), bass=bass):
+                    cube = self._cube(bass)
+                    half_w, _half_h = cube._half_extents(width, height, level)
+                    drawn = self._drawn_half_width(cube, width, height, level)
+
+                    self.assertLessEqual(drawn, half_w * cube_visual.CELL_W * 1.02)
+
+    def test_the_worst_case_overshoot_stays_small(self):
+        # At once-maximal bass and level the cube is genuinely wider than
+        # the terminal. It clips rather than freezing centre-screen, but
+        # the clip is bounded -- it used to reach four times the box.
+        for width, height in self.FIELDS:
+            with self.subTest(field=(width, height)):
+                cube = self._cube(1.0)
+                half_w, _half_h = cube._half_extents(width, height, 1.0)
+                drawn = self._drawn_half_width(cube, width, height, 1.0)
+
+                self.assertLess(drawn / (half_w * cube_visual.CELL_W), 1.25)
+
+    def test_the_cube_always_keeps_room_to_travel(self):
+        for width, height in self.FIELDS:
+            for bass, level in ((0.0, 0.0), (0.5, 0.5), (1.0, 1.0)):
+                with self.subTest(field=(width, height), bass=bass):
+                    cube = self._cube(bass)
+                    half_w, half_h = cube._half_extents(width, height, level)
+
+                    self.assertGreater(width, half_w * 2.0)
+                    self.assertGreater(height, half_h * 2.0)
+
+    def test_a_louder_passage_grows_the_box_with_the_cube(self):
+        quiet = self._cube(0.0)._half_extents(160, 44, 0.0)[0]
+        loud = self._cube(0.9)._half_extents(160, 44, 0.9)[0]
+
+        self.assertGreater(loud, quiet)
+
+    def test_the_box_and_the_render_read_the_same_scale(self):
+        # The defect was two formulas, not one wrong number. If render()
+        # stops sourcing its scale from _scales() this goes quiet again.
+        source = inspect.getsource(cube_visual.CubeVisualizer.render)
+
+        self.assertIn("self._scales(", source)
 
 
 class EntropyStripTests(unittest.TestCase):

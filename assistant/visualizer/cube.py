@@ -12,6 +12,12 @@ import math
 
 CELL_W = 2
 CELL_H = 4
+
+# How far a unit cube's furthest vertex reaches, as a multiple of the
+# projection scale, taken over the whole rotation space. Measured rather
+# than derived: the perspective factor depth/(depth + z) is part of it, so
+# the reach is not simply the sqrt(3) of the cube's own diagonal.
+PROJECTION_REACH = 2.0
 _BRAILLE_WEIGHTS = (
     (0x01, 0x08),
     (0x02, 0x10),
@@ -100,6 +106,7 @@ class CubeVisualizer:
         mid = self._clamp(features.get("mid", 0.0))
         treble = self._clamp(features.get("treble", 0.0))
         beat = self._clamp(features.get("beat", 0.0))
+        level = self._clamp(features.get("level", 0.0))
 
         self.bass += (bass - self.bass) * response
         self.mid += (mid - self.mid) * response
@@ -113,8 +120,7 @@ class CubeVisualizer:
 
         width = max(1, int(width))
         height = max(1, int(height))
-        half_w = max(2.0, min(width * 0.23, height * 0.46))
-        half_h = max(1.0, half_w * 0.48)
+        half_w, half_h = self._half_extents(width, height, level)
 
         if width <= half_w * 2.0:
             self.x = width * 0.5
@@ -144,6 +150,43 @@ class CubeVisualizer:
 
         self.flash = max(0.0, self.flash - dt * 2.2)
 
+    def _scales(self, width, height, level):
+        """The projection scales render() will use, from the same numbers."""
+        pixel_w = max(1, int(width)) * CELL_W
+        pixel_h = max(1, int(height)) * CELL_H
+        base = max(1.5, min(pixel_w, pixel_h * 2.0) * 0.145)
+
+        return (
+            base * (1.0 + self.bass * 0.58 + level * 0.20),
+            base * 0.50 * (1.0 + level * 0.58 - self.bass * 0.10),
+        )
+
+    def _half_extents(self, width, height, level):
+        """
+        How far the drawn cube actually reaches, in cells.
+
+        The bounce box used to be its own invention -- fractions of the
+        terminal size with no relation to the projection -- while the shape
+        was sized in pixels by an unrelated formula that also grows with
+        bass and level. The cube therefore turned around when its CENTRE
+        came within about 40 pixels of the edge while the shape itself
+        reached two to four times that, and _line() clips out-of-bounds
+        pixels silently, so it slid off the screen rather than complaining.
+        """
+        scale_x, scale_y = self._scales(width, height, level)
+
+        half_w = scale_x * PROJECTION_REACH / CELL_W
+        half_h = scale_y * PROJECTION_REACH / CELL_H
+
+        # Never claim more than this much of the field. At once-maximal bass
+        # and level the cube is genuinely wider than the terminal, and an
+        # honest box would leave it nowhere to travel and freeze it
+        # mid-screen. It clips a little there instead, and keeps moving.
+        return (
+            max(2.0, min(half_w, width * 0.45)),
+            max(1.0, min(half_h, height * 0.45)),
+        )
+
     def _bounce(self):
         self.bounces += 1
         self.flash = 1.0
@@ -167,16 +210,9 @@ class CubeVisualizer:
 
         centre_x = min(pixel_w - 1, max(0, int(self.x * CELL_W)))
         centre_y = min(pixel_h - 1, max(0, int(self.y * CELL_H)))
-        base = max(
-            1.5,
-            min(pixel_w, pixel_h * 2.0) * 0.145,
-        )
-        scale_x = base * (1.0 + self.bass * 0.58 + level * 0.20)
-        scale_y = (
-            base
-            * 0.50
-            * (1.0 + level * 0.58 - self.bass * 0.10)
-        )
+        # Shared with the bounce box in step(), which is the whole point:
+        # the two were separate formulas and disagreed by a factor of four.
+        scale_x, scale_y = self._scales(width, height, level)
 
         # Two restrained afterimages turn movement into a translucent trail
         # instead of a single screensaver object crossing an empty field.
