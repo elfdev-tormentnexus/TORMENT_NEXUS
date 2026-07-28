@@ -7,17 +7,25 @@ Written 2026-07-28 at the end of the session that executed
 
 - **Branch:** `beta-5.1-guardrail-and-latency` (not merged, not pushed)
 - **Base:** `ef10a4c` — Codex's `v0.2.0-beta.5` release, already on GitHub
-- **Suite:** 436 tests, green, ~19s
+- **Suite:** 497 tests, green, ~20s
 - **Untracked and not mine:** `CODEX_HANDOFF.md`, `README_DRAFT_BETA5.md`.
   Leave them alone.
-
-Three commits:
 
 | Commit | What |
 |---|---|
 | `fe4cb72` | The five 5.1 fixes plus tests |
 | `6e1fc82` | Three plan docs, the panel renderer, the logprobs probe |
 | `4676b95` | `guard doctor` plus tests |
+| `8bd8f28` | Handoff to a fresh context |
+| `b5f7947` | `offline_voice.py` and `stream_filter.py` off the unattended list |
+| `9cdefda` | POSIX launchers pointed at the project root |
+| `1b7f2cd` | CI: the suite on every push |
+| `7feb0ef` | Panel gutter reserved, chat rewrapped |
+| `edd33a9` | Two gitignore rules anchored |
+| `da178cf` | Memory cloud rendered (stage 1) |
+| `b9bdaad` | Entropy strip fed from logprobs |
+| `6bea453` | Music cube bounced against its drawn size |
+| `7b3507d` | Read-only agent interface |
 
 ## What was done
 
@@ -60,17 +68,32 @@ design — each is a question, not a bug.
 
 ## Next, in order
 
-From `BETA5_DLC_PLAN.md`. Steps 1–2 are done.
+From `BETA5_DLC_PLAN.md`. Steps 1–6 are done.
 
-3. **CI.** The suite is 19 seconds and runs when someone remembers.
-4. **Panel layout, alone.** Reserve the right gutter, rewrap chat, draw an
-   *empty bordered panel*. No rendering. Re-run operator tests 11, 12 and
-   35–38. This is the risky change — it touches chat wrap, the input line and
-   the pager. `ui/vector_panel.py` already works standalone, so the renderer
-   is not the risk; the geometry is.
-5. Stage 1 cloud + entropy strip.
-6. Agent interface — own branch, own review. It is an auth boundary.
-7. Research instrumentation, then embeddings, then multilingual.
+7. **Research instrumentation.** The three probes in `BETA5_DLC_PLAN.md` §9.
+   Now genuinely cheap: the agent interface is the instrument they needed.
+8. **TUI test harness.** Still the highest-leverage gap — every layer beneath
+   the terminal is tested and the layer the operator touches is not.
+9. Embeddings, then panel stage 2, then the code index. **Blocked on
+   hardware:** the Pi 5 has not arrived, and the plan says to measure RAM
+   against its budget before committing to a model.
+10. Multilingual, staged per the table in the plan. Months, not days.
+
+### Open, and owed a real answer
+
+- **The streamed logprobs shape and cost are unverified.** The suite shuts
+  the model server down when it finishes, so there was none running by the
+  time the strip was built. `tools/probe_logprobs.py` established the
+  *non-streaming* shape; the streamed one is assumed to match and the parser
+  is written to survive it not matching. Start the app and re-probe before
+  trusting the latency.
+- **Operator tests 11, 12 and 35–38 have not been re-run.** The panel
+  geometry is covered by nine regression tests and was eyeballed as a
+  rendered frame, but nobody has driven it by hand.
+- **The agent interface wants a proper review.** It landed here because it
+  was asked for; `BETA5_DLC_PLAN.md` keeping it out of the DLC tier because
+  it is an auth boundary has not stopped being right.
+- **`guard doctor` still reports four**, unchanged and unresolved by design.
 
 ## Facts that cost real time to establish
 
