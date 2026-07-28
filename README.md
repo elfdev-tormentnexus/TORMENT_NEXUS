@@ -176,11 +176,15 @@ In music mode:
 | `[` / `]` | Lower / raise local-song volume |
 | Ctrl+B | Leave music mode |
 
-Scenes rotate every 2 minutes 45 seconds, and colours change automatically
-every 20 seconds. Space affects local music only; it does not control Spotify
-or browser audio. Each scene gives different emphasis to bass, beats, melody,
-treble, stereo movement, and the real waveform for larger, more dramatic
-changes.
+There are eight scenes: the radial tunnel, spectrum cathedral, orbital
+reactor, corrupt cube, neon horizon, plasma flow, datastream rain, and
+wormhole. They rotate every 2 minutes 45 seconds, so a full pass takes about
+22 minutes, and colours change automatically every 20 seconds. Use Left and
+Right to reach one without waiting.
+
+Space affects local music only; it does not control Spotify or browser audio.
+Each scene gives different emphasis to bass, beats, melody, treble, stereo
+movement, and the real waveform for larger, more dramatic changes.
 
 Local-library repeat is on by default. When a local song ends, the next
 filename in the library starts automatically; after the last song, playback

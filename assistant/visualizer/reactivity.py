@@ -46,6 +46,59 @@ _PROFILES = {
         "waveform": 1.36,
         "pan": 1.42,
     },
+    # Travel and terrain are both bass-driven, and the skyline is cut
+    # straight from the spectrum, so both are pushed hardest here.
+    "neon horizon": {
+        "bass": (1.52, 0.62),
+        "mid": (1.24, 0.76),
+        "treble": (1.30, 0.72),
+        "level": (1.40, 0.70),
+        "beat": (1.72, 0.74),
+        "stereo_width": (1.22, 0.80),
+        "spectrum": (1.50, 0.60),
+        "waveform": 1.40,
+        "pan": 1.24,
+    },
+    # The softest profile of the set. Blob drift follows mids, and an
+    # aggressive beat gain would put a hard edge on a deliberately
+    # edgeless scene.
+    "plasma flow": {
+        "bass": (1.36, 0.70),
+        "mid": (1.54, 0.60),
+        "treble": (1.22, 0.78),
+        "level": (1.50, 0.66),
+        "beat": (1.58, 0.78),
+        "stereo_width": (1.30, 0.74),
+        "spectrum": (1.24, 0.74),
+        "waveform": 1.30,
+        "pan": 1.30,
+    },
+    # Column speed rides on treble and glyph corruption rides on beats,
+    # so those two carry the scene and the rest stays out of the way.
+    "datastream rain": {
+        "bass": (1.26, 0.76),
+        "mid": (1.32, 0.72),
+        "treble": (1.70, 0.54),
+        "level": (1.34, 0.74),
+        "beat": (2.10, 0.66),
+        "stereo_width": (1.20, 0.82),
+        "spectrum": (1.44, 0.62),
+        "waveform": 1.34,
+        "pan": 1.16,
+    },
+    # The most transient-driven scene there is: a beat throws the whole
+    # starfield forward, so this carries the strongest beat gain.
+    "wormhole": {
+        "bass": (1.60, 0.58),
+        "mid": (1.28, 0.74),
+        "treble": (1.36, 0.70),
+        "level": (1.44, 0.68),
+        "beat": (2.25, 0.64),
+        "stereo_width": (1.32, 0.72),
+        "spectrum": (1.30, 0.70),
+        "waveform": 1.42,
+        "pan": 1.38,
+    },
 }
 
 _DEFAULT_PROFILE = _PROFILES["radial tunnel"]

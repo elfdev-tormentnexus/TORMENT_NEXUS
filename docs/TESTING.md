@@ -35,6 +35,11 @@ scrolling or jittering diagnostic line beneath it. Check that quiet passages
 remain active and that bass, beat, melody, and treble changes produce obvious
 scene movement. Confirm the colour palette changes after 20 seconds, Space
 advances to the next local song, Left/Right changes scenes, and Ctrl+B exits.
+
+Press Right through all eight scenes and confirm each one draws: radial
+tunnel, spectrum cathedral, orbital reactor, corrupt cube, neon horizon,
+plasma flow, datastream rain, and wormhole. Resize the terminal while a scene
+is running and confirm it reflows without an exception or leftover columns.
 Confirm `music mode` can still open the visualizer manually and `stop` stops
 local playback.
 

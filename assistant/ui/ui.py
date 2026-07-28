@@ -1921,6 +1921,10 @@ class LayeredDisplayEngine:
         "spectrum cathedral",
         "orbital reactor",
         "corrupt cube",
+        "neon horizon",
+        "plasma flow",
+        "datastream rain",
+        "wormhole",
     )
     _MUSIC_SCENE_ROTATION_SECONDS = 165
     _MUSIC_PALETTE_ROTATION_SECONDS = 20
@@ -2846,6 +2850,18 @@ def _make_music_scene(name, palette):
     if name == "corrupt cube":
         from visualizer.cube import CubeVisualizer
         return CubeVisualizer(palette)
+    if name == "neon horizon":
+        from visualizer.grid import GridVisualizer
+        return GridVisualizer(palette)
+    if name == "plasma flow":
+        from visualizer.plasma import PlasmaVisualizer
+        return PlasmaVisualizer(palette)
+    if name == "datastream rain":
+        from visualizer.datastream import DatastreamVisualizer
+        return DatastreamVisualizer(palette)
+    if name == "wormhole":
+        from visualizer.wormhole import WormholeVisualizer
+        return WormholeVisualizer(palette)
     raise ValueError(f"Unknown music scene: {name}")
 
 

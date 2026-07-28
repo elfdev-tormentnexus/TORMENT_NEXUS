@@ -189,9 +189,10 @@ LESSONS = [
             "'repeat music on' to restore continuous playback.\n"
             "Space plays the next song in your local music folder, Left/Right\n"
             "changes the scene, [ and ] change local-song volume, and Ctrl+B\n"
-            "exits. Scenes also rotate automatically every 2:45. The 'volume'\n"
-            "command affects local songs only; Spotify and browser audio use\n"
-            "their own controls."
+            "exits. There are eight scenes, and they also rotate automatically\n"
+            "every 2:45, so use Left and Right if you would rather not wait.\n"
+            "The 'volume' command affects local songs only; Spotify and browser\n"
+            "audio use their own controls."
         ),
         "commands": ["music library", "play", "spotify", "pause local",
                      "resume local", "stop music", "now playing", "music mode",

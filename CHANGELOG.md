@@ -12,6 +12,14 @@
   novice installer that applies it automatically to the original release ZIP.
 - Made local music continue through the name-sorted library automatically,
   wrapping from the last track to the first, with `repeat music on/off`.
+- Doubled the visualizer to eight scenes with four new ones: a neon horizon of
+  wireframe ground running to a banded sun behind a spectrum-cut skyline; a
+  plasma flow of merging liquid blobs; a datastream rain of falling glyph
+  columns that corrupt on beats; and a wormhole of projected stars streaking
+  through a flexing tunnel.
+- Gave each new scene its own audio response profile, so the horizon follows
+  bass and spectrum, the plasma follows mids, the rain follows treble, and the
+  wormhole follows beats.
 - Reorganized the GitHub landing page around a clear novice Windows install.
 - Added dedicated Windows installation, first-session, and troubleshooting
   guides.

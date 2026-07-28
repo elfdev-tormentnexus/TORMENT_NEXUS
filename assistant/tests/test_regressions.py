@@ -40,6 +40,7 @@ from project import project_builder
 from ui import ui
 from voice import offline_voice
 from voice import session as voice_session
+from visualizer import datastream
 from visualizer import local_player
 from visualizer import music_metadata
 from visualizer import reactivity
@@ -48,6 +49,10 @@ from visualizer.cube import CubeVisualizer
 from visualizer.radial import RadialVisualizer
 from visualizer.spectrum import SpectrumVisualizer
 from visualizer.reactor import ReactorVisualizer
+from visualizer.grid import GridVisualizer
+from visualizer.plasma import PlasmaVisualizer
+from visualizer.datastream import DatastreamVisualizer
+from visualizer.wormhole import WormholeVisualizer
 
 # The desktop icon animator lives beside the assistant package, not in it.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
@@ -2250,6 +2255,10 @@ class MusicVisualizerTests(unittest.TestCase):
             SpectrumVisualizer,
             ReactorVisualizer,
             CubeVisualizer,
+            GridVisualizer,
+            PlasmaVisualizer,
+            DatastreamVisualizer,
+            WormholeVisualizer,
         ):
             with self.subTest(scene=scene_class.__name__):
                 visualizer = scene_class(palette)
@@ -2272,6 +2281,10 @@ class MusicVisualizerTests(unittest.TestCase):
             SpectrumVisualizer,
             ReactorVisualizer,
             CubeVisualizer,
+            GridVisualizer,
+            PlasmaVisualizer,
+            DatastreamVisualizer,
+            WormholeVisualizer,
         ):
             with self.subTest(scene=scene_class.__name__):
                 visualizer = scene_class(palette)
@@ -2332,6 +2345,161 @@ class MusicVisualizerTests(unittest.TestCase):
         self.assertGreater(reactor["bass"], radial["bass"])
         self.assertGreater(cube["treble"], cathedral["treble"])
         self.assertGreater(cube["beat"], radial["beat"])
+
+    def test_every_listed_scene_can_actually_be_constructed(self):
+        """A name in the rotation with no factory branch only fails on air."""
+        palette = tuple(f"color-{index}" for index in range(9))
+
+        for scene_name in ui._engine._MUSIC_SCENES:
+            with self.subTest(scene=scene_name):
+                scene = ui._make_music_scene(scene_name, palette)
+                self.assertTrue(hasattr(scene, "step"))
+                self.assertTrue(hasattr(scene, "render"))
+
+    def test_every_listed_scene_has_its_own_reactivity_profile(self):
+        """
+        A missing profile silently falls back to the radial tunnel's, so the
+        scene still runs and nothing complains -- it just stops responding to
+        the part of the music it was built around.
+        """
+        for scene_name in ui._engine._MUSIC_SCENES:
+            with self.subTest(scene=scene_name):
+                self.assertIn(scene_name, reactivity._PROFILES)
+
+    def test_added_scenes_survive_a_terminal_resize_between_frames(self):
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        palette = tuple(f"color-{index}" for index in range(9))
+        features = self._features()
+
+        for scene_class in (
+            GridVisualizer,
+            PlasmaVisualizer,
+            DatastreamVisualizer,
+            WormholeVisualizer,
+        ):
+            with self.subTest(scene=scene_class.__name__):
+                visualizer = scene_class(palette)
+
+                for width, height in ((48, 16), (120, 40), (7, 3), (60, 20)):
+                    visualizer.step(0.05, features, width, height)
+                    frame = visualizer.render(width, height, features)
+                    self.assertEqual(len(frame), height)
+                    self.assertTrue(
+                        all(len(row) == width for row in frame)
+                    )
+
+    def test_added_scenes_tolerate_silence_and_a_one_cell_viewport(self):
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        for scene_class in (
+            GridVisualizer,
+            PlasmaVisualizer,
+            DatastreamVisualizer,
+            WormholeVisualizer,
+        ):
+            with self.subTest(scene=scene_class.__name__):
+                visualizer = scene_class(("dim", "bright"))
+                visualizer.step(0.05, {}, 1, 1)
+                frame = visualizer.render(1, 1, {})
+                self.assertEqual(len(frame), 1)
+                self.assertEqual(len(frame[0]), 1)
+
+    def test_datastream_draws_readable_glyphs_rather_than_braille(self):
+        try:
+            import numpy  # noqa: F401
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        palette = tuple(f"color-{index}" for index in range(9))
+        visualizer = DatastreamVisualizer(palette)
+        features = self._features()
+        visualizer.step(0.08, features, 60, 20)
+        frame = visualizer.render(60, 20, features)
+        cells = [cell for row in frame for cell in row if cell]
+
+        self.assertTrue(cells)
+        self.assertTrue(
+            all(cell[0] in datastream._GLYPHS for cell in cells)
+        )
+        self.assertFalse(
+            any(0x2800 <= ord(cell[0]) <= 0x28FF for cell in cells)
+        )
+
+    def test_datastream_corrupts_more_glyphs_on_a_beat(self):
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        palette = tuple(f"color-{index}" for index in range(9))
+        quiet_features = dict(self._features(), beat=0.0, treble=0.0)
+        loud_features = dict(self._features(), beat=1.0, treble=0.0)
+
+        def churn(features):
+            visualizer = DatastreamVisualizer(palette)
+            visualizer.render(60, 20, features)
+            before = visualizer._glyphs.copy()
+            visualizer.step(0.05, features, 60, 20)
+            visualizer.render(60, 20, features)
+            return float(np.mean(before != visualizer._glyphs))
+
+        self.assertGreater(churn(loud_features), churn(quiet_features) + 0.10)
+
+    def test_wormhole_recycled_star_does_not_streak_across_the_screen(self):
+        """
+        A star that passes the eye reappears at the far plane. If its trail
+        is not reset with it, the next frame joins the old position to the
+        new one and draws a line straight through the viewport.
+        """
+        try:
+            import numpy as np
+        except ImportError:
+            self.skipTest("numpy is installed by the optional voice setup")
+
+        palette = tuple(f"color-{index}" for index in range(9))
+        visualizer = WormholeVisualizer(palette)
+        features = dict(self._features(), bass=1.0, beat=1.0)
+        visualizer.render(60, 20, features)
+
+        for _ in range(400):
+            visualizer.step(0.05, features, 60, 20)
+            self.assertTrue(
+                bool(np.all(visualizer._prev_z >= visualizer._z - 1e-6))
+            )
+
+    def test_plasma_shock_ring_travels_under_a_sustained_beat(self):
+        """
+        Retriggering on any beat above the envelope pins the ring at radius
+        zero for as long as a loud passage lasts, so it never travels.
+        """
+        palette = tuple(f"color-{index}" for index in range(9))
+        visualizer = PlasmaVisualizer(palette)
+        features = dict(self._features(), beat=0.55)
+
+        for _ in range(60):
+            visualizer.step(0.05, features, 48, 16)
+
+        self.assertGreater(visualizer.ripple, 1.0)
+
+    def test_plasma_shock_ring_restarts_on_a_real_transient(self):
+        palette = tuple(f"color-{index}" for index in range(9))
+        visualizer = PlasmaVisualizer(palette)
+
+        for _ in range(20):
+            visualizer.step(0.05, dict(self._features(), beat=0.05), 48, 16)
+
+        travelled = visualizer.ripple
+        visualizer.step(0.05, dict(self._features(), beat=0.9), 48, 16)
+
+        self.assertGreater(travelled, 0.5)
+        self.assertLess(visualizer.ripple, 0.2)
 
 
 class AudioModeUiTests(unittest.TestCase):

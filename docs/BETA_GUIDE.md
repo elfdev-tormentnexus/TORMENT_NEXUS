@@ -85,7 +85,7 @@ instead of spoken so the voice does not cover the opening. Each scene uses a
 different, heightened response to bass, beats, melody, treble, stereo movement,
 and waveform detail. In music mode:
 
-- scenes rotate every 2 minutes 45 seconds;
+- there are eight scenes, rotating every 2 minutes 45 seconds;
 - colours change every 20 seconds;
 - Left and Right change the scene;
 - Space plays the next local song;

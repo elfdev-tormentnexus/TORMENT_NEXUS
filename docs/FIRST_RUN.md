@@ -87,11 +87,16 @@ new local song:
 | `[` / `]` | Change local-song volume in 5% steps |
 | Ctrl+B | Exit the visualizer |
 
-The scene changes every 2 minutes 45 seconds. The colour palette changes every
-20 seconds. Space does not skip Spotify or browser audio. The scenes use
-different response profiles: bass expands the tunnel and reactor, spectrum
-detail raises the cathedral, and mids and treble drive the cube's motion and
-corruption.
+There are eight scenes. The scene changes every 2 minutes 45 seconds, so
+seeing all of them takes about 22 minutes; Left and Right reach one without
+waiting. The colour palette changes every 20 seconds. Space does not skip
+Spotify or browser audio.
+
+The scenes use different response profiles: bass expands the tunnel and
+reactor and drives the neon horizon forward, spectrum detail raises the
+cathedral, mids and treble drive the cube's motion and corruption, mids move
+the plasma flow, treble sets the speed of the datastream rain, and beats throw
+the wormhole starfield forward.
 
 Local-library repeat is on by default. A finished local song advances to the
 next filename, and the last song returns to the first. Use:
