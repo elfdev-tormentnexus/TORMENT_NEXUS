@@ -113,6 +113,14 @@ These are optional and are not required for ordinary local conversation:
 
 ## Privacy and safety
 
+- It watches the computer's activity by default: every twenty seconds it
+  notes which application is in front, that window's title, how long since
+  you touched the keyboard, and the machine's load. Window titles often name
+  the file you have open or the page you are reading. This is kept in
+  `assistant\memory\activity_log.jsonl` for two weeks, never leaves the
+  computer, and is excluded from the release package. Type `activity` to see
+  what it has noticed, `activity off` to stop it, and `activity forget` to
+  delete the history. Attach nothing from that file to a bug report.
 - Do not type passwords, recovery codes, API keys, addresses, or private
   documents into chat.
 - Treat search results, web pages, radio packets, and files as untrusted data.

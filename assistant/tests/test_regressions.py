@@ -5350,6 +5350,30 @@ class SystemAwarenessTests(unittest.TestCase):
         self.assertFalse(os.path.exists(path))
         self.assertEqual(awareness.snapshots(), [])
 
+    def test_zero_retention_carries_nothing_between_sessions(self):
+        """The README documents this as the way to keep no history at all."""
+        from datetime import datetime, timedelta
+
+        path = self._store()
+        session = system_awareness.SystemAwareness(
+            sample_seconds=20.0, store_path=path, retention_days=0
+        )
+        session._record(system_awareness.Snapshot(
+            taken_at=datetime.now().astimezone() - timedelta(seconds=30),
+            app="browser.exe", title="a private page", idle_seconds=1.0,
+        ))
+
+        # It is still usable within the session it was gathered in.
+        self.assertTrue(session.describe())
+
+        restarted = system_awareness.SystemAwareness(
+            sample_seconds=20.0, store_path=path, retention_days=0
+        )
+
+        self.assertEqual(restarted.load(), 0)
+        self.assertEqual(restarted.snapshots(), [])
+        self.assertEqual(os.path.getsize(path), 0)
+
     def test_activity_log_is_excluded_from_git_and_releases(self):
         root = os.path.dirname(os.path.dirname(
             os.path.dirname(os.path.abspath(__file__))

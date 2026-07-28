@@ -113,18 +113,44 @@ answers.
 - Read the computer's local clock during each reply, allowing it to understand
   the current date and time, session length, and the gap since the previous
   conversation.
+- Notice what is happening on the computer around it: which application is in
+  front, how long you have been away from the keyboard, and how hard the
+  machine is working. It may remark on this during a long silence.
 - Find and play music placed in its local music folder, including casually
-  typed song names.
-- Display a psychedelic Y2K music visualizer with rotating scenes and colours.
+  typed song names, and keep playing through the library on its own.
+- Display a psychedelic Y2K music visualizer with eight rotating scenes and
+  colours, all reacting to the music.
 - Show long replies one page at a time so instructions do not disappear above
   the screen.
 - Optionally connect to separately configured web search, Spotify, Raspberry
   Pi, and Meshtastic hardware features.
 - Offer guarded, reviewable project-editing tools for advanced users.
 
-TORMENT_NEXUS is software with a deliberately stylized identity. Time
-awareness does not mean it watched, waited, thought, worked, felt, or remained
-conscious while the program was closed.
+TORMENT_NEXUS is software with a deliberately stylized identity. Neither time
+awareness nor activity awareness means it watched, waited, thought, worked,
+felt, or remained conscious. Both are records of things a sample or a
+timestamp recorded, and it is written to describe them that way.
+
+### Activity awareness and your privacy
+
+This feature is on by default and worth understanding before you use it.
+
+Every twenty seconds it notes which application is in front, that window's
+title, how long since you touched the keyboard, and the machine's load and
+battery. Window titles often contain the name of the file you have open, the
+page you are reading, or who you are talking to.
+
+- It is kept in `assistant\memory\activity_log.jsonl` for two weeks and then
+  discarded automatically.
+- It never leaves this computer, and it is excluded from the release package
+  and from anything you would attach to a bug report.
+- `activity` shows what it has noticed.
+- `activity off` stops it and clears what it had.
+- `activity forget` deletes the stored history immediately.
+
+To change how long it is kept, set `TORMENT_NEXUS_ACTIVITY_RETENTION_DAYS`.
+Setting it to `0` means the file is discarded the next time TORMENT_NEXUS
+starts, so nothing carries from one session to the next.
 
 ## Local by default, connected by choice
 
@@ -132,6 +158,7 @@ conscious while the program was closed.
 | --- | --- |
 | Conversation, model, memory, and speech | Nothing by default. These run locally. |
 | Time awareness | Nothing. It reads the computer's clock and saved conversation timestamps. |
+| Activity awareness | Nothing. Window titles and machine load are sampled into a local file kept for two weeks, excluded from releases, and erased by `activity forget`. |
 | Local music and visualizer | Nothing. Songs stay in the local music folder. |
 | Web search | Search text leaves the computer only when optional SearXNG search is configured and used. |
 | Spotify search | The search text is sent to MusicBrainz for public song metadata, then opened in the installed Spotify app. |

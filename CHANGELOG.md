@@ -20,6 +20,24 @@
 - Gave each new scene its own audio response profile, so the horizon follows
   bass and spectrum, the plasma follows mids, the rain follows treble, and the
   wormhole follows beats.
+- Gave the speaking voice somewhere to fall: more inflection inside a
+  sentence, a different pitch for each sentence, and endings that land low
+  instead of rising into their own full stop.
+- Stopped held sung notes from smearing their consonants, so the opening of
+  Daisy Bell articulates instead of blurring.
+- Made Daisy Bell open with the tune played on its own before the singing
+  starts, as the 1961 recording does.
+- Shortened the pause after a sentence now that the voice has a falling
+  ending of its own to signal one.
+- Made the voice-mode face react to the audio actually being spoken, so it
+  goes still between words and tears apart on a stressed syllable.
+- Added `activity`, an awareness of what is happening on this computer:
+  which application is in front, how long you have been away, and how hard
+  the machine is working. It is remembered for two weeks, never leaves this
+  computer, and `activity forget` erases it.
+- Made it remark on what it has noticed partway through a long silence,
+  before it asks whether you are still there.
+- Added an "about me" introduction from TORMENT_NEXUS before the tutorial.
 - Reorganized the GitHub landing page around a clear novice Windows install.
 - Added dedicated Windows installation, first-session, and troubleshooting
   guides.

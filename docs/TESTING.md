@@ -40,6 +40,26 @@ Press Right through all eight scenes and confirm each one draws: radial
 tunnel, spectrum cathedral, orbital reactor, corrupt cube, neon horizon,
 plasma flow, datastream rain, and wormhole. Resize the terminal while a scene
 is running and confirm it reflows without an exception or leftover columns.
+
+## 4b. Voice delivery and the reactive face
+
+Speak a few sentences and confirm each one ends lower than it began rather
+than rising into its full stop, and that consecutive sentences do not all sit
+at the same pitch. In voice mode, confirm the face is still between words and
+breaks apart on stressed syllables rather than churning at a constant rate.
+
+Run `sing daisy bell` and confirm the tune plays on its own for about a
+minute before the singing starts, and that the opening "Daisy, Daisy"
+articulates instead of smearing.
+
+## 4c. Activity awareness
+
+Type `activity` and confirm it reports the application actually in front.
+Leave the keyboard for six minutes and confirm it reports you as away rather
+than counting that time as use. Confirm `activity off` clears it, `activity
+on` resumes, and `activity forget` deletes
+`assistant\memory\activity_log.jsonl`. Restart and confirm what it noticed
+earlier is still there. Confirm the file never appears in `git status`.
 Confirm `music mode` can still open the visualizer manually and `stop` stops
 local playback.
 
