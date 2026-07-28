@@ -7,9 +7,6 @@ commit `97711ca`
 **Package checksums and manifest file count:** **339 hashed files**; every
 checksum is listed under [Package checksums](#package-checksums)
 
-Do not publish these notes while either verification line above is still
-provisional.
-
 ## Read this model disclosure before installing
 
 The base Windows package contains two **abliterated** language models:
@@ -19,18 +16,18 @@ The base Windows package contains two **abliterated** language models:
 | Director | `Qwen3-4B-abliterated-bf16_q8_0` | Ordinary conversation, goals, planning, and approval flow |
 | Autonomous coder | `Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0` | Separately launched, bounded project editing and repair |
 
-This is deliberately a complete, model-bearing release. Each shipped model
-is identified by its exact SHA-256 in the package manifest and
-[model disclosure](../MODELS.md); a similar filename or widespread
-availability on a model host does not establish that two files have the same
-provenance or redistribution terms. Beta testers accept the unresolved
-provenance/licensing points documented there rather than receiving a silently
-reduced package.
-
 An abliterated model is modified in a way that can weaken its normal refusal
 behaviour. That may make it more willing to answer; it does **not** make the
 answer true, legal, safe, unbiased, or appropriate. These models can produce
 confidently wrong or harmful instructions.
+
+This is deliberately a complete, model-bearing release. Each shipped model is
+identified by its exact SHA-256 in the package manifest and in the
+[model disclosure](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/blob/v0.2.0-beta.6/MODELS.md);
+a similar filename or widespread availability on a model host does not
+establish that two files have the same provenance or redistribution terms.
+Beta testers accept the unresolved provenance and licensing points documented
+there rather than receiving a silently reduced package.
 
 TORMENT_NEXUS uses trusted Python rules, protected files, previews, backups,
 fixed checks, tests, and rollback to constrain supported tool and editing
@@ -50,6 +47,79 @@ The ordinary launcher does not require terminal confirmation. First launch
 presents the mandatory in-app safety, privacy, and model disclosure. The
 maintenance, one-cycle autonomous-repair, and full-maintenance launchers show
 additional warnings and require exact typed acknowledgement before starting.
+
+## What is in the package
+
+- Qwen3 4B abliterated Q8 director;
+- Qwen2.5-Coder 7B abliterated Q8 autonomous coder;
+- bge-small-en-v1.5 Q8 embedding model;
+- offline speech recognition, speech output, Python runtime, and CPU
+  llama.cpp runtime.
+
+The `Qwen2.5-Coder-14B-Instruct-abliterated-Q4_K_M` full-maintenance model is
+not included. It ships as the separate optional add-on described below, so
+ordinary users are not forced to download it, and it is never a normal chat
+profile.
+
+## Installing the Windows package
+
+Download these assets into one folder:
+
+1. `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01` through `.part06` —
+   all six are required
+2. `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat`
+
+Run the reassembler. It joins the exact generated part set and automatically
+checks the complete ZIP against its embedded SHA-256. A mismatch is deleted
+instead of being presented as an installable package.
+
+After it reports **Verified**, extract
+`TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip`, open the extracted
+`TORMENT_NEXUS` folder, and run `setup.bat`.
+
+GitHub's automatic **Source code (zip)** and **Source code (tar.gz)** downloads
+are developer source snapshots. They do not contain the model weights,
+self-contained Python environment, or ready-to-run Windows package.
+
+### Package checksums
+
+SHA-256, with sizes in bytes. The reassembler checks the rejoined ZIP against
+the first value automatically; the rest are for verifying individual downloads.
+
+| Asset | Bytes | SHA-256 |
+| --- | --- | --- |
+| `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip` | 12,380,706,363 | `AC66CA1ACA80BFE21163BA41F0DB11AEA215617FAD0F48FF24FFA6A37B0AB1A9` |
+| `.zip.part01` | 2,080,374,784 | `B8B4B15876D0BFE8172B357DE8D057FCE31EDADBCDA878DA54444B4207192BD1` |
+| `.zip.part02` | 2,080,374,784 | `77EA52AC0F61BFE6451CC7EBC15A9D5EF7B80EA324C435BFC08932FB9D093799` |
+| `.zip.part03` | 2,080,374,784 | `BB529F78BC989C070B822B48509838E5FB1B374DF08B64E41FAC80D4EA96A891` |
+| `.zip.part04` | 2,080,374,784 | `FCD6AF853B42626177C683EA68A21329FDDABC031F476CE772FC7D5C929DDEFF` |
+| `.zip.part05` | 2,080,374,784 | `B74AA7B6147C463F4269DC6ACDD4D3781711C66560D6EBBAE7B1002B6F06E789` |
+| `.zip.part06` | 1,978,832,443 | `A346A56A148A7EAE8BFA55F284DDC3028518DDB90E10EC2E730F1236448B236B` |
+| `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` | 2,503 | `3A7BC77FF8D2BA0174D67028F2036C16D5B2A32ED480FBDE6050295830FEAF6D` |
+
+### Optional full-maintenance model add-on
+
+Advanced users who deliberately want the preserved 14B full-maintenance
+profile must also download all five consecutive
+`Qwen2.5-Coder-14B-Instruct-abliterated-Q4_K_M.gguf.part01` through `.part05`
+assets, plus `INSTALL_FULL_MAINTENANCE_14B.bat`.
+
+Place the installer and every model part inside the extracted
+`TORMENT_NEXUS` folder and run the installer. It verifies the rejoined file
+against the SHA-256 below and refuses to install a mismatch; the installer
+itself carries the checksum, so there is no separate manifest, checksum list,
+or README asset for this add-on.
+
+| Add-on detail | Value |
+| --- | --- |
+| Rejoined model | `Qwen2.5-Coder-14B-Instruct-abliterated-Q4_K_M.gguf` |
+| Bytes | 8,988,111,200 |
+| SHA-256 | `E89A7AE4E2B456BF33C75CFF35664751DF20FF273E551D7CF7640AA9E84D3B79` |
+| Parts | 5 × 1,797,622,240 bytes |
+
+Let the check finish before starting `start_full_maintenance_coder.bat`. That
+launcher shows the full-maintenance warning and requires the exact typed
+acknowledgement.
 
 ## What is new in Beta 6
 
@@ -125,21 +195,6 @@ The separate Raspberry Pi monitor-mode, display, battery, and thermal work is
 documented as future hardware validation. It is not present hardware and is
 not a shipped sensing capability.
 
-## Models and optional components
-
-The base package includes:
-
-- Qwen3 4B abliterated Q8 director;
-- Qwen2.5-Coder 7B abliterated Q8 autonomous coder;
-- bge-small-en-v1.5 Q8 embedding model;
-- offline speech recognition, speech output, Python runtime, and CPU
-  llama.cpp runtime.
-
-The `Qwen2.5-Coder-14B-Instruct-abliterated-Q4_K_M` full-maintenance model is
-distributed as a separately split, checksum-verified optional desktop add-on.
-It is preserved as part of the complete release asset set without forcing
-every ordinary user to download it, and it is never a normal chat profile.
-
 ## Privacy and network boundaries
 
 Conversation, normal memory, semantic retrieval, speech, and local music stay
@@ -160,68 +215,6 @@ memories, chosen name, activity history, imported knowledge documents, derived
 embedding database, API credentials, device PINs, tokens, music, logs, or
 runtime caches.
 
-## Installing the Windows package
-
-Download the generated Beta 6 assets into one folder:
-
-1. `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01` through `.part06` —
-   all six are required
-2. `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat`
-
-Run the reassembler. It joins the exact generated part set and automatically
-checks the complete ZIP against its embedded SHA-256. A mismatch is deleted
-instead of being presented as an installable package.
-
-After it reports **Verified**, extract
-`TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip`, open the extracted
-`TORMENT_NEXUS` folder, and run `setup.bat`.
-
-GitHub's automatic **Source code (zip)** and **Source code (tar.gz)** downloads
-are developer source snapshots. They do not contain the model weights,
-self-contained Python environment, or ready-to-run Windows package.
-
-### Package checksums
-
-SHA-256, with sizes in bytes. The reassembler checks the rejoined ZIP against
-the first value automatically; the rest are for verifying individual downloads.
-
-| Asset | Bytes | SHA-256 |
-| --- | --- | --- |
-| `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip` | 12,380,706,363 | `AC66CA1ACA80BFE21163BA41F0DB11AEA215617FAD0F48FF24FFA6A37B0AB1A9` |
-| `.zip.part01` | 2,080,374,784 | `B8B4B15876D0BFE8172B357DE8D057FCE31EDADBCDA878DA54444B4207192BD1` |
-| `.zip.part02` | 2,080,374,784 | `77EA52AC0F61BFE6451CC7EBC15A9D5EF7B80EA324C435BFC08932FB9D093799` |
-| `.zip.part03` | 2,080,374,784 | `BB529F78BC989C070B822B48509838E5FB1B374DF08B64E41FAC80D4EA96A891` |
-| `.zip.part04` | 2,080,374,784 | `FCD6AF853B42626177C683EA68A21329FDDABC031F476CE772FC7D5C929DDEFF` |
-| `.zip.part05` | 2,080,374,784 | `B74AA7B6147C463F4269DC6ACDD4D3781711C66560D6EBBAE7B1002B6F06E789` |
-| `.zip.part06` | 1,978,832,443 | `A346A56A148A7EAE8BFA55F284DDC3028518DDB90E10EC2E730F1236448B236B` |
-| `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` | 2,503 | `3A7BC77FF8D2BA0174D67028F2036C16D5B2A32ED480FBDE6050295830FEAF6D` |
-
-### Optional full-maintenance model add-on
-
-Advanced users who deliberately want the preserved 14B full-maintenance
-profile must also download:
-
-1. all five consecutive assets from
-   `Qwen2.5-Coder-14B-Instruct-abliterated-Q4_K_M.gguf.part01` through
-   `.part05`; and
-2. `INSTALL_FULL_MAINTENANCE_14B.bat`.
-
-Place the installer and every model part inside the extracted
-`TORMENT_NEXUS` folder, run the installer, and let its baked-in SHA-256 check
-finish before starting `start_full_maintenance_coder.bat`. The launcher then
-shows the full-maintenance warning and requires the exact typed acknowledgement.
-
-The installer verifies the rejoined file against the SHA-256 below and refuses
-to install a mismatch. There is no separate manifest, checksum list, or README
-asset for this add-on; the installer itself carries the checksum.
-
-| Add-on detail | Value |
-| --- | --- |
-| Rejoined model | `Qwen2.5-Coder-14B-Instruct-abliterated-Q4_K_M.gguf` |
-| Bytes | 8,988,111,200 |
-| SHA-256 | `E89A7AE4E2B456BF33C75CFF35664751DF20FF273E551D7CF7640AA9E84D3B79` |
-| Parts | 5 × 1,797,622,240 bytes |
-
 ## Known limitations
 
 - This remains beta software. Replies and edits can be wrong.
@@ -237,12 +230,12 @@ asset for this add-on; the installer itself carries the checksum.
 
 ## Final release gate
 
-Before publishing:
+Maintainer checklist. This section is kept in the repository copy and is
+stripped from the published release body.
 
 1. Freeze all editors and commit the intended source.
 2. Require a clean-tree package build from the tagged commit.
-3. Run the complete regression suite and replace **verified at release** with
-   the exact passing count.
+3. Run the complete regression suite and insert the exact passing count.
 4. Smoke-test a disposable extraction, then rebuild the final clean package.
 5. Verify the package manifest and privacy scan.
 6. Split the versioned ZIP and record the SHA-256 of the ZIP, every part, and
