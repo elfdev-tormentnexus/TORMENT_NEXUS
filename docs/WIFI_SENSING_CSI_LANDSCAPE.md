@@ -51,7 +51,7 @@ rests on two legs. One aged, one did not:
 | Tool | Cards | Status | Evidence quality |
 |---|---|---|---|
 | **FeitCSI** (KuskoSoft, GPL-3.0) | AX200, AX210 confirmed; "newest Intel NIC" plausible | Working public code; all formats a/g/n/ac/ax, 20–160 MHz, 6 GHz band; explicitly runs on ARM Linux, NIC must attach via PCIe | Public repo + docs site |
-| **IAX** (IEEE 10944229, publ. March 2025) | Claims **AX200/201/210/211**, STA/AP/**Monitor** modes, 1992 subcarriers at 160 MHz | Peer-reviewed claim of open source; verified in-paper via intrusion/respiration/localization; **repo URL sits behind the IEEE paywall — artifact unconfirmed in this pass** | Peer-reviewed, artifact unverified |
+| **IAX** (IEEE Sensors Journal, doi:10.1109/JSEN.2025.3553130) | **AX200/201/210/211 claimed; AX210 + AX211 firmware actually shipped**; STA/AP/**Monitor**/Injector; 1992 subcarriers at 160 MHz | **Artifact found: `github.com/fflq/iax`, MIT, public** — patched iwlwifi backport + replacement firmware, kernel 5.15.x only. See [WIFI_CSI_REPRODUCTION.md](WIFI_CSI_REPRODUCTION.md) | Public repo, verified by reading the installer |
 | **PicoScenes** | AX200/AX210 yes; **AX211 explicitly not detected** (issue #71, March 2026, v2025.1217) | Working but closed-binary, licensed | Public issue tracker |
 | Kernel plumbing | — | `iwlwifi: mvm: implement CSI reporting` + `IWL_MVM_VENDOR_CMD_CSI_EVENT` have existed since ~2019; FeitCSI/IAX sit on this | Kernel patchwork |
 
@@ -77,10 +77,14 @@ and the collector design wants a radio the assistant is not depending on.
   idea tuned better — and touches no guardrail: not the AX211, not the
   Windows disk, nothing the assistant depends on.
 - **Monostatic sensing (LiveSense proper) stays out of reach** without
-  Intel's driver, and chasing it is not worth further effort. If the IAX
-  repository surfaces and truly covers AX211, that changes the *landscape*
-  note, not this project's next step — the desktop's AX211 stays untouched
-  for the only-internet-link reason regardless.
+  Intel's driver, and chasing it is not worth further effort. The IAX
+  repository has since surfaced and does cover AX211 — see
+  [WIFI_CSI_REPRODUCTION.md](WIFI_CSI_REPRODUCTION.md) — and the conclusion
+  held exactly as written: the desktop's AX211 stays untouched for the
+  only-internet-link reason, which the tool's own installer makes vivid by
+  replacing that card's firmware and driver system-wide. Its kernel-5.15
+  constraint also rules out the Pi 5, so the earlier AX210-on-Pi sketch is
+  dead for IAX specifically; FeitCSI remains the candidate for that shape.
 
 ## Sequencing, unchanged
 
