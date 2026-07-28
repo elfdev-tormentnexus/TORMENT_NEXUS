@@ -198,6 +198,19 @@ try:
     )
 except ValueError:
     ACTIVITY_RETENTION_DAYS = 14.0
+
+# Desktop-only research seam for a separate, owner-authorised Wi-Fi CSI
+# experiment. It intentionally starts disabled and has no default file: the
+# normal Windows Wi-Fi driver is never touched by TORMENT_NEXUS. When a future
+# local collector is explicitly configured, it may write a short aggregate
+# status record here; core.wifi_experimental rejects anything more detailed.
+WIFI_EXPERIMENTAL_STATUS_FILE = os.environ.get(
+    "TORMENT_NEXUS_WIFI_EXPERIMENT_FILE", ""
+).strip()
+WIFI_EXPERIMENTAL_ENABLED = (
+    os.environ.get("TORMENT_NEXUS_WIFI_EXPERIMENT", "").strip().lower()
+    in {"1", "true", "on", "yes"}
+)
 PROMPT_CACHE_DIR = (
     os.environ.get("TORMENT_NEXUS_PROMPT_CACHE_DIR", "").strip()
     or os.path.join(ASSISTANT_ROOT, "cache", "prompt")

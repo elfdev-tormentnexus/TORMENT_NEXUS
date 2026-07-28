@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Added a disabled, desktop-only Wi-Fi sensing experiment bridge. It accepts
+  only one fresh, aggregate local status record from a separately authorised
+  collector; it never changes a Wi-Fi driver, captures packets, retains CSI,
+  identifies anyone, or claims camera-like vision. `wifi sensing` exposes the
+  explicit owner controls and diagnostics.
 - Added `name`, a grounded naming ceremony for the director. It reads only
   what happened to this system -- its own commit subjects, the changelog, the
   parts it is assembled from, and the shape of what it watches -- and never

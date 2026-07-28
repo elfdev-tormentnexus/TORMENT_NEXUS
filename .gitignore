@@ -30,6 +30,7 @@ assistant/.spotify_token
 # Real conversations, and the memories extracted from them.
 assistant/memory/conversation_history.txt
 assistant/memory/activity_log.jsonl
+assistant/memory/wifi_sensing_status.json
 assistant/memory/memories.json
 assistant/memory/change_plans/
 assistant/memory/plan_*.txt

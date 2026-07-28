@@ -618,6 +618,58 @@ def handle_sing_daisy_bell(user_input):
 # HARDWARE
 # ============================================================
 
+@command(
+    "wifi sensing",
+    "Control the opt-in desktop Wi-Fi sensing experiment",
+    usage="wifi sensing [on|off|status|forget]",
+    dev_only=False,
+    group="hardware",
+)
+def handle_wifi_sensing(user_input):
+    """Consent gate for the aggregate-only Wi-Fi experiment bridge."""
+    normalized = " ".join(str(user_input or "").lower().split())
+    accepted = {
+        "wifi sensing",
+        "wifi sensing on",
+        "wifi sensing off",
+        "wifi sensing status",
+        "wifi sensing forget",
+    }
+    if normalized not in accepted:
+        return False
+
+    experiment = _get_wifi_experimental()
+    if experiment is None:
+        return "Wi-Fi sensing is not available in this session."
+
+    if normalized == "wifi sensing on":
+        if not experiment.configured:
+            return (
+                "Wi-Fi sensing remains off: no local aggregate-feed path is "
+                "configured. This command never changes a wireless driver, "
+                "captures packets, or starts a radio experiment by itself."
+            )
+        experiment.set_enabled(True)
+        return experiment.status()
+
+    if normalized == "wifi sensing off":
+        experiment.set_enabled(False)
+        return (
+            "Wi-Fi sensing is off. Its current aggregate reading was cleared; "
+            "TORMENT_NEXUS does not keep radio samples or a sensing history."
+        )
+
+    if normalized == "wifi sensing forget":
+        cleared = experiment.forget()
+        return (
+            "Discarded the current aggregate reading."
+            if cleared
+            else "There was no aggregate reading to discard."
+        )
+
+    return experiment.status()
+
+
 @command("tdeck setup", "Check whether local T-Deck Bluetooth support is ready",
          dev_only=False, group="hardware")
 def handle_tdeck_setup(user_input):
@@ -1681,6 +1733,16 @@ def _get_system_awareness():
         import main
 
         return getattr(main, "_system_awareness", None)
+    except Exception:
+        return None
+
+
+def _get_wifi_experimental():
+    """The opt-in bridge main.py owns, or None outside the live app."""
+    try:
+        import main
+
+        return getattr(main, "_wifi_experimental", None)
     except Exception:
         return None
 

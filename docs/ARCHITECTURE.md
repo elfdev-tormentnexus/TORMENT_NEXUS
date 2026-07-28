@@ -65,6 +65,17 @@ places the current time, session age, and elapsed gap in per-turn context. The
 stable prompt forbids turning that clock data into claims of hidden thought,
 waiting, work, feeling, or consciousness between turns.
 
+`core/wifi_experimental.py` is a separate, disabled-by-default desktop
+research seam. It does not capture Wi-Fi frames or touch a network adapter;
+it reads only one strictly validated, expiring aggregate record from an
+externally configured local file. The accepted states are coarse room-radio
+classifications (`unknown`, `still`, `motion`, and `approach`), not identity,
+visual observation, device data, packet content, CSI, or a history. The
+runtime context repeats those limits so the model cannot describe the signal
+as though it had seen or tracked a person.
+The [experimental Wi-Fi sensing guide](WIFI_SENSING_EXPERIMENT.md) defines the
+separate collector contract and calibration gate.
+
 ## Deployment targets
 
 The current packaged handoff targets 64-bit Windows. Raspberry Pi 5 is a

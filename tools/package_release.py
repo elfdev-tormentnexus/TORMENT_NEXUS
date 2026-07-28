@@ -85,6 +85,7 @@ INCLUDE_FILES = [
     "docs/RELEASE_CHECKLIST.md",
     "docs/TESTING.md",
     "docs/TROUBLESHOOTING.md",
+    "docs/WIFI_SENSING_EXPERIMENT.md",
     "LICENSES/QWEN_APACHE-2.0.txt",
     "setup/requirements.txt",
     "setup/requirements-voice.txt",
@@ -116,6 +117,10 @@ DENY_PATTERNS = [
     # Window titles name documents, pages and conversations. This is at
     # least as revealing as the conversation history.
     "*/memory/activity_log.jsonl*",
+    # A future external Wi-Fi research collector may write one aggregate
+    # status record here. It belongs to the running installation, never a
+    # shareable package.
+    "*/wifi_sensing_status.json*",
     "*/memory/plan_*.txt",
     "*/memory/change_plans/*",
     "*/backups/*",
@@ -159,6 +164,7 @@ PRIVATE_RUNTIME_BASENAMES = {
     "chosen_name.json",
     "conversation_history.txt",
     "memories.json",
+    "wifi_sensing_status.json",
 }
 
 # Unused alternate voices. The tuned pipeline only uses hfc_female, and

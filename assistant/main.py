@@ -55,6 +55,8 @@ from core.config import (
     IDLE_CHECKIN_SPEAK,
     IDLE_CHECKIN_SECONDS,
     IDLE_RESPONSE_SECONDS,
+    WIFI_EXPERIMENTAL_ENABLED,
+    WIFI_EXPERIMENTAL_STATUS_FILE,
 )
 from memory import memory_store as mem
 from memory.memory_extraction import extract_direct_memory
@@ -64,6 +66,7 @@ from core import dev_auth
 from core import tutorial
 from core.time_awareness import TimeAwareness
 from core.system_awareness import SystemAwareness
+from core.wifi_experimental import WifiExperimental
 from commands import natural_command
 from commands.command_handlers import (
     command_catalog,
@@ -316,6 +319,15 @@ _system_awareness = SystemAwareness(
     retention_days=ACTIVITY_RETENTION_DAYS,
 )
 
+# This provider is intentionally inert unless the owner opts in *and* points
+# it at an external aggregate-feed file. It never captures Wi-Fi frames or
+# changes a network adapter. See core/wifi_experimental.py for the narrow
+# record it accepts.
+_wifi_experimental = WifiExperimental(
+    WIFI_EXPERIMENTAL_STATUS_FILE,
+    enabled=WIFI_EXPERIMENTAL_ENABLED,
+)
+
 
 def _ambient_context():
     """
@@ -337,6 +349,49 @@ def _ambient_context():
         "\nObserved machine activity this session "
         "(sampled state, not something it watched or experienced):\n"
         f"{described}\n"
+    )
+
+
+def _room_sensing_context():
+    """One fresh, owner-enabled Wi-Fi experiment reading, if any.
+
+    Kept separate from activity awareness because it has a different consent
+    boundary and is neither an app/window sample nor a record of time away.
+    The bridge does not retain raw CSI or observations between calls.
+
+    The rules for talking about a reading travel WITH the reading, and are
+    absent whenever there is none. That placement is the whole design, and it
+    was learned the expensive way: while those rules lived in persona.py they
+    were in front of the model on every turn, including the overwhelming
+    majority of turns where no collector exists at all. Asked "can you tell if
+    anyone is in the room", it answered "the enabled experiment reported a
+    Wi-Fi signal from your room at 3:45 AM" -- inventing a reading, a time and
+    a direction from a permanently-present instruction with no data behind it,
+    in six of twelve samples.
+
+    A rule that names a capability is also an advertisement for it. So the
+    persona now says flatly that there are no sensors, and the exception is
+    granted here, attached to an actual record. No record, no exception, and
+    nothing to copy. This mirrors search_rule below, which has always been
+    written only when there are genuinely results to constrain.
+    """
+    if not _wifi_experimental.enabled:
+        return ""
+
+    described = _wifi_experimental.describe()
+    if not described:
+        return ""
+
+    return (
+        "\nExperimental room telemetry (local aggregate data, not visual "
+        "observation and not an identity):\n"
+        f"{described}\n"
+        "This reading is the experiment's, not yours. It is a short-lived, "
+        "coarse radio classification and nothing more: not vision, not an "
+        "identity, not a record of a person. Attribute it to the experiment. "
+        "Never say you saw, watched, recognised or tracked anyone, and never "
+        "infer a person behind a wall. It is the only sensor reading you "
+        "have; everything else you still have no sensor for.\n"
     )
 
 MAX_SESSION_MESSAGES = 6
@@ -422,6 +477,7 @@ def _runtime_context_prompt(user_input="", search_context=None):
 Trusted local clock:
 {_time_awareness.context()}
 {_ambient_context()}
+{_room_sensing_context()}
 Potentially relevant stored notes:
 {memory_text}
 {search_rule}

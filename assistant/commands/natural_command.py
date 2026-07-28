@@ -39,7 +39,7 @@ _TARGET = re.compile(
     r"plan|suggestion|idea|developer|dev|mode|voice|audio|microphone|speaker|"
     r"talk|speak|sing|song|daisy|bell|dump|output|health|status|system|"
     r"t-?deck|meshtastic|bluetooth|ble|hardware|screen|display|timeout|"
-    r"mesh|node|nodes|power|saving|sleep|awake|spotify)\b",
+    r"mesh|node|nodes|power|saving|sleep|awake|spotify|wi-?fi|sensing)\b",
     re.IGNORECASE,
 )
 
@@ -96,6 +96,14 @@ _EXPLICIT_ACTIONS = {
     ),
     "tdeck power saving on": re.compile(
         r"\b(?:enable|restore|turn on)\b.{0,40}\bpower saving\b",
+        re.IGNORECASE,
+    ),
+    "wifi sensing on": re.compile(
+        r"\b(?:enable|turn on|start)\b.{0,50}\bwi-?fi\b.{0,30}\bsens",
+        re.IGNORECASE,
+    ),
+    "wifi sensing off": re.compile(
+        r"\b(?:disable|turn off|stop)\b.{0,50}\bwi-?fi\b.{0,30}\bsens",
         re.IGNORECASE,
     ),
 }
@@ -287,6 +295,22 @@ def _deterministic(text, dev_mode):
             lambda m: "tdeck power saving on",
         ),
         (
+            r"^(?:please\s+)?(?:enable|turn on|start)\s+"
+            r"(?:the\s+)?(?:experimental\s+)?wi-?fi\s+sensing\b",
+            lambda m: "wifi sensing on",
+        ),
+        (
+            r"^(?:please\s+)?(?:disable|turn off|stop)\s+"
+            r"(?:the\s+)?(?:experimental\s+)?wi-?fi\s+sensing\b",
+            lambda m: "wifi sensing off",
+        ),
+        (
+            r"^(?:please\s+)?(?:show|check|diagnose)\s+"
+            r"(?:the\s+)?(?:experimental\s+)?wi-?fi\s+sensing"
+            r"(?:\s+status)?\b",
+            lambda m: "wifi sensing status",
+        ),
+        (
             r"^(?:please\s+)?(?:run|do|perform|show|check|diagnose)\s+"
             r"(?:a\s+|the\s+)?(?:full\s+|system\s+|assistant\s+|overall\s+)?"
             r"health\s+check\b",
@@ -364,8 +388,14 @@ def _entry_for(command_text, catalog):
     return None
 
 
-def _allowed_by_explicit_action(user_text, entry):
-    required = _EXPLICIT_ACTIONS.get(entry["name"])
+def _allowed_by_explicit_action(user_text, entry, command_text=""):
+    # Most commands are keyed by their registry name. A few commands use one
+    # registry entry with mutually exclusive bracket arguments; those need an
+    # argument-specific consent check (for example, a status query must not be
+    # reinterpreted as enabling an experimental sensor).
+    required = _EXPLICIT_ACTIONS.get(command_text.lower())
+    if required is None:
+        required = _EXPLICIT_ACTIONS.get(entry["name"])
     return required is None or bool(required.search(user_text))
 
 
@@ -373,7 +403,9 @@ def _accepted(command_text, user_text, catalog, source, confidence=1.0):
     command_text = " ".join((command_text or "").strip().split())
     entry = _entry_for(command_text, catalog)
 
-    if not entry or not _allowed_by_explicit_action(user_text, entry):
+    if not entry or not _allowed_by_explicit_action(
+        user_text, entry, command_text
+    ):
         return None
 
     return {
