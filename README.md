@@ -292,7 +292,9 @@ trace I keep thinking about something my grandmother said before she died.
 ```
 
 `SABLE7` is the container that stores such a path; machinespirit is the
-representation it carries. Run it with `start_assistant_hazard.bat`, or
+representation it carries. Run it with `start_assistant_hazard.bat`
+(**TORMENT_NEXUS_HAZARD**, which has its own eight-section walkthrough --
+type `tutorial` in that window), or
 `experimental mode` inside an ordinary session. It is **slower on purpose**
 and keeps a second embedding server resident, because llama.cpp fixes
 pooling when a server starts and a trajectory cannot come from the pooled

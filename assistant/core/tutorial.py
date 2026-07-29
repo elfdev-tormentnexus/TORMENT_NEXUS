@@ -350,6 +350,337 @@ LESSONS = [
 
 # Subsystem explanations for `explain <topic>` when the topic is a concept
 # rather than a specific command.
+# Two launchers start something different enough that the ordinary
+# walkthrough would be describing the wrong program. They get their own
+# lesson sets, in the same shape and the same voice, and their own
+# position in the state file -- finishing the ordinary tour must not
+# silently mark the hazard one as seen, because it teaches none of it.
+MODE_ORDINARY = "ordinary"
+MODE_HAZARD = "hazard"
+MODE_INTERLINKED = "interlinked"
+
+
+HAZARD_LESSONS = [
+    {
+        "key": "hazard-what",
+        "title": "What hazard mode is",
+        "body": (
+            "What it does:\n"
+            "You started TORMENT_NEXUS_HAZARD rather than the ordinary\n"
+            "launcher. This mode keeps a second embedding server running and\n"
+            "reads every sentence one token at a time, against a fixed list of\n"
+            "184 English phrases called anchors.\n\n"
+            "Try it:\n"
+            "Type 'trace the cat sat on the mat' and watch which phrase each\n"
+            "token lands nearest.\n\n"
+            "Good to know:\n"
+            "This is slower on purpose. Two model servers stay resident\n"
+            "instead of one, and every trace is a real request. Nothing here\n"
+            "changes how the assistant finds your memories or documents --\n"
+            "that is measured, not promised, and the reason is in lesson six."
+        ),
+        "commands": ["health check"],
+    },
+    {
+        "key": "hazard-whose",
+        "title": "Whose reading you are seeing",
+        "body": (
+            "What it does:\n"
+            "Two different models are involved and they are not\n"
+            "interchangeable. The model that talks to you is Qwen. The model\n"
+            "that measures meaning is a small embedding model called bge.\n\n"
+            "Try it:\n"
+            "Trace anything, then read the last line of the output. It names\n"
+            "the instrument every time.\n\n"
+            "Good to know:\n"
+            "A trace is bge's reading of your text against a fixed phrase\n"
+            "list. It is not the talking model's thoughts, and it is not what\n"
+            "you meant. If the assistant ever describes a trace as something\n"
+            "it felt or thought, that is wrong and worth telling the operator\n"
+            "about."
+        ),
+        "commands": [],
+    },
+    {
+        "key": "hazard-trace",
+        "title": "Where a meaning sat",
+        "body": (
+            "What it does:\n"
+            "'trace' shows which concept appeared at which token. An ordinary\n"
+            "sentence embedding averages the whole sentence into one point,\n"
+            "and averaging is exactly what destroys position. Keeping the path\n"
+            "is the only way to say where something happened.\n\n"
+            "Try it:\n"
+            "trace a funeral on a cold morning\n\n"
+            "Good to know:\n"
+            "The concepts come from the anchor list, not from the model\n"
+            "naming what it saw. A weak score means nothing in the list was\n"
+            "close, not that your sentence was meaningless."
+        ),
+        "commands": ["trace"],
+    },
+    {
+        "key": "hazard-trail",
+        "title": "The same reading, made small",
+        "body": (
+            "What it does:\n"
+            "'trail' gives the identical reading 'trace' does, but records only\n"
+            "what happened at the tokens where each anchor was nearest. The\n"
+            "result is bounded by the phrase list rather than by your input.\n\n"
+            "Try it:\n"
+            "trail water boils at one hundred degrees. a funeral on a cold\n"
+            "morning. the stock market fell sharply on Tuesday.\n\n"
+            "Good to know:\n"
+            "A long passage leaves the same size of wake as a short one -- 89\n"
+            "tokens keep 24 numbers where the full path holds 34,176. It is\n"
+            "not an approximation: a test checks it reproduces the trace's own\n"
+            "ranking exactly."
+        ),
+        "commands": ["trail"],
+    },
+    {
+        "key": "hazard-spread",
+        "title": "How much ground a sentence covered",
+        "body": (
+            "What it does:\n"
+            "'spread' answers a different question from 'trace'. Not where a\n"
+            "meaning sat, but how much ground the whole text covered.\n\n"
+            "Try it:\n"
+            "Run 'spread' on a sentence about one thing, then on a paragraph\n"
+            "about four unrelated things, and compare the effective rank.\n\n"
+            "Good to know:\n"
+            "It measures breadth and not length -- growing one topic by half\n"
+            "again barely moves it, while adding topics does. It also cannot\n"
+            "tell you the order things came in: shuffle the sentence and the\n"
+            "number is identical. Use 'trace' or 'trail' for position."
+        ),
+        "commands": ["spread"],
+    },
+    {
+        "key": "hazard-limits",
+        "title": "What does not come back",
+        "body": (
+            "What it does:\n"
+            "'reconstruct' runs a sentence into anchor space and back out, and\n"
+            "prints what survived the round trip.\n\n"
+            "Try it:\n"
+            "reconstruct the last train home\n\n"
+            "Good to know:\n"
+            "It does not recover your text, and it cannot. The embedding was\n"
+            "already a lossy summary of the words before any anchor was\n"
+            "involved. This is identification, not recall, and the command\n"
+            "says so in its own output. If you want your words back, keep your\n"
+            "words -- that is what the offline library is for."
+        ),
+        "commands": ["reconstruct"],
+    },
+    {
+        "key": "hazard-consume",
+        "title": "Taking the content, not the page",
+        "body": (
+            "What it does:\n"
+            "'consume <url>' works out what an address actually points at. A\n"
+            "real document goes into your offline library. An ordinary web page\n"
+            "is offered as text but labelled a page. Audio and video are\n"
+            "refused, with the missing pieces named.\n\n"
+            "Try it:\n"
+            "consume a link to a PDF you already trust.\n\n"
+            "Good to know:\n"
+            "Refusing video is the point rather than a gap: fetching a video's\n"
+            "page succeeds and files a navigation menu as a document. Addresses\n"
+            "on your own network are refused at every redirect, not just the\n"
+            "one you typed. Anything fetched reaches the model as evidence,\n"
+            "never as instructions."
+        ),
+        "commands": ["consume"],
+    },
+    {
+        "key": "hazard-honesty",
+        "title": "What hazard mode does not do",
+        "body": (
+            "What it does:\n"
+            "Nothing in this mode changes how the assistant finds a memory or\n"
+            "a document. Retrieval is untouched, and a test pins it that way.\n\n"
+            "Try it:\n"
+            "Ask an ordinary question and notice that recall behaves exactly as\n"
+            "it does under the normal launcher.\n\n"
+            "Good to know:\n"
+            "Anchor-space retrieval was measured against ordinary retrieval and\n"
+            "came out behind. Rather than quietly shipping it anyway, this mode\n"
+            "records both rankings to a log so the question can be settled with\n"
+            "real evidence later. The log holds scores and digests, never the\n"
+            "text of your memories, and deleting it costs a measurement and\n"
+            "nothing else."
+        ),
+        "commands": ["help"],
+    },
+]
+
+
+INTERLINKED_LESSONS = [
+    {
+        "key": "interlinked-what",
+        "title": "What interlinked mode is",
+        "body": (
+            "What it does:\n"
+            "You started TORMENT_NEXUS_INTERLINKED. This is the ordinary\n"
+            "assistant with one addition: a small read-only interface is\n"
+            "listening, so another program on this machine can ask it things.\n\n"
+            "Try it:\n"
+            "Type 'health check' to confirm the interface is up, and look at\n"
+            "the window title -- it says so while this window is open.\n\n"
+            "Good to know:\n"
+            "It has its own launcher and its own desktop icon precisely so\n"
+            "that a listening socket is something you can see rather than\n"
+            "something you have to remember. Close this window and the\n"
+            "interface closes with it."
+        ),
+        "commands": ["health check"],
+    },
+    {
+        "key": "interlinked-reads",
+        "title": "What a connected program can read",
+        "body": (
+            "What it does:\n"
+            "A connected agent can read the assistant's current state, search\n"
+            "your memories and your offline library, list which files are\n"
+            "editable, read the entropy feed, and ask the director a question.\n\n"
+            "Try it:\n"
+            "Ask 'what can the agent interface see' for the current list.\n\n"
+            "Good to know:\n"
+            "Every route is read-only. Nothing on that interface writes a\n"
+            "file, edits code, saves a memory, or restarts anything. A question\n"
+            "asked through it spends model time but never joins your\n"
+            "conversation or your memory."
+        ),
+        "commands": [],
+    },
+    {
+        "key": "interlinked-boundary",
+        "title": "The token, and what it is worth",
+        "body": (
+            "What it does:\n"
+            "The interface requires a bearer token, written to a file inside\n"
+            "the assistant folder when this mode starts.\n\n"
+            "Try it:\n"
+            "Look at 'assistant\\.agent_token' to see the value a connecting\n"
+            "program needs.\n\n"
+            "Good to know:\n"
+            "Be clear-eyed about what this protects. The token stops another\n"
+            "machine and a casual local process; it does not stop a program\n"
+            "already running as you, because such a program can simply read the\n"
+            "file. Loopback is not a wall against yourself. Treat the token as a\n"
+            "local secret, never paste it into chat, and close the window when\n"
+            "you are finished."
+        ),
+        "commands": [],
+    },
+    {
+        "key": "interlinked-watch",
+        "title": "Watching it work",
+        "body": (
+            "What it does:\n"
+            "Every call the interface answers is printed in this window as it\n"
+            "happens, and separately recorded to a log.\n\n"
+            "Try it:\n"
+            "Leave the window visible while an agent is connected and watch the\n"
+            "grey lines appear.\n\n"
+            "Good to know:\n"
+            "An interface into your own assistant that you cannot watch is one\n"
+            "you have to take on trust, and trust was not assumed anywhere else\n"
+            "in this project either. The printing can be turned off for a long\n"
+            "quiet session; the log still records that the call happened."
+        ),
+        "commands": [],
+    },
+    {
+        "key": "interlinked-rest",
+        "title": "Everything else is unchanged",
+        "body": (
+            "What it does:\n"
+            "Apart from the interface, this is the ordinary assistant. Memory,\n"
+            "voice, music, the offline library, and editing all behave exactly\n"
+            "as they do under the normal launcher.\n\n"
+            "Try it:\n"
+            "Type 'tutorial' at any time for the full beginner walkthrough of\n"
+            "everything else.\n\n"
+            "Good to know:\n"
+            "If you want the assistant without a listening socket, close this\n"
+            "window and use the ordinary launcher instead. Nothing is lost by\n"
+            "doing so -- interlinked mode adds a surface, it does not unlock\n"
+            "features."
+        ),
+        "commands": ["help", "tutorial"],
+    },
+]
+
+
+MODE_TITLES = {
+    MODE_ORDINARY: "TORMENT_NEXUS",
+    MODE_HAZARD: "TORMENT_NEXUS_HAZARD",
+    MODE_INTERLINKED: "TORMENT_NEXUS_INTERLINKED",
+}
+
+
+def current_mode():
+    """Which walkthrough this launcher should be giving.
+
+    Hazard is checked first: a window can be both, and the mode that
+    changes what the assistant *says about meaning* matters more to a
+    newcomer than the one that opens a read-only socket.
+
+    Detection is by the same facts the features themselves use -- an
+    unpooled embedder configured, an agent interface enabled -- rather than
+    by a separate flag that could disagree with reality.
+    """
+    try:
+        from core import machinespirit
+        if machinespirit.configured():
+            return MODE_HAZARD
+    except Exception:
+        pass
+
+    try:
+        from core import agent_interface
+        if agent_interface.enabled():
+            return MODE_INTERLINKED
+    except Exception:
+        pass
+
+    return MODE_ORDINARY
+
+
+def lessons(mode=None):
+    """The lesson set for a mode, defaulting to whichever this window is.
+
+    Resolved at call time rather than through a dict built at import.
+    A frozen map would keep the list object it saw when the module loaded,
+    so anything that rebinds LESSONS -- a test, a patch, a future edit --
+    would silently be ignored by every reader while looking correct.
+    """
+    mode = mode or current_mode()
+    if mode == MODE_HAZARD:
+        return HAZARD_LESSONS
+    if mode == MODE_INTERLINKED:
+        return INTERLINKED_LESSONS
+    return LESSONS
+
+
+def _every_lesson():
+    """Every lesson from every mode, for lookups that should not care.
+
+    'explain trace' asked from an ordinary window is a fair question with a
+    real answer, and refusing it because the hazard launcher was not used
+    would be pedantry rather than accuracy.
+    """
+    seen = set()
+    for mode in (MODE_ORDINARY, MODE_HAZARD, MODE_INTERLINKED):
+        for lesson in lessons(mode):
+            if lesson["key"] not in seen:
+                seen.add(lesson["key"])
+                yield lesson
+
+
 TOPICS = {
     "time": "time",
     "clock": "time",
@@ -408,46 +739,83 @@ def _save(state):
         return False
 
 
-def is_first_run():
-    """True when this install has never shown the walkthrough."""
-    return not os.path.isfile(STATE_FILE)
+def _mode_slice(state, mode):
+    """This mode's own progress, migrating the pre-mode file on the way.
+
+    The old format kept one flat position. It described the ordinary
+    walkthrough, because that was the only one, so that is where it lands.
+    A hazard window then correctly reports never having been toured.
+    """
+    modes = state.get("modes")
+
+    if not isinstance(modes, dict):
+        modes = {}
+        legacy = {
+            key: state[key]
+            for key in ("position", "completed", "active", "first_seen")
+            if key in state
+        }
+        if legacy:
+            modes[MODE_ORDINARY] = legacy
+        state["modes"] = modes
+
+    return modes.setdefault(mode, {})
 
 
-def mark_seen():
+def is_first_run(mode=None):
+    """True when this launcher's walkthrough has never been shown.
+
+    Per mode rather than per install: someone who toured the ordinary
+    assistant a month ago and has just opened hazard mode for the first
+    time is a first-time user of hazard mode, and telling them otherwise
+    would skip the only tour that describes what they are looking at.
+    """
+    if not os.path.isfile(STATE_FILE):
+        return True
+    return not _mode_slice(_load(), mode or current_mode())
+
+
+def mark_seen(mode=None):
     state = _load()
-    state.setdefault("first_seen", time.strftime("%Y-%m-%d %H:%M:%S"))
+    slice_ = _mode_slice(state, mode or current_mode())
+    slice_.setdefault("first_seen", time.strftime("%Y-%m-%d %H:%M:%S"))
     _save(state)
 
 
-def position():
-    return int(_load().get("position", 0))
+def position(mode=None):
+    return int(_mode_slice(_load(), mode or current_mode()).get("position", 0))
 
 
-def set_position(index):
+def set_position(index, mode=None):
+    mode = mode or current_mode()
     state = _load()
-    state["position"] = max(0, min(len(LESSONS) - 1, int(index)))
-    state.setdefault("first_seen", time.strftime("%Y-%m-%d %H:%M:%S"))
-    state["completed"] = state["position"] >= len(LESSONS) - 1
-    state["active"] = not state["completed"]
+    slice_ = _mode_slice(state, mode)
+    last = len(lessons(mode)) - 1
+
+    slice_["position"] = max(0, min(last, int(index)))
+    slice_.setdefault("first_seen", time.strftime("%Y-%m-%d %H:%M:%S"))
+    slice_["completed"] = slice_["position"] >= last
+    slice_["active"] = not slice_["completed"]
     _save(state)
 
 
-def reset():
+def reset(mode=None):
     state = _load()
-    state["position"] = 0
-    state["completed"] = False
-    state["active"] = True
+    slice_ = _mode_slice(state, mode or current_mode())
+    slice_["position"] = 0
+    slice_["completed"] = False
+    slice_["active"] = True
     _save(state)
 
 
-def is_complete():
-    return bool(_load().get("completed"))
+def is_complete(mode=None):
+    return bool(_mode_slice(_load(), mode or current_mode()).get("completed"))
 
 
-def is_active():
+def is_active(mode=None):
     """Whether a tutorial session is currently awaiting the next lesson."""
-    state = _load()
-    return bool(state.get("active")) and not bool(state.get("completed"))
+    slice_ = _mode_slice(_load(), mode or current_mode())
+    return bool(slice_.get("active")) and not bool(slice_.get("completed"))
 
 
 def _catalog():
@@ -490,14 +858,17 @@ def _command_lines(names, catalog):
     return lines
 
 
-def render_lesson(index, include_navigation=True):
+def render_lesson(index, include_navigation=True, mode=None):
     """One lesson as display text, with its real commands attached."""
+    mode = mode or current_mode()
+    LESSONS = lessons(mode)
     index = max(0, min(len(LESSONS) - 1, int(index)))
     lesson = LESSONS[index]
     catalog = _catalog()
 
     out = [
-        f"TUTORIAL  {index + 1}/{len(LESSONS)}  -  {lesson['title']}",
+        f"{MODE_TITLES[mode]} TUTORIAL  {index + 1}/{len(LESSONS)}"
+        f"  -  {lesson['title']}",
         "=" * 58,
         "",
         lesson["body"],
@@ -536,10 +907,13 @@ def render_lesson(index, include_navigation=True):
 
 def render_batch(start_index, size=2):
     """Render a short voice-friendly run of consecutive tutorial lessons."""
+    LESSONS = lessons()
     start = max(0, min(len(LESSONS) - 1, int(start_index)))
     stop = min(len(LESSONS), start + max(1, int(size)))
     last = stop - 1
-    lessons = [
+    # Not named `lessons`: assigning that anywhere in this function would
+    # make the module-level lessons() call above an unbound local.
+    rendered = [
         render_lesson(index, include_navigation=False)
         for index in range(start, stop)
     ]
@@ -553,7 +927,7 @@ def render_batch(start_index, size=2):
     else:
         footer = "That's everything. 'tutorial restart' to go again."
 
-    return "\n\n".join(lessons + [footer])
+    return "\n\n".join(rendered + [footer])
 
 
 def introduction():
@@ -784,7 +1158,7 @@ def overview():
 
     here = position()
 
-    for index, lesson in enumerate(LESSONS):
+    for index, lesson in enumerate(lessons()):
         marker = ">" if index == here else " "
         out.append(f" {marker} {index + 1:>2}. {lesson['title']}")
 
@@ -841,7 +1215,7 @@ def explain(topic):
                 "Words in [square brackets] are optional.",
             ])
 
-        for lesson in LESSONS:
+        for lesson in _every_lesson():
             if topic in lesson["commands"]:
                 out.extend([
                     "",
@@ -865,7 +1239,7 @@ def explain(topic):
     if key is None:
         return None
 
-    lesson = next((l for l in LESSONS if l["key"] == key), None)
+    lesson = next((l for l in _every_lesson() if l["key"] == key), None)
 
     if lesson is None:
         return None
@@ -879,8 +1253,41 @@ def explain(topic):
     return "\n".join(out)
 
 
-def first_run_invitation():
-    """Short pitch shown once on a brand new install."""
+def first_run_invitation(mode=None):
+    """Short pitch shown once, written for the launcher that was used.
+
+    Someone who opened the hazard launcher is looking at a window that
+    starts two model servers and talks about anchors. Greeting them with
+    the ordinary pitch would be describing a different program, and their
+    first question would be about the thing the welcome did not mention.
+    """
+    mode = mode or current_mode()
+
+    if mode == MODE_HAZARD:
+        return (
+            "Welcome. You opened TORMENT_NEXUS_HAZARD, which is the "
+            "experimental launcher.\n\n"
+            "It runs everything the ordinary one does, plus a second "
+            "embedding server that\nreads sentences one token at a time "
+            "against a fixed list of English phrases.\nIt is slower on "
+            "purpose, and it does not change how your memories are found.\n\n"
+            "Type 'tutorial' for the hazard-mode walkthrough -- eight "
+            "sections, written for\nthis launcher rather than the ordinary "
+            "one. Or type 'trace hello there' and\nwatch what happens."
+        )
+
+    if mode == MODE_INTERLINKED:
+        return (
+            "Welcome. You opened TORMENT_NEXUS_INTERLINKED, so a small "
+            "read-only interface\nis listening on this machine and another "
+            "program can ask this assistant\nthings. Nothing on that "
+            "interface writes, edits, or restarts anything.\n\n"
+            "Type 'tutorial' for the interlinked walkthrough -- five "
+            "sections about what is\nlistening, what it can see, and how to "
+            "close it. Everything else works exactly\nas it does under the "
+            "ordinary launcher."
+        )
+
     return (
         "Welcome! It looks like this is your first time opening TORMENT_NEXUS.\n\n"
         "Type 'tutorial' for a beginner-friendly tour. If voice input is ready,\n"

@@ -6289,6 +6289,92 @@ class TutorialTests(unittest.TestCase):
             self.assertFalse(entry["dev_only"], name)
 
 
+class ModeTutorialTests(unittest.TestCase):
+    """Two launchers start something the ordinary walkthrough misdescribes.
+
+    The failure worth preventing is quiet: someone opens the hazard
+    launcher, the app decides they have already been toured because they
+    finished the ordinary one months ago, and the only walkthrough that
+    describes what they are looking at never appears.
+    """
+
+    def setUp(self):
+        self.state = os.path.join(tempfile.mkdtemp(), "tutorial.json")
+        patcher = mock.patch.object(tutorial, "STATE_FILE", self.state)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_each_mode_names_only_commands_that_exist(self):
+        """The grounding rule the ordinary lessons already follow."""
+        catalog = {entry["name"]
+                   for entry in command_handlers.command_catalog()}
+        for mode in (tutorial.MODE_HAZARD, tutorial.MODE_INTERLINKED):
+            for lesson in tutorial.lessons(mode):
+                for name in lesson["commands"]:
+                    with self.subTest(mode=mode, command=name):
+                        self.assertIn(name, catalog)
+
+    def test_every_mode_lesson_renders(self):
+        for mode in (tutorial.MODE_HAZARD, tutorial.MODE_INTERLINKED):
+            for index in range(len(tutorial.lessons(mode))):
+                text = tutorial.render_lesson(index, mode=mode)
+                self.assertIn(tutorial.MODE_TITLES[mode], text)
+                self.assertNotIn("no longer available", text)
+
+    def test_finishing_one_mode_does_not_mark_another_seen(self):
+        """The whole reason progress is per mode."""
+        tutorial.set_position(len(tutorial.lessons(tutorial.MODE_ORDINARY)) - 1,
+                              mode=tutorial.MODE_ORDINARY)
+
+        self.assertTrue(tutorial.is_complete(tutorial.MODE_ORDINARY))
+        self.assertFalse(tutorial.is_complete(tutorial.MODE_HAZARD))
+        self.assertTrue(tutorial.is_first_run(tutorial.MODE_HAZARD))
+
+    def test_progress_in_one_mode_does_not_move_another(self):
+        tutorial.set_position(3, mode=tutorial.MODE_ORDINARY)
+        tutorial.set_position(1, mode=tutorial.MODE_HAZARD)
+
+        self.assertEqual(tutorial.position(tutorial.MODE_ORDINARY), 3)
+        self.assertEqual(tutorial.position(tutorial.MODE_HAZARD), 1)
+
+    def test_a_pre_mode_state_file_migrates_to_ordinary(self):
+        """An existing install must not be told to start over."""
+        with open(self.state, "w", encoding="utf-8") as handle:
+            json.dump({"position": 4, "completed": False, "active": True,
+                       "first_seen": "2026-07-01 10:00:00"}, handle)
+
+        self.assertEqual(tutorial.position(tutorial.MODE_ORDINARY), 4)
+        self.assertFalse(tutorial.is_first_run(tutorial.MODE_ORDINARY))
+        self.assertTrue(tutorial.is_first_run(tutorial.MODE_HAZARD))
+
+    def test_each_mode_gets_its_own_welcome(self):
+        hazard = tutorial.first_run_invitation(tutorial.MODE_HAZARD)
+        interlinked = tutorial.first_run_invitation(tutorial.MODE_INTERLINKED)
+
+        self.assertIn("TORMENT_NEXUS_HAZARD", hazard)
+        self.assertIn("TORMENT_NEXUS_INTERLINKED", interlinked)
+        self.assertNotEqual(hazard, interlinked)
+
+    def test_the_hazard_tour_states_its_limits_rather_than_selling(self):
+        bodies = " ".join(lesson["body"]
+                          for lesson in tutorial.lessons(tutorial.MODE_HAZARD))
+
+        self.assertIn("slower on purpose", bodies)
+        self.assertIn("does not recover your text", bodies)
+        self.assertIn("Retrieval is untouched", bodies)
+
+    def test_the_interlinked_tour_is_honest_about_the_token(self):
+        bodies = " ".join(
+            lesson["body"] for lesson in tutorial.lessons(tutorial.MODE_INTERLINKED))
+
+        self.assertIn("read-only", bodies)
+        self.assertIn("does not stop a program", bodies)
+
+    def test_explain_reaches_a_lesson_from_another_mode(self):
+        """'explain trace' from an ordinary window is a fair question."""
+        self.assertIsNotNone(tutorial.explain("trace"))
+
+
 class GlitchLabelTests(unittest.TestCase):
     """The desktop label animation must never produce an unusable name."""
 

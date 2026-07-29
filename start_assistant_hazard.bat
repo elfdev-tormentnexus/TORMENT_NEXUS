@@ -28,6 +28,7 @@ REM internally but does not block what this script already set, so the
 REM variables below reach config.py normally.
 REM ---------------------------------------------------------------
 setlocal
+title TORMENT_NEXUS_HAZARD (experimental, two embedding servers)
 
 set "ROOT=%~dp0"
 set "UNPOOLED_PORT=8084"
@@ -40,8 +41,9 @@ if not exist "%LLAMA%" goto :missing_llama
 if not exist "%EMBED_MODEL%" goto :missing_model
 
 echo.
-echo   HAZARD MODE
+echo   TORMENT_NEXUS_HAZARD
 echo   machinespirit: per-token trajectories, SABLE7, anchor traces.
+echo   First time here? Type 'tutorial' for the hazard walkthrough.
 echo   Slower on purpose. Retrieval is unchanged - trajectories shadow it.
 echo.
 echo   Starting unpooled embedder on port %UNPOOLED_PORT% ...

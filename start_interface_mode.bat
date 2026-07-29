@@ -2,17 +2,17 @@
 setlocal
 set "ROOT=%~dp0"
 
-rem Interface mode is the normal assistant with the read-only agent API on.
+rem INTERLINKED is the normal assistant with the read-only agent API on.
 rem It exists as its own launcher because that API is a listening socket and
 rem an authentication boundary: which windows have it open should be a thing
 rem the operator can see, not a thing they have to remember. The window
 rem title and the inverted shortcut icon both say so.
 
 set "TORMENT_NEXUS_AGENT_API=1"
-title TORMENT_NEXUS -- INTERFACE MODE (agent API open)
+title TORMENT_NEXUS_INTERLINKED (read-only agent interface open)
 
 echo ==========================================================
-echo  TORMENT_NEXUS - INTERFACE MODE
+echo  TORMENT_NEXUS_INTERLINKED
 echo ==========================================================
 echo  The read-only agent interface will listen on loopback.
 echo  A connected agent can read state, search memory and the
@@ -22,7 +22,8 @@ echo  Nothing on that interface writes, edits, or restarts.
 echo  The bearer token is written to:
 echo    assistant\.agent_token
 echo.
-echo  Close this window to close the interface.
+echo  First time here? Type 'tutorial' for the interlinked
+echo  walkthrough. Close this window to close the interface.
 echo ==========================================================
 echo.
 

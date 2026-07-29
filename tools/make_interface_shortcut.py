@@ -1,9 +1,11 @@
 """
-Put an interface-mode shortcut on the Desktop, wearing the inverted icon.
+Put a mode shortcut on the Desktop, wearing the icon that says which mode.
 
-Interface mode opens a listening socket, so telling it apart from a normal
-window should not depend on the operator remembering which one they
-double-clicked. This builds the shortcut that makes that visible.
+Both non-ordinary launchers start something an operator should be able to
+recognise before double-clicking. INTERLINKED opens a listening socket.
+HAZARD starts a second embedding server and an unproven representation.
+Neither should look like the ordinary launcher, and neither should depend
+on remembering which window is which.
 
 Built through PowerShell's WScript.Shell rather than a COM binding, for the
 same reason tools/glitch_icon.py does it that way: no third-party package
@@ -15,8 +17,10 @@ one points at assets/ instead, so the two do not fight over it -- an
 interface-mode shortcut that glitched into the normal icon would defeat the
 only thing it exists to do.
 
-    python tools/make_interface_shortcut.py            create it
-    python tools/make_interface_shortcut.py --remove   take it away
+    python tools/make_interface_shortcut.py                 INTERLINKED
+    python tools/make_interface_shortcut.py --hazard        HAZARD
+    python tools/make_interface_shortcut.py --both          both
+    python tools/make_interface_shortcut.py --remove --both take them away
 """
 
 import argparse
@@ -27,9 +31,25 @@ import subprocess
 import sys
 
 PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LAUNCHER = os.path.join(PROJECT, "start_interface_mode.bat")
-ICON = os.path.join(PROJECT, "assets", "assistant_icon_interface.ico")
-NAME = "TORMENT_NEXUS (interface mode).lnk"
+
+MODES = {
+    "interlinked": {
+        "launcher": os.path.join(PROJECT, "start_interface_mode.bat"),
+        "icon": os.path.join(PROJECT, "assets", "assistant_icon_interface.ico"),
+        "name": "TORMENT_NEXUS_INTERLINKED.lnk",
+        "description": ("TORMENT_NEXUS_INTERLINKED - read-only agent "
+                        "interface listening"),
+        "rebuild": "python tools/generate_interface_icon.py",
+    },
+    "hazard": {
+        "launcher": os.path.join(PROJECT, "start_assistant_hazard.bat"),
+        "icon": os.path.join(PROJECT, "assets", "hazard_icon.ico"),
+        "name": "TORMENT_NEXUS_HAZARD.lnk",
+        "description": ("TORMENT_NEXUS_HAZARD - experimental, two embedding "
+                        "servers, slower on purpose"),
+        "rebuild": "python tools/build_hazard_icon.py",
+    },
+}
 
 CSIDL_DESKTOPDIRECTORY = 0x0010
 
@@ -76,23 +96,24 @@ def _powershell(script):
     )
 
 
-def create():
-    for path, label in ((LAUNCHER, "launcher"), (ICON, "icon")):
+def create(mode):
+    spec = MODES[mode]
+
+    for path, label in ((spec["launcher"], "launcher"), (spec["icon"], "icon")):
         if not os.path.isfile(path):
             print(f"Missing {label}: {path}")
-            if path == ICON:
-                print("Run: python tools/generate_interface_icon.py")
+            if path == spec["icon"]:
+                print(f"Run: {spec['rebuild']}")
             return 1
 
-    target = os.path.join(DESKTOP, NAME)
+    target = os.path.join(DESKTOP, spec["name"])
     script = "; ".join([
         "$sh = New-Object -ComObject WScript.Shell",
         f"$s = $sh.CreateShortcut('{target}')",
-        f"$s.TargetPath = '{LAUNCHER}'",
+        f"$s.TargetPath = '{spec['launcher']}'",
         f"$s.WorkingDirectory = '{PROJECT}'",
-        f"$s.IconLocation = '{ICON},0'",
-        "$s.Description = "
-        "'TORMENT_NEXUS with the read-only agent interface listening'",
+        f"$s.IconLocation = '{spec['icon']},0'",
+        f"$s.Description = '{spec['description']}'",
         "$s.Save()",
     ])
 
@@ -104,16 +125,16 @@ def create():
         return 1
 
     print(f"Created {target}")
-    print(f"  target: {LAUNCHER}")
-    print(f"  icon:   {ICON} (inverted)")
+    print(f"  target: {spec['launcher']}")
+    print(f"  icon:   {spec['icon']}")
     return 0
 
 
-def remove():
-    target = os.path.join(DESKTOP, NAME)
+def remove(mode):
+    target = os.path.join(DESKTOP, MODES[mode]["name"])
 
     if not os.path.isfile(target):
-        print("No interface-mode shortcut on the Desktop.")
+        print(f"No {mode} shortcut on the Desktop.")
         return 0
 
     try:
@@ -130,9 +151,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--remove", action="store_true",
                         help="delete the shortcut instead of creating it")
+    parser.add_argument("--hazard", action="store_true",
+                        help="TORMENT_NEXUS_HAZARD instead of INTERLINKED")
+    parser.add_argument("--both", action="store_true",
+                        help="both mode shortcuts")
     arguments = parser.parse_args()
 
-    return remove() if arguments.remove else create()
+    if arguments.both:
+        modes = ["interlinked", "hazard"]
+    elif arguments.hazard:
+        modes = ["hazard"]
+    else:
+        modes = ["interlinked"]
+
+    action = remove if arguments.remove else create
+    return max(action(mode) for mode in modes)
 
 
 if __name__ == "__main__":

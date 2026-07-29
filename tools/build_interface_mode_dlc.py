@@ -104,7 +104,7 @@ if errorlevel 1 (
 )
 
 echo   [3/3] Creating the desktop shortcut...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'TORMENT_NEXUS interface mode.lnk')); $s.TargetPath=[IO.Path]::Combine('%ROOT%','start_interface_mode.bat'); $s.WorkingDirectory='%ROOT%'; $s.IconLocation=[IO.Path]::Combine('%ROOT%','assets','assistant_icon_interface.ico'); $s.Description='TORMENT_NEXUS with the read-only agent interface open'; $s.Save()"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$s=(New-Object -ComObject WScript.Shell).CreateShortcut([IO.Path]::Combine([Environment]::GetFolderPath('Desktop'),'TORMENT_NEXUS_INTERLINKED.lnk')); $s.TargetPath=[IO.Path]::Combine('%ROOT%','start_interface_mode.bat'); $s.WorkingDirectory='%ROOT%'; $s.IconLocation=[IO.Path]::Combine('%ROOT%','assets','assistant_icon_interface.ico'); $s.Description='TORMENT_NEXUS_INTERLINKED - read-only agent interface open'; $s.Save()"
 if errorlevel 1 (
     echo.
     echo   Installed, but the desktop shortcut could not be created.

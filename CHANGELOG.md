@@ -4,6 +4,21 @@
 
 ## researchA — 2026-07-28
 
+- Renamed the two non-ordinary launchers to what they are:
+  **TORMENT_NEXUS_INTERLINKED** (read-only agent interface listening) and
+  **TORMENT_NEXUS_HAZARD** (experimental, two embedding servers). Window
+  titles, banners, and desktop shortcut names all follow, and
+  `make_interface_shortcut.py` gained `--hazard` and `--both` so the hazard
+  launcher finally has a desktop shortcut of its own.
+- Each of those launchers now has its own walkthrough rather than the
+  ordinary one, which describes a different program. Hazard gets eight
+  sections -- whose reading a trace is, `trace`, `trail`, `spread`, what
+  `reconstruct` cannot return, `consume`, and what the mode does not do.
+  Interlinked gets five, including an honest one about what the bearer
+  token protects and what it does not. Tutorial progress is stored per
+  mode, so finishing the ordinary tour never marks the hazard one seen, and
+  a pre-existing state file migrates to `ordinary` rather than resetting
+  anyone. First-run welcomes are written per launcher too.
 - Added `trail <text>`: the same reading `trace` produces, stored per
   anchor rather than per token. Only the anchor nearest a token records
   anything -- accumulated support, its strongest reading, and where that
