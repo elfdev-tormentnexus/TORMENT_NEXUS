@@ -196,6 +196,21 @@ _SENSITIVE_CALLS = {
     "compile",
     "eval",
     "exec",
+    # Reflection. Every name below this line can be reached without being
+    # written: `getattr(os, "sys" + "tem")(...)` names neither os.system nor
+    # any prefix in the tables, and _call_name() returns "" for a call whose
+    # own callee is a call, so the outer one is invisible too. The delta
+    # check was reading source that had stopped naming what it does.
+    #
+    # Listed as capability rather than banned outright: a patch that already
+    # used getattr keeps it, and only a patch that reaches for it anew is
+    # refused, which is the same rule every other entry here follows.
+    "delattr",
+    "getattr",
+    "globals",
+    "locals",
+    "setattr",
+    "vars",
     "open",
     # The exec family, complete. Listing only execv/execve left every
     # other spelling of the same operation unguarded.
@@ -753,29 +768,43 @@ def restore(backup_name):
         raise GuardError(f"Unrecognised backup name: {backup_name}")
 
     flat = ".".join(parts[:-2])
-    target = flat.replace("_", os.sep, flat.count("_"))
 
-    # The flattening is lossy, so find the real file by matching the
-    # tail rather than trusting the reconstruction.
-    guess = None
+    # The flattening is lossy, so find the real file by matching it rather
+    # than trying to reconstruct the separators. Lossy means collisions are
+    # possible -- "voice/session.py" and a root-level "voice_session.py"
+    # both flatten to "voice_session.py" -- and taking the first file the
+    # walk happened to reach would restore old contents over whichever one
+    # the directory order picked. A rollback that writes to the wrong file
+    # is worse than the failed edit it is undoing, so ambiguity is reported
+    # the way locate() reports it.
+    matches = []
 
     for root, dirs, files in os.walk(PROJECT_ROOT):
-        dirs[:] = [d for d in dirs if d not in ("backups", "__pycache__", ".git")]
+        dirs[:] = [
+            d for d in dirs
+            if d not in ("backups", "__pycache__", ".git", "logs",
+                         "change_plans")
+        ]
 
         for name in files:
             candidate = os.path.relpath(os.path.join(root, name), PROJECT_ROOT)
 
             if candidate.replace("\\", "_").replace("/", "_") == flat:
-                guess = candidate
-                break
+                matches.append(candidate.replace("\\", "/"))
 
-        if guess:
-            break
-
-    if not guess:
+    if not matches:
         raise GuardError(
             f"Could not work out which file {backup_name} belongs to."
         )
+
+    if len(matches) > 1:
+        listed = "\n".join(f"  {m}" for m in sorted(matches))
+        raise GuardError(
+            f"{backup_name} could belong to more than one file:\n{listed}\n\n"
+            "Restore it by hand rather than let the walk order choose."
+        )
+
+    guess = matches[0]
 
     with open(source, "r", encoding="utf-8") as f:
         content = f.read()

@@ -11,8 +11,10 @@ import importlib.util
 import math
 import os
 import shutil
+import sys
 import tempfile
 import unittest
+from unittest import mock
 
 _BEAM = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -227,6 +229,48 @@ class TraceTests(unittest.TestCase):
                  vb.trace(path, self._stone(), top=3, use_project=True)
                  for _, a in hits]
         self.assertIn("up", named)
+
+
+class MeasuredPaceTests(unittest.TestCase):
+    """`--pace` always advertised a measured default and never asked for it.
+
+    The help string named session_rhythm.viewing_pace() from the day it was
+    written, while the default stayed hardcoded at 1.0, so every beam ever
+    rendered ran at the unmeasured rate. These cover the ask.
+    """
+
+    def setUp(self):
+        vb._measured_pace()                     # primes sys.path for the import
+        from core import session_rhythm
+        self.sr = session_rhythm
+
+    def test_no_history_means_no_measured_pace(self):
+        with mock.patch.object(self.sr, "load", return_value=[]):
+            self.assertIsNone(vb._measured_pace())
+
+    def test_too_few_sessions_means_no_measured_pace(self):
+        """A multiplier from two data points is barely evidence."""
+        history = [{"median_pause": 30.0}] * (self.sr.PACE_MIN_SESSIONS - 1)
+        with mock.patch.object(self.sr, "load", return_value=history):
+            self.assertIsNone(vb._measured_pace())
+
+    def test_enough_sessions_supply_a_measured_pace(self):
+        history = [{"median_pause": 30.0}] * self.sr.PACE_MIN_SESSIONS
+        with mock.patch.object(self.sr, "load", return_value=history):
+            pace = vb._measured_pace()
+        self.assertAlmostEqual(pace, 30.0 / self.sr.PACE_REFERENCE_SECONDS)
+
+    def test_one_unusual_session_cannot_make_the_beam_unwatchable(self):
+        for median in (0.5, 100_000.0):
+            history = [{"median_pause": median}] * self.sr.PACE_MIN_SESSIONS
+            with mock.patch.object(self.sr, "load", return_value=history):
+                pace = vb._measured_pace()
+            self.assertGreaterEqual(pace, self.sr.PACE_MIN)
+            self.assertLessEqual(pace, self.sr.PACE_MAX)
+
+    def test_an_unreadable_rhythm_file_falls_back_rather_than_raising(self):
+        with mock.patch.object(self.sr, "load", side_effect=OSError("gone")):
+            self.assertIsNone(vb._measured_pace())
 
 
 class CosineTests(unittest.TestCase):

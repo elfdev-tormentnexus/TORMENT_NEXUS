@@ -89,7 +89,29 @@ def tar_directory(folder):
     return buffer.getvalue()
 
 
-def build(payload, out_path, frames=8, width=WIDTH, delay_ms=120, note=""):
+def tar_paths(paths, root):
+    """Deterministic tar of an explicit file list, relative to root.
+
+    tar_directory() takes whatever happens to be under a folder. This takes
+    exactly what the caller decided to include, which is what a reviewed
+    subsystem map needs -- the map is the thing that was checked, so the
+    archive must follow it rather than the filesystem.
+    """
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as archive:
+        for relative in sorted(paths):
+            full = os.path.join(root, relative.replace("/", os.sep))
+            info = archive.gettarinfo(full, relative)
+            info.mtime = 0
+            info.uid = info.gid = 0
+            info.uname = info.gname = ""
+            with open(full, "rb") as handle:
+                archive.addfile(info, handle)
+    return buffer.getvalue()
+
+
+def build(payload, out_path, frames=8, width=WIDTH, delay_ms=120, note="",
+          description=None):
     """Write the capsule. Returns (frames, width, height, bytes written)."""
     if frames < 1:
         raise ValueError("a capsule needs at least one frame")
@@ -117,6 +139,8 @@ def build(payload, out_path, frames=8, width=WIDTH, delay_ms=120, note=""):
             "do not survive. Extract with tools/machinesoul.py.")
     out.append(_chunk(b"tEXt", b"Software\x00" + b"MACHINESOUL1"))
     out.append(_chunk(b"tEXt", b"Comment\x00" + text.encode("utf-8")))
+    if description:
+        out.append(_description_chunk(description))
     out.append(_chunk(b"acTL", struct.pack(">II", frames, 0)))
 
     span = stride * height
@@ -197,12 +221,73 @@ def _sha256_of_file(path):
     return digest.digest()
 
 
+# A capsule can carry a plain-language description of its own payload, so a
+# recipient can see what a 1.8 GB image is about without decoding it. The
+# text is supplied by the caller and never computed here: this module maps
+# bytes to pixels and holds no opinion about meaning, which is the line that
+# keeps it separate from machinespirit.
+#
+# Two properties travel with it and both are stated in the chunk itself.
+#
+#   It is OUTSIDE the digest. tEXt sits beside the pixel data, so an edited
+#   description does not fail the SHA gate. The payload is guaranteed; the
+#   description is a hint. Anything else would be an unverified claim
+#   riding a verified one, which is the silent failure this project ranks
+#   worst.
+#
+#   It LEAKS. A description of private contents, in cleartext, in a file
+#   that looks like an image and gets forwarded like one, is a disclosure
+#   with nothing about the file to warn anybody. So it is opt-in, never
+#   automatic, and no code path here supplies a default.
+DESCRIPTION_KEY = b"Description"
+
+DESCRIPTION_PREFACE = (
+    "Unverified description of this capsule's payload. It is NOT covered "
+    "by the MACHINESOUL1 sha256 gate -- the payload is guaranteed, this "
+    "text is a hint and can be edited without failing extraction. "
+)
+
+
+def _description_chunk(description):
+    body = (DESCRIPTION_KEY + b"\x00"
+            + (DESCRIPTION_PREFACE + description).encode("utf-8"))
+    return _chunk(b"tEXt", body)
+
+
+def read_description(png_path):
+    """The capsule's description, without decoding a byte of its payload.
+
+    The whole point of putting it in metadata: answering "what is this"
+    should not cost a full extraction of something multi-gigabyte.
+    """
+    with open(png_path, "rb") as handle:
+        if handle.read(8) != b"\x89PNG\r\n\x1a\n":
+            raise CapsuleError("not a PNG")
+        while True:
+            head = handle.read(8)
+            if len(head) < 8:
+                return None
+            length = struct.unpack(">I", head[:4])[0]
+            kind = head[4:8]
+            if kind in (b"IDAT", b"fdAT", b"IEND"):
+                return None            # past the metadata, stop reading
+            body = handle.read(length)
+            handle.read(4)
+            if kind == b"tEXt" and body.startswith(DESCRIPTION_KEY + b"\x00"):
+                text = body[len(DESCRIPTION_KEY) + 1:].decode("utf-8", "replace")
+                if text.startswith(DESCRIPTION_PREFACE):
+                    return text[len(DESCRIPTION_PREFACE):]
+                return text
+
+
 def build_stream(source_path, out_path, width=WIDTH, frame_rows=FRAME_ROWS,
-                 delay_ms=120, note="", progress=None):
+                 delay_ms=120, note="", progress=None, description=None):
     """Build a capsule of any size with bounded memory.
 
     Same container as build(); a capsule from either is read by the same
     extractor. Returns (frames, width, height, bytes written).
+
+    `description` is optional and never defaulted -- see DESCRIPTION_KEY.
     """
     size = os.path.getsize(source_path)
     digest = _sha256_of_file(source_path)
@@ -222,12 +307,46 @@ def build_stream(source_path, out_path, width=WIDTH, frame_rows=FRAME_ROWS,
             "with machinesoul.py extract.")
 
     spill = out_path + ".frame.tmp"
+    try:
+        _build_stream_frames(source_path, out_path, spill, header, text,
+                             frames, width, frame_rows, capacity, size,
+                             delay_ms, progress, description)
+    except BaseException:
+        # A 13 GB build that dies partway leaves a partial capsule and a
+        # frame spill behind, on the machine whose free space is the whole
+        # reason this streams rather than buffering.
+        for path in (out_path, spill):
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
+        raise
+    finally:
+        if os.path.exists(spill):
+            try:
+                os.remove(spill)
+            except OSError:
+                pass
+
+    return frames, width, frame_rows, os.path.getsize(out_path)
+
+
+def _build_stream_frames(source_path, out_path, spill, header, text, frames,
+                         width, frame_rows, capacity, size, delay_ms,
+                         progress, description=None):
+    """Write the capsule frame by frame. Cleanup belongs to the caller."""
+    stride = width * CHANNELS
+    frame_bytes = stride * frame_rows
+
     with open(source_path, "rb") as source, open(out_path, "wb") as out:
         out.write(b"\x89PNG\r\n\x1a\n")
         out.write(_chunk(b"IHDR", struct.pack(">IIBBBBB", width, frame_rows,
                                               8, 6, 0, 0, 0)))
         out.write(_chunk(b"tEXt", b"Software\x00MACHINESOUL1"))
         out.write(_chunk(b"tEXt", b"Comment\x00" + text.encode("utf-8")))
+        if description:
+            out.write(_description_chunk(description))
         out.write(_chunk(b"acTL", struct.pack(">II", frames, 0)))
 
         stream = _payload_stream(source, header, capacity, size)
@@ -283,10 +402,6 @@ def build_stream(source_path, out_path, width=WIDTH, frame_rows=FRAME_ROWS,
                 progress(index + 1, frames)
 
         out.write(_chunk(b"IEND", b""))
-
-    if os.path.exists(spill):
-        os.remove(spill)
-    return frames, width, frame_rows, os.path.getsize(out_path)
 
 
 def _unfilter(raw, width, height):
@@ -383,7 +498,7 @@ def extract(png_path):
         raise CapsuleError("too small to hold a header")
     if blob[:len(MAGIC)] != MAGIC:
         raise CapsuleError(
-            f"not a MACHINESOUL1 capsule (found {blob[:9]!r}). A re-encoded "
+            f"not a MACHINESOUL1 capsule (found {blob[:len(MAGIC)]!r}). A re-encoded "
             "image will fail here: the pixels were re-compressed and the "
             "bytes underneath them changed.")
 
@@ -452,7 +567,13 @@ def extract_stream(png_path, out_path, progress=None):
     carry = bytearray()
     frames_seen = 0
 
-    out = open(out_path, "wb")
+    # Write beside the target and rename only once the digest agrees.
+    # Opening out_path directly truncated whatever was already there before
+    # a single byte had been checked, so a refused capsule destroyed an
+    # existing file while the refusal said nothing was kept. It was true of
+    # the payload and false of the file.
+    temp_path = out_path + ".partial"
+    out = open(temp_path, "wb")
     try:
         with open(png_path, "rb") as handle:
             for kind, length, source in _chunks_of(handle):
@@ -544,10 +665,11 @@ def extract_stream(png_path, out_path, progress=None):
                 "that fails its own checksum is not the archive.")
     except BaseException:
         out.close()
-        if os.path.exists(out_path):
-            os.remove(out_path)
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
         raise
     out.close()
+    os.replace(temp_path, out_path)
     return {"length": declared, "sha256": running.hexdigest(),
             "frames": frames_seen}
 
@@ -563,7 +685,8 @@ def cmd_build(args):
     if os.path.isdir(source):
         payload = tar_directory(source)
         frames, width, height, written = build(
-            payload, args.out, frames=args.frames, delay_ms=args.delay)
+            payload, args.out, frames=args.frames, delay_ms=args.delay,
+            description=args.describe)
         size, digest = len(payload), hashlib.sha256(payload).hexdigest()
         kind = f"tar of {source}"
     else:
@@ -575,7 +698,8 @@ def cmd_build(args):
 
         frames, width, height, written = build_stream(
             source, args.out, frame_rows=args.frame_rows,
-            delay_ms=args.delay, progress=tick if size > 64 * 1024 ** 2 else None)
+            delay_ms=args.delay, description=args.describe,
+            progress=tick if size > 64 * 1024 ** 2 else None)
         digest = _sha256_of_file(source).hex()
         kind = source
 
@@ -584,6 +708,24 @@ def cmd_build(args):
     print(f"  sha256    {digest}")
     print(f"  frames    {frames} x {width}x{height} RGBA")
     print(f"  file      {written:,} bytes  ({written / max(1, size):.2f}x)")
+    return 0
+
+
+def cmd_describe(args):
+    try:
+        description = read_description(args.capsule)
+    except CapsuleError as error:
+        print(f"refused: {error}")
+        return 1
+
+    if description is None:
+        print("no description; this capsule carries only its payload")
+        return 0
+
+    print(description)
+    print()
+    print("  Not covered by the payload's sha256 gate. It is a hint about "
+          "the contents, not a guarantee of them.")
     return 0
 
 
@@ -650,7 +792,17 @@ def main(argv=None):
     b.add_argument("--frame-rows", type=int, default=FRAME_ROWS,
                    help="rows per frame when streaming a file")
     b.add_argument("--delay", type=int, default=120)
+    b.add_argument("--describe", default=None,
+                   help="plain-language description of the payload, stored "
+                        "in PNG metadata. Readable WITHOUT extracting, and "
+                        "therefore readable by anyone who receives the file. "
+                        "Off unless given; never describe private contents.")
     b.set_defaults(func=cmd_build)
+
+    d = sub.add_parser("describe",
+                       help="print a capsule's description without decoding it")
+    d.add_argument("capsule")
+    d.set_defaults(func=cmd_describe)
 
     e = sub.add_parser("extract", help="verify a capsule and write its payload")
     e.add_argument("capsule")

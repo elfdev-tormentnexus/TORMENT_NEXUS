@@ -258,6 +258,152 @@ class StreamingTests(unittest.TestCase):
         self.assertFalse(os.path.exists(out))
 
 
+class RefusalLeavesTheDiskAloneTests(unittest.TestCase):
+    """"Nothing is kept" has to be true of the disk, not just the payload.
+
+    A refused capsule said nothing was written while having already
+    truncated whatever sat at --out, and an interrupted build left a
+    partial capsule and a frame spill behind. Both are refusals that cost
+    the operator a file.
+    """
+
+    def setUp(self):
+        self.folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.folder, ignore_errors=True)
+        self.source = os.path.join(self.folder, "payload.bin")
+        with open(self.source, "wb") as handle:
+            handle.write((bytes(range(256)) * 40)[:9000])
+        self.capsule = os.path.join(self.folder, "c.png")
+
+    def test_a_refused_capsule_does_not_destroy_an_existing_file(self):
+        sc.build_stream(self.source, self.capsule, frame_rows=4)
+
+        with open(self.capsule, "r+b") as handle:      # break the payload
+            handle.seek(-64, os.SEEK_END)
+            handle.write(b"\x00" * 8)
+
+        target = os.path.join(self.folder, "precious.tar")
+        with open(target, "wb") as handle:
+            handle.write(b"work that predates this extraction")
+
+        with self.assertRaises(sc.CapsuleError):
+            sc.extract_stream(self.capsule, target)
+
+        with open(target, "rb") as handle:
+            self.assertEqual(handle.read(),
+                             b"work that predates this extraction")
+
+    def test_a_refused_capsule_leaves_no_partial_beside_the_target(self):
+        sc.build_stream(self.source, self.capsule, frame_rows=4)
+        with open(self.capsule, "r+b") as handle:
+            handle.seek(-64, os.SEEK_END)
+            handle.write(b"\x00" * 8)
+
+        target = os.path.join(self.folder, "out.tar")
+        with self.assertRaises(sc.CapsuleError):
+            sc.extract_stream(self.capsule, target)
+
+        leftovers = [n for n in os.listdir(self.folder)
+                     if n.startswith("out.tar")]
+        self.assertEqual(leftovers, [])
+
+    def test_an_interrupted_build_leaves_no_capsule_and_no_spill(self):
+        def die(index, total):
+            if index >= 2:
+                raise KeyboardInterrupt("operator stopped the build")
+
+        with self.assertRaises(KeyboardInterrupt):
+            sc.build_stream(self.source, self.capsule, frame_rows=2,
+                            progress=die)
+
+        self.assertFalse(os.path.exists(self.capsule))
+        self.assertFalse(os.path.exists(self.capsule + ".frame.tmp"))
+
+    def test_a_successful_build_still_cleans_up_its_spill(self):
+        sc.build_stream(self.source, self.capsule, frame_rows=4)
+        self.assertTrue(os.path.exists(self.capsule))
+        self.assertFalse(os.path.exists(self.capsule + ".frame.tmp"))
+
+
+class DescriptionTests(unittest.TestCase):
+    """A capsule may say what it carries. Two properties keep that honest.
+
+    It sits outside the sha256 gate, so it is a hint and never a guarantee
+    -- an unverified claim riding a verified one is the silent failure this
+    project ranks worst. And it is readable by anyone holding the file, so
+    it must never appear unless asked for.
+    """
+
+    def setUp(self):
+        self.folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.folder, ignore_errors=True)
+        self.source = os.path.join(self.folder, "payload.bin")
+        self.blob = b"ordered anchor decree " * 300
+        with open(self.source, "wb") as handle:
+            handle.write(self.blob)
+        self.capsule = os.path.join(self.folder, "c.png")
+
+    def test_a_capsule_carries_no_description_unless_asked(self):
+        """Off by default, because describing private contents leaks them."""
+        sc.build_stream(self.source, self.capsule)
+        self.assertIsNone(sc.read_description(self.capsule))
+
+    def test_a_description_reads_back_without_decoding_the_payload(self):
+        text = "184 ordered anchors, core digest b5421687348e956e."
+        sc.build_stream(self.source, self.capsule, description=text)
+        self.assertEqual(sc.read_description(self.capsule), text)
+
+    def test_the_in_memory_builder_carries_one_too(self):
+        sc.build(self.blob, self.capsule, frames=2, description="a decree")
+        self.assertEqual(sc.read_description(self.capsule), "a decree")
+
+    def test_the_description_does_not_change_the_payload_or_its_digest(self):
+        plain = os.path.join(self.folder, "plain.png")
+        sc.build_stream(self.source, plain)
+        sc.build_stream(self.source, self.capsule, description="anything")
+
+        first = os.path.join(self.folder, "a.bin")
+        second = os.path.join(self.folder, "b.bin")
+        self.assertEqual(sc.extract_stream(plain, first)["sha256"],
+                         sc.extract_stream(self.capsule, second)["sha256"])
+        with open(first, "rb") as a, open(second, "rb") as b:
+            self.assertEqual(a.read(), self.blob)
+            self.assertEqual(b.read(), self.blob)
+
+    def test_an_edited_description_does_not_fail_extraction(self):
+        """It is outside the gate, and the test says so rather than the docs.
+
+        This is the property that makes it a hint. If editing it broke
+        extraction, it would be part of the guarantee, and it is not.
+        """
+        sc.build_stream(self.source, self.capsule, description="honest text")
+        with open(self.capsule, "rb") as handle:
+            blob = handle.read()
+        tampered = blob.replace(b"honest text", b"dishonest!!")
+        self.assertNotEqual(tampered, blob)
+        with open(self.capsule, "wb") as handle:
+            handle.write(tampered)
+
+        out = os.path.join(self.folder, "still.bin")
+        sc.extract_stream(self.capsule, out)          # must not raise
+        with open(out, "rb") as handle:
+            self.assertEqual(handle.read(), self.blob)
+
+    def test_the_stored_text_warns_that_it_is_not_covered_by_the_digest(self):
+        sc.build_stream(self.source, self.capsule, description="x")
+        with open(self.capsule, "rb") as handle:
+            raw = handle.read()
+        self.assertIn(b"NOT covered", raw)
+
+    def test_a_capsule_from_before_this_feature_still_reads(self):
+        sc.build_stream(self.source, self.capsule)
+        self.assertIsNone(sc.read_description(self.capsule))
+        out = os.path.join(self.folder, "old.bin")
+        sc.extract_stream(self.capsule, out)
+        with open(out, "rb") as handle:
+            self.assertEqual(handle.read(), self.blob)
+
+
 class ArchiveSafetyTests(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.mkdtemp()

@@ -31,7 +31,7 @@ import os
 import re
 import socket
 import tempfile
-from urllib.parse import urlparse, urlsplit
+from urllib.parse import urljoin, urlparse, urlsplit
 
 import requests
 
@@ -42,6 +42,11 @@ from knowledge.library import MAX_SOURCE_BYTES, SUPPORTED_EXTENSIONS
 USER_AGENT = "TORMENT_NEXUS/consume (local, single-file fetch)"
 TIMEOUT = 30
 MAX_REDIRECTS = 5
+
+# A redirect is a second address chosen by the first one, so it gets the
+# same scrutiny the operator's own address got. These are the codes that
+# hand over a Location.
+REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
 
 # What a content-type means on disk. The library dispatches on extension,
 # so the served type has to become one.
@@ -115,6 +120,74 @@ def _is_private_address(host):
     return False
 
 
+def _check_address(url, via=None):
+    """Refuse an address, wherever in a chain it came from.
+
+    The scheme, host and resolved-address rules used to run once, against
+    the address the operator typed. Everything after that was whatever the
+    first server decided to point at. A refusal that only covers the first
+    hop is not a refusal -- an ordinary public page can answer `302
+    Location: http://169.254.169.254/` and the check has already passed.
+
+    So this runs per hop, and `via` names the redirect in the refusal,
+    because "that link is fine" and "that link sends you somewhere that is
+    not" are different facts and the operator should get the second one.
+    """
+    parsed = urlparse(url)
+    where = f" (redirected from {via})" if via else ""
+
+    if parsed.scheme not in {"http", "https"}:
+        raise ConsumeError(
+            f"Only http and https are consumed, not "
+            f"{parsed.scheme or 'that'}{where}. "
+            "A local file is imported with 'library add'.")
+    if not parsed.hostname:
+        raise ConsumeError(f"That URL has no host{where}.")
+    if _is_private_address(parsed.hostname):
+        raise ConsumeError(
+            f"{parsed.hostname} resolves to a private, loopback or otherwise "
+            f"internal address{where}. Consuming it would let a link decide "
+            "what this machine reaches on its own network.")
+    return parsed
+
+
+def _guarded_request(owner, method, url, **kwargs):
+    """One request, following redirects by hand so every hop is checked.
+
+    requests follows redirects itself and would resolve and connect to
+    addresses this module never saw. Turning that off and walking the chain
+    is the only way `_check_address` applies to all of it.
+
+    Returns (response, final_url). The caller gets the address the body
+    actually came from, not the one it asked for.
+
+    Residual gap, stated rather than papered over: the name is resolved
+    here and resolved again by the connection, so a record that changes
+    between the two would be fetched unchecked. Closing that needs the
+    connection pinned to the address that was checked, which is a
+    transport-adapter change this stdlib-only tree has not made.
+    """
+    current = url
+    previous = None
+    for _ in range(MAX_REDIRECTS + 1):
+        _check_address(current, via=previous)
+        response = getattr(owner, method)(
+            current, allow_redirects=False, **kwargs)
+
+        location = response.headers.get("Location")
+        if response.status_code not in REDIRECT_CODES or not location:
+            return response, current
+
+        close = getattr(response, "close", None)
+        if close:
+            close()
+        previous, current = current, urljoin(current, location)
+
+    raise ConsumeError(
+        f"That address redirected more than {MAX_REDIRECTS} times without "
+        "arriving anywhere; nothing was fetched.")
+
+
 def _extension_for(content_type, url):
     base = (content_type or "").split(";")[0].strip().lower()
     if base in BY_CONTENT_TYPE:
@@ -138,18 +211,7 @@ def identify(url, session=None):
     unreachable host: an address that does not answer is a fact about the
     address.
     """
-    parsed = urlparse(url)
-    if parsed.scheme not in {"http", "https"}:
-        raise ConsumeError(
-            f"Only http and https are consumed, not {parsed.scheme or 'that'}. "
-            "A local file is imported with 'library add'.")
-    if not parsed.hostname:
-        raise ConsumeError("That URL has no host.")
-    if _is_private_address(parsed.hostname):
-        raise ConsumeError(
-            f"{parsed.hostname} resolves to a private, loopback or otherwise "
-            "internal address. Consuming it would let a link decide what this "
-            "machine reaches on its own network.")
+    _check_address(url)
 
     if is_media_host(url):
         return {
@@ -164,21 +226,35 @@ def identify(url, session=None):
 
     owner = session or requests.Session()
     try:
-        response = owner.head(url, allow_redirects=True, timeout=TIMEOUT,
-                              headers={"User-Agent": USER_AGENT})
+        response, final = _guarded_request(
+            owner, "head", url, timeout=TIMEOUT,
+            headers={"User-Agent": USER_AGENT})
         if response.status_code >= 400 or not response.headers.get("Content-Type"):
             # Plenty of servers answer HEAD badly; ask for one byte instead.
-            response = owner.get(url, stream=True, timeout=TIMEOUT,
-                                 headers={"User-Agent": USER_AGENT,
-                                          "Range": "bytes=0-0"})
+            response, final = _guarded_request(
+                owner, "get", url, stream=True, timeout=TIMEOUT,
+                headers={"User-Agent": USER_AGENT, "Range": "bytes=0-0"})
         content_type = response.headers.get("Content-Type", "")
         length = response.headers.get("Content-Length")
-        final = response.url
     except requests.RequestException as error:
         raise ConsumeError(f"Could not reach that address: {error}")
     finally:
         if session is None:
             owner.close()
+
+    # A redirect can land on a watch page as easily as a typed address can,
+    # and the wrapper is no more the recording for having been reached in
+    # two steps.
+    if final != url and is_media_host(final):
+        return {
+            "url": url, "final_url": final, "kind": "media",
+            "content_type": None, "extension": "", "length": None,
+            "reason": (
+                f"That address redirects to {_host_of(final)}, which is a "
+                "media page. Its HTML is player scaffolding, not the "
+                "recording. Turning it into text needs three pieces this "
+                "build does not have: " + "; ".join(MEDIA_TOOLS) + "."),
+        }
 
     base = content_type.split(";")[0].strip().lower()
     if base.startswith(("video/", "audio/")):
@@ -219,8 +295,13 @@ def fetch(url, extension, folder=None, limit=MAX_SOURCE_BYTES, session=None):
     owner = session or requests.Session()
     written = 0
     try:
-        with owner.get(url, stream=True, timeout=TIMEOUT,
-                       headers={"User-Agent": USER_AGENT}) as response:
+        # Guarded rather than plain: this used to re-request the original
+        # address with redirects on, so identify()'s verdict said nothing
+        # about where the bytes finally came from.
+        fetched, _final = _guarded_request(
+            owner, "get", url, stream=True, timeout=TIMEOUT,
+            headers={"User-Agent": USER_AGENT})
+        with fetched as response:
             response.raise_for_status()
             with open(target, "wb") as handle:
                 for block in response.iter_content(chunk_size=64 * 1024):

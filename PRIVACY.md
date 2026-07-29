@@ -128,6 +128,45 @@ about. Applied to a private memory it would describe that memory's subject
 in shareable terms, which is worth knowing before sharing any file produced
 this way.
 
+### machinesoul capsules, and the risks specific to image files
+
+A machinesoul capsule is a real PNG or APNG whose pixels **are** the
+payload. That is the point of the format, and it carries privacy
+consequences that ordinary archives do not.
+
+**A capsule looks like an image and gets handled like one.** Nothing in a
+file manager, a preview pane, a chat client, or a social card distinguishes
+a capsule carrying an install tree from a screenshot. Archives invite
+caution; images invite forwarding. Anything placed in a capsule should be
+assumed to travel as easily as a photograph, because to every tool that
+touches it, that is what it is.
+
+**A capsule is not encryption and was never intended as any.** Its SHA-256
+gate proves the payload arrived unaltered. It proves nothing about who may
+read it, and anyone holding the file and the published decompiler can
+extract everything inside. Do not capsule anything you would not send in
+the clear.
+
+**An optional description is stored in cleartext metadata.** A capsule may
+carry a plain-language description of its own payload, readable without
+extracting a single byte. It is **off unless explicitly requested**, and no
+code path supplies one automatically, precisely because describing private
+contents in a forwardable file would disclose the subject even to someone
+who never opened the payload. It also sits outside the SHA-256 gate, so it
+is a hint about the contents and never a guarantee of them — it can be
+edited without extraction failing.
+
+**Re-encoding destroys a capsule silently.** A screenshot, an optimiser, or
+a platform that recompresses images leaves the picture looking identical
+while the bytes underneath no longer reconstruct. The failure is loud at
+extraction — the digest refuses — but invisible before it.
+
+The files this document lists as private are excluded from release
+packaging by both a deny pattern and an independent basename check. That
+exclusion protects the packager, not a capsule you build by hand. If
+private material ever needs to travel this way, encrypt it before it
+becomes pixels.
+
 ### Offline knowledge
 
 Normal library import, extraction, indexing, full-text search, and bundled

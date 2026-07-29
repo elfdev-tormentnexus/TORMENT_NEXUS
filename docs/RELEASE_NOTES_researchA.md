@@ -30,6 +30,57 @@ attach to something measured at 0.9243.
 | **machinesoul** | Sable's data-preservation logic language — ordered vectors mapped to PNG/APNG pixels | reversible 1:1 or refusal, SHA-256 verified |
 | **machinespirit** | Sable's memory language — anchor coordinates, traces, `consume`, recall | lossy, and the loss is the research |
 
+### A capsule can say what it carries
+
+`machinesoul.py build --describe` stores a plain-language description of a
+payload in PNG metadata, and `machinesoul.py describe` reads it back
+**without decoding a byte** — so "what is this 1.8 GB image" stops costing a
+full extraction. Each language does what it is good at: machinesoul carries
+the thing exactly, and the description says what the thing is about.
+
+The text is supplied by the caller and never computed inside the module,
+which keeps machinesoul free of any opinion about meaning and free of any
+dependency — it remains the standalone stdlib decompiler the release ships.
+
+Two properties travel with it, both asserted by tests rather than promised
+by documentation:
+
+- **It is outside the SHA-256 gate.** A test edits a stored description and
+  asserts extraction still succeeds. The payload is the guarantee; the
+  description is a hint. An unverified claim riding a verified one is the
+  silent failure this project ranks worst, so the stored text says so about
+  itself.
+- **It is off unless asked for.** No code path supplies a default. A
+  description of private contents, in cleartext, inside a file that looks
+  like an image and gets forwarded like one, would disclose the subject to
+  someone who never opened the payload.
+
+`PRIVACY.md` gains a section on the risks specific to image files: a
+capsule is not encryption, it travels as easily as a photograph, and
+re-encoding destroys it silently.
+
+### The source tree, cut along meaning
+
+The complete release is cut along size boundaries, so `part04` is the
+middle of a `.gguf` and can say nothing about itself. That is right for
+distribution and useless for reading.
+
+`tools/source_capsules.py` cuts the *source* differently: one capsule per
+subsystem, fifteen of them over 184 files, each carrying its own
+description. `list` prints every one of them without decoding a single
+payload, so a directory of images is navigable as a directory of images.
+
+Descriptions are assembled from the modules' own docstrings. A summary
+written by whoever wrote the code is a description; one invented at
+packaging time is a guess wearing the same clothes.
+
+Two refusals, both tested. **Coverage is asserted** — every source file
+must land in exactly one capsule, and a test removes a subsystem from the
+map to prove the build refuses rather than shipping a set that looks
+complete. **Private runtime state is refused by name**, because this tool
+is not the release packager and should not depend on someone remembering
+that the packager's exclusions exist.
+
 ### `consume <url>` — hazard mode
 
 Works out what an address points at and takes the content rather than the
@@ -47,6 +98,20 @@ bodies exceeding the library's ceiling, counted while streaming rather than
 trusting `Content-Length`. Everything fetched reaches the model as
 evidence, never as instructions.
 
+**Every hop is checked, not just the address supplied.** Redirects are
+walked one at a time with `requests`' own following turned off, because a
+public page answering `302 Location: http://169.254.169.254/` would
+otherwise pass a check that had already run and be fetched, stored and
+indexed. Chains are capped, a relative `Location` is resolved against the
+hop that sent it, and a redirect that lands on a media host is reported as
+media rather than filed as a page.
+
+One gap is left open and named rather than implied shut: the host is
+resolved for the check and resolved again by the connection, so a record
+that changes between the two would be fetched unchecked. Closing that
+needs the socket pinned to the address that was approved, which is a
+transport-adapter change this stdlib-only tree has not made.
+
 ### `reconstruct <text>` — hazard mode
 
 Round-trips a vector through anchor space and prints what survived.
@@ -60,6 +125,61 @@ The gap is entirely anchor correlation. **It does not recover text and
 cannot** — the embedding was already a lossy function of the words before
 any anchor was involved. This is identification, not recall, and the
 command says so in its own output.
+
+### `spread <text>` — hazard mode, the second moment
+
+Pooling keeps the mean of a sentence's token vectors and throws away how
+far they were spread. `spread` builds the density matrix of the trajectory
+instead — `ρ = (1/n) Σ |vᵢ⟩⟨vᵢ|` — and reports what the spread was.
+
+Prior art first, as with everything else here. This matrix is the uncentred
+second moment; statistics calls it a covariance and quantum mechanics calls
+it a density matrix, bringing a worked vocabulary with it — purity,
+participation ratio, von Neumann entropy. Neither name is ours and the
+technique is not new. What is measured is what those observables read on
+this project's own traces.
+
+It is computed from the `n × n` Gram matrix rather than the `384 × 384`
+density matrix, since the two carry the same nonzero eigenvalues and *n* is
+usually a few dozen. Pure `math`, no new dependency, eigenvalues by cyclic
+Jacobi.
+
+**Measured on live traces, and controlled for the obvious confound.** The
+first ordering looked right — repetition low, unrelated sentences high —
+but that could equally have been a token counter, so breadth was tested
+against length at matched size:
+
+| | tokens | effective rank | von Neumann S |
+| --- | ---: | ---: | ---: |
+| one topic | 35 | 1.505 | 0.960 |
+| four topics | 39 | **1.694** | **1.255** |
+| one topic | 52 | 1.521 | 0.998 |
+| many topics | 61 | **1.788** | **1.404** |
+
+Growing a single topic by 49% moves effective rank **+1.1%**. Adding topics
+at matched length moves it **+12.6%** — about ten times the effect. A
+single topic saturates, which is the control passing.
+
+**What is unflattering about it.** Effective rank never leaves the low end:
+1.13 for degenerate repetition, 1.79 for seven unrelated sentences across
+61 tokens, against a ceiling of *n*. Token trajectories are very nearly
+rank-1, which is the same anisotropy `VECTOR_PIXEL_RESEARCH.md` recorded as
+vertical striping — most bge dimensions barely move whatever the input. So
+this is a sensitive dial over a narrow range, not a count of ideas, and the
+command says so in its own output.
+
+The `ln(n)`-normalised entropy is computed and deliberately **not**
+reported: it ordered non-monotonically across the first set, scoring one
+nine-token fact (0.319) above two unrelated sentences at twenty tokens
+(0.295). Raw entropy and effective rank both ordered correctly, so those
+are what the command prints.
+
+**What it cannot do,** stated where it cannot be missed: ρ is a sum over
+tokens, so it is permutation-invariant. Shuffle the sentence and every
+number is identical. It answers how much ground was covered, never in what
+order — `trace` and `peaks` remain the only things that speak to position.
+A test asserts the invariance rather than trusting the docstring, and
+retrieval is untouched.
 
 ### Anchor dictionary v2
 
@@ -154,8 +274,11 @@ package.
 
 ## Known gaps in this cut
 
-- Session rhythm exists as a module with tests; `note_turn()` is still not
-  called from the turn loop, so no session has been recorded.
+- Session rhythm now runs end to end: every completed exchange is counted,
+  the session's shape is written at shutdown, and once three sessions
+  exist the measured median pause sets the beam's frame rate instead of a
+  constant. It had been a fully tested module that nothing called, which
+  proved the module and not the feature.
 - The library's vector column is empty until the app runs with the embedder
   up; exact-word search works immediately, semantic search over the library
   does not.
@@ -163,5 +286,5 @@ package.
   denylist, dependency, command, and clean-import checks. The launcher has not
   yet been exercised end-to-end from that package with both model servers
   producing a live trace.
-- 798 automated tests pass; two filesystem-link tests are skipped because
+- 864 automated tests pass; two filesystem-link tests are skipped because
   this Windows account cannot create the required links.

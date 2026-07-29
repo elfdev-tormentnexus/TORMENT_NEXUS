@@ -8,6 +8,7 @@ process. None of those raise, and all of them produce a fluent account of
 something that did not happen.
 """
 import json
+import math
 import os
 import sys
 import unittest
@@ -261,6 +262,81 @@ class ProfileTests(unittest.TestCase):
 
     def test_no_vectors_profiles_to_nothing_rather_than_zero(self):
         self.assertEqual(ms.profile([1.0], [], [], top=3), [])
+
+
+class DensityMatrixTests(unittest.TestCase):
+    """The second moment, and the claim it must never be allowed to make.
+
+    Pooling keeps the first moment and drops the spread; rho keeps the
+    spread. The danger is not that the numbers are wrong, it is that
+    "covered a lot of ground" reads like "went somewhere in order" -- and
+    rho is a sum over tokens, so it cannot mean that. The permutation test
+    is the one that keeps the docstring honest.
+    """
+
+    def test_a_pure_state_reads_as_one_direction(self):
+        matrix = ms.gram([[1.0, 0.0, 0.0]] * 5)
+        self.assertAlmostEqual(ms.purity(matrix), 1.0, places=9)
+        self.assertAlmostEqual(ms.effective_rank(matrix), 1.0, places=9)
+        self.assertAlmostEqual(ms.von_neumann_entropy(matrix), 0.0, places=9)
+
+    def test_orthogonal_tokens_read_as_maximally_mixed(self):
+        matrix = ms.gram([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0],
+                          [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
+        self.assertAlmostEqual(ms.purity(matrix), 0.25, places=9)
+        self.assertAlmostEqual(ms.effective_rank(matrix), 4.0, places=9)
+        self.assertAlmostEqual(ms.von_neumann_entropy(matrix),
+                               math.log(4), places=9)
+
+    def test_the_gram_matrix_has_trace_one(self):
+        matrix = ms.gram([[3.0, 1.0], [-2.0, 5.0], [0.5, 0.5]])
+        self.assertAlmostEqual(sum(matrix[i][i] for i in range(3)),
+                               1.0, places=9)
+
+    def test_jacobi_matches_the_closed_form_for_two_by_two(self):
+        a, b, d = 2.0, 0.7, -1.0
+        root = math.sqrt((a - d) ** 2 + 4 * b * b)
+        expected = sorted([((a + d) + root) / 2, ((a + d) - root) / 2],
+                          reverse=True)
+        for got, want in zip(ms._eigenvalues_symmetric([[a, b], [b, d]]),
+                             expected):
+            self.assertAlmostEqual(got, want, places=9)
+
+    def test_it_is_permutation_invariant_as_the_docstring_says(self):
+        """The load-bearing negative claim: ground covered, never order."""
+        path = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.5, 0.5, 0.7],
+                [0.0, 0.0, 1.0], [0.9, 0.1, 0.0]]
+        first = ms.spread("", path=path)
+        shuffled = [path[i] for i in (3, 0, 4, 1, 2)]
+        second = ms.spread("", path=shuffled)
+
+        self.assertAlmostEqual(first["purity"], second["purity"], places=9)
+        self.assertAlmostEqual(first["entropy"], second["entropy"], places=7)
+
+    def test_breadth_moves_it_and_length_alone_does_not(self):
+        """Measured on live traces: one topic saturates, topics do not.
+
+        A long single-topic passage must not read as broad simply for
+        being long, or the observable is a token counter with a Greek
+        letter on it.
+        """
+        narrow = [[1.0, 0.0, 0.0]] * 40
+        narrow_short = [[1.0, 0.0, 0.0]] * 8
+        broad = [[1.0, 0.0, 0.0]] * 20 + [[0.0, 1.0, 0.0]] * 20
+
+        self.assertAlmostEqual(ms.effective_rank(ms.gram(narrow)),
+                               ms.effective_rank(ms.gram(narrow_short)),
+                               places=6)
+        self.assertGreater(ms.effective_rank(ms.gram(broad)),
+                           ms.effective_rank(ms.gram(narrow)) + 0.5)
+
+    def test_an_unavailable_server_reports_nothing_rather_than_zero(self):
+        """Zero spread is a reading. Absent is not, and must not look like one."""
+        self.assertIsNone(ms.spread("anything", path=[]))
+
+    def test_a_truncated_trajectory_says_so_in_its_own_result(self):
+        path = [[1.0, 0.0]] * ms.CONTEXT_TOKENS
+        self.assertTrue(ms.spread("", path=path)["truncated"])
 
 
 if __name__ == "__main__":

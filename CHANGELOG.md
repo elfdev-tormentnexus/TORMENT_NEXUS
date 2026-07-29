@@ -4,6 +4,57 @@
 
 ## researchA — 2026-07-28
 
+- Added `tools/source_capsules.py`: the source tree capsuled one subsystem
+  at a time, cut along meaning rather than size, each capsule carrying its
+  subsystem's description in metadata so a directory of images is
+  navigable without extracting any of them. Descriptions come from the
+  modules' own docstrings rather than being generated. Coverage is
+  asserted — every source file must land in exactly one capsule or the
+  build refuses, and private runtime state is refused by name.
+- Capsules can carry a plain-language description of their payload in PNG
+  metadata, readable with `machinesoul.py describe` without decoding the
+  payload. Supplied by the caller, never computed inside the module, so
+  machinesoul stays standalone and stdlib. Off unless asked for, and
+  outside the SHA-256 gate — a test edits a stored description and asserts
+  extraction still succeeds, because it is a hint and not a guarantee.
+- Added a `PRIVACY.md` section on the risks specific to image files: a
+  capsule looks like an image and is forwarded like one, it is not
+  encryption, its optional description is cleartext, and re-encoding
+  destroys it silently.
+- Added `spread <text>` in hazard mode: the density matrix of a
+  trajectory's tokens, reporting purity, participation ratio and von
+  Neumann entropy. It is the uncentred second moment — a covariance in
+  statistics, a density matrix in quantum mechanics — and neither the name
+  nor the technique is ours. Controlled against token count: growing one
+  topic by 49% moves effective rank +1.1% while adding topics at matched
+  length moves it +12.6%. Effective rank stays inside 1.1–1.8 against a
+  ceiling of *n*, because bge token states sit in a narrow cone.
+  Permutation-invariant, so it reports ground covered and never order.
+  Retrieval untouched.
+- Wired session rhythm end to end. `note_turn()` is called at the one seam
+  both the typed and spoken loops pass through, the session's shape is
+  written once at shutdown for sessions that held at least one exchange,
+  the current shape enters the runtime prompt as counted facts, and
+  `viewing_pace()` now supplies the beam's frame rate instead of a
+  hardcoded 1.0. It had been a fully tested module that nothing called.
+- Fixed a redirect hole in `consume`: the private-address refusal ran once
+  against the supplied URL and then followed redirects unchecked, and the
+  download re-requested the original address with redirects enabled. Every
+  hop is now validated, chains are capped, relative locations resolve
+  against their own hop, and a redirect onto a media host is reported as
+  media.
+- Closed a reflection bypass in the autonomous capability gate: `getattr`
+  and its family were unlisted, so `getattr(os, "sys" + "tem")(...)` added
+  process capability without naming anything the tables matched.
+- `extract_stream` no longer truncates an existing file at `--out` before
+  validating the capsule, and an interrupted `build_stream` no longer
+  leaves a partial capsule and frame spill behind.
+- `restore()` refuses an ambiguous backup name instead of taking whichever
+  file the directory walk reached first.
+- Excluded `assistant/memory/session_rhythm.json` from git and from release
+  packaging, under both the deny pattern and the independent basename
+  check. It went unlisted for as long as nothing wrote it.
+
 researchA turns the experimental retrieval and agent seams into measured,
 release-packaged features while making the model and autonomy risks much more
 explicit.

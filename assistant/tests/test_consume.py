@@ -123,6 +123,142 @@ class SchemeAndAddressTests(unittest.TestCase):
             consume.identify("http://this-host-does-not-exist.invalid/x")
 
 
+class ScriptedSession:
+    """Answers a scripted chain, so a redirect can be walked hop by hop."""
+
+    def __init__(self, responses):
+        self.responses = list(responses)
+        self.calls = []
+        self.kwargs = []
+
+    def _next(self, method, url, kwargs):
+        self.calls.append((method, url))
+        self.kwargs.append(kwargs)
+        if not self.responses:
+            raise AssertionError(f"unscripted request to {url}")
+        return self.responses.pop(0)
+
+    def head(self, url, **kwargs):
+        return self._next("head", url, kwargs)
+
+    def get(self, url, **kwargs):
+        return self._next("get", url, kwargs)
+
+    def close(self):
+        pass
+
+
+def _redirect(location, status=302):
+    return FakeResponse(headers={"Location": location}, status=status)
+
+
+class RedirectTests(unittest.TestCase):
+    """A redirect is a second address chosen by the first one.
+
+    Checking only the address the operator supplied and then following
+    wherever it points is the ordinary shape of server-side request
+    forgery. These pin the refusal to every hop rather than the first.
+
+    `_is_private_address` is swapped for a name-based stand-in so these
+    exercise the redirect walk itself and never depend on live DNS.
+    """
+
+    PRIVATE = {"169.254.169.254", "127.0.0.1", "localhost", "192.168.1.1",
+               "internal.corp"}
+
+    def setUp(self):
+        self._real = consume._is_private_address
+        consume._is_private_address = lambda host: host in self.PRIVATE
+
+    def tearDown(self):
+        consume._is_private_address = self._real
+
+    def test_redirect_following_is_not_delegated_to_requests(self):
+        """The whole fix depends on requests not doing this for us."""
+        session = ScriptedSession([FakeResponse(
+            headers={"Content-Type": "application/pdf"})])
+        consume.identify("https://example.com/a.pdf", session=session)
+        self.assertTrue(session.kwargs)
+        for kwargs in session.kwargs:
+            self.assertIs(kwargs.get("allow_redirects"), False)
+
+    def test_a_redirect_to_the_metadata_address_is_refused(self):
+        session = ScriptedSession([
+            _redirect("http://169.254.169.254/latest/meta-data/")])
+        with self.assertRaises(consume.ConsumeError) as caught:
+            consume.identify("https://example.com/innocent", session=session)
+        message = str(caught.exception)
+        self.assertIn("internal address", message)
+        self.assertIn("redirected from", message)
+
+    def test_a_redirect_to_loopback_is_refused(self):
+        session = ScriptedSession([_redirect("http://127.0.0.1:8082/v1/embeddings")])
+        with self.assertRaises(consume.ConsumeError):
+            consume.identify("https://example.com/x", session=session)
+
+    def test_a_redirect_to_a_non_http_scheme_is_refused(self):
+        session = ScriptedSession([_redirect("file:///etc/passwd")])
+        with self.assertRaises(consume.ConsumeError) as caught:
+            consume.identify("https://example.com/x", session=session)
+        self.assertIn("http", str(caught.exception))
+
+    def test_a_relative_redirect_is_resolved_against_its_own_hop(self):
+        session = ScriptedSession([
+            _redirect("/paper.pdf"),
+            FakeResponse(headers={"Content-Type": "application/pdf"}),
+        ])
+        report = consume.identify("https://example.com/dir/x", session=session)
+        self.assertEqual(report["final_url"], "https://example.com/paper.pdf")
+        self.assertEqual(report["kind"], "document")
+
+    def test_an_ordinary_redirect_is_followed_and_its_target_reported(self):
+        session = ScriptedSession([
+            _redirect("https://cdn.example.org/paper.pdf"),
+            FakeResponse(headers={"Content-Type": "application/pdf"}),
+        ])
+        report = consume.identify("https://example.com/paper", session=session)
+        self.assertEqual(report["kind"], "document")
+        self.assertEqual(report["final_url"], "https://cdn.example.org/paper.pdf")
+
+    def test_a_redirect_onto_a_media_host_is_reported_as_media(self):
+        session = ScriptedSession([
+            _redirect("https://www.youtube.com/watch?v=x"),
+            FakeResponse(headers={"Content-Type": "text/html"}),
+        ])
+        report = consume.identify("https://link.example.com/s/abc",
+                                  session=session)
+        self.assertEqual(report["kind"], "media")
+        self.assertIn("yt-dlp", report["reason"])
+
+    def test_an_endless_redirect_chain_is_refused(self):
+        session = ScriptedSession(
+            [_redirect(f"https://example.com/hop{n}") for n in range(20)])
+        with self.assertRaises(consume.ConsumeError) as caught:
+            consume.identify("https://example.com/hop0", session=session)
+        self.assertIn("redirected more than", str(caught.exception))
+        self.assertLessEqual(len(session.calls), consume.MAX_REDIRECTS + 1)
+
+    def test_fetch_refuses_a_redirect_to_a_private_address(self):
+        """identify() passing says nothing about where fetch() ends up."""
+        session = ScriptedSession([_redirect("http://192.168.1.1/admin")])
+        with self.assertRaises(consume.ConsumeError):
+            consume.fetch("https://example.com/a.txt", ".txt",
+                          folder=os.path.join(
+                              os.environ.get("TEMP", "."), "consume_redirect"),
+                          session=session)
+
+    def test_fetch_follows_an_ordinary_redirect_and_writes_the_body(self):
+        folder = os.path.join(os.environ.get("TEMP", "."), "consume_redirect")
+        session = ScriptedSession([
+            _redirect("https://cdn.example.org/a.txt"),
+            FakeResponse(blocks=[b"real ", b"bytes"]),
+        ])
+        path, written = consume.fetch("https://example.com/a.txt", ".txt",
+                                      folder=folder, session=session)
+        self.addCleanup(os.remove, path)
+        self.assertEqual(written, 10)
+
+
 class ContentTypeTests(unittest.TestCase):
     def _identify(self, content_type, url="https://example.com/thing"):
         session = FakeSession(FakeResponse(

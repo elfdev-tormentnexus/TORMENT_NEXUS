@@ -44,6 +44,10 @@ assistant/memory/wifi_sensing_status.json
 assistant/memory/memories.json
 assistant/memory/change_plans/
 assistant/memory/plan_*.txt
+# Session timings. No text, but when the operator sits down, how long they
+# stay, and how long they pause is behavioural data about a person. It went
+# unlisted here for as long as nothing wrote it.
+assistant/memory/session_rhythm.json
 
 # Offline knowledge imported by the operator and its derived index. The
 # built-in action cards are source; user manuals and their vectors are private

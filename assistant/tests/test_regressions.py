@@ -32,6 +32,7 @@ from core import file_utils
 from core import health_check
 from core import llm_server
 from core import persona
+from core import session_rhythm
 from core import time_awareness
 from core import tutorial
 from core.stream_filter import StreamFilter
@@ -2984,6 +2985,12 @@ class VoiceModeTests(unittest.TestCase):
             assistant_main,
             "chat_loop",
             side_effect=lambda: interface_order.append("text"),
+        ), mock.patch.object(
+            # Shutdown collaborator like memory_worker.stop and ui.teardown
+            # above. Left real, it writes the operator's own rhythm file
+            # from a test run, filing the suite's duration as a session.
+            assistant_main,
+            "_record_session_rhythm",
         ):
             assistant_main.main()
 
@@ -4997,6 +5004,106 @@ class TimeAwarenessTests(unittest.TestCase):
             )
         finally:
             del assistant_main.session_turns[turn_count:]
+
+
+class SessionRhythmWiringTests(unittest.TestCase):
+    """The module was complete, tested, and never called.
+
+    `note_turn()`, `record()` and `viewing_pace()` were all correct and all
+    unreachable: no session was ever counted, the file was never written,
+    and the beam's measured pace defaulted forever. A unit test of a module
+    nothing calls proves the module, not the feature. These pin the seams.
+    """
+
+    def setUp(self):
+        self.rhythm = assistant_main._session_rhythm
+        self._turns = list(self.rhythm.turns)
+        self._last = self.rhythm._last_turn
+
+    def tearDown(self):
+        self.rhythm.turns = self._turns
+        self.rhythm._last_turn = self._last
+
+    def test_a_completed_exchange_is_counted(self):
+        turn_count = len(assistant_main.session_turns)
+        before = self.rhythm.summary()["turns"]
+
+        try:
+            with mock.patch.object(assistant_main.mem, "append_history"):
+                assistant_main._record_conversation_turn(
+                    "hello", "hey", allow_memory=False,
+                )
+            self.assertEqual(self.rhythm.summary()["turns"], before + 1)
+        finally:
+            del assistant_main.session_turns[turn_count:]
+
+    def test_a_session_with_exchanges_is_recorded_on_the_way_out(self):
+        self.rhythm.turns = [{"at": 1000.0, "gap": None}]
+
+        with mock.patch.object(assistant_main, "_rhythm_recorded", False), \
+                mock.patch.object(session_rhythm, "record") as record:
+            assistant_main._record_session_rhythm()
+
+        record.assert_called_once()
+        self.assertEqual(record.call_args.args[0]["turns"], 1)
+
+    def test_a_session_that_said_nothing_is_not_recorded(self):
+        """A launch closed before anything was said is not a short session."""
+        self.rhythm.turns = []
+
+        with mock.patch.object(assistant_main, "_rhythm_recorded", False), \
+                mock.patch.object(session_rhythm, "record") as record:
+            assistant_main._record_session_rhythm()
+
+        record.assert_not_called()
+
+    def test_it_is_recorded_once_even_though_two_paths_reach_it(self):
+        """Ctrl-C and main()'s finally can both fire on the same exit."""
+        self.rhythm.turns = [{"at": 1000.0, "gap": None}]
+
+        with mock.patch.object(assistant_main, "_rhythm_recorded", False), \
+                mock.patch.object(session_rhythm, "record") as record:
+            assistant_main._record_session_rhythm()
+            assistant_main._record_session_rhythm()
+
+        record.assert_called_once()
+
+    def test_a_recording_failure_never_blocks_shutdown(self):
+        self.rhythm.turns = [{"at": 1000.0, "gap": None}]
+
+        with mock.patch.object(assistant_main, "_rhythm_recorded", False), \
+                mock.patch.object(session_rhythm, "record",
+                                  side_effect=OSError("disk full")):
+            assistant_main._record_session_rhythm()   # must not raise
+
+    def test_the_prompt_stays_quiet_until_the_session_has_a_shape(self):
+        self.rhythm.turns = [{"at": 1000.0, "gap": None}]
+        self.assertEqual(assistant_main._session_rhythm_context(), "")
+
+    def test_the_prompt_reports_the_shape_once_there_is_one(self):
+        self.rhythm.turns = [
+            {"at": 1000.0 + n * 30, "gap": None if n == 0 else 30.0}
+            for n in range(assistant_main.RHYTHM_CONTEXT_MIN_TURNS)
+        ]
+
+        with mock.patch.object(assistant_main, "_rhythm_history_cache", []):
+            context = assistant_main._session_rhythm_context()
+
+        self.assertIn("exchanges", context)
+        self.assertIn("measured, not inferred", context)
+
+    def test_the_prompt_claims_nothing_about_how_the_time_felt(self):
+        self.rhythm.turns = [
+            {"at": 1000.0 + n * 30, "gap": None if n == 0 else 30.0}
+            for n in range(6)
+        ]
+
+        with mock.patch.object(assistant_main, "_rhythm_history_cache", []):
+            context = assistant_main._session_rhythm_context().lower()
+
+        for claim in ("felt", "dragged", "flew by", "enjoyed", "missed you",
+                      "waiting", "bored", "lonely"):
+            self.assertNotIn(claim, context)
 
 
 class PromptEfficiencyTests(unittest.TestCase):
@@ -8237,6 +8344,39 @@ class CapabilityGateCoverageTests(unittest.TestCase):
                 )
                 self.assertIsNotNone(problem)
 
+    def test_reflection_that_reaches_a_capability_by_name_is_refused(self):
+        """`getattr(os, "sys" + "tem")` names nothing the tables list.
+
+        _call_name() also returns "" for a call whose own callee is a call,
+        so the outer invocation was invisible too. The gate was reading
+        source that had stopped naming what it does.
+        """
+        problem = self._problem(
+            "import os\n\n\ndef go():\n"
+            "    return getattr(os, 'sys' + 'tem')('calc.exe')\n"
+        )
+        self.assertIsNotNone(problem)
+        self.assertIn("getattr", problem)
+
+    def test_the_whole_reflection_family_is_refused(self):
+        for call in ("getattr", "setattr", "delattr",
+                     "vars", "globals", "locals"):
+            with self.subTest(call=call):
+                problem = self._problem(
+                    f"import os\n\n\ndef go():\n    {call}(os)\n    return 1\n"
+                )
+                self.assertIsNotNone(problem)
+                self.assertIn(call, problem)
+
+    def test_reflection_already_present_is_not_newly_refused(self):
+        """Still a delta: keeping what a module already had is allowed."""
+        base = "import os\n\n\ndef go():\n    return getattr(os, 'name')\n"
+        updated = "import os\n\n\ndef go():\n    return getattr(os, 'sep')\n"
+        self.assertIsNone(
+            edit_guard.change_capability_problem(
+                "voice/session.py", base, updated)
+        )
+
     def test_radio_and_microphone_libraries_are_refused(self):
         # This project has a LoRa radio and a microphone. A module that
         # gains either has gained egress or the room, and neither looks
@@ -8528,6 +8668,45 @@ class CentralElementProtectionTests(unittest.TestCase):
     def test_the_unattended_surface_stayed_small(self):
         # Removing one file should not tempt anyone into adding others.
         self.assertLessEqual(len(edit_guard.AUTONOMOUS_ALLOWED_FILES), 5)
+
+
+class RollbackTargetTests(unittest.TestCase):
+    """A rollback that writes to the wrong file is worse than the bad edit.
+
+    Backup names flatten separators, so "voice/session.py" and a root-level
+    "voice_session.py" produce the same name. restore() reversed that by
+    walking and taking whichever the directory order reached first.
+    """
+
+    BACKUP = "voice_session.py.20260728_120000_000000.bak"
+
+    def _walk(self):
+        return [
+            (edit_guard.PROJECT_ROOT, ["voice"], ["voice_session.py"]),
+            (os.path.join(edit_guard.PROJECT_ROOT, "voice"), [], ["session.py"]),
+        ]
+
+    def test_an_ambiguous_backup_name_is_refused_rather_than_guessed(self):
+        with mock.patch.object(edit_guard.os.path, "exists",
+                               return_value=True), \
+                mock.patch.object(edit_guard.os, "walk",
+                                  return_value=self._walk()):
+            with self.assertRaises(edit_guard.GuardError) as caught:
+                edit_guard.restore(self.BACKUP)
+
+        message = str(caught.exception)
+        self.assertIn("more than one file", message)
+        self.assertIn("voice/session.py", message)
+        self.assertIn("voice_session.py", message)
+
+    def test_an_unmatched_backup_name_still_reports_plainly(self):
+        with mock.patch.object(edit_guard.os.path, "exists",
+                               return_value=True), \
+                mock.patch.object(edit_guard.os, "walk", return_value=[]):
+            with self.assertRaises(edit_guard.GuardError) as caught:
+                edit_guard.restore(self.BACKUP)
+
+        self.assertIn("Could not work out", str(caught.exception))
 
 
 class GuardDoctorTests(unittest.TestCase):

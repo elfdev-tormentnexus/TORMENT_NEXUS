@@ -272,6 +272,12 @@ DENY_PATTERNS = [
     # Window titles name documents, pages and conversations. This is at
     # least as revealing as the conversation history.
     "*/memory/activity_log.jsonl*",
+    # Session timings. Text never enters this file, but when someone sits
+    # down, how long they stay and how long they pause is behavioural data
+    # about a person, and a fresh copy must start with no history rather
+    # than inherit the build machine's. PRIVACY.md describes it as the
+    # operator's own; shipping it would make that false.
+    "*/memory/session_rhythm.json*",
     # A future external Wi-Fi research collector may write one aggregate
     # status record here. It belongs to the running installation, never a
     # shareable package.
@@ -364,6 +370,10 @@ PRIVATE_RUNTIME_BASENAMES = {
     # comment above calls this at least as revealing as the conversation
     # history, and that file is in this set -- so this one belongs here too.
     "activity_log.jsonl",
+    # When the operator sits down, how long they stay, and how long they
+    # pause between turns. No text, which is exactly why it reads as
+    # harmless until it is written down next to a date.
+    "session_rhythm.json",
     "chosen_name.json",
     "conversation_history.txt",
     "memories.json",

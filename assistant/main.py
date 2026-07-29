@@ -76,6 +76,7 @@ from core import dev_auth
 from core import tutorial
 from core import first_run
 from core.time_awareness import TimeAwareness
+from core import session_rhythm
 from core.system_awareness import SystemAwareness
 from core.wifi_experimental import WifiExperimental
 from commands import natural_command
@@ -149,6 +150,7 @@ _startup_voice_error = None
 # ============================================================
 
 def ctrl_c(sig, frame):
+    _record_session_rhythm()
     memory_worker.stop(drain_seconds=0.0)
     knowledge_library.stop_worker()
     semantic_index.stop_worker()
@@ -357,6 +359,13 @@ def clean_reply(text):
 session_turns = []
 _time_awareness = TimeAwareness(mem.conversation_history)
 
+# How this session is running, as opposed to what time it is. Started at
+# import so the duration covers the wait for the model to load, which is
+# part of the session from the operator's side even though nothing was
+# said during it. Timings only -- see core/session_rhythm.py and the
+# session_rhythm.json row in PRIVACY.md.
+_session_rhythm = session_rhythm.Session()
+
 # Observations of the machine, kept across restarts so it can notice that
 # you were at this yesterday too. The titles it records name documents,
 # pages and conversations, so the log is gitignored, excluded from release
@@ -377,6 +386,55 @@ _wifi_experimental = WifiExperimental(
     WIFI_EXPERIMENTAL_STATUS_FILE,
     enabled=WIFI_EXPERIMENTAL_ENABLED,
 )
+
+
+_rhythm_history_cache = None
+
+# One exchange in, "this session has run forty seconds across 1 exchange"
+# is noise in every prompt for the rest of the night. Three is where the
+# numbers start describing a shape rather than a start.
+RHYTHM_CONTEXT_MIN_TURNS = 3
+
+
+def _rhythm_history():
+    """Past sessions, read once.
+
+    They cannot change while this one runs, and rebuilding the prompt every
+    turn would re-read the file for an answer that could not have moved.
+    This session is deliberately not in it: it is recorded at shutdown, so
+    the comparison is always against finished sessions.
+    """
+    global _rhythm_history_cache
+
+    if _rhythm_history_cache is None:
+        try:
+            _rhythm_history_cache = session_rhythm.load()
+        except Exception:
+            _rhythm_history_cache = []
+
+    return _rhythm_history_cache
+
+
+def _session_rhythm_context():
+    """How this session is running, beside the ones before it.
+
+    This is the counted half of "sense of time passing". Every clause maps
+    to a number in session_rhythm.json or to this session's own counters,
+    which is the whole point -- it can say "the longest session I have a
+    record of" because there is a record, and it cannot say the night felt
+    long because nothing measured that.
+    """
+    try:
+        if _session_rhythm.summary()["turns"] < RHYTHM_CONTEXT_MIN_TURNS:
+            return ""
+        return (
+            "\nThis session's shape (measured, not inferred):\n"
+            + session_rhythm.describe(_session_rhythm,
+                                      history=_rhythm_history())
+            + "\n"
+        )
+    except Exception:
+        return ""
 
 
 def _ambient_context():
@@ -1050,6 +1108,7 @@ def _runtime_context_prompt(
 
 Trusted local clock:
 {_time_awareness.context()}
+{_session_rhythm_context()}
 {_ambient_context()}
 {_room_sensing_context()}
 Potentially relevant stored notes:
@@ -1733,6 +1792,11 @@ def _record_conversation_turn(user_input, assistant_reply, allow_memory=True):
 
     completed_at = datetime.now().astimezone()
     _time_awareness.note_interaction(completed_at)
+
+    # One exchange finished. This is the only place a turn is counted, so
+    # the rhythm covers typed and spoken input alike without either loop
+    # having to remember to say so.
+    _session_rhythm.note_turn()
     block = (
         f"\n[{completed_at.isoformat(sep=' ', timespec='seconds')}]\n"
         f"User: {user_input}\n"
@@ -1747,6 +1811,35 @@ def _record_conversation_turn(user_input, assistant_reply, allow_memory=True):
     history_recall.refresh(
         live_session_exchanges=len(session_turns) // 2,
     )
+
+
+_rhythm_recorded = False
+
+
+def _record_session_rhythm():
+    """Write this session's shape on the way out, once.
+
+    Only a session that held at least one exchange is written. A launch
+    closed before anything was said is not a short session, it is not a
+    session, and letting those in would make "the longest of forty" a
+    comparison against mostly empty rows.
+
+    Both the signal handler and main()'s finally can reach here, hence the
+    latch. Failure is swallowed on purpose: losing one row of timings is a
+    smaller harm than failing to stop the model servers behind it.
+    """
+    global _rhythm_recorded
+
+    if _rhythm_recorded:
+        return
+    _rhythm_recorded = True
+
+    try:
+        summary = _session_rhythm.summary()
+        if summary["turns"]:
+            session_rhythm.record(summary)
+    except Exception:
+        pass
 
 
 def _protect_user_input(user_input):
@@ -3024,6 +3117,7 @@ def main():
 
         chat_loop()
     finally:
+        _record_session_rhythm()
         _system_awareness.stop()
         memory_worker.stop()
         knowledge_library.stop_worker()

@@ -16,8 +16,14 @@ during a gap, because nothing was running to have anything happen to it,
 and no claim that a long session was experienced as long.
 
 Only timings are recorded -- never text, never window titles, never what was
-discussed. A pause length is still behavioural data, so recording is opt-in
-and the file is plain JSON the operator can read and delete.
+discussed. A pause length is still behavioural data, so the file stays
+bounded, timings-only, and plain JSON the operator can read and delete; it
+is described in the same terms in PRIVACY.md.
+
+This says recorded, not opt-in, because it now is: a session that held at
+least one exchange is written at shutdown. The docstring claimed opt-in
+while nothing called `note_turn()` at all, so the claim cost nothing and
+described neither the code nor the privacy document.
 """
 import json
 import os

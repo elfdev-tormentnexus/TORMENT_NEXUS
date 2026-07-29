@@ -424,11 +424,52 @@ def render_animated(path, out_path, text="", width=720, height=200,
     return stats, delays
 
 
+def _measured_pace():
+    """The operator's own reading rate, or None when nothing measured it.
+
+    Imported lazily and defensively: the beam is a standalone tool and has
+    to keep running from a tree where the assistant package is not
+    importable. None rather than 1.0, so a caller can tell "measured, and
+    it came out at 1.0" apart from "never measured" -- which is the same
+    distinction viewing_pace() itself refuses to blur.
+    """
+    assistant = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "assistant")
+    if assistant not in sys.path:
+        sys.path.insert(0, assistant)
+    try:
+        from core import session_rhythm
+    except Exception:
+        return None
+
+    try:
+        history = session_rhythm.load()
+        if session_rhythm.typical_pause(history) is None:
+            return None
+        return session_rhythm.viewing_pace(history)
+    except Exception:
+        return None
+
+
 def cmd_animate(args):
+    # The help text has always said viewing_pace() supplies a measured
+    # multiplier. Nothing asked it for one, so every beam ever rendered ran
+    # at the default. Asking is the whole fix.
+    pace = args.pace
+    source = "asked for on the command line"
+    if pace is None:
+        pace = _measured_pace()
+        if pace is None:
+            pace, source = 1.0, "default; not enough recorded sessions yet"
+        else:
+            source = "measured from this operator's session rhythm"
+
     path = beam(args.text, args.url, args.key)
     stats, delays = render_animated(path, args.out, args.text,
-                                    args.width, args.height, pace=args.pace)
+                                    args.width, args.height, pace=pace)
     print(f"wrote {args.out}  ({os.path.getsize(args.out):,} bytes)")
+    print(f"  pace {pace:.2f}x  ({source})")
     print(f"  frames {stats['tokens']}  "
           f"total {sum(delays) / 1000:.1f}s")
     print(f"  slowest frame {max(delays):.0f} ms, fastest {min(delays):.0f} ms"
@@ -544,9 +585,10 @@ def main():
             s.add_argument("--out", default="beam_animated.png")
             s.add_argument("--width", type=int, default=720)
             s.add_argument("--height", type=int, default=200)
-            s.add_argument("--pace", type=float, default=1.0,
-                           help="duration multiplier; session_rhythm."
-                                "viewing_pace() supplies a measured one")
+            s.add_argument("--pace", type=float, default=None,
+                           help="duration multiplier; defaults to the "
+                                "measured session_rhythm.viewing_pace(), "
+                                "or 1.0 when too few sessions are recorded")
         if name in ("render", "encode"):
             s.add_argument("--out",
                            default="beam.png" if name == "render" else "beam_sable7.png")

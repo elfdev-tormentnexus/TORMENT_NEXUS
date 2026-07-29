@@ -59,7 +59,10 @@ ANCHOR_VERSION = os.environ.get("TORMENT_NEXUS_ANCHOR_VERSION", "2").strip()
 # is checked rather than assumed.
 CONTEXT_TOKENS = 512
 
-_lock = threading.Lock()
+# Reentrant because anchor_vectors() holds this and then reaches
+# anchor_texts() -> _load_anchors(), which needs it for the same reason.
+# A plain Lock made the inner cache the unguarded one by default.
+_lock = threading.RLock()
 _anchors = None
 _anchors_loaded_version = None
 _anchor_vectors = None
@@ -72,11 +75,13 @@ def anchors_file(version=None):
 
 def _load_anchors():
     global _anchors, _anchors_loaded_version
-    if _anchors is None or _anchors_loaded_version != ANCHOR_VERSION:
-        with open(anchors_file(), encoding="utf-8") as fh:
-            _anchors = json.load(fh)
-        _anchors_loaded_version = ANCHOR_VERSION
-    return _anchors
+    with _lock:
+        if _anchors is None or _anchors_loaded_version != ANCHOR_VERSION:
+            with open(anchors_file(), encoding="utf-8") as fh:
+                loaded = json.load(fh)
+            _anchors = loaded
+            _anchors_loaded_version = ANCHOR_VERSION
+        return _anchors
 
 
 def anchor_texts(include_project=True, include_life=True):
@@ -216,8 +221,12 @@ def anchor_vectors(include_project=True, include_life=True, timeout=120):
                 return None
             _anchor_vectors = vectors
             _anchor_vectors_key = ANCHOR_VERSION
+        # Snapshot inside the lock. Reading the global again on the way out
+        # let a concurrent reset_cache() replace it with None between the
+        # two, and _select_sections would slice that.
+        rows = _anchor_vectors
 
-    return _select_sections(_anchor_vectors, include_project, include_life)
+    return _select_sections(rows, include_project, include_life)
 
 
 def _select_sections(rows, include_project, include_life):
@@ -241,6 +250,34 @@ def _select_sections(rows, include_project, include_life):
     return out
 
 
+def _centred_anchors(vectors):
+    """The anchor frame: mean removed, and each anchor's norm kept.
+
+    This depends only on the dictionary, so it is the same for every token
+    in a path. It used to be rebuilt per token -- the mean over all 184
+    anchors, a full copy of the anchor matrix, and then a fresh norm for
+    every anchor inside every cosine. On a 512-token trajectory that is the
+    identical work done 512 times, and it is the readout, not the model,
+    that the operator waits on.
+    """
+    mean = [sum(column) / len(vectors) for column in zip(*vectors)]
+    centred = [[x - m for x, m in zip(a, mean)] for a in vectors]
+    norms = [math.sqrt(sum(x * x for x in a)) or 1.0 for a in centred]
+    return mean, centred, norms
+
+
+def _profile_in_frame(vector, frame, texts, top):
+    """One token against an already-centred dictionary."""
+    mean, centred, norms = frame
+    target = [x - m for x, m in zip(vector, mean)]
+    scale = math.sqrt(sum(x * x for x in target)) or 1.0
+    scored = sorted(
+        ((sum(x * y for x, y in zip(target, anchor)) / (scale * norm), text)
+         for anchor, norm, text in zip(centred, norms, texts)),
+        reverse=True)
+    return scored[:top]
+
+
 def profile(vector, vectors, texts, top=3):
     """Strongest anchors for one vector, common direction removed.
 
@@ -252,12 +289,7 @@ def profile(vector, vectors, texts, top=3):
     """
     if not vectors:
         return []
-    mean = [sum(column) / len(vectors) for column in zip(*vectors)]
-    centred = [[x - m for x, m in zip(a, mean)] for a in vectors]
-    target = [x - m for x, m in zip(vector, mean)]
-    scored = sorted(zip((cosine(target, a) for a in centred), texts),
-                    reverse=True)
-    return scored[:top]
+    return _profile_in_frame(vector, _centred_anchors(vectors), texts, top)
 
 
 def trace(text, top=1, include_project=True, include_life=True):
@@ -270,7 +302,9 @@ def trace(text, top=1, include_project=True, include_life=True):
         return None
     texts = anchor_texts(include_project, include_life)
     vectors = vectors[:len(texts)]
-    return [(index, profile(token, vectors, texts, top))
+    # Centre the dictionary once, then read every token against it.
+    frame = _centred_anchors(vectors)
+    return [(index, _profile_in_frame(token, frame, texts, top))
             for index, token in enumerate(path)]
 
 
@@ -375,6 +409,141 @@ def peaks(rows):
     return sorted(((anchor, score, index)
                    for anchor, (score, index) in best.items()),
                   key=lambda row: -support[row[0]])
+
+
+# --- the second moment ------------------------------------------------
+#
+# Prior art first, as everything else here does it. The matrix below is the
+# uncentred second moment of a trajectory's tokens. Statistics calls it a
+# covariance; quantum mechanics calls it a density matrix and brings a
+# worked vocabulary of scalar observables for it -- purity, participation
+# ratio, von Neumann entropy. Both names describe the same arithmetic and
+# neither is ours. What is measured here is what those observables read on
+# this project's own traces.
+#
+# The reason to want it: pooling keeps the FIRST moment and discards the
+# spread. rho keeps the second. So "how much ground did this text cover" is
+# a question the pooled vector cannot answer and this can.
+#
+# What it cannot do, stated where it cannot be missed: rho is a sum over
+# tokens, so it is permutation-invariant. Shuffle the sentence and every
+# number below is identical. It answers how much ground, never in what
+# order. trace() and peaks() remain the only things that speak to position.
+
+
+def _unit(vector):
+    norm = math.sqrt(sum(x * x for x in vector))
+    return [x / norm for x in vector] if norm else list(vector)
+
+
+def gram(path):
+    """(1/n) V Vt for a trajectory, each token normalised first.
+
+    rho = (1/n) sum |v><v| is 384x384. This is n x n, n is usually a few
+    dozen, and the two carry the same nonzero eigenvalues -- so every
+    observable below reads off the small matrix and the big one is never
+    built. Trace is 1 because the tokens are unit vectors.
+    """
+    tokens = [_unit(v) for v in path]
+    n = len(tokens)
+    rows = [[0.0] * n for _ in range(n)]
+    for i in range(n):
+        for j in range(i, n):
+            value = sum(x * y for x, y in zip(tokens[i], tokens[j])) / n
+            rows[i][j] = value
+            rows[j][i] = value
+    return rows
+
+
+def purity(matrix):
+    """Tr(rho^2). 1.0 when every token sits in one place, 1/n when they are
+    mutually orthogonal. No eigendecomposition: for a symmetric matrix this
+    is the sum of its squared entries."""
+    return sum(value * value for row in matrix for value in row)
+
+
+def effective_rank(matrix):
+    """1 / Tr(rho^2) -- roughly how many directions the text actually used.
+
+    Bounded by 1 and the token count. The participation ratio under its
+    other name.
+    """
+    weight = purity(matrix)
+    return 1.0 / weight if weight else 0.0
+
+
+def _eigenvalues_symmetric(matrix, sweeps=60, tolerance=1e-12):
+    """Cyclic Jacobi. Small symmetric matrices only, which is all this has.
+
+    Written out rather than imported because this module is deliberately
+    stdlib and pure `math`, like the cosine above it.
+    """
+    a = [row[:] for row in matrix]
+    n = len(a)
+
+    for _ in range(sweeps):
+        off = sum(a[i][j] * a[i][j]
+                  for i in range(n) for j in range(n) if i != j)
+        if off <= tolerance:
+            break
+
+        for p in range(n - 1):
+            for q in range(p + 1, n):
+                if abs(a[p][q]) <= tolerance:
+                    continue
+                theta = (a[q][q] - a[p][p]) / (2.0 * a[p][q])
+                sign = 1.0 if theta >= 0 else -1.0
+                t = sign / (abs(theta) + math.sqrt(theta * theta + 1.0))
+                c = 1.0 / math.sqrt(t * t + 1.0)
+                s = t * c
+
+                for k in range(n):
+                    akp, akq = a[k][p], a[k][q]
+                    a[k][p] = c * akp - s * akq
+                    a[k][q] = s * akp + c * akq
+                for k in range(n):
+                    apk, aqk = a[p][k], a[q][k]
+                    a[p][k] = c * apk - s * aqk
+                    a[q][k] = s * apk + c * aqk
+
+    return sorted((a[i][i] for i in range(n)), reverse=True)
+
+
+def von_neumann_entropy(matrix):
+    """-sum lambda ln lambda over the spectrum. Zero for a pure state."""
+    total = 0.0
+    for value in _eigenvalues_symmetric(matrix):
+        if value > 1e-12:
+            total -= value * math.log(value)
+    return total
+
+
+def spread(text, path=None):
+    """How much ground a text covered, as the density matrix reads it.
+
+    Returns None when unavailable, like everything else here, rather than
+    guessing. `truncated` is carried in the result because a spread over
+    the first 512 tokens of a longer input is a spread of part of it, and
+    the caller should not have to ask twice to find that out.
+    """
+    if path is None:
+        path = trajectory(text)
+    if not path:
+        return None
+
+    matrix = gram(path)
+    tokens = len(path)
+    entropy = von_neumann_entropy(matrix)
+
+    return {
+        "tokens": tokens,
+        "purity": purity(matrix),
+        "effective_rank": effective_rank(matrix),
+        "entropy": entropy,
+        "entropy_normalised": (entropy / math.log(tokens)
+                               if tokens > 1 else 0.0),
+        "truncated": looks_truncated(path),
+    }
 
 
 def reset_cache():

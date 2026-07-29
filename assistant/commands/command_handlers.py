@@ -3213,6 +3213,63 @@ def handle_experimental_mode(user_input):
     )
 
 
+@command("spread",
+         "Report how much semantic ground a text covered, not where it went",
+         usage="spread <text>", dev_only=False, group="knowledge")
+def handle_spread(user_input):
+    if not _match_prefix(user_input, "spread "):
+        return False
+
+    text = user_input[len("spread "):].strip()
+    if not text:
+        return "Usage: spread <text>"
+
+    from core import machinespirit
+
+    if not machinespirit.configured():
+        return ("Nothing to measure with. Spread reads the same per-token "
+                "trajectory 'trace' does, so it needs the unpooled "
+                "embedding server the hazard launcher starts.")
+
+    status = machinespirit.diagnose()
+    if not status["ready"]:
+        return status["reason"]
+
+    reading = machinespirit.spread(text)
+    if reading is None:
+        return "Both embedding servers answered, but no trajectory came back."
+
+    lines = [
+        '"' + text + '"',
+        "",
+        f"  tokens            {reading['tokens']}",
+        f"  effective rank    {reading['effective_rank']:.3f}"
+        f"   of a possible {reading['tokens']}",
+        f"  von Neumann S     {reading['entropy']:.4f}",
+        f"  purity            {reading['purity']:.4f}",
+    ]
+
+    if reading["truncated"]:
+        lines.insert(1, f"  [only the first {reading['tokens']} tokens fit "
+                        "the embedding window; this measures that much and "
+                        "not the rest]")
+
+    lines += [
+        "",
+        "  This is the density matrix of the trajectory's tokens -- the "
+        "second moment, which the pooled vector discards by averaging. It "
+        "is bge-small's reading, not reasoning.",
+        "  It says how much ground the text covered. It cannot say in what "
+        "order: the matrix is a sum over tokens, so shuffling the sentence "
+        "gives an identical number. Use 'trace' for position.",
+        "  Measured on this stack, effective rank stays near 1 even for "
+        "unrelated sentences, because bge token states sit in a narrow "
+        "cone. Read it as a sensitive dial over a small range, not a count "
+        "of ideas.",
+    ]
+    return "\n".join(lines)
+
+
 @command("trace",
          "Show which concept appeared at which token in a sentence",
          usage="trace <text>", dev_only=False, group="knowledge")
