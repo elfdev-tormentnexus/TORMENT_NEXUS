@@ -8010,7 +8010,7 @@ class ReleaseModelContractTests(unittest.TestCase):
             "docs/AGENT_INTERFACE.md",
             "docs/CAPABILITIES_AND_LIMITS.md",
             "docs/OFFLINE_KNOWLEDGE.md",
-            "docs/RELEASE_NOTES_v0.2.0-beta.6.md",
+            "docs/RELEASE_NOTES_researchA.md",
             "docs/RESEARCH_GOALS.md",
             "docs/RESEARCH_ROADMAP.md",
             "docs/SEMANTIC_AND_AGENT_BRIDGES.md",
@@ -8028,7 +8028,12 @@ class ReleaseModelContractTests(unittest.TestCase):
         self.assertEqual(required - set(package_release.INCLUDE_FILES), set())
 
     def test_release_artifacts_are_stably_versioned(self):
-        self.assertEqual(package_release.RELEASE_VERSION, "v0.2.0-beta.6")
+        # Pinned so a rename cannot happen as a side effect of something
+        # else. Changing the version re-enters the checksum cycle from the
+        # top -- notes, patch, its digest, downloader, its digest -- so the
+        # string is updated here deliberately, as part of making that cut,
+        # and never to make a failing test pass.
+        self.assertEqual(package_release.RELEASE_VERSION, "researchA")
         self.assertIn(package_release.RELEASE_VERSION, package_release.ARCHIVE_NAME)
         self.assertIn(
             package_release.RELEASE_VERSION,
