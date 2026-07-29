@@ -300,7 +300,28 @@ def spearman(xs, ys):
 
 # --- The stone --------------------------------------------------------
 
-def build_stone(url, api_key=None, include_project=True):
+def load_anchor_file(path):
+    """An alternate decree, for asking whether readability costs anything.
+
+    The anchors in this file are chosen English. That is a deliberate
+    property -- the operator can open the list and read the coordinate
+    system -- but readability is invisible to translation quality, which
+    depends on coverage and spread. The steelman is that anchors sampled
+    from the corpus would match the data distribution by construction and
+    do at least as well.
+
+    So the claim has to be measured rather than argued, and measuring it
+    means running the identical pipeline over a different list. A plain
+    JSON list of strings, or a dict with a "core" key.
+    """
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+    if isinstance(data, dict):
+        return list(data["core"]), list(data.get("project") or [])
+    return list(data), []
+
+
+def build_stone(url, api_key=None, include_project=True, anchor_file=None):
     """One side of the stone: this model's reading of the shared anchors.
 
     The stone is one-sided by design. It carries the anchor texts so the
@@ -308,8 +329,12 @@ def build_stone(url, api_key=None, include_project=True):
     vectors so a reader can see what this side looks like. The other agent
     supplies its half; nothing here needs to know anything about it.
     """
-    anchors = list(ANCHOR_CORE_V1)
-    project = list(ANCHOR_PROJECT_V1) if include_project else []
+    if anchor_file:
+        anchors, extra = load_anchor_file(anchor_file)
+        project = extra if include_project else []
+    else:
+        anchors = list(ANCHOR_CORE_V1)
+        project = list(ANCHOR_PROJECT_V1) if include_project else []
     vectors = embed(anchors + project, url, api_key)
     return {
         "magic": MAGIC,
@@ -389,8 +414,11 @@ def cmd_measure(args):
     print(f"corpus: {len(corpus)} chunks from {args.corpus}\n")
 
     print("building both sides of the stone...")
-    stone_a = build_stone(args.a, args.a_key, not args.core_only)
-    stone_b = build_stone(args.b, args.b_key, not args.core_only)
+    anchor_file = getattr(args, "anchors", None)
+    if anchor_file:
+        print(f"  anchors from {anchor_file} (not the readable decree)")
+    stone_a = build_stone(args.a, args.a_key, not args.core_only, anchor_file)
+    stone_b = build_stone(args.b, args.b_key, not args.core_only, anchor_file)
     check_compatible(stone_a, stone_b)
     print(f"  A: {stone_a['model']}  {stone_a['dims']}d")
     print(f"  B: {stone_b['model']}  {stone_b['dims']}d")
@@ -532,6 +560,9 @@ def main():
     m.add_argument("--k", type=int, default=5)
     m.add_argument("--core-only", action="store_true")
     m.add_argument("--use-project", action="store_true")
+    m.add_argument("--anchors",
+                   help="JSON list of alternate anchors; the control that "
+                        "measures what readability costs")
     m.set_defaults(func=cmd_measure)
 
     args = p.parse_args()

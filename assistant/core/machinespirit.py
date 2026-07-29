@@ -41,32 +41,82 @@ from core.config import (
     MACHINESPIRIT_URL,
 )
 
-ANCHORS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                            "anchors_v1.json")
+_HERE = os.path.dirname(os.path.abspath(__file__))
+
+# v2 adds a `life` section and changes nothing else: its core and project
+# lists are byte-identical to v1 and carry v1's digests, so a stone built on
+# v1's core stays comparable. The default is v2 because v1 was measured to
+# have no coverage for what a stored memory is about -- four unrelated
+# entries all profiled strongest against the same self-editing anchor, and
+# both hardware entries against the same voice-synthesis one. v1 remains
+# loadable, and every published figure that names a digest still reproduces
+# against the file it was computed from.
+ANCHOR_VERSION = os.environ.get("TORMENT_NEXUS_ANCHOR_VERSION", "2").strip()
+
+# Both embedding servers are launched with -c 512. llama.cpp truncates a
+# longer input rather than refusing it, and a truncated path is
+# indistinguishable from a complete one by shape alone, so the token count
+# is checked rather than assumed.
+CONTEXT_TOKENS = 512
 
 _lock = threading.Lock()
 _anchors = None
+_anchors_loaded_version = None
 _anchor_vectors = None
+_anchor_vectors_key = None
+
+
+def anchors_file(version=None):
+    return os.path.join(_HERE, f"anchors_v{version or ANCHOR_VERSION}.json")
 
 
 def _load_anchors():
-    global _anchors
-    if _anchors is None:
-        with open(ANCHORS_FILE, encoding="utf-8") as fh:
+    global _anchors, _anchors_loaded_version
+    if _anchors is None or _anchors_loaded_version != ANCHOR_VERSION:
+        with open(anchors_file(), encoding="utf-8") as fh:
             _anchors = json.load(fh)
+        _anchors_loaded_version = ANCHOR_VERSION
     return _anchors
 
 
-def anchor_texts(include_project=True):
+def anchor_texts(include_project=True, include_life=True):
+    """The ordered dictionary. Order is the coordinate system, not a detail.
+
+    Sections always appear core, project, life, so a shorter selection is a
+    prefix of a longer one and an index keeps its meaning across them.
+    """
     data = _load_anchors()
     texts = list(data["core"])
     if include_project:
-        texts += list(data["project"])
+        texts += list(data.get("project") or [])
+    if include_life:
+        texts += list(data.get("life") or [])
     return texts
 
 
 def core_digest():
     return _load_anchors()["core_digest"]
+
+
+def dictionary():
+    """What is loaded, for anything that reports rather than computes."""
+    data = _load_anchors()
+    return {
+        "version": data.get("version"),
+        "core": len(data.get("core") or []),
+        "project": len(data.get("project") or []),
+        "life": len(data.get("life") or []),
+        "core_digest": data.get("core_digest"),
+    }
+
+
+def looks_truncated(path):
+    """True when a trajectory ran into the server's context window.
+
+    Equality rather than greater-than: the server stops at the window, so a
+    path exactly that long is the signature of an input that did not fit.
+    """
+    return bool(path) and len(path) >= CONTEXT_TOKENS
 
 
 def _url_is_loopback(url):
@@ -144,23 +194,51 @@ def cosine(left, right):
     return sum(x * y for x, y in zip(left, right)) / (a * b)
 
 
-def anchor_vectors(include_project=True, timeout=120):
-    """Embed the dictionary once per process, through the pooled embedder."""
-    global _anchor_vectors
+def anchor_vectors(include_project=True, include_life=True, timeout=120):
+    """Embed the dictionary once per process, through the POOLED embedder.
+
+    Note which server this is: anchors are ordinary sentence embeddings and
+    come from 8082, while trajectories come from the unpooled 8084. Both are
+    required. A trace that fails because the pooled embedder is absent looks
+    identical to one that fails because the unpooled one is -- see
+    diagnose(), which exists so the two are not reported as each other.
+    """
+    global _anchor_vectors, _anchor_vectors_key
     from core import embedding_server
 
     with _lock:
-        if _anchor_vectors is None:
+        if _anchor_vectors is None or _anchor_vectors_key != ANCHOR_VERSION:
             if not embedding_server.available():
                 return None
-            vectors = embedding_server.embed(anchor_texts(True), timeout=timeout)
+            vectors = embedding_server.embed(anchor_texts(True, True),
+                                             timeout=timeout)
             if not vectors:
                 return None
             _anchor_vectors = vectors
+            _anchor_vectors_key = ANCHOR_VERSION
 
+    return _select_sections(_anchor_vectors, include_project, include_life)
+
+
+def _select_sections(rows, include_project, include_life):
+    """Take the same sections from a full-length list that anchor_texts does.
+
+    Deliberately not a prefix slice: dropping project while keeping life is
+    a legal selection and is not a prefix of anything, so a length-based cut
+    would return project's vectors under life's labels -- plausible numbers
+    against the wrong words, which is the failure mode this module exists to
+    refuse.
+    """
+    data = _load_anchors()
+    core = len(data.get("core") or [])
+    project = len(data.get("project") or [])
+    life = len(data.get("life") or [])
+    out = list(rows[:core])
     if include_project:
-        return _anchor_vectors
-    return _anchor_vectors[:len(_load_anchors()["core"])]
+        out += list(rows[core:core + project])
+    if include_life:
+        out += list(rows[core + project:core + project + life])
+    return out
 
 
 def profile(vector, vectors, texts, top=3):
@@ -182,18 +260,89 @@ def profile(vector, vectors, texts, top=3):
     return scored[:top]
 
 
-def trace(text, top=1, include_project=True):
+def trace(text, top=1, include_project=True, include_life=True):
     """Which concept appeared at which token. None when unavailable."""
     path = trajectory(text)
     if not path:
         return None
-    vectors = anchor_vectors(include_project)
+    vectors = anchor_vectors(include_project, include_life)
     if not vectors:
         return None
-    texts = anchor_texts(include_project)
+    texts = anchor_texts(include_project, include_life)
     vectors = vectors[:len(texts)]
     return [(index, profile(token, vectors, texts, top))
             for index, token in enumerate(path)]
+
+
+def diagnose(text=None):
+    """Which part is missing, rather than that something is.
+
+    trace() returns None for four different reasons and a caller cannot tell
+    them apart: no configuration, the unpooled server absent, the pooled
+    server absent, or a request that failed. While machinespirit was one
+    command that distinction was cosmetic. For anything that leans on it,
+    reporting a pooled-server outage as an unpooled one sends the operator
+    to restart the wrong process.
+
+    Returns a dict; `ready` is true only when a trace would actually work.
+    """
+    from core import embedding_server
+
+    status = {
+        "configured": configured(),
+        "unpooled": False,
+        "pooled": bool(embedding_server.available()),
+        "dictionary": dictionary(),
+        "tokens": None,
+        "truncated": False,
+        "ready": False,
+        "reason": None,
+    }
+
+    if not status["configured"]:
+        status["reason"] = (
+            "No unpooled embedding server is configured. llama.cpp fixes "
+            "pooling when the process starts, so trajectories need a second "
+            "instance started with --pooling none; the hazard launcher "
+            "starts one on 8084."
+        )
+        return status
+
+    status["unpooled"] = available()
+    if not status["unpooled"]:
+        status["reason"] = (
+            "The unpooled server is configured but did not answer on "
+            f"{MACHINESPIRIT_URL}. Nothing is guessed in its absence."
+        )
+        return status
+
+    if not status["pooled"]:
+        status["reason"] = (
+            "The unpooled server is answering, but the ordinary embedding "
+            "server is not, and the anchor dictionary is embedded through "
+            "that one. Both are required: 8084 supplies the path, 8082 "
+            "supplies the words it is read against."
+        )
+        return status
+
+    if text:
+        path = trajectory(text)
+        if not path:
+            status["reason"] = (
+                "Both servers are up, but the trajectory request failed."
+            )
+            return status
+        status["tokens"] = len(path)
+        status["truncated"] = looks_truncated(path)
+        if status["truncated"]:
+            status["reason"] = (
+                f"The input filled the server's {CONTEXT_TOKENS}-token "
+                "window, so the path covers only as much of it as fit. A "
+                "trace of part of an input is not a trace of the input."
+            )
+
+    status["ready"] = True
+    return status
 
 
 def peaks(rows):
@@ -210,6 +359,10 @@ def peaks(rows):
 
 def reset_cache():
     """Drop the embedded dictionary; used by tests and after a model swap."""
-    global _anchor_vectors
+    global _anchor_vectors, _anchor_vectors_key, _anchors
+    global _anchors_loaded_version
     with _lock:
         _anchor_vectors = None
+        _anchor_vectors_key = None
+        _anchors = None
+        _anchors_loaded_version = None
