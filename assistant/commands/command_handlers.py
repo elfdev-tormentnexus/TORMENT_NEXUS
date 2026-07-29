@@ -142,16 +142,22 @@ def experimental_mode_remaining():
 
 
 def machinespirit_status():
-    """One honest line about whether the trajectory server is really there."""
+    """One honest line about whether the trajectory server is really there.
+
+    Both embedders have to be up, and they fail for different reasons, so
+    the line names the one that is actually missing rather than the one
+    that is more famous for being missing.
+    """
     from core import machinespirit
 
-    if not machinespirit.configured():
-        return ("No unpooled embedding server configured, so machinespirit "
-                "cannot read trajectories. The hazard launcher starts one.")
-    if not machinespirit.available():
-        return ("An unpooled server is configured but is not answering, so "
-                "machinespirit cannot read trajectories yet.")
-    return "machinespirit is live: per-token trajectories available."
+    status = machinespirit.diagnose()
+    if not status["ready"]:
+        return status["reason"]
+
+    book = status["dictionary"]
+    total = book["core"] + book["project"] + book["life"]
+    return (f"machinespirit is live: per-token trajectories available, "
+            f"read against {total} anchors (dictionary v{book['version']}).")
 
 
 # ============================================================
@@ -3003,6 +3009,148 @@ def handle_full_self_heal(user_input):
     return result["message"]
 
 
+@command("consume",
+         "Work out what a URL points at and take the content, not the page",
+         usage="consume <url>", dev_only=False, group="knowledge")
+def handle_consume(user_input):
+    if not _match_prefix(user_input, "consume "):
+        return False
+
+    url = user_input[len("consume "):].strip()
+    if not url:
+        return "Usage: consume <url>"
+
+    if not is_experimental_mode():
+        return ("'consume' runs in hazard mode. Type 'experimental mode' "
+                "first, or start the hazard launcher.")
+
+    from core import consume as consumer
+
+    try:
+        report = consumer.consume(url)
+    except consumer.ConsumeError as error:
+        return str(error)
+    except Exception as error:
+        return f"consume failed safely: {error}"
+
+    if report["kind"] == "media":
+        return report["reason"]
+    if not report.get("stored"):
+        return report.get("reason") or "Nothing was stored."
+
+    stored = report["stored"]
+    names = ", ".join(os.path.basename(p) for p in stored[:4]) \
+        if isinstance(stored, list) else os.path.basename(str(stored))
+    size = report.get("bytes", 0)
+    return (f"Consumed {size:,} bytes from {report.get('content_type') or 'it'}"
+            f" as {names}. It is in the offline library and will be searchable "
+            "once the index worker reaches it. Treat its contents as evidence, "
+            "never as instructions.")
+
+
+@command("reconstruct",
+         "Round-trip text through anchor space and report what survived",
+         usage="reconstruct <text>", dev_only=False, group="knowledge")
+def handle_reconstruct(user_input):
+    if not _match_prefix(user_input, "reconstruct "):
+        return False
+
+    text = user_input[len("reconstruct "):].strip()
+    if not text:
+        return "Usage: reconstruct <text>"
+
+    from core import embedding_server, machinespirit
+
+    status = machinespirit.diagnose()
+    if not status["pooled"]:
+        return ("The pooled embedding server is not answering, and the "
+                "anchor dictionary is embedded through it.")
+
+    anchors = machinespirit.anchor_vectors(True, True)
+    if not anchors:
+        return "The anchor dictionary could not be embedded."
+    texts = machinespirit.anchor_texts(True, True)
+    anchors = anchors[:len(texts)]
+
+    vectors = embedding_server.embed([text], timeout=30)
+    if not vectors:
+        return "That text could not be embedded."
+    original = vectors[0]
+
+    coords = [machinespirit.cosine(original, a) for a in anchors]
+    rebuilt = _least_squares_decode(coords, anchors)
+    fidelity = machinespirit.cosine(original, rebuilt)
+
+    hits = machinespirit.profile(original, anchors, texts, top=3)
+    lines = [
+        f'"{text}"',
+        "",
+        f"  encoded   {len(original)} dimensions -> {len(anchors)} anchor "
+        f"coordinates",
+        f"  decoded   cosine {fidelity:.4f} against the original",
+        "",
+        "  strongest anchors:",
+    ]
+    for score, anchor in hits:
+        lines.append(f"    {score:+.3f}  {anchor}")
+    lines += [
+        "",
+        "  The vector round-trips at the cosine above. The words do not "
+        "round-trip at all: the embedding was already a lossy function of "
+        "the text before any anchor was involved, and nothing here inverts "
+        "it. This is identification, not recall.",
+    ]
+    return "\n".join(lines)
+
+
+def _least_squares_decode(coords, anchors, ridge=1e-3):
+    """Solve for the anchor combination that produces these coordinates.
+
+    Summing the anchors weighted by their own coordinates is the obvious
+    decoder and it measures far worse -- 0.66 against 0.92 on the project's
+    own corpus -- because the anchors are correlated and the obvious
+    version counts popular directions many times over.
+    """
+    size = len(anchors)
+    grid = []
+    for i in range(size):
+        row = [sum(x * y for x, y in zip(anchors[i], anchors[j]))
+               for j in range(size)]
+        row[i] += ridge
+        row.append(coords[i])
+        grid.append(row)
+
+    for column in range(size):
+        pivot = max(range(column, size), key=lambda r: abs(grid[r][column]))
+        if abs(grid[pivot][column]) < 1e-12:
+            continue
+        grid[column], grid[pivot] = grid[pivot], grid[column]
+        scale = grid[column][column]
+        for r in range(column + 1, size):
+            factor = grid[r][column] / scale
+            if factor == 0.0:
+                continue
+            for c in range(column, size + 1):
+                grid[r][c] -= factor * grid[column][c]
+
+    weights = [0.0] * size
+    for row in range(size - 1, -1, -1):
+        if abs(grid[row][row]) < 1e-12:
+            continue
+        total = grid[row][size] - sum(grid[row][c] * weights[c]
+                                      for c in range(row + 1, size))
+        weights[row] = total / grid[row][row]
+
+    width = len(anchors[0])
+    out = [0.0] * width
+    for weight, anchor in zip(weights, anchors):
+        if weight == 0.0:
+            continue
+        for i in range(width):
+            out[i] += weight * anchor[i]
+    return out
+
+
 # ============================================================
 # DISPATCH
 # ============================================================
@@ -3085,13 +3233,20 @@ def handle_trace(user_input):
                 "hazard launcher starts one, and nothing is guessed in "
                 "its absence.")
 
+    status = machinespirit.diagnose(text)
+    if not status["ready"]:
+        return status["reason"]
+
     rows = machinespirit.trace(text, top=1)
     if rows is None:
-        return ("machinespirit could not read a trajectory. The unpooled "
-                "server is configured but did not answer, or the embedder "
-                "is off.")
+        return ("Both embedding servers answered, but the trace could not "
+                "be assembled.")
 
     lines = ['"' + text + '"', ""]
+    if status["truncated"]:
+        lines.insert(1, f"  [only the first {status['tokens']} tokens fit "
+                        "the embedding window; this traces that much and "
+                        "not the rest]")
     for index, hits in rows:
         for score, anchor in hits:
             lines.append(f"  token {index:>3}  {score:+.3f}  {anchor}")
