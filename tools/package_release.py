@@ -58,7 +58,11 @@ PACKAGE_NAME = "TORMENT_NEXUS"
 STAGE = os.path.join(DIST, PACKAGE_NAME)
 CACHE = os.path.join(DIST, ".cache")
 MANIFEST_NAME = "RELEASE_MANIFEST.json"
-RELEASE_VERSION = "v0.2.0-beta.6"
+# Letters, not a semantic version. A build shipping weakened-refusal models
+# and an unproven representation is not a "beta" in the ordinary sense, and
+# v0.3 / v1.0 would promise an ordered maturity this does not have. One
+# letter per release: researchA, researchB, and so on.
+RELEASE_VERSION = "researchA"
 ARCHIVE_STEM = f"{PACKAGE_NAME}-{RELEASE_VERSION}-windows-x64"
 ARCHIVE_NAME = f"{ARCHIVE_STEM}.zip"
 
@@ -165,7 +169,9 @@ INCLUDE_FILES = [
     "docs/AGENT_INTERFACE.md",
     "docs/CAPABILITIES_AND_LIMITS.md",
     "docs/OFFLINE_KNOWLEDGE.md",
-    "docs/RELEASE_NOTES_v0.2.0-beta.6.md",
+    "docs/RELEASE_NOTES_researchA.md",
+    "docs/VECTOR_TRANSLATION_RESEARCH.md",
+    "docs/VECTOR_PIXEL_RESEARCH.md",
     "docs/RESEARCH_GOALS.md",
     "docs/RESEARCH_ROADMAP.md",
     "docs/SEMANTIC_AND_AGENT_BRIDGES.md",
