@@ -422,11 +422,23 @@ The economics fail regardless — 21 params/dim is 8,064 values against a raw
 reproduces the readout exactly, because reproducing the reading and
 reconstructing the vectors are different problems.
 
-**Open, untested.** Fourier's residual +0.010 needs explaining, and the
-hypothesis is that it is **positional-encoding structure rather than
-meaning**. If so it should be subtracted from traces, not modelled. The
-test is whether the edge is similar across unrelated texts of equal length,
-and a rotary basis is the correctly-shaped probe for it.
+**Open, untested.** Fourier's residual +0.010 needs explaining. One plausible
+hypothesis is **position structure rather than meaning**, but this run does
+not distinguish positional embeddings, attention, tokenisation, or ordinary
+local smoothness. The GGUF identifies the bundled embedder as `bert`, and
+[BERT](https://aclanthology.org/N19-1423/) constructs each input from token,
+segment, and learned absolute position embeddings — not RoPE — so calling a
+rotary basis the correctly-shaped probe would overstate what architecture and
+data establish.
+
+The next controls are: unrelated texts at matched token length; equal token
+multisets under several permutations; the learned position-embedding
+eigenbasis if it can be recovered; and the same basis comparison across a
+model with a genuinely different position mechanism. A recent BERT/ALBERT
+study reports that learned absolute position embeddings occupy a
+low-dimensional subspace dominated by low-frequency rotational components,
+which makes the hypothesis worth testing but does not make this +0.010 its
+measurement ([Wennberg and Henter, 2024](https://aclanthology.org/2024.repl4nlp-1.17/)).
 
 ### The name for what the trail is
 
@@ -437,13 +449,20 @@ the point: sufficiency is about having identified the question, not about
 size. Curve fitting failed because it was trying to be sufficient for
 reconstructing the vectors, which nobody asked for.
 
-The cluster finding itself is a re-measurement of published work on
-**anisotropy** and **representation degeneration** in contextual
-embeddings — the observation that such vectors occupy a narrow cone rather
-than filling their space. *Citations deliberately not given here: the
-substance is confirmed on this stack, the specific papers were recalled
-rather than checked, and this document does not carry references it has
-not verified.*
+The cluster finding itself is a local re-measurement of published work on
+**anisotropy** and **representation degeneration**, not a claim to have
+discovered either phenomenon. Ethayarajh found contextual representations in
+every examined layer of ELMo, BERT, and GPT-2 to be anisotropic rather than
+uniformly distributed by direction
+([2019](https://aclanthology.org/D19-1006/)). Gao et al. used
+*representation degeneration* for learned word embeddings collapsing into a
+narrow cone in neural language generation
+([ICLR 2019](https://openreview.net/forum?id=SkEYojRqtm)). Li et al. then
+measured a non-smooth anisotropic BERT sentence space and linked that geometry
+to poor direct semantic-similarity behaviour
+([2020](https://aclanthology.org/2020.emnlp-main.733/)). Those papers support
+the comparison; they do not predict this project's effective rank of 1.694,
+its basis scores, or the trail result, which are measurements from this stack.
 
 ## 5c. What readability costs
 

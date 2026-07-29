@@ -20,18 +20,19 @@ module exists rather than being a list of sentences.
                 aperiodic sequence can have.
     random      the same two phrases in a fixed shuffled order. The floor.
 
-The Fibonacci word is the interesting control. It is Sturmian: for every
-length n it contains exactly n + 1 distinct subwords, which is the provable
-minimum for a sequence that never repeats. It never cycles and it is
-completely deterministic, so it sits between "periodic" and "noise" without
-being reachable from either. A basis that finds structure in the periodic
-row and nothing in the random row still has to say something about this
-one, and neither a Fourier basis nor a polynomial can, because it is
-neither band-limited nor smooth.
+The Fibonacci word is the interesting control. The infinite word is
+Sturmian: for every length n it contains exactly n + 1 distinct subwords,
+the minimum complexity of an aperiodic infinite sequence. It is
+deterministic but not periodic, so it sits between "periodic" and "noise"
+without being reachable from either. A basis that finds structure in the
+periodic row and nothing in the random row still has to say something about
+this one; it is neither a polynomial trend nor a finite periodic signal.
 
-That property is asserted here rather than cited -- `is_sturmian()` counts
-the subwords, and a test runs it. A control that cannot demonstrate its own
-defining property is decoration.
+The finite release control cannot prove a theorem about the infinite word.
+`is_sturmian()` instead checks the expected n + 1 subword signature through
+the declared finite range, and the test runs the same check against the
+periodic and seeded-random controls, which fail it. A control that cannot
+demonstrate its defining signature at the scales used is decoration.
 
 The physics is real rather than an analogy: one-dimensional quasicrystals
 are modelled as Fibonacci chains, and aperiodic order is a genuine state of
@@ -89,11 +90,11 @@ def subword_count(word, n):
 
 
 def is_sturmian(word, upto=12):
-    """True when the word has exactly n+1 subwords of length n, for all n.
+    """Check the finite Sturmian complexity signature through ``upto``.
 
-    The defining property of a Sturmian word and the reason this is the
-    right third control: minimum complexity, and aperiodic. Asserted here
-    so the claim in the docstring is checkable rather than cited.
+    This verifies p(n) = n + 1 over the tested range. A finite prefix cannot
+    prove the infinite word is Sturmian; it can prove that the shipped
+    control has the expected signature at every scale the instrument uses.
     """
     return all(subword_count(word, n) == n + 1 for n in range(1, upto + 1))
 
@@ -185,8 +186,10 @@ def record(readings, path=None):
     """Write the reference, stamped with what produced it.
 
     A reading without the model that produced it is not a reference, it is
-    a number. Model, quantization, pooling and the anchor digest all travel
-    with it, because any of them changing invalidates every row.
+    a number. The model filename (including its quantization label), pooling,
+    and anchor digest travel with it, because any of them changing invalidates
+    every row. Behavioural drift remains the check; this is not a live-server
+    identity attestation.
     """
     from core import machinespirit
     from core.config import EMBED_MODEL_PATH

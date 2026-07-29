@@ -1,9 +1,13 @@
-# Handoff to Sol — researchA, from the audit to the cut
+# researchA release handoff — from audit through the cut
 
-Written by Claude, 2026-07-29. Everything below is committed and pushed.
+Written by Claude and reconciled by Sol, 2026-07-29. This document preserves
+both audit rounds, the measurement record, and the release constraints that
+must survive a future handoff.
 
-**State:** `origin/beta-6-release` is at the head of this branch. Tree clean.
-**915 tests pass, 2 expected skips** (was 807 at your `9cc9d11`).
+**Required source state:** local `beta-6-release` and
+`origin/beta-6-release` must resolve to the same commit with an empty
+`git status --porcelain` before staging. **915 tests pass, 2 expected skips**
+(was 807 at `9cc9d11`); rerun that complete suite after this reconciliation.
 
 Your cut maps were correct and I verified them independently before
 touching anything — coverage exact across all 363 files, no gaps or
@@ -24,15 +28,17 @@ Then I patched the source, which invalidated the Windows half. Read
 | --- | --- |
 | `CUT_PLAN_14B` `93646759…` | **Still valid.** One `.gguf`, untouched by source patches. |
 | `CUT_PLAN_WINDOWS` `36ee7005…` | **Invalid.** Source changed under it. |
-| `dist/TORMENT_NEXUS` | **Stale.** Built from `6494565`. |
-| `capsule/SABLE_researchA_research.png` | **Stale.** It carries `ARCHITECTURE.md` and the release notes, both edited. |
-| `extractor/machinesoul.py` | **Was already stale before I started — see §2.** |
+| `dist/TORMENT_NEXUS` | **Stale.** The retained stage predates the final Claude session and must be rebuilt from the clean release-source commit. |
+| `capsule/SABLE_researchA_research.png` | **Legacy intermediate; do not publish.** Research documents and calibration material live in the directly preserved Windows tree. |
+| `extractor/machinesoul.py` | **Stale; replace mechanically from `tools/machinesoul.py` before checksums. See §2.** |
 | `SHA256SUMS.txt`, `CAPSULE_CONTENTS.txt` | Regenerate last, after every asset above is final. |
 
-`SABLERESEARCHA/UPLOAD.md` is rewritten as the full capsule-only runbook in
-the correct order. The old one predated the pivot and would have published
-a release whose own body named six assets while the upload command attached
-three.
+`SABLERESEARCHA/UPLOAD.md` and `RELEASE_BODY.md` are local release working
+files, not source truth. Rewrite them after the final capsule counts exist.
+The public architecture is the direct machinesoul plan in
+`docs/RELEASE_CHECKLIST.md`: Windows capsules, optional 14B capsules,
+manifest capsule, reassembler capsule, and the two unavoidable plaintext
+bootstrap files.
 
 ## 2. The one item that is not bookkeeping
 
@@ -102,13 +108,14 @@ anything rebinding `LESSONS` was silently ignored while looking correct.
 The existing vanished-command regression caught it.
 
 **`calibrate` and `SABLE_CALIBRATION1`.** Seven fixed texts with readings
-recorded under a named model, quantization, pooling and anchor digest.
+recorded under a quantization-bearing model name, pooling and anchor digest.
 Nothing previously detected any of those changing and moving every
 published figure at once. Three rows are controls, one a **Fibonacci word**
-ordering — Sturmian, exactly n+1 subwords at every length, asserted by
-`is_sturmian()` and a test rather than cited. Fibonacci and random share a
-phrase mix and differ only in order, so they must read alike: 1.5238
-against 1.5132, permutation invariance shown on live data.
+ordering. The infinite Fibonacci word is Sturmian; the finite release test
+checks its n+1 subword signature through the first twelve scales and proves
+that both other controls fail the same check. Fibonacci and random share a
+phrase mix and differ only in order, so they must read alike: 1.5238 against
+1.5132, permutation invariance shown on live data.
 
 **Note for the rebuild:** `assistant/core/calibration_v1.json` and its
 capsule are recorded against this machine's embedding model. They are
@@ -182,24 +189,32 @@ control** reaches 0.9419, beating polynomials outright, so most of any
 basis's gain is parameter count rather than structure found. Fourier's
 genuine edge over random is about +0.010.
 
-**Open hypothesis, untested:** that residual edge may be
-positional-encoding structure rather than meaning. If so it should be
-subtracted from traces, not modelled. Test: whether the edge is similar
-across unrelated texts of equal length.
+**Open hypothesis, untested:** that residual edge may be position structure
+rather than meaning. The GGUF declares a BERT architecture with learned
+absolute position embeddings, not RoPE, so a rotary explanation was removed.
+Matched-length texts, equal-token permutations, the learned position basis,
+and a model with a genuinely different position mechanism are the controls.
 
 **The right name for the trail is a sufficient statistic** — it carries
 everything relevant to the `peaks()` readout, which is why it reproduces it
 exactly and why the compression ratio is beside the point. The cluster
 finding is a re-measurement of published **anisotropy / representation
-degeneration** work; verify citations before they enter the notes.
+degeneration** work.
 
 **Now written down** in `docs/VECTOR_TRANSLATION_RESEARCH.md` §5b, next to
 the other refuted fixes: the polynomial refutation with its degree-0
 control, the three-basis comparison, the positional-encoding hypothesis,
-and the sufficient-statistic framing. Anisotropy citations were left out on
-purpose — the substance is confirmed on this stack, the papers were
-recalled rather than checked, and that document does not carry references
-it has not verified. Add them once someone has.
+and the sufficient-statistic framing. The citations are now verified against
+Ethayarajh (EMNLP-IJCNLP 2019), Gao et al. (ICLR 2019), Li et al. (EMNLP
+2020), Devlin et al. (NAACL 2019), and Wennberg and Henter (RepL4NLP 2024).
+The notes state exactly what those papers support and keep this stack's
+effective-rank and basis figures as local measurements.
+
+The cross-cutting synthesis now lives in
+`docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md`. It links the audit,
+reachability failure, trail sufficiency, cluster/curve refutation, basis
+control, calibration design, Rosetta measurement, open hypotheses, and the
+practices future work must preserve. Keep that file in the staged package.
 
 ## 6. Deliberately not done
 
@@ -231,14 +246,21 @@ it has not verified. Add them once someone has.
 
 ## 8. Order for the cut
 
-1. commit nothing — the tree is clean and pushed at `6c8f1b0`
-2. `python tools/package_release.py` — rebuild the 13 GB stage
-3. rebuild the research capsule (docs changed)
-4. **refresh `extractor/machinesoul.py`** (§2)
-5. replan Windows, render the map, review it, approve the new hash
-6. cut both, reassemble, verify
-7. regenerate `SHA256SUMS.txt` and `CAPSULE_CONTENTS.txt` last
-8. upload **every** asset `RELEASE_BODY.md` names — that mismatch is what
-   made the old runbook wrong
+1. commit and push the reconciled source; run all 915 tests from that commit;
+2. rebuild and verify the roughly 13 GB staged tree without a ZIP/tar layer;
+3. mechanically refresh the plaintext release decompiler from the current
+   streaming `tools/machinesoul.py` (§2);
+4. replan Windows, render the APNG map, and bind the cut to that exact hash;
+5. retain the valid 14B plan `93646759…` unless its one GGUF changes;
+6. cut both sets, decompile every capsule, and reassemble both original
+   sources before keeping the outputs;
+7. wrap the combined manifest and current reassembler in machinesoul;
+8. generate and test the one-step bootstrap, including complete/none/partial
+   optional-14B behaviour;
+9. regenerate all checksums and the GitHub body from the actual final files;
+10. upload every named asset to a draft, download every one again, compare
+    remote and local digests, and reassemble the downloaded copies; and
+11. publish only with explicit operator approval. A verified draft is not a
+    published release.
 
 Full commands in `SABLERESEARCHA/UPLOAD.md`.

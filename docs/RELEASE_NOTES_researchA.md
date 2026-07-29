@@ -28,15 +28,44 @@ attach to something measured at 0.9243.
 | | reads | fidelity |
 | --- | --- | --- |
 | **machinesoul** | Sable's data-preservation logic language — ordered vectors mapped to PNG/APNG pixels | reversible 1:1 or refusal, SHA-256 verified |
-| **machinespirit** | Sable's memory language — anchor coordinates, traces, `consume`, recall | lossy, and the loss is the research |
+| **machinespirit** | Sable's memory language — anchor coordinates, token trajectories, trails, spread, calibration | lossy, and the measured loss is the research |
+
+### What the unconventional GitHub files are
+
+The numbered `.png` files are not screenshots and are not ZIP pieces with an
+image extension. Each is an ordered machinesoul vector field holding a
+reviewed portion of the installation tree. The cut keeps ordinary files whole
+where possible; only models too large for one GitHub asset are divided, at
+aligned low-activity vector windows. Re-encoding, resizing, optimising, or
+screenshotting a capsule changes that field and is refused.
+
+The complete download has four roles:
+
+- `SABLERESEARCHA-WINDOWS.partNN.png` preserves the required Windows tree;
+- `SABLERESEARCHA-MANIFEST.png` and `SABLERESEARCHA-REASSEMBLER.png` preserve
+  the instructions and tool that restore every file and verify its digest;
+- optional `SABLERESEARCHA-14B.partNN.png` preserves the current 14B companion
+  for long self-heal and extended editing sessions; and
+- plaintext `machinesoul.py` plus `DECOMPILE_SABLE_researchA.bat` form the
+  unavoidable bootstrap. A recipient needs the inverse before the first
+  capsule can provide anything else.
+
+Keep the downloaded assets together and run the batch file once. It uses the
+decompiler on every required capsule, recovers the reassembler, reconstructs
+the install tree directly, refuses missing or damaged fields, installs the
+optional 14B only when its complete set is present, and then runs setup. An
+image viewer can show the vectors; it cannot perform that inverse or integrity
+proof.
 
 ### A capsule can say what it carries
 
 `machinesoul.py build --describe` stores a plain-language description of a
-payload in PNG metadata, and `machinesoul.py describe` reads it back
-**without decoding a byte** — so "what is this 1.8 GB image" stops costing a
-full extraction. Each language does what it is good at: machinesoul carries
-the thing exactly, and the description says what the thing is about.
+preserved source in PNG metadata, and `machinesoul.py describe` reads it
+**without decompiling the vector field** — so "what is this 1.8 GB image"
+stops costing a full extraction. The description remains an unverified
+label; it is not machinespirit output. `SABLE_CALIBRATION1` is where the two
+languages genuinely meet: machinesoul preserves the reference exactly, and
+the preserved reference calibrates machinespirit readings.
 
 The text is supplied by the caller and never computed inside the module,
 which keeps machinesoul free of any opinion about meaning and free of any
@@ -77,19 +106,19 @@ that says what moved. Three of the seven rows are controls:
 | **fibonacci** | two phrases ordered by the **Fibonacci word** |
 | random | the same two phrases, fixed shuffle — the floor |
 
-The Fibonacci word is the reason this is a corpus rather than a list. It is
-**Sturmian**: for every length *n* it contains exactly *n+1* distinct
-subwords, the provable minimum for a sequence that never repeats. It never
-cycles and is fully deterministic, so it sits between periodic and noise
-without being reachable from either — and neither a Fourier basis nor a
-polynomial can describe it, because it is neither band-limited nor smooth.
+The Fibonacci word is the reason this is a corpus rather than a list. The
+infinite word is **Sturmian**: for every length *n* it contains exactly
+*n+1* distinct subwords, the minimum complexity for an aperiodic infinite
+sequence. It is deterministic but not periodic, so it sits between periodic
+and noise without being reachable from either.
 One-dimensional quasicrystals are modelled as Fibonacci chains, so the
 aperiodic order here is a real structure rather than an analogy.
 
-That property is asserted rather than cited: `is_sturmian()` counts the
-subwords and a test runs it, on the Fibonacci word and on both other
-controls, which fail it. A control that cannot demonstrate its own defining
-property is decoration.
+The finite release prefix cannot prove the infinite theorem. Instead,
+`is_sturmian()` counts subwords through the first twelve scales; a test
+confirms the expected *n+1* signature there and confirms that both other
+controls fail the same finite check. A control that cannot demonstrate its
+defining signature at the scales used is decoration.
 
 **The corpus tests the instrument in both directions.** Fibonacci and
 random hold the identical phrase mix in a different order, so they must
@@ -99,9 +128,10 @@ different mix and reads clearly apart at 1.4354. One pair proves the
 instrument responds to content; the other proves it ignores order.
 
 The reference ships as `SABLE_CALIBRATION1` — a machinesoul capsule whose
-description says what it is without decoding it — stamped with the model,
-its quantization, the pooling, and the anchor digest, because any of those
-changing invalidates every row.
+description is readable without decompiling it. The record names the
+quantization-bearing model file, pooling, and anchor digest; its seven rows
+are behavioural drift checks, not a cryptographic attestation of the live
+server.
 
 ### `trail <text>` — the same reading, at a size that stops growing
 
@@ -181,8 +211,8 @@ distribution and useless for reading.
 
 `tools/source_capsules.py` cuts the *source* differently: one capsule per
 subsystem, fifteen of them over 184 files, each carrying its own
-description. `list` prints every one of them without decoding a single
-payload, so a directory of images is navigable as a directory of images.
+description. `list` prints every one without decompiling its vector field,
+so a directory of images is navigable as a directory of images.
 
 Descriptions are assembled from the modules' own docstrings. A summary
 written by whoever wrote the code is a description; one invented at

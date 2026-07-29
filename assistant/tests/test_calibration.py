@@ -22,9 +22,9 @@ from core import calibration as cal  # noqa: E402
 class FibonacciWordTests(unittest.TestCase):
     """The third control has to demonstrate its own defining property.
 
-    A control that cannot show it is Sturmian is decoration, and the whole
-    reason it sits between "periodic" and "random" is that it is aperiodic
-    at the minimum complexity any aperiodic sequence can have.
+    A control that cannot show the finite Sturmian signature is decoration,
+    and the reason it sits between "periodic" and "random" is that the
+    infinite word is aperiodic at minimum subword complexity.
     """
 
     def test_the_generations_are_the_expected_words(self):
@@ -35,7 +35,7 @@ class FibonacciWordTests(unittest.TestCase):
         self.assertEqual(cal.fibonacci_word(8), "abaababa")
         self.assertEqual(cal.fibonacci_word(13), "abaababaabaab")
 
-    def test_it_is_sturmian_exactly_n_plus_one_subwords(self):
+    def test_it_has_the_sturmian_signature_at_every_tested_scale(self):
         word = cal.fibonacci_word(4000)
         for n in range(1, 13):
             with self.subTest(n=n):

@@ -319,20 +319,50 @@ is the claim the feature exists to make. What machinespirit
 adds today is the trace — a thing the averaged vector cannot produce at
 all, rather than one it produces slightly worse.
 
-### machinesoul and machinespirit
+### Hazard and interlinked research launchers
+
+The hazard launcher exposes the measured machinespirit instruments:
+
+| Command | What it reads |
+| --- | --- |
+| `trace <text>` | which concept appeared at which token |
+| `trail <text>` | the same readout bounded by the dictionary — 89 tokens keep 24 values rather than 34,176 |
+| `spread <text>` | purity, effective rank, and von Neumann entropy; ground covered, never order travelled |
+| `reconstruct <text>` | the lossy anchor-space round trip and what did not survive |
+| `consume <url>` | the content an address points at rather than the page around it |
+| `calibrate` | a fixed seven-row reference corpus and any reading that moved |
+
+`SABLE_CALIBRATION1` gives those readings a scale. Its periodic, Fibonacci,
+and seeded-random controls distinguish content response from ordering: the
+Fibonacci and random rows contain the same phrase mix in different orders and
+must read alike. The reference is itself preserved by machinesoul, while the
+readings it checks belong to machinespirit.
+
+`start_interface_mode.bat` opens **TORMENT_NEXUS_INTERLINKED**, the separate
+read-only development-agent interface with its own five-section walkthrough.
+Both non-ordinary launchers can create visibly named shortcuts:
+
+```powershell
+python tools\make_interface_shortcut.py --both
+```
+
+### machinesoul and machinespirit — the two integral languages
 
 These are Sable's two languages, named apart because the difference is the
 whole point.
 
 | | what it reads | fidelity |
 | --- | --- | --- |
-| **machinesoul** | data preservation: ordered vectors mapped to PNG/APNG pixels | reversible 1:1 or refusal, verified by SHA-256 |
-| **machinespirit** | Sable's memory: anchor coordinates, traces, `consume`, and recall | lossy, and the loss is the research |
+| **machinesoul** | Sable's data preservation: ordered vectors mapped to PNG/APNG pixels | reversible 1:1 or refusal, verified by SHA-256 |
+| **machinespirit** | Sable's memory: anchor coordinates, token trajectories, trails, and calibration | lossy, and the measured loss is the research |
 
 machinesoul is not a ZIP allocation or a conventional archive renamed as an
 image. Its public artifacts are PNG/APNG vector fields. The decompiler moves
 them back from machinesoul exactly; only then does the reassembler reconstruct
-the local installation tree file by file. Keeping this separate from
+the local installation tree file by file. That inverse is why the published
+`machinesoul.py` decompiler is a required part of installation rather than an
+optional utility: an image viewer can display the field but cannot restore its
+source structure or verify it. Keeping this exact language separate from
 machinespirit prevents "1:1" from being attached to a memory representation
 measured at **0.9243**.
 
@@ -394,8 +424,8 @@ came out negative, and name the prior art first:
 
 - [Vector-to-pixel encoding](docs/VECTOR_PIXEL_RESEARCH.md) — where
   quantisation pays (4.00×, at a cosine error 868× below the retrieval
-  margin), where a pixel container costs, and why storing bytes as pixels
-  is reach rather than compression.
+  margin), where a pixel container costs, and why mapping preservation
+  vectors to pixels is reach rather than compression.
 - [Cross-model translation and token trajectories](docs/VECTOR_TRANSLATION_RESEARCH.md)
   — translating between two models that share no vector space, measured
   across a 384-dimension and a 768-dimension embedder, and what a sentence
@@ -404,8 +434,8 @@ came out negative, and name the prior art first:
 The optional Qwen2.5-Coder 14B full-maintenance pack is the current researchA
 companion for deliberately requested long self-heal and extended editing
 sessions. It is not superseded or obsolete. researchA republishes the exact
-verified model bytes as machinesoul-wrapped parts rather than duplicating the
-model inside the already model-bearing main package.
+model as its own machinesoul vector-field set rather than duplicating it
+inside the already model-bearing main package.
 
 ## Privacy and network summary
 
@@ -471,6 +501,7 @@ activity logs, keys, tokens, passcodes, pairing data, or personal paths.
 - [Agent interface](docs/AGENT_INTERFACE.md)
 - [Semantic retrieval and agent bridges](docs/SEMANTIC_AND_AGENT_BRIDGES.md)
 - [Research goals](docs/RESEARCH_GOALS.md)
+- [researchA pre-release evidence and inheritance](docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md)
 - [Sensing module notes](docs/SENSING_MODULE.md)
 - [Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md)
 
@@ -488,32 +519,6 @@ The test count is evidence about the checked behaviors, not a certification
 that model output is safe, factual, lawful, or suitable for high-stakes use.
 See [Testing](docs/TESTING.md) for the narrower test commands and release
 verification boundaries.
-
-
-### Hazard-mode commands
-
-| command | what it reads |
-| --- | --- |
-| `trace <text>` | which concept appeared at which token |
-| `trail <text>` | the same reading, bounded by the dictionary rather than the input -- 89 tokens keep 24 values against 34,176 |
-| `spread <text>` | how much ground a text covered: purity, effective rank, von Neumann entropy. Says nothing about order |
-| `reconstruct <text>` | the lossy round trip, and what did not survive it |
-| `consume <url>` | takes the content an address points at, not the page around it |
-| `calibrate` | re-reads a fixed reference corpus and reports what moved |
-
-`calibrate` exists because every other number here is a reading with no
-scale beside it. Three of its seven rows are controls -- a repeated phrase,
-a **Fibonacci word** ordering, and a shuffle -- and two of them share a
-phrase mix in different order, so they must read alike. That is permutation
-invariance being checked rather than claimed.
-
-The other launcher is **TORMENT_NEXUS_INTERLINKED**, which opens the
-read-only agent interface and has its own five-section walkthrough. Both
-launchers can put a desktop shortcut down:
-
-```
-python tools/make_interface_shortcut.py --both
-```
 
 
 ## Acknowledgements
