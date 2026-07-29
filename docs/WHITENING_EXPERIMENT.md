@@ -115,3 +115,53 @@ and regularised ZCA whitening on the same held-out relevance labels.  Bind the
 winning transform to model identity, quantisation, pooling, anchor digest and
 fit-corpus digest; generate a separate calibration record rather than
 rewriting the existing one.
+
+## Rosetta Stone control: whitening does not close the model gap
+
+Whitening is a different question when the goal is Rosetta Stone's
+cross-model relative representation.  The two native spaces remain private:
+the 384-dimensional BGE model and the 768-dimensional Nomic model each need
+their own transform.  Their resulting coordinates can still be compared,
+because every coordinate is a similarity to the same ordered core anchor.
+
+`tools/rosetta_whitening_probe.py` tested that proposition without changing
+`SABLEROSETTA1`.  Both model-specific transforms were fitted on the same 212
+public chunks from the five documents named above.  They were then applied to
+that model's held-out document vectors and its copy of the 122 shared core
+anchors.  The comparison uses top-10 neighbour agreement between the two
+relative spaces; each model's own native neighbour agreement is a ceiling,
+not a competing translation.
+
+The aggregate held-out corpus contained 117 chunks from the pre-release
+session record, `ARCHITECTURE.md`, and `RELEASE_NOTES_researchA.md`.
+
+| geometry | agreement | native ceiling | ceiling recovered |
+| --- | ---: | ---: | ---: |
+| raw Rosetta coordinates | 0.444 | 0.579 | 77% |
+| anchor-centred coordinates | **0.471** | 0.579 | **81%** |
+| ZCA, shrinkage 0.02 | 0.204 | 0.579 | 35% |
+| ZCA, shrinkage 0.10 | 0.223 | 0.579 | 38% |
+| ZCA, shrinkage 0.30 | 0.218 | 0.579 | 38% |
+
+The anchor-centred control subtracts each model's own mean anchor vector
+from both its target vectors and anchor vectors before their anchor
+similarities are calculated.  It is the same geometry already used for
+Rosetta's human-readable `profile()` readout; it is **not** ZCA whitening.
+It improved independently on all three documents:
+
+| held-out document | raw | anchor-centred | ceiling |
+| --- | ---: | ---: | ---: |
+| pre-release session (34 chunks) | 0.591 | **0.626** | 0.626 |
+| `ARCHITECTURE.md` (20 chunks) | 0.705 | **0.730** | 0.735 |
+| release notes (63 chunks) | 0.514 | **0.551** | 0.629 |
+
+ZCA whitening was consistently harmful: it destroys substantially more of
+each model's native neighbour structure than the shared anchor coordinates
+can restore.  This refutes using `SABLEWHITE1` as a Rosetta gap-closing
+transform on the measured corpus.
+
+The positive anchor-centering result is narrower.  It justifies an explicit,
+separately named future Rosetta coordinate geometry, with its own provenance
+record.  It does not justify silently changing `SABLEROSETTA1`, rewriting the
+published 0.370 result from its different corpus, or claiming that either
+model's ordinary retrieval changed.
