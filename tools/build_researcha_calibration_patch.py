@@ -28,6 +28,9 @@ import machinesoul_release as release  # noqa: E402
 
 PATCH_ID = "researchA-calibration-clarity.1"
 BASE_COMMIT = "42cbb5ae568532ca05c673c23e124e32f7a043da"
+BASE_PLAN_SHA256 = (
+    "75d73d4bcb7f29b21159cce195bece9a7b9f58850017fe8ef0dac4e5ff0dde70"
+)
 PREFIX = "SABLERESEARCHA-CALIBRATION-PATCH"
 PATCH_FILES = (
     "CHANGELOG.md",
@@ -39,7 +42,7 @@ PATCH_FILES = (
     "docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md",
 )
 WORK = ROOT / "SABLERESEARCHA"
-BASE_STAGE = ROOT / "dist" / "TORMENT_NEXUS"
+BASE_MANIFEST = WORK / "MANIFEST_WINDOWS.json"
 PATCH_STAGE = WORK / "CALIBRATION_PATCH_STAGE"
 OUT = WORK / "release"
 PLAN = WORK / "CUT_PLAN_CALIBRATION_PATCH.json"
@@ -187,18 +190,18 @@ exit /b 1
 """
 
 
-def build_stage(head: str) -> dict:
+def build_stage(head: str, base_records: dict[str, dict]) -> dict:
     if PATCH_STAGE.exists():
         raise SystemExit(f"refusing existing patch stage: {PATCH_STAGE}")
     PATCH_STAGE.mkdir(parents=True)
 
     records = []
     for relative in PATCH_FILES:
-        original = BASE_STAGE / Path(relative)
         patched = ROOT / Path(relative)
-        if not original.is_file() or not patched.is_file():
+        original = base_records.get(relative.replace("\\", "/"))
+        if original is None or not patched.is_file():
             raise SystemExit(f"missing patch input: {relative}")
-        before = sha256_file(original)
+        before = original["sha256"]
         after = sha256_file(patched)
         if before == after:
             raise SystemExit(f"patch input did not change: {relative}")
@@ -208,6 +211,7 @@ def build_stage(head: str) -> dict:
         records.append({
             "path": relative.replace("\\", "/"),
             "before_sha256": before,
+            "before_bytes": original["size"],
             "after_sha256": after,
             "after_bytes": patched.stat().st_size,
         })
@@ -236,14 +240,19 @@ def build() -> None:
     if git_output("status", "--porcelain"):
         raise SystemExit("commit the patch source before building its capsule")
     head = git_output("rev-parse", "HEAD")
-    if not BASE_STAGE.is_dir():
-        raise SystemExit(f"missing exact researchA base stage: {BASE_STAGE}")
-    with (BASE_STAGE / "RELEASE_MANIFEST.json").open(encoding="utf-8") as handle:
+    if not BASE_MANIFEST.is_file():
+        raise SystemExit(f"missing exact researchA manifest: {BASE_MANIFEST}")
+    with BASE_MANIFEST.open(encoding="utf-8") as handle:
         base_manifest = json.load(handle)
-    if base_manifest.get("source", {}).get("commit") != BASE_COMMIT:
-        raise SystemExit("base stage is not the published researchA source commit")
+    release._validate_manifest(base_manifest)
+    if base_manifest.get("plan_sha256") != BASE_PLAN_SHA256:
+        raise SystemExit("base manifest is not the approved researchA cut")
+    base_records = {
+        item["path"]: item
+        for item in base_manifest["files"]
+    }
 
-    application_manifest = build_stage(head)
+    application_manifest = build_stage(head, base_records)
     OUT.mkdir(parents=True, exist_ok=True)
     for path in (PLAN, REVIEW, CUTMAP, MANIFEST, MANIFEST_CAPSULE, INSTALLER):
         if path.exists():
