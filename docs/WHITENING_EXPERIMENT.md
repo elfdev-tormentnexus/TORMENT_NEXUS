@@ -251,3 +251,62 @@ about quantum mechanics in the underlying hardware, nor can it establish a
 general theorem about every implementation. It is sufficient to reject an
 observer-triggered feedback feature for this system until a reproducible,
 software-level deviation is actually measured.
+
+### Dual-process mirror control
+
+*Measured locally on 2026-07-29; both temporary CPU-only servers removed
+afterwards.*
+
+The stronger software mirror was run after the single-process control. Two
+separate `llama-server` processes loaded the same BGE GGUF on separate local
+ports. Each embedded all 184 public anchors independently; the ordered anchor
+text digest was
+`4f0a6a3ff2723b177c9279bce0ed253e06ab31beb4fe1ff08256a11cbfb6752b`.
+
+Every one of the 184 complete token paths had the same float-hex SHA-256 on
+both processes; mismatched paths: **0**; maximum coordinate difference:
+**0.0**. The first path digest was
+`9779069b904466270c19e162afb40f0eb5cf89398920e1af816f24727f70364a`.
+This is a classical replica-integrity result. It does not test physical
+entanglement, but it rules out a detectable divergence between two isolated
+software executions of this model and corpus.
+
+### Context bisection: a valid split analogue
+
+*Measured locally on 2026-07-29; hazard-mode experiment only. No runtime
+behaviour changed.*
+
+`tools/context_bisection_probe.py` creates three independent **classical**
+runs of a text: full text, its source-word prefix, and its source-word suffix.
+It compares a content token from a shortened run to the matching retained
+position in the full run. The probe requires that the full content-token count
+equal prefix plus suffix; it refused no cases in the 184-anchor corpus. This
+is not an attempt to split a tokenizer token or a claim that a token is a
+physical particle. It measures how much the removed half of a sentence
+contributes to a retained contextual vector.
+
+For each retained token, drift is:
+
+`1 - cosine(vector with full context, vector with half context)`.
+
+| corpus | successful cuts | token comparisons | mean drift | near-cut drift | far-from-cut drift | distance/drift correlation |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| all 184 public anchors | 184 / 184 | 1,290 | **0.1450** | **0.1739** | 0.1320 | -0.2099 |
+
+The suffix side had slightly more mean drift than the prefix side (0.1532 vs
+0.1405). The negative distance correlation and near-cut excess are the
+expected fingerprint of ordinary contextual coupling: removing nearby context
+changes a representation more than removing farther context. This is a useful
+trajectory-map result, but it is not evidence of token splitting,
+superposition, or physical entanglement.
+
+### Single-span contrast control
+
+The complementary `SABLE_TOKEN_CONTRAST_V1` probe kept the 9-token path length
+constant while replacing one source-word span at a time with `[MASK]` in the
+public anchor *"A promise made to a dying person"*. Mean-all trajectory drift
+was 0.117 for `A`, **0.288** for `promise`, 0.110 for `made`, 0.112 for `to`,
+0.070 for `a`, 0.205 for `dying`, and 0.178 for `person`. This is a controlled
+counterfactual sensitivity measurement. It identifies which declared edit
+changed this representation most in this one sentence; it is not a causal
+attribution of meaning and is not a model-state injection.
