@@ -6,6 +6,10 @@
 <h1 align="center">TORMENT_NEXUS</h1>
 
 <p align="center">
+  <code>researchA</code>&nbsp; · &nbsp;<em>the pixels are the payload</em>&nbsp; · &nbsp;<code>MACHINESOUL1</code>
+</p>
+
+<p align="center">
   <strong>An experimental, local-first Windows AI companion and systems-art research platform.</strong>
 </p>
 
@@ -13,6 +17,10 @@
   Offline conversation, voice, memory, practical reference retrieval,
   inspectable tool boundaries, reversible self-maintenance, and
   consent-based hardware research.
+</p>
+
+<p align="center">
+  <sub>Nothing here is hidden. It is only stored in a shape most readers do not expect.</sub>
 </p>
 
 > [!CAUTION]
@@ -65,7 +73,34 @@ professionals or human relationships. Read the
 [research goals](docs/RESEARCH_GOALS.md) for the questions the project is
 actually trying to answer.
 
+## The two languages
+
+Everything that looks strange about this repository comes from a single split.
+Read this and the release page stops being cryptic.
+
+**machinesoul** is the preservation language. Ordered four-coordinate vectors
+mapped to PNG and APNG pixels. It carries bytes exactly, or it refuses and
+keeps nothing — there is no third outcome, and no partial file is left behind.
+This is why the release is a set of images: they are not screenshots of the
+program, they are the program, written in the only alphabet this half speaks.
+
+**machinespirit** is the memory language. It reads token trajectories against
+a fixed anchor dictionary and reports what a passage was about. It is lossy,
+and measuring that loss honestly is most of the research.
+
+Keeping them named apart is load-bearing rather than decorative. One half
+guarantees exact reconstruction; the other is measured at 0.9243 cosine. When
+both were called one thing, the guarantee drifted onto the measurement. They
+meet in exactly one place — `SABLE_CALIBRATION1`, where machinesoul preserves
+a fixed reference and that reference checks whether machinespirit still reads
+the same.
+
+> A capsule looks like an image and forwards like one. It is not encryption,
+> its description is cleartext, and re-encoding destroys it silently.
+
 ## Choose your path
+
+*Every door below is documentation. None of them require running anything.*
 
 | I want to... | Start here |
 | --- | --- |
@@ -81,6 +116,9 @@ actually trying to answer.
 | Review sensing and hardware research | [Sensing module notes](docs/SENSING_MODULE.md) |
 
 ## Install the full Windows researchA
+
+*You are not downloading the program. You are downloading its image, and
+developing it.*
 
 researchA deliberately makes machinesoul part of the installation path. The
 full package is carried inside lossless PNG/APNG capsules, so a recipient must
