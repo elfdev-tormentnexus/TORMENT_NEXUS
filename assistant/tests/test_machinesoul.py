@@ -188,6 +188,76 @@ class RefusalTests(unittest.TestCase):
         self.assertIn("RGBA", str(caught.exception))
 
 
+class StreamingTests(unittest.TestCase):
+    """Bounded memory is the whole claim, so it is asserted rather than said."""
+
+    def setUp(self):
+        self.folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.folder, ignore_errors=True)
+        self.source = os.path.join(self.folder, "payload.bin")
+        with open(self.source, "wb") as handle:
+            handle.write((bytes(range(256)) * 40)[:9000])
+        self.capsule = os.path.join(self.folder, "c.png")
+
+    def test_a_streamed_capsule_reads_with_the_ordinary_extractor(self):
+        """Same container from either builder, or the format has forked."""
+        sc.build_stream(self.source, self.capsule, frame_rows=4)
+        payload, meta = sc.extract(self.capsule)
+        with open(self.source, "rb") as handle:
+            self.assertEqual(payload, handle.read())
+        self.assertEqual(meta["length"], os.path.getsize(self.source))
+
+    def test_streaming_extract_recovers_an_in_memory_capsule(self):
+        blob = b"either builder, either reader" * 40
+        sc.build(blob, self.capsule, frames=3)
+        out = os.path.join(self.folder, "out.bin")
+        sc.extract_stream(self.capsule, out)
+        with open(out, "rb") as handle:
+            self.assertEqual(handle.read(), blob)
+
+    def test_streaming_holds_far_less_than_the_payload(self):
+        import tracemalloc
+
+        big = os.path.join(self.folder, "big.bin")
+        with open(big, "wb") as handle:
+            handle.write(os.urandom(4 * 1024 * 1024))
+        target = os.path.join(self.folder, "big.png")
+        sc.build_stream(big, target, frame_rows=256)
+
+        out = os.path.join(self.folder, "big_out.bin")
+        tracemalloc.start()
+        sc.extract_stream(target, out)
+        _, peak = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        self.assertLess(peak, 2 * 1024 * 1024,
+                        "extraction allocated on the order of the payload")
+        self.assertEqual(os.path.getsize(out), os.path.getsize(big))
+
+    def test_a_damaged_stream_is_refused_and_leaves_no_file(self):
+        sc.build_stream(self.source, self.capsule, frame_rows=4)
+        with open(self.capsule, "rb") as handle:
+            blob = bytearray(handle.read())
+        blob[blob.find(b"IDAT") + 30] ^= 0x01
+        with open(self.capsule, "wb") as handle:
+            handle.write(bytes(blob))
+        out = os.path.join(self.folder, "must_not_exist.bin")
+        with self.assertRaises(sc.CapsuleError):
+            sc.extract_stream(self.capsule, out)
+        self.assertFalse(os.path.exists(out),
+                         "a refused extraction left a partial file behind")
+
+    def test_a_truncated_stream_is_refused(self):
+        sc.build_stream(self.source, self.capsule, frame_rows=4)
+        with open(self.capsule, "rb") as handle:
+            blob = handle.read()
+        with open(self.capsule, "wb") as handle:
+            handle.write(blob[:len(blob) // 2])
+        out = os.path.join(self.folder, "partial.bin")
+        with self.assertRaises(sc.CapsuleError):
+            sc.extract_stream(self.capsule, out)
+        self.assertFalse(os.path.exists(out))
+
+
 class ArchiveSafetyTests(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.mkdtemp()
@@ -238,5 +308,4 @@ class ArchiveSafetyTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
 

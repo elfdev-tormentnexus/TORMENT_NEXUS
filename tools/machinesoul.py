@@ -155,6 +155,150 @@ class CapsuleError(Exception):
     """Refuse rather than return bytes that were not the payload."""
 
 
+# --- streaming ---------------------------------------------------------
+#
+# build() holds the whole payload, compresses it in one call, and assembles
+# the file in a list. That is fine for documents and impossible for a
+# release: a 13 GB archive needs roughly two and a half times that at peak,
+# against 5.7 GB free on the machine this was written for.
+#
+# The fix is not a faster processor or a GPU. Nothing here is an image
+# operation -- no pixels are filtered, rendered or sampled -- so there is no
+# parallel work to offload, and VRAM is smaller than the peak anyway.
+# DEFLATE is a sequential sliding window, and the bottleneck is capacity.
+# Processing in fixed blocks makes peak memory a constant.
+#
+# One PNG constraint shapes this: a chunk declares its length before its
+# data, so a frame's compressed bytes must exist before its header can be
+# written. Each frame is therefore compressed to a spill file and copied
+# through, which keeps memory at the block size rather than the frame size.
+
+BLOCK = 8 * 1024 * 1024
+
+# Rows per frame. 4096 rows at 256 px RGBA is a 4 MiB frame, so a 13 GB
+# payload becomes a few thousand frames rather than one impossible one.
+FRAME_ROWS = 4096
+
+
+def _payload_stream(handle, header, total_capacity, size):
+    """Header, then the file, then zero padding, in BLOCK-sized pieces."""
+    yield header
+    sent = len(header)
+    remaining = size
+    while remaining > 0:
+        block = handle.read(min(BLOCK, remaining))
+        if not block:
+            raise CapsuleError(
+                f"source ended after {size - remaining} of {size} bytes")
+        remaining -= len(block)
+        sent += len(block)
+        yield block
+    while sent < total_capacity:
+        pad = min(BLOCK, total_capacity - sent)
+        sent += pad
+        yield b"\x00" * pad
+
+
+def _sha256_of_file(path):
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(BLOCK), b""):
+            digest.update(block)
+    return digest.digest()
+
+
+def build_stream(source_path, out_path, width=WIDTH, frame_rows=FRAME_ROWS,
+                 delay_ms=120, note="", progress=None):
+    """Build a capsule of any size with bounded memory.
+
+    Same container as build(); a capsule from either is read by the same
+    extractor. Returns (frames, width, height, bytes written).
+    """
+    size = os.path.getsize(source_path)
+    digest = _sha256_of_file(source_path)
+
+    stride = width * CHANNELS
+    frame_bytes = stride * frame_rows
+    total = HEADER + size
+    frames = max(1, -(-total // frame_bytes))
+    capacity = frame_bytes * frames
+
+    header = (MAGIC + bytes([VERSION]) + struct.pack(">Q", size)
+              + struct.pack(">I", frames) + digest)
+
+    text = (note or
+            "MACHINESOUL1. The pixels are the payload, in raster order "
+            "across frames. Re-encoding this image destroys it. Extract "
+            "with machinesoul.py extract.")
+
+    spill = out_path + ".frame.tmp"
+    with open(source_path, "rb") as source, open(out_path, "wb") as out:
+        out.write(b"\x89PNG\r\n\x1a\n")
+        out.write(_chunk(b"IHDR", struct.pack(">IIBBBBB", width, frame_rows,
+                                              8, 6, 0, 0, 0)))
+        out.write(_chunk(b"tEXt", b"Software\x00MACHINESOUL1"))
+        out.write(_chunk(b"tEXt", b"Comment\x00" + text.encode("utf-8")))
+        out.write(_chunk(b"acTL", struct.pack(">II", frames, 0)))
+
+        stream = _payload_stream(source, header, capacity, size)
+        carry = bytearray()
+        sequence = 0
+
+        for index in range(frames):
+            # Gather exactly one frame, one block at a time.
+            compressor = zlib.compressobj(6)
+            written = 0
+            with open(spill, "wb") as frame_out:
+                while written < frame_bytes:
+                    while len(carry) < stride and written + len(carry) < frame_bytes:
+                        try:
+                            carry += next(stream)
+                        except StopIteration:
+                            break
+                    if not carry:
+                        break
+                    take = min(stride, len(carry), frame_bytes - written)
+                    row = bytes(carry[:take])
+                    del carry[:take]
+                    written += take
+                    frame_out.write(compressor.compress(b"\x00" + row))
+                frame_out.write(compressor.flush())
+
+            # fcTL always precedes the frame it describes.
+            out.write(_chunk(b"fcTL", struct.pack(
+                ">IIIIIHHBB", sequence, width, frame_rows, 0, 0,
+                max(1, int(delay_ms)), 1000, 0, 0)))
+            sequence += 1
+
+            length = os.path.getsize(spill)
+            if index == 0:
+                out.write(struct.pack(">I", length) + b"IDAT")
+                crc = zlib.crc32(b"IDAT")
+            else:
+                # fdAT carries its own sequence number inside the payload,
+                # so the declared length covers those four bytes too.
+                out.write(struct.pack(">I", length + 4) + b"fdAT")
+                crc = zlib.crc32(b"fdAT")
+                marker = struct.pack(">I", sequence)
+                out.write(marker)
+                crc = zlib.crc32(marker, crc)
+                sequence += 1
+
+            with open(spill, "rb") as frame_in:
+                for block in iter(lambda: frame_in.read(BLOCK), b""):
+                    out.write(block)
+                    crc = zlib.crc32(block, crc)
+            out.write(struct.pack(">I", crc & 0xFFFFFFFF))
+            if progress:
+                progress(index + 1, frames)
+
+        out.write(_chunk(b"IEND", b""))
+
+    if os.path.exists(spill):
+        os.remove(spill)
+    return frames, width, frame_rows, os.path.getsize(out_path)
+
+
 def _unfilter(raw, width, height):
     """Undo PNG scanline filters. Present so a re-encoded capsule that
     happens to survive still reads, not because this writer emits them."""
@@ -282,27 +426,190 @@ def extract(png_path):
                      "length": length, "sha256": digest.hex()}
 
 
+def _chunks_of(handle):
+    """Walk PNG chunks without holding the file."""
+    if handle.read(8) != b"\x89PNG\r\n\x1a\n":
+        raise CapsuleError("not a PNG")
+    while True:
+        head = handle.read(8)
+        if len(head) < 8:
+            return
+        length = struct.unpack(">I", head[:4])[0]
+        kind = head[4:8]
+        yield kind, length, handle
+        handle.read(4)                     # trailing CRC
+        if kind == b"IEND":
+            return
+
+
+def extract_stream(png_path, out_path, progress=None):
+    """Extract a capsule of any size without holding it.
+
+    A decompiler that needs as much memory as the archive is not a
+    decompiler anyone can run, which would make a capsule-only release a
+    capsule nobody opens.
+
+    Only filter 0 is handled here, which is what both builders emit. A
+    capsule that has been through another encoder is refused rather than
+    guessed at, and would not survive re-encoding anyway.
+    """
+    stride = None
+    header = bytearray()
+    declared = None
+    digest_declared = None
+    written = 0
+    running = hashlib.sha256()
+    carry = bytearray()
+    frames_seen = 0
+
+    out = open(out_path, "wb")
+    try:
+        with open(png_path, "rb") as handle:
+            for kind, length, source in _chunks_of(handle):
+                if kind == b"IHDR":
+                    body = source.read(length)
+                    width, height, depth, colour = struct.unpack(">IIBB",
+                                                                 body[:10])
+                    if depth != 8 or colour != 6:
+                        raise CapsuleError(
+                            f"capsule must be 8-bit RGBA, got depth {depth} "
+                            f"colour type {colour}")
+                    stride = width * CHANNELS
+                    continue
+                if kind not in (b"IDAT", b"fdAT"):
+                    source.read(length)
+                    continue
+
+                remaining = length
+                if kind == b"fdAT":
+                    source.read(4)
+                    remaining -= 4
+                frames_seen += 1
+                decompressor = zlib.decompressobj()
+
+                while remaining > 0:
+                    block = source.read(min(BLOCK, remaining))
+                    if not block:
+                        raise CapsuleError("capsule ends inside a frame")
+                    remaining -= len(block)
+                    try:
+                        carry += decompressor.decompress(block)
+                    except zlib.error as error:
+                        raise CapsuleError(
+                            f"frame {frames_seen - 1} could not be "
+                            f"decompressed ({error}). The capsule is damaged "
+                            "or was re-encoded; nothing is kept.")
+
+                    while len(carry) >= stride + 1:
+                        if carry[0] != 0:
+                            raise CapsuleError(
+                                f"unsupported PNG filter {carry[0]}; this "
+                                "capsule was re-encoded")
+                        row = bytes(carry[1:stride + 1])
+                        del carry[:stride + 1]
+
+                        if len(header) < HEADER:
+                            need = HEADER - len(header)
+                            header += row[:need]
+                            row = row[need:]
+                            if len(header) == HEADER:
+                                if bytes(header[:len(MAGIC)]) != MAGIC:
+                                    raise CapsuleError(
+                                        "not a MACHINESOUL1 capsule. A "
+                                        "re-encoded image fails here.")
+                                at = len(MAGIC)
+                                version = header[at]
+                                if version != VERSION:
+                                    raise CapsuleError(
+                                        f"capsule version {version}, this "
+                                        f"reads {VERSION}")
+                                declared = struct.unpack(
+                                    ">Q", bytes(header[at + 1:at + 9]))[0]
+                                digest_declared = bytes(
+                                    header[at + 13:at + 45])
+                            if not row:
+                                continue
+
+                        if declared is None:
+                            continue
+                        take = min(len(row), declared - written)
+                        if take > 0:
+                            out.write(row[:take])
+                            running.update(row[:take])
+                            written += take
+                if progress:
+                    progress(written, declared or 0)
+
+        if declared is None:
+            raise CapsuleError("no capsule header found")
+        if written < declared:
+            raise CapsuleError(
+                f"capsule declares {declared} bytes but carries {written}; "
+                "it is truncated and nothing is kept")
+        if running.digest() != digest_declared:
+            raise CapsuleError(
+                "sha256 mismatch: the capsule declares "
+                f"{digest_declared.hex()[:16]} and carries "
+                f"{running.hexdigest()[:16]}. Nothing is kept -- a capsule "
+                "that fails its own checksum is not the archive.")
+    except BaseException:
+        out.close()
+        if os.path.exists(out_path):
+            os.remove(out_path)
+        raise
+    out.close()
+    return {"length": declared, "sha256": running.hexdigest(),
+            "frames": frames_seen}
+
+
 def cmd_build(args):
+    """A directory is tarred in memory; a file streams.
+
+    The split is by how the payload arrives rather than by size. A release
+    archive is already a file, so the path that matters for 13 GB never
+    holds it.
+    """
     source = args.source
     if os.path.isdir(source):
         payload = tar_directory(source)
+        frames, width, height, written = build(
+            payload, args.out, frames=args.frames, delay_ms=args.delay)
+        size, digest = len(payload), hashlib.sha256(payload).hexdigest()
         kind = f"tar of {source}"
     else:
-        with open(source, "rb") as handle:
-            payload = handle.read()
+        size = os.path.getsize(source)
+
+        def tick(done, total):
+            if total and (done % 200 == 0 or done == total):
+                print(f"    frame {done}/{total}", flush=True)
+
+        frames, width, height, written = build_stream(
+            source, args.out, frame_rows=args.frame_rows,
+            delay_ms=args.delay, progress=tick if size > 64 * 1024 ** 2 else None)
+        digest = _sha256_of_file(source).hex()
         kind = source
 
-    frames, width, height, written = build(
-        payload, args.out, frames=args.frames, delay_ms=args.delay)
     print(f"capsule: {args.out}")
-    print(f"  payload   {len(payload):,} bytes  ({kind})")
-    print(f"  sha256    {hashlib.sha256(payload).hexdigest()}")
+    print(f"  payload   {size:,} bytes  ({kind})")
+    print(f"  sha256    {digest}")
     print(f"  frames    {frames} x {width}x{height} RGBA")
-    print(f"  file      {written:,} bytes  ({written / max(1, len(payload)):.2f}x)")
+    print(f"  file      {written:,} bytes  ({written / max(1, size):.2f}x)")
     return 0
 
 
 def cmd_extract(args):
+    # Straight to a file, without holding it. A decompiler that needs as
+    # much memory as the archive is one nobody can run.
+    if not args.untar:
+        try:
+            meta = extract_stream(args.capsule, args.out)
+        except CapsuleError as error:
+            print(f"refused: {error}")
+            return 1
+        print(f"wrote {meta['length']:,} bytes to {args.out}")
+        print(f"  sha256 verified  {meta['sha256']}")
+        return 0
+
     try:
         payload, meta = extract(args.capsule)
     except CapsuleError as error:
@@ -348,7 +655,10 @@ def main(argv=None):
     b = sub.add_parser("build", help="pack a file or directory into a capsule")
     b.add_argument("source")
     b.add_argument("--out", required=True)
-    b.add_argument("--frames", type=int, default=8)
+    b.add_argument("--frames", type=int, default=8,
+                   help="directories only; a file streams and sizes itself")
+    b.add_argument("--frame-rows", type=int, default=FRAME_ROWS,
+                   help="rows per frame when streaming a file")
     b.add_argument("--delay", type=int, default=120)
     b.set_defaults(func=cmd_build)
 
