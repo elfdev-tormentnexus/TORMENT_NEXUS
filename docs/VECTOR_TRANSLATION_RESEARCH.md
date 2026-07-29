@@ -285,7 +285,7 @@ and DTW would penalise exactly that. MaxSim imposes no ordering constraint,
 which is why the retrieval literature uses it — and MaxSim is what showed
 no benefit above. Untested here.
 
-## 5b. Four proposed fixes, three of them refuted
+## 5b. Proposed fixes, and the ones that were refuted
 
 The `+0.24` haze on real memory entries had four candidate explanations.
 Measuring them cost less than arguing about them, and only one survived.
@@ -361,6 +361,89 @@ spurious peak, while the mean has no max to inflate. *The trace degrades as
 the dictionary grows; the pooled read does not.* Roughly a third of entries
 are still wrong — *"working on their project"* matches *"a single-board
 computer bought for a project"* on the word "project".
+
+
+### Negative result: a trajectory is a cluster, not a curve
+
+*Measured 2026-07-29, live traces, same stack as everything above.*
+
+Fitting a function of token position to the path is the obvious way to keep
+a trajectory cheaply, and it does not pay. The control that decides it is
+degree 0 — which *is* the pooled vector, replicated.
+
+| basis | params/dim | mean cosine | gain over degree 0 |
+| --- | ---: | ---: | ---: |
+| degree 0 (the pooled vector) | 384 | 0.8733 | — |
+| degree 1, a straight line | 768 | 0.8777 | +0.0043 |
+| degree 2, a parabola | 1,152 | 0.8826 | +0.0092 |
+| degree 3 | 1,536 | 0.8857 | +0.0124 |
+
+Doubling the storage buys **+0.4%** cosine. The vector already kept accounts
+for roughly 87% of every token in the sentence, and knowing *where* a token
+sits adds almost nothing at any low order. At degree 12 — three times the
+storage — it reaches only 0.9225.
+
+The reason is measurable and agrees with §4's anisotropy from a second
+direction: `spread` reports an effective rank of **1.694 out of 39** for the
+same text. A path confined to under two effective directions is a tight
+cluster around its own mean, and a cluster is described by its centroid,
+which is degree 0. Repetitive text is *more* clustered still — a
+single-topic passage scores 0.9008 at degree 0 and gains less from every
+added term.
+
+This also refutes a proposal made in the same session, which is worth
+recording because the reasoning sounded good: consecutive token vectors
+are close, therefore the path is smooth, therefore a spline plus small
+residuals should be cheap. Consecutive vectors *are* close — but because
+everything sits near the centroid, not because the path traces a curve.
+
+### A better basis, and the control that still kills it
+
+Sinusoids are the right shape where polynomials are the wrong one, and they
+measurably win. The matched-capacity **random basis** is what settles it.
+
+| params/dim | polynomial | sinusoidal | random (control) |
+| ---: | ---: | ---: | ---: |
+| 5 | 0.8906 | 0.8920 | 0.8880 |
+| 13 | 0.9186 | **0.9260** | 0.9133 |
+| 21 | 0.9243 | **0.9522** | 0.9419 |
+
+Sinusoids beat polynomials at every count, by a widening margin. But at 21
+parameters a *random* basis beats polynomials outright, so most of what any
+basis gains is capacity rather than structure discovered. Fourier's genuine
+edge over random is about **+0.010**.
+
+This is the same control §6 of `VECTOR_PIXEL_RESEARCH.md` used to kill
+dimension reordering, and the same conclusion: information that survives an
+arbitrary substitute was never stored in the thing being varied.
+
+The economics fail regardless — 21 params/dim is 8,064 values against a raw
+14,976, a 1.86× saving for 0.9522. The trail keeps **12 values** and
+reproduces the readout exactly, because reproducing the reading and
+reconstructing the vectors are different problems.
+
+**Open, untested.** Fourier's residual +0.010 needs explaining, and the
+hypothesis is that it is **positional-encoding structure rather than
+meaning**. If so it should be subtracted from traces, not modelled. The
+test is whether the edge is similar across unrelated texts of equal length,
+and a rotary basis is the correctly-shaped probe for it.
+
+### The name for what the trail is
+
+A **sufficient statistic** — a function of the data carrying everything
+relevant to a particular inference. That is why it reproduces `peaks()`
+exactly rather than approximately, and why its compression ratio is beside
+the point: sufficiency is about having identified the question, not about
+size. Curve fitting failed because it was trying to be sufficient for
+reconstructing the vectors, which nobody asked for.
+
+The cluster finding itself is a re-measurement of published work on
+**anisotropy** and **representation degeneration** in contextual
+embeddings — the observation that such vectors occupy a narrow cone rather
+than filling their space. *Citations deliberately not given here: the
+substance is confirmed on this stack, the specific papers were recalled
+rather than checked, and this document does not carry references it has
+not verified.*
 
 ## 5c. What readability costs
 

@@ -193,10 +193,13 @@ exactly and why the compression ratio is beside the point. The cluster
 finding is a re-measurement of published **anisotropy / representation
 degeneration** work; verify citations before they enter the notes.
 
-**Not yet written down:** the polynomial refutation, the basis comparison
-and the positional hypothesis all belong in
-`docs/VECTOR_TRANSLATION_RESEARCH.md` §5b next to the three other refuted
-fixes. Doc-only, still pending.
+**Now written down** in `docs/VECTOR_TRANSLATION_RESEARCH.md` §5b, next to
+the other refuted fixes: the polynomial refutation with its degree-0
+control, the three-basis comparison, the positional-encoding hypothesis,
+and the sufficient-statistic framing. Anisotropy citations were left out on
+purpose — the substance is confirmed on this stack, the papers were
+recalled rather than checked, and that document does not carry references
+it has not verified. Add them once someone has.
 
 ## 6. Deliberately not done
 

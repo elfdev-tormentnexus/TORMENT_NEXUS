@@ -489,6 +489,33 @@ that model output is safe, factual, lawful, or suitable for high-stakes use.
 See [Testing](docs/TESTING.md) for the narrower test commands and release
 verification boundaries.
 
+
+### Hazard-mode commands
+
+| command | what it reads |
+| --- | --- |
+| `trace <text>` | which concept appeared at which token |
+| `trail <text>` | the same reading, bounded by the dictionary rather than the input -- 89 tokens keep 24 values against 34,176 |
+| `spread <text>` | how much ground a text covered: purity, effective rank, von Neumann entropy. Says nothing about order |
+| `reconstruct <text>` | the lossy round trip, and what did not survive it |
+| `consume <url>` | takes the content an address points at, not the page around it |
+| `calibrate` | re-reads a fixed reference corpus and reports what moved |
+
+`calibrate` exists because every other number here is a reading with no
+scale beside it. Three of its seven rows are controls -- a repeated phrase,
+a **Fibonacci word** ordering, and a shuffle -- and two of them share a
+phrase mix in different order, so they must read alike. That is permutation
+invariance being checked rather than claimed.
+
+The other launcher is **TORMENT_NEXUS_INTERLINKED**, which opens the
+read-only agent interface and has its own five-section walkthrough. Both
+launchers can put a desktop shortcut down:
+
+```
+python tools/make_interface_shortcut.py --both
+```
+
+
 ## Acknowledgements
 
 **sundog** - voice recognition testing and extensive first-session and
