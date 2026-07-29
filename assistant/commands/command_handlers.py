@@ -3213,6 +3213,59 @@ def handle_experimental_mode(user_input):
     )
 
 
+@command("trail",
+         "The same reading as 'trace', at a size that does not grow with input",
+         usage="trail <text>", dev_only=False, group="knowledge")
+def handle_trail(user_input):
+    if not _match_prefix(user_input, "trail "):
+        return False
+
+    text = user_input[len("trail "):].strip()
+    if not text:
+        return "Usage: trail <text>"
+
+    from core import machinespirit
+
+    if not machinespirit.configured():
+        return ("Nothing to trail with. It reads the same per-token "
+                "trajectory 'trace' does, so it needs the unpooled "
+                "embedding server the hazard launcher starts.")
+
+    status = machinespirit.diagnose()
+    if not status["ready"]:
+        return status["reason"]
+
+    path = machinespirit.trajectory(text)
+    if not path:
+        return "Both embedding servers answered, but no trajectory came back."
+
+    rows = machinespirit.trail(text, path=path)
+    if not rows:
+        return "No anchor was nearest to any token, which should not happen."
+
+    cost = machinespirit.trail_cost(rows, len(path), len(path[0]))
+    lines = ['"' + text + '"', ""]
+
+    for row in rows:
+        lines.append(
+            f"  {row['support']:+.3f} support   peak {row['peak']:+.3f} "
+            f"at token {row['at']:>3}   x{row['hits']}   {row['anchor']}")
+
+    lines += [
+        "",
+        f"  {len(rows)} anchors fired across {len(path)} tokens: "
+        f"{cost['trail_values']:,} values kept where the trajectory holds "
+        f"{cost['trajectory_values']:,} ({cost['ratio']:.0f}x).",
+        "  Only the anchor nearest each token records anything, and the "
+        "ordering is by summed support -- ranking by one best position "
+        "instead was measured 13 points worse.",
+        "  This is the identical reading 'trace' produces, not an "
+        "approximation of it. The size is bounded by the dictionary, so a "
+        "longer input leaves the same size of wake.",
+    ]
+    return "\n".join(lines)
+
+
 @command("spread",
          "Report how much semantic ground a text covered, not where it went",
          usage="spread <text>", dev_only=False, group="knowledge")

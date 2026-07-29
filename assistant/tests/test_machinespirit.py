@@ -264,6 +264,94 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual(ms.profile([1.0], [], [], top=3), [])
 
 
+class TrailTests(unittest.TestCase):
+    """The trail must reproduce peaks() exactly, at a size that does not grow.
+
+    Two measurements from the notes make this possible, and one of them is
+    a trap. Collapsing a token to its winning anchor costs nothing
+    measurable (90%/0.933 against 90%/0.920). But ranking by a single best
+    position rather than by summed support was measured at 77% against
+    90%, so a trail that stored only maxima would be the version that lost
+    thirteen points. The support test is the one guarding that.
+    """
+
+    ANCHORS = [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]
+    TEXTS = ["first anchor", "second anchor", "third anchor"]
+
+    def setUp(self):
+        self._vectors = ms.anchor_vectors
+        self._texts = ms.anchor_texts
+        ms.anchor_vectors = lambda *a, **k: [row[:] for row in self.ANCHORS]
+        ms.anchor_texts = lambda *a, **k: list(self.TEXTS)
+
+    def tearDown(self):
+        ms.anchor_vectors = self._vectors
+        ms.anchor_texts = self._texts
+
+    def _path(self, length):
+        """A path that leans on anchor 0 with occasional excursions."""
+        path = []
+        for index in range(length):
+            if index % 5 == 1:
+                path.append([0.1, 1.0, 0.2])
+            elif index % 7 == 3:
+                path.append([0.2, 0.1, 1.0])
+            else:
+                path.append([1.0, 0.2, 0.1])
+        return path
+
+    def test_a_trail_reproduces_peaks_exactly(self):
+        """The whole claim, asserted rather than described."""
+        for length in (4, 9, 30, 120):
+            with self.subTest(tokens=length):
+                path = self._path(length)
+                rows = ms.trail("", path=path)
+                # The full trace, built the way trace() builds it, so the
+                # comparison is against the real readout and not a stub.
+                traced = [
+                    (index, ms.profile(token, self.ANCHORS, self.TEXTS, 1))
+                    for index, token in enumerate(path)
+                ]
+                self.assertEqual(ms.trail_peaks(rows), ms.peaks(traced))
+
+    def test_the_trail_is_bounded_by_anchors_not_by_tokens(self):
+        short = ms.trail("", path=self._path(8))
+        long = ms.trail("", path=self._path(400))
+        self.assertLessEqual(len(long), len(self.ANCHORS))
+        self.assertLessEqual(len(short), len(self.ANCHORS))
+        # Fifty times the tokens must not mean fifty times the storage.
+        self.assertLessEqual(len(long), len(short) + 1)
+
+    def test_support_is_summed_and_not_merely_the_peak(self):
+        """Storing only maxima is the 77% version. This guards against it."""
+        rows = ms.trail("", path=self._path(30))
+        winner = rows[0]
+        self.assertGreater(winner["hits"], 1)
+        self.assertGreater(winner["support"], winner["peak"],
+                           "support must accumulate across winning tokens")
+
+    def test_the_reported_position_is_the_strongest_one(self):
+        path = [[1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [1.0, 0.0, 0.0]]
+        rows = ms.trail("", path=path)
+        row = next(r for r in rows if r["anchor"] == "first anchor")
+        self.assertIn(row["at"], (0, 1, 2))
+        self.assertEqual(row["hits"], 3)
+
+    def test_an_anchor_that_never_wins_records_nothing(self):
+        rows = ms.trail("", path=[[1.0, 0.0, 0.0]] * 6)
+        self.assertEqual(len(rows), 1)
+
+    def test_it_reports_unavailable_rather_than_an_empty_trail(self):
+        self.assertIsNone(ms.trail("anything", path=[]))
+
+    def test_the_saving_is_reported_as_a_number(self):
+        rows = ms.trail("", path=self._path(40))
+        cost = ms.trail_cost(rows, 40, 384)
+        self.assertEqual(cost["trail_values"], len(rows) * 3)
+        self.assertEqual(cost["trajectory_values"], 40 * 384)
+        self.assertGreater(cost["ratio"], 100)
+
+
 class DensityMatrixTests(unittest.TestCase):
     """The second moment, and the claim it must never be allowed to make.
 

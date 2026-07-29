@@ -546,6 +546,104 @@ def spread(text, path=None):
     }
 
 
+# --- the trail -------------------------------------------------------
+#
+# A trace is n x 184 numbers and grows with the sentence. What it is
+# actually asked are two questions -- which concepts are here, and where
+# did each one sit -- and neither needs the whole grid.
+#
+# So record, per anchor, only what happened at the tokens where that anchor
+# was the nearest one: how much support it accumulated there, its single
+# strongest reading, and the position of that reading. Anchors that never
+# won record nothing. The result is bounded by the anchor count rather than
+# the token count, so a long input leaves the same size of wake as a short
+# one.
+#
+# Two measurements make this safe rather than hopeful, and both are already
+# in the notes. Collapsing each token to its single winning anchor scores
+# 90%/0.933 against 90%/0.920 for keeping all 184 coordinates, so the
+# argmax is not where information is lost. And ranking by summed support
+# rather than by one best position is what took the trace from 77% to 90%,
+# which is why support is stored and not just the peak -- a trail carrying
+# only maxima would be the version that was measured to be worse.
+#
+# The claim is therefore narrow and testable: a trail reproduces peaks()
+# exactly, at a size that does not grow with the input. A test asserts the
+# equality rather than the docstring asserting it.
+
+
+def trail(text, path=None, include_project=True, include_life=True):
+    """Per anchor, what happened where it was nearest. None when unavailable.
+
+    Rows are `{anchor, support, peak, at, hits}`, ordered the way peaks()
+    orders them: by total support, reporting the strongest position.
+    """
+    if path is None:
+        path = trajectory(text)
+    if not path:
+        return None
+
+    vectors = anchor_vectors(include_project, include_life)
+    if not vectors:
+        return None
+
+    texts = anchor_texts(include_project, include_life)
+    vectors = vectors[:len(texts)]
+    mean, centred, norms = _centred_anchors(vectors)
+
+    support = {}
+    best = {}
+    hits = {}
+
+    for index, token in enumerate(path):
+        target = [x - m for x, m in zip(token, mean)]
+        scale = math.sqrt(sum(x * x for x in target)) or 1.0
+
+        winner = None
+        for position, (anchor, norm) in enumerate(zip(centred, norms)):
+            score = (sum(x * y for x, y in zip(target, anchor))
+                     / (scale * norm))
+            if winner is None or score > winner[0]:
+                winner = (score, position)
+
+        score, position = winner
+        name = texts[position]
+        support[name] = support.get(name, 0.0) + score
+        hits[name] = hits.get(name, 0) + 1
+        if name not in best or score > best[name][0]:
+            best[name] = (score, index)
+
+    rows = [{"anchor": name, "support": support[name],
+             "peak": best[name][0], "at": best[name][1],
+             "hits": hits[name]}
+            for name in support]
+    rows.sort(key=lambda row: -row["support"])
+    return rows
+
+
+def trail_peaks(rows, top=None):
+    """The same triples peaks() returns, read off a trail.
+
+    Exists so the equivalence can be asserted against peaks() directly
+    rather than compared by eye.
+    """
+    ordered = [(row["anchor"], row["peak"], row["at"]) for row in rows or []]
+    return ordered if top is None else ordered[:top]
+
+
+def trail_cost(rows, tokens, dimensions):
+    """What the trail saved, stated rather than assumed.
+
+    Three numbers per surviving anchor against a token count times a
+    dimension count. Returned as a dict so a caller reports the measurement
+    instead of an adjective.
+    """
+    stored = len(rows or []) * 3
+    raw = tokens * dimensions
+    return {"trail_values": stored, "trajectory_values": raw,
+            "ratio": (raw / stored) if stored else None}
+
+
 def reset_cache():
     """Drop the embedded dictionary; used by tests and after a model swap."""
     global _anchor_vectors, _anchor_vectors_key, _anchors

@@ -59,6 +59,46 @@ by documentation:
 capsule is not encryption, it travels as easily as a photograph, and
 re-encoding destroys it silently.
 
+### `trail <text>` — the same reading, at a size that stops growing
+
+A trace is *n* × 184 numbers and grows with the sentence. What it is
+actually asked are two questions — which concepts are here, and where did
+each sit — and neither needs the whole grid.
+
+So the trail records, per anchor, only what happened at the tokens where
+that anchor was nearest: accumulated support, the single strongest
+reading, and its position. Anchors that never win record nothing.
+
+| tokens | trail values | trajectory values | |
+| ---: | ---: | ---: | ---: |
+| 9 | 6 | 3,456 | **576×** |
+| 39 | 12 | 14,976 | **1,248×** |
+| 89 | 24 | 34,176 | **1,424×** |
+
+The ratio *improves* with length, because the trail is bounded by the
+dictionary while the trajectory is bounded by the input. A long passage
+leaves the same size of wake as a short one.
+
+**It is not an approximation.** A test asserts `trail_peaks(trail(...))`
+equals `peaks(trace(...))` exactly, at four different lengths. The trail
+reproduces the readout rather than resembling it.
+
+Two measurements already in these notes are what make that possible, and
+one of them is a trap:
+
+- Collapsing each token to its single winning anchor scores 90%/0.933
+  against 90%/0.920 for keeping all 184 coordinates. The argmax is not
+  where information is lost, which is what lets the other 183 be dropped.
+- Ranking by summed support rather than by one best position is what took
+  the trace from 77% to 90%. **A trail storing only maxima would be the
+  version measured thirteen points worse**, so support is stored and a
+  test guards it.
+
+What it does not carry: the per-token profile, and anything about tokens
+that were nobody's nearest. It answers the two questions the feature
+exists to answer and refuses the rest, which is the same shape as every
+other claim here.
+
 ### The shadow log — evidence, finally being generated
 
 The claim that anchor-space retrieval does not beat pooled cosine rests on
@@ -316,5 +356,5 @@ package.
   denylist, dependency, command, and clean-import checks. The launcher has not
   yet been exercised end-to-end from that package with both model servers
   producing a live trace.
-- 879 automated tests pass; two filesystem-link tests are skipped because
+- 886 automated tests pass; two filesystem-link tests are skipped because
   this Windows account cannot create the required links.

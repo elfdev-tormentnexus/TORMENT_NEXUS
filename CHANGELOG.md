@@ -4,6 +4,18 @@
 
 ## researchA — 2026-07-28
 
+- Added `trail <text>`: the same reading `trace` produces, stored per
+  anchor rather than per token. Only the anchor nearest a token records
+  anything -- accumulated support, its strongest reading, and where that
+  was -- so the size is bounded by the dictionary instead of the input, and
+  a 89-token passage keeps 24 values where the trajectory holds 34,176
+  (1,424x, and the ratio improves with length). A test asserts it
+  reproduces `peaks()` exactly at four lengths rather than approximating
+  it. It rests on two measured facts: collapsing a token to its winning
+  anchor costs nothing (90%/0.933 against 90%/0.920), and ranking by summed
+  support rather than one best position is what took the trace from 77% to
+  90% -- so support is stored, and a test guards against a
+  maxima-only trail that would be the worse version.
 - Added the anchor-space shadow log. Every hazard-mode retrieval records
   both rankings of the same candidates -- the pooled cosine that decided and
   the anchor-space ranking that did not -- with their top-5 agreement, so the
