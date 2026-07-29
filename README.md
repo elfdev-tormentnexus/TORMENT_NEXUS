@@ -303,10 +303,51 @@ one.
 **What it does not do: change retrieval.** Keeping the path has not been
 shown to retrieve better. Late interaction over trajectories returned the
 same documents as ordinary pooled cosine, and anchor-space coordinates
-scored 0.689 against uint8's perfect 1.000. So trajectories run alongside
-retrieval rather than replacing it, and the mode says so when you turn it
-on. What machinespirit adds today is the trace — a thing the averaged
-vector cannot produce at all, rather than one it produces slightly worse.
+scored 0.689 against uint8's perfect 1.000. On 30 labelled paraphrases the
+plain averaged vector identifies the right concept **90%** of the time and
+the trace **83%**, so trajectories run alongside retrieval rather than
+replacing it, and the mode says so when you turn it on. What machinespirit
+adds today is the trace — a thing the averaged vector cannot produce at
+all, rather than one it produces slightly worse.
+
+### machinespirit and machinesoul
+
+Two halves, named apart because the difference is the whole point.
+
+| | what it reads | fidelity |
+| --- | --- | --- |
+| **machinespirit** | meaning: anchor coordinates, traces, `consume`, memory | lossy, and the loss is the research |
+| **machinesoul** | bytes: the release capsule and its extractor | 1:1 or an exception, verified by sha256 |
+
+Keeping them under one name made it possible to say "1:1" about something
+measured at **0.9243**, which is why they are now separate words. A release
+archive has no tolerance for a good-enough reconstruction; a reading of what
+a sentence is about has nothing but.
+
+`reconstruct <text>` runs the lossy round trip and prints what survived.
+Encoding replaces a 384-dimensional vector with its cosine to each of 184
+anchors, which span at most 184 dimensions, so the discard is guaranteed by
+the arithmetic. Decoding by least squares recovers **0.9243** mean cosine
+and finds its own chunk **100%** of the time; decoding by the obvious route
+— summing anchors weighted by their own coordinates — recovers **0.6635**
+and finds it **6%** of the time. The whole gap is anchor correlation. None
+of it recovers the *text*: the embedding was already a lossy function of the
+words before any anchor was involved, so this is identification, not recall.
+
+### consume
+
+`consume <url>` works out what an address actually points at and takes the
+content rather than the page around it. A document is fetched and handed to
+the offline library; a page is offered as text but labelled a page; **media
+is refused with the missing pieces named**, because turning a video into
+text needs `yt-dlp`, `ffmpeg` and a local speech-to-text model, and this
+tree has stayed stdlib on purpose. Fetching a video's watch page would
+otherwise succeed and file a navigation menu as a document.
+
+Addresses that resolve to private, loopback or link-local ranges are
+refused, downloads are counted while they stream rather than trusting
+`Content-Length`, and everything fetched reaches the model as evidence,
+never as instructions.
 
 The same trajectory renders as an **animated beam** — one frame per token,
 in animated PNG so it stays lossless, with each frame held in proportion to

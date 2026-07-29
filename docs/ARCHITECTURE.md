@@ -57,7 +57,11 @@ operator input
 | `assistant/main.py` | Startup order, session lifecycle, prompt assembly, streaming, retrieval coordination, agent route providers, and mode changes. |
 | `assistant/core/first_run.py` | Mandatory versioned safety/privacy acknowledgement. |
 | `assistant/core/` | Configuration, persona, clock/activity context, model and embedding server ownership, authentication, escalation, tutorial, and health checks. |
-| `assistant/core/machinespirit.py` | Per-token trajectories read against a fixed anchor dictionary (`anchors_v1.json`). Requires a second, unpooled embedding server; reports unavailable rather than falling back to the pooled one. Does not participate in retrieval. |
+| `assistant/core/machinespirit.py` | Per-token trajectories read against a fixed anchor dictionary (`anchors_v2.json` by default; v1 remains loadable and keeps its digests). Requires **both** embedding servers — the unpooled one supplies the path, the pooled one embeds the dictionary — and `diagnose()` reports which is missing rather than blaming one for the other. Does not participate in retrieval. |
+| `assistant/core/consume.py` | Identifies what a URL points at, fetches the content rather than the surrounding page, and hands documents to the offline library. Refuses non-loopback-safe addresses, media URLs, and bodies that exceed the library's own ceiling mid-download. |
+| `tools/machinesoul.py` | The lossless half: builds and extracts the `MACHINESOUL1` capsule, an animated PNG whose pixels are the payload. sha256-verified; refuses rather than returning a partially recovered archive. |
+| `tools/machinespirit_codec.py` | Measures the lossy half as a codec — encode to anchor coordinates, decode by least squares, report cosine and whether the reconstruction still retrieves its own chunk. |
+| `tools/pooling_probe.py` | Determines what the pooled server actually does by reconstructing each candidate pooling from the unpooled server's per-token output. |
 | `assistant/core/session_rhythm.py` | Session duration, exchange counts, pause lengths, and rank against previous sessions. Timings only. Supplies the measured pace used to time rendered animations. |
 | `assistant/ui/` | Animated terminal, input, pagination, retrieval display, voice state, and visualizer controls. |
 | `assistant/voice/` | Offline Moonshine recognition, Silero VAD, Piper synthesis, playback, and cancellation. |

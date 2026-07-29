@@ -285,6 +285,136 @@ and DTW would penalise exactly that. MaxSim imposes no ordering constraint,
 which is why the retrieval literature uses it — and MaxSim is what showed
 no benefit above. Untested here.
 
+## 5b. Four proposed fixes, three of them refuted
+
+The `+0.24` haze on real memory entries had four candidate explanations.
+Measuring them cost less than arguing about them, and only one survived.
+Recorded in full because the three failures are more useful than the
+success: each looked correct, and two produced numbers that improved on
+the metric being watched while making the system worse.
+
+**A metric that rewarded disorder.** Centering each token on its own
+trajectory's mean *appeared* to sharpen traces dramatically — distinct
+winning anchors rose from 3 to 12, the modal anchor's share fell from 71%
+to 14%, and the top hit on one probe improved from the generic
+*"grandparents telling the same story again"* to the specific *"a promise
+made to a dying person"*. Every visible sign said it worked.
+
+Scored against 30 labelled paraphrases it collapses:
+
+| centering | top-1 | top-3 | MRR | median rank |
+| --- | --- | --- | --- | --- |
+| anchor mean (current) | **83%** | 97% | 0.896 | 1 |
+| + trajectory mean | 0% | 7% | 0.088 | 23 |
+| + trajectory mean, whitened | 3% | 3% | 0.105 | 17 |
+| pooled control | **90%** | 97% | 0.923 | 1 |
+
+The mechanism is exact rather than mysterious. `tools/pooling_probe.py`
+establishes that the pooled vector **is** the mean of the token vectors,
+at cosine `1.000000` on every probe — so subtracting the trajectory mean
+subtracts the sentence's topic, and the topic is usually the answer. What
+looked like resolution was noise spread evenly across more anchors, and
+range/distinct/modal is a proxy that cannot tell those apart.
+
+**The pooled control winning is the honest headline.** 90% against 83%.
+This measures *which* concept, which is the question the average is better
+at; the trace's only claim is *where*, which this does not test. But
+"trajectories shadow retrieval" is now a measured 83-versus-90 rather than
+an impression from one run.
+
+**Corpus-mean centering: a no-op.** 0.131 against 0.127, identical distinct
+and modal counts. The anchor mean and the memory-corpus mean point the same
+way because the anisotropy belongs to the model, not to either corpus.
+
+**Canonicalisation: refuted in both directions.** The premise was that
+telegraphic entries sit out of register for a sentence embedder. This
+project's entries are already plain sentences, so there was nothing to
+rewrite — and *degrading* them into telegraphic form scores **higher**,
++0.324 against +0.288, winning 9 of 11 paired comparisons. A constant
+subject prefix on every entry drags them all into one region; stripping the
+grammar removes shared scaffolding.
+
+**The survivor: coverage.** v1 had no anchors for what a stored memory is
+about. Four unrelated entries all profiled strongest against the same
+self-editing anchor; both hardware entries against the same voice-synthesis
+one. The single concept v1 *did* hold — loneliness — scored +0.419 and was
+right. `anchors_v2` adds 46 anchors describing kinds of memory (never a
+fact about any operator; the file ships):
+
+| | v1 (138) | v2 (184) |
+| --- | --- | --- |
+| memories, mean top-1 | +0.288 | **+0.380** |
+| distinct winners / 13 | 8 | **11** |
+| most-repeated winner | 4 | **2** |
+| labels, pooled top-1 | 90% | **90%** |
+| labels, trace top-1 | 83% | 77% |
+
+The pooled control holds exactly despite 33% more competitors. The trace
+loses six points, and that is structural rather than noise: it takes a
+**max across positions**, so each added anchor is another chance at a
+spurious peak, while the mean has no max to inflate. *The trace degrades as
+the dictionary grows; the pooled read does not.* Roughly a third of entries
+are still wrong — *"working on their project"* matches *"a single-board
+computer bought for a project"* on the word "project".
+
+## 5c. What readability costs
+
+The steelman against a human-readable anchor set: translation quality
+depends on coverage, spread and cross-model stability, and readability is
+invisible to all three. Corpus-sampled anchors match the data distribution
+by construction and should do at least as well.
+
+138 readable anchors against 138 sampled from held-out project prose, same
+pipeline (`rosetta_stone.py measure --anchors`), 190 held-out chunks,
+bge-small against nomic-embed-text-v1.5:
+
+| anchors | top-5 agreement | of reachable |
+| --- | --- | --- |
+| readable (v1 decree) | 0.316 | 58% |
+| corpus-sampled | **0.351** | **65%** |
+| ceiling (native agreement) | 0.525 | — |
+| chance | 0.026 | — |
+
+**Readability costs about 7% of reachable translation quality**, roughly
+2.3 standard errors on 950 neighbour slots. The steelman is correct and the
+price is modest. Confound worth stating: sampled anchors average 91
+characters against the readable set's 37, and length was not controlled.
+
+Readability is therefore an **audit** property, not a representational one,
+bought at a measured price. That is a defensible trade — the operator can
+read the coordinate system before the data arrives — but it is a trade, and
+earlier drafts implied it was free.
+
+## 5d. Anchor coordinates as a codec
+
+Encoding replaces a 384-dimensional vector with its cosine to each of 184
+anchors. The anchors span at most 184 dimensions, so the discard is
+guaranteed by the arithmetic; below 384 anchors this is lossy by
+construction and no decoder recovers the orthogonal component.
+
+| decoder | mean cosine | worst | recovered@1 | median rank |
+| --- | --- | --- | --- | --- |
+| transpose (weighted sum) | 0.6635 | 0.5818 | 6% | 9 |
+| least squares (ridge) | **0.9243** | 0.8929 | **100%** | 1 |
+
+The entire gap is anchor correlation — the same anisotropy that forces
+`profile()` to subtract the mean makes the transpose decoder count popular
+directions many times over. This had not been measured before, and it
+matters: the obvious decoder is the one most people would write, and it
+fails.
+
+Where this is useful, and where it is not: **not for storage.** uint8 gives
+4.00× at 1.000 retrieval fidelity; anchor coordinates give 2.09×
+dimensional reduction at 0.9243. uint8 wins on both axes. The use is
+portability across models, which uint8 does not have — the same conclusion
+section 3 reached, now with a decode figure attached.
+
+**None of this recovers text.** The embedding was already a lossy function
+of the words before any anchor was involved; recovering wording from an
+embedding needs a trained inverse model and is approximate even then. The
+`reconstruct` command therefore reports identification, not recall, and
+says so in its own output.
+
 ---
 
 ## 5a. A time axis that stays lossless
