@@ -227,8 +227,18 @@ def read_capsule(png_path):
         raise CapsuleError("no image data")
 
     blob = bytearray()
-    for stream in streams:
-        blob += _unfilter(zlib.decompress(stream), width, height)
+    for index, stream in enumerate(streams):
+        try:
+            raw = zlib.decompress(stream)
+        except zlib.error as error:
+            # A damaged download fails here, inside DEFLATE, before any
+            # checksum gets a chance to speak. Raising zlib's own exception
+            # would hand a recipient a stack trace where the honest answer
+            # is one sentence.
+            raise CapsuleError(
+                f"frame {index} could not be decompressed ({error}). The "
+                "capsule is damaged or was re-encoded; nothing is written.")
+        blob += _unfilter(raw, width, height)
     return bytes(blob)
 
 

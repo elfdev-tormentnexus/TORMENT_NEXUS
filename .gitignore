@@ -184,3 +184,6 @@ workshop/*
 *.swp
 Thumbs.db
 desktop.ini
+
+# Release staging, rebuilt by tools; never committed.
+SABLERESEARCHA/

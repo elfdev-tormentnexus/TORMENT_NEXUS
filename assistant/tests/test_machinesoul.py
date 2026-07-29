@@ -142,6 +142,24 @@ class RefusalTests(unittest.TestCase):
             sc.extract(self.capsule)
         self.assertIn("re-encoded", str(caught.exception))
 
+    def test_a_damaged_compressed_stream_is_refused_as_a_capsule_error(self):
+        """Found by cutting researchA: zlib's own exception was escaping.
+
+        Corruption inside the DEFLATE stream fails before any checksum runs,
+        so without this the recipient of a damaged download gets a traceback
+        instead of a sentence.
+        """
+        sc.build(b"payload" * 500, self.capsule, frames=2)
+        with open(self.capsule, "rb") as handle:
+            blob = bytearray(handle.read())
+        start = blob.find(b"IDAT") + 40
+        blob[start] ^= 0x01
+        with open(self.capsule, "wb") as handle:
+            handle.write(bytes(blob))
+        with self.assertRaises(sc.CapsuleError) as caught:
+            sc.extract(self.capsule)
+        self.assertIn("damaged", str(caught.exception))
+
     def test_a_file_that_is_not_a_png_is_refused(self):
         with open(self.capsule, "wb") as handle:
             handle.write(b"PK\x03\x04 this is a zip")
