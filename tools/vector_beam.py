@@ -362,13 +362,22 @@ def _apng(out_path, width, height, frames, delays, text_chunks=()):
 
 
 def render_animated(path, out_path, text="", width=720, height=200,
-                    seed=20260728, base_ms=90, turn_ms=520):
+                    seed=20260728, base_ms=90, turn_ms=520, pace=1.0):
     """Draw the trajectory one token at a time, pacing by how far it moved.
 
     Frame N shows tokens 0..N with the newest burning brightest, so the
     sentence assembles rather than appearing. Frame duration is base_ms plus
     a share of turn_ms scaled by that step's distance, which makes a sharp
     semantic turn visibly hold and a flat stretch pass quickly.
+
+    Two sources feed the timing, and they answer different questions. The
+    step distance decides the SHAPE -- which moments hold. `pace` decides
+    the RATE, and comes from measured session rhythm rather than a guess
+    about how fast a viewer reads: see core/session_rhythm.viewing_pace.
+    A fixed speed is an assumption about the human watching; this is one
+    that has been counted. It defaults to 1.0, which is what an unmeasured
+    viewer gets, because inventing a preference would be worse than having
+    none.
     """
     cols = colours(path, seed)
     n = len(cols)
@@ -376,7 +385,7 @@ def render_animated(path, out_path, text="", width=720, height=200,
 
     steps = [0.0] + [1.0 - cosine(path[i], path[i + 1]) for i in range(n - 1)]
     widest = max(steps) or 1.0
-    delays = [base_ms + turn_ms * (s / widest) for s in steps]
+    delays = [(base_ms + turn_ms * (s / widest)) * pace for s in steps]
 
     frames = []
     for upto in range(n):
@@ -418,7 +427,7 @@ def render_animated(path, out_path, text="", width=720, height=200,
 def cmd_animate(args):
     path = beam(args.text, args.url, args.key)
     stats, delays = render_animated(path, args.out, args.text,
-                                    args.width, args.height)
+                                    args.width, args.height, pace=args.pace)
     print(f"wrote {args.out}  ({os.path.getsize(args.out):,} bytes)")
     print(f"  frames {stats['tokens']}  "
           f"total {sum(delays) / 1000:.1f}s")
@@ -535,6 +544,9 @@ def main():
             s.add_argument("--out", default="beam_animated.png")
             s.add_argument("--width", type=int, default=720)
             s.add_argument("--height", type=int, default=200)
+            s.add_argument("--pace", type=float, default=1.0,
+                           help="duration multiplier; session_rhythm."
+                                "viewing_pace() supplies a measured one")
         if name in ("render", "encode"):
             s.add_argument("--out",
                            default="beam.png" if name == "render" else "beam_sable7.png")
