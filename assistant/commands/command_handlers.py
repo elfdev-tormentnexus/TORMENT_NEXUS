@@ -3213,6 +3213,71 @@ def handle_experimental_mode(user_input):
     )
 
 
+@command("calibrate",
+         "Re-read the fixed reference corpus and report what has moved",
+         usage="calibrate", dev_only=False, group="knowledge")
+def handle_calibrate(user_input):
+    if " ".join(str(user_input or "").lower().split()) != "calibrate":
+        return False
+
+    from core import calibration, machinespirit
+
+    if not machinespirit.configured():
+        return ("Calibration reads the same trajectories 'trace' does, so it "
+                "needs the unpooled embedding server the hazard launcher "
+                "starts.")
+
+    recorded = calibration.load()
+    if recorded is None:
+        return ("No reference is recorded for this install, so there is "
+                "nothing to compare against.")
+
+    fresh = calibration.measure()
+    if fresh is None:
+        return "Both servers must be answering for a calibration run."
+
+    problems = calibration.compare(recorded, fresh)
+
+    lines = [
+        "CALIBRATION",
+        "=" * 58,
+        "",
+        f"  reference model   {recorded.get('embedding_model') or 'unrecorded'}",
+        f"  pooling           {recorded.get('pooling')}",
+        f"  anchors           v{recorded.get('anchor_version')} "
+        f"({(recorded.get('anchor_core_digest') or '')[:16]})",
+        f"  rows              {len(fresh)}",
+        "",
+    ]
+
+    for name in sorted(fresh):
+        now = fresh[name]
+        lines.append(f"  {name:20} rank {now['effective_rank']:6.4f}   "
+                     f"S {now['entropy']:6.4f}   {now['anchors_fired']} fired")
+
+    lines.append("")
+
+    if problems:
+        lines.append("  MOVED:")
+        lines.extend(f"    {problem}" for problem in problems)
+        lines.append("")
+        lines.append("  A reading that moved means the instrument moved, not "
+                     "that the text did. Check the embedding model, its "
+                     "quantization, and the pooling the server was started "
+                     "with before trusting any published figure.")
+    else:
+        lines.append("  Every row reads as recorded. Published figures from "
+                     "this install remain comparable.")
+
+    lines.append("")
+    lines.append("  The first three rows are controls: one phrase repeated, "
+                 "two phrases ordered by the Fibonacci word, and the same two "
+                 "shuffled. The last two share a phrase mix and differ only "
+                 "in order, so they must read alike -- that is the "
+                 "permutation invariance being checked, not a coincidence.")
+    return "\n".join(lines)
+
+
 @command("trail",
          "The same reading as 'trace', at a size that does not grow with input",
          usage="trail <text>", dev_only=False, group="knowledge")

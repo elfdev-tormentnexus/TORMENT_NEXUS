@@ -59,6 +59,50 @@ by documentation:
 capsule is not encryption, it travels as easily as a photograph, and
 re-encoding destroys it silently.
 
+### `calibrate` — a reference the instrument can be checked against
+
+Every machinespirit figure published so far is a reading with no scale
+beside it, and nothing detected a model swap, a requantisation, or a
+pooling change moving all of them at once. `VECTOR_PIXEL_RESEARCH.md` §6a
+names the file-level version of that defect — *"a file carries no evidence
+of its own origin."* This is the behavioural version: not *which model
+wrote this*, but *does it still read the same*.
+
+A fixed corpus, its readings recorded under a named model, and a comparison
+that says what moved. Three of the seven rows are controls:
+
+| control | what it is |
+| --- | --- |
+| periodic | one phrase repeated — maximal structure |
+| **fibonacci** | two phrases ordered by the **Fibonacci word** |
+| random | the same two phrases, fixed shuffle — the floor |
+
+The Fibonacci word is the reason this is a corpus rather than a list. It is
+**Sturmian**: for every length *n* it contains exactly *n+1* distinct
+subwords, the provable minimum for a sequence that never repeats. It never
+cycles and is fully deterministic, so it sits between periodic and noise
+without being reachable from either — and neither a Fourier basis nor a
+polynomial can describe it, because it is neither band-limited nor smooth.
+One-dimensional quasicrystals are modelled as Fibonacci chains, so the
+aperiodic order here is a real structure rather than an analogy.
+
+That property is asserted rather than cited: `is_sturmian()` counts the
+subwords and a test runs it, on the Fibonacci word and on both other
+controls, which fail it. A control that cannot demonstrate its own defining
+property is decoration.
+
+**The corpus tests the instrument in both directions.** Fibonacci and
+random hold the identical phrase mix in a different order, so they must
+read alike — measured at 1.5238 against 1.5132, which is permutation
+invariance demonstrated on live data rather than asserted. Periodic holds a
+different mix and reads clearly apart at 1.4354. One pair proves the
+instrument responds to content; the other proves it ignores order.
+
+The reference ships as `SABLE_CALIBRATION1` — a machinesoul capsule whose
+description says what it is without decoding it — stamped with the model,
+its quantization, the pooling, and the anchor digest, because any of those
+changing invalidates every row.
+
 ### `trail <text>` — the same reading, at a size that stops growing
 
 A trace is *n* × 184 numbers and grows with the sentence. What it is
@@ -356,5 +400,5 @@ package.
   denylist, dependency, command, and clean-import checks. The launcher has not
   yet been exercised end-to-end from that package with both model servers
   producing a live trace.
-- 886 automated tests pass; two filesystem-link tests are skipped because
+- 915 automated tests pass; two filesystem-link tests are skipped because
   this Windows account cannot create the required links.

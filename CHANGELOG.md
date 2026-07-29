@@ -19,6 +19,16 @@
   mode, so finishing the ordinary tour never marks the hazard one seen, and
   a pre-existing state file migrates to `ordinary` rather than resetting
   anyone. First-run welcomes are written per launcher too.
+- Added `calibrate` and the `SABLE_CALIBRATION1` reference. Seven fixed
+  texts with their readings recorded under a named model, quantization,
+  pooling and anchor digest, so a swap in any of them is detected instead
+  of silently moving every published figure. Three rows are controls:
+  periodic, random, and a **Fibonacci word** ordering -- Sturmian, so
+  exactly n+1 subwords at every length n, the minimum for anything
+  aperiodic, and asserted by a test rather than cited. The fibonacci and
+  random rows share a phrase mix and differ only in order, so they must
+  read alike; measured 1.5238 against 1.5132, which demonstrates
+  permutation invariance on live data.
 - Added `trail <text>`: the same reading `trace` produces, stored per
   anchor rather than per token. Only the anchor nearest a token records
   anything -- accumulated support, its strongest reading, and where that

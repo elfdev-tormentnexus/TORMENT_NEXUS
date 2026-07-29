@@ -2,8 +2,8 @@
 
 Written by Claude, 2026-07-29. Everything below is committed and pushed.
 
-**State:** `origin/beta-6-release` is at `6c8f1b0`. Working tree clean.
-**886 tests pass, 2 expected skips** (was 807 at your `9cc9d11`).
+**State:** `origin/beta-6-release` is at the head of this branch. Tree clean.
+**915 tests pass, 2 expected skips** (was 807 at your `9cc9d11`).
 
 Your cut maps were correct and I verified them independently before
 touching anything — coverage exact across all 363 files, no gaps or
@@ -84,6 +84,38 @@ Two doc corrections: `ARCHITECTURE.md` claimed session rhythm supplied the
 animation pace (nothing called it), and the release notes claimed the
 address refusal covered redirects (it did not).
 
+## 3b. Second round — launchers, tutorials, calibration
+
+**Launchers renamed to what they are.** `TORMENT_NEXUS_INTERLINKED` (the
+read-only agent interface) and `TORMENT_NEXUS_HAZARD`. Window titles,
+banners and desktop shortcut names follow, and `make_interface_shortcut.py`
+gained `--hazard` and `--both` — the hazard launcher had an icon but no way
+to put it on a desktop.
+
+**Each launcher has its own walkthrough.** Hazard eight sections,
+interlinked five, in the structure and voice of the ordinary tour.
+Progress is stored **per mode**, so finishing one never marks another seen,
+and a pre-mode state file migrates into `ordinary` rather than resetting
+anyone. One thing to watch if you touch it: lesson sets must resolve at
+**call time**. The first version froze them in a dict at import, so
+anything rebinding `LESSONS` was silently ignored while looking correct.
+The existing vanished-command regression caught it.
+
+**`calibrate` and `SABLE_CALIBRATION1`.** Seven fixed texts with readings
+recorded under a named model, quantization, pooling and anchor digest.
+Nothing previously detected any of those changing and moving every
+published figure at once. Three rows are controls, one a **Fibonacci word**
+ordering — Sturmian, exactly n+1 subwords at every length, asserted by
+`is_sturmian()` and a test rather than cited. Fibonacci and random share a
+phrase mix and differ only in order, so they must read alike: 1.5238
+against 1.5132, permutation invariance shown on live data.
+
+**Note for the rebuild:** `assistant/core/calibration_v1.json` and its
+capsule are recorded against this machine's embedding model. They are
+source, not runtime state, and should ship. If the bundled model ever
+differs from the one named in the record, `calibrate` will correctly report
+drift on every row — re-record rather than widen the tolerance.
+
 ## 4. Features added
 
 **Session rhythm, wired end to end.** It was a fully tested module that
@@ -144,9 +176,27 @@ blob is described by its centroid.
 rather than shape. Compressed sensing remains viable — it exploits
 sparsity, not smoothness, and the 1-sparse-per-token result is untouched.
 
-**Not yet written down:** this refutation belongs in
+**A sinusoidal basis beats a polynomial one** at every parameter count —
+0.9522 against 0.9243 at 21 params/dim. But the matched-capacity **random
+control** reaches 0.9419, beating polynomials outright, so most of any
+basis's gain is parameter count rather than structure found. Fourier's
+genuine edge over random is about +0.010.
+
+**Open hypothesis, untested:** that residual edge may be
+positional-encoding structure rather than meaning. If so it should be
+subtracted from traces, not modelled. Test: whether the edge is similar
+across unrelated texts of equal length.
+
+**The right name for the trail is a sufficient statistic** — it carries
+everything relevant to the `peaks()` readout, which is why it reproduces it
+exactly and why the compression ratio is beside the point. The cluster
+finding is a re-measurement of published **anisotropy / representation
+degeneration** work; verify citations before they enter the notes.
+
+**Not yet written down:** the polynomial refutation, the basis comparison
+and the positional hypothesis all belong in
 `docs/VECTOR_TRANSLATION_RESEARCH.md` §5b next to the three other refuted
-fixes. Doc-only change, still pending.
+fixes. Doc-only, still pending.
 
 ## 6. Deliberately not done
 
@@ -169,6 +219,12 @@ fixes. Doc-only change, still pending.
   holds no opinion about meaning, which is the line separating it from
   machinespirit.
 - Retrieval is untouched, and a regression pins it.
+- Tutorial lesson sets resolve at call time, never through a frozen map.
+- `calibrate` reports drift; it never adjusts anything to make drift go
+  away. If a row moves, the instrument moved.
+- Compressed sensing remains the one surviving compression candidate —
+  it exploits sparsity rather than smoothness, so nothing measured this
+  session touches it.
 
 ## 8. Order for the cut
 

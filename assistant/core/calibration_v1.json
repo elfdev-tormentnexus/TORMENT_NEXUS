@@ -1,0 +1,82 @@
+{
+ "anchor_core_digest": "b5421687348e956e4eb13aeca40edae4b3b1110d63207eb8e10a77603a1690fd",
+ "anchor_version": "2",
+ "control_terms": 13,
+ "embedding_model": "bge-small-en-v1.5-q8_0.gguf",
+ "format": "SABLE_CALIBRATION1",
+ "phrase_a": "water boils at one hundred degrees celsius",
+ "phrase_b": "a funeral on a cold morning",
+ "pooling": "mean",
+ "readings": {
+  "fibonacci": {
+   "anchors_fired": 2,
+   "effective_rank": 1.523827,
+   "entropy": 0.97135,
+   "purity": 0.656243,
+   "text_sha256": "5db7963c0e282e1f",
+   "tokens": 112,
+   "top_anchor": "water boils at one hundred degrees celsius",
+   "top_support": 63.938271
+  },
+  "four-unrelated": {
+   "anchors_fired": 4,
+   "effective_rank": 1.694346,
+   "entropy": 1.254502,
+   "purity": 0.590198,
+   "text_sha256": "e70a7555ec183608",
+   "tokens": 39,
+   "top_anchor": "water boils at one hundred degrees celsius",
+   "top_support": 12.384707
+  },
+  "one-concrete-fact": {
+   "anchors_fired": 2,
+   "effective_rank": 1.415619,
+   "entropy": 0.701702,
+   "purity": 0.706405,
+   "text_sha256": "6d67a445d1e5c7d9",
+   "tokens": 9,
+   "top_anchor": "a cat sleeping in a patch of sunlight",
+   "top_support": 2.596801
+  },
+  "one-technical-fact": {
+   "anchors_fired": 1,
+   "effective_rank": 1.339736,
+   "entropy": 0.66779,
+   "purity": 0.746416,
+   "text_sha256": "5a2c089f01fa7770",
+   "tokens": 13,
+   "top_anchor": "water boils at one hundred degrees celsius",
+   "top_support": 9.179867
+  },
+  "periodic": {
+   "anchors_fired": 1,
+   "effective_rank": 1.435355,
+   "entropy": 0.815318,
+   "purity": 0.696692,
+   "text_sha256": "259c527a70022cde",
+   "tokens": 132,
+   "top_anchor": "water boils at one hundred degrees celsius",
+   "top_support": 89.280473
+  },
+  "project-prose": {
+   "anchors_fired": 6,
+   "effective_rank": 1.544859,
+   "entropy": 1.007112,
+   "purity": 0.647308,
+   "text_sha256": "91a0871486004036",
+   "tokens": 23,
+   "top_anchor": "embeddings quantised from float32 to uint8",
+   "top_support": 2.467041
+  },
+  "random": {
+   "anchors_fired": 2,
+   "effective_rank": 1.513158,
+   "entropy": 0.963538,
+   "purity": 0.66087,
+   "text_sha256": "1b24e9432758883f",
+   "tokens": 112,
+   "top_anchor": "water boils at one hundred degrees celsius",
+   "top_support": 68.258776
+  }
+ }
+}
