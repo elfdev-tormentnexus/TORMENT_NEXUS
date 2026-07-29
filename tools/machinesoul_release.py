@@ -29,6 +29,7 @@ import stat
 import struct
 import sys
 import tempfile
+import time
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
@@ -1050,6 +1051,19 @@ def _load_reassembly_manifest(
     return manifest
 
 
+def _promote_directory(temporary: str, destination: str) -> None:
+    """Finish atomically, tolerating brief Windows scanner file handles."""
+    delays = (0.1, 0.25, 0.5, 1.0, 2.0)
+    for attempt in range(len(delays) + 1):
+        try:
+            os.replace(temporary, destination)
+            return
+        except PermissionError:
+            if attempt == len(delays):
+                raise
+            time.sleep(delays[attempt])
+
+
 def reassemble(
     manifest_path: str,
     segments_dir: str,
@@ -1138,7 +1152,7 @@ def reassemble(
             ):
                 raise ReleaseError(f"restored file differs: {relative}")
 
-        os.replace(temporary, out_dir)
+        _promote_directory(temporary, out_dir)
     except BaseException:
         shutil.rmtree(temporary, ignore_errors=True)
         raise

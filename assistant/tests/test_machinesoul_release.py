@@ -9,6 +9,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 
 _ROOT = Path(__file__).resolve().parents[2]
@@ -220,6 +221,31 @@ class CutAndReassembleTests(unittest.TestCase):
                 str(segments),
                 str(Path(self.folder, "missing-component")),
             )
+
+    def test_final_windows_promotion_retries_a_transient_scanner_lock(self):
+        source = Path(self.folder, "promotion-source")
+        destination = Path(self.folder, "promotion-destination")
+        source.mkdir()
+        Path(source, "complete.txt").write_text("verified", encoding="utf-8")
+        real_replace = release.os.replace
+        attempts = []
+
+        def briefly_locked(old, new):
+            attempts.append((old, new))
+            if len(attempts) < 3:
+                raise PermissionError("simulated Windows scanner handle")
+            return real_replace(old, new)
+
+        with mock.patch.object(release.os, "replace", side_effect=briefly_locked):
+            with mock.patch.object(release.time, "sleep") as sleep:
+                release._promote_directory(str(source), str(destination))
+
+        self.assertEqual(len(attempts), 3)
+        self.assertEqual(sleep.call_count, 2)
+        self.assertEqual(
+            Path(destination, "complete.txt").read_text("utf-8"),
+            "verified",
+        )
 
     def test_a_tampered_decoded_capsule_is_refused(self):
         _, manifest = self._cut()
