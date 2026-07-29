@@ -31,6 +31,10 @@ sandbox Windows. Read [Safety](../SAFETY.md) before installation.
 | Earlier-conversation recall | Implemented; intent-gated | Local bounded history | At most one unambiguous semantic result. |
 | Offline manuals/library | Implemented | Local copied files, SQLite FTS, vectors | Static sources age; scans require OCR; model can misquote. |
 | Time awareness | Implemented | Local clock and session timing | No hidden experience between events. |
+| Session rhythm | Implemented; module only, not yet wired to the turn loop | Local `assistant/memory/session_rhythm.json`, timings only | Records durations and pause lengths — behavioural data, though never text. Says nothing about how time was experienced. |
+| machinespirit trajectories | Experimental; off unless started in hazard mode | Second local unpooled embedding server, loopback only | Needs `--pooling none`, so a second resident model. Does **not** improve retrieval. |
+| Concept trace (`trace`) | Experimental; requires machinespirit | Local, no text stored in the trajectory container | Concepts come from a fixed anchor list, not from the model naming them. The anchor set does not span personal memory content. |
+| Cross-model vector translation | Research tool only; not in the assistant | Local; anchor digests must match or comparison is refused | Recovers ~67% of achievable cross-model agreement. Lossy, and worse than plain uint8 for local storage. |
 | Local music/visualizer | Implemented | Operator-supplied local media | Not a media library or rights manager. |
 | Foreground activity awareness | Optional; off by default | Local titles/system state, up to 14 days when enabled | Titles may expose private information; `activity off` deletes the log. |
 | Web fact-finding | Optional | Derived query goes to configured SearXNG/Brave path | Search can leak query intent and return malicious/false text. |

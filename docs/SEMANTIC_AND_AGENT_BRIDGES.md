@@ -74,6 +74,35 @@ If the embedding service is unavailable, ordinary lexical memory and
 full-text library behavior continue. Semantic absence should degrade to
 "no semantic result," not block the assistant.
 
+## machinespirit: the path before pooling
+
+The embedding service above returns one vector per text — a mean over that
+text's token vectors. The mean says what a passage is about. It cannot say
+*where* in the passage a meaning appeared, because averaging is exactly what
+destroys position.
+
+machinespirit keeps the sequence. `assistant/core/machinespirit.py` reads
+per-token vectors and profiles each position against a fixed dictionary of
+concept phrases in `assistant/core/anchors_v1.json`, so `trace <text>`
+reports which concept sat at which token. `SABLE7` is the container that
+stores such a path; machinespirit is the representation it carries.
+
+**It needs a second embedding server.** llama.cpp fixes pooling when the
+process starts, so a trajectory cannot come from the pooled instance the
+rest of this document describes. Hazard mode starts a second copy of the
+same small model with `--pooling none`. When it is absent, every entry point
+reports unavailable rather than falling back to the pooled server — a single
+point returned where a path was requested would be wrong in a way nothing
+downstream could detect.
+
+**It does not participate in retrieval.** Late interaction over trajectories
+retrieved the same documents as ordinary pooled cosine, and anchor-space
+coordinates scored 0.689 against uint8 absolute's 1.000. The three retrieval
+systems above are unchanged by it. What it adds is a readout, not a ranking.
+
+Measurements, including the negative ones, are in
+[Cross-model translation and token trajectories](VECTOR_TRANSLATION_RESEARCH.md).
+
 ## Caches and privacy
 
 Persistent numeric vectors cache private memory and history text identities

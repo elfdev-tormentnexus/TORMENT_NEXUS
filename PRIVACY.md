@@ -50,6 +50,7 @@ Paths are relative to the project root.
 | `assistant/knowledge/user_library/` | Private copies of operator-imported manuals and references. | `library remove <name>` deletes the selected copy synchronously. Manual deletion should be done while stopped. |
 | `assistant/knowledge/library.sqlite3` | Extracted document text, metadata, SQLite FTS index, and knowledge vectors. | `library remove` synchronously deletes matching live rows and attempts a checkpoint/vacuum. This is not forensic erasure of backups, snapshots, or SSD-remapped blocks. Remove the database while stopped for a complete shelf-index reset. |
 | `assistant/memory/activity_log.jsonl` | When opted in: foreground application/title, idle time, CPU/memory load, battery, and timestamps. | Samples about every 20 seconds, stores changes plus a slow heartbeat, and removes entries older than 14 days by default. `activity off` and `activity forget` delete it. |
+| `assistant/memory/session_rhythm.json` | Per-session timings so the assistant can say how long a session ran and how it compares to previous ones: start time, duration, exchange count, median and longest pause, and how many breaks over twenty minutes occurred. **Timings only — never message text, window titles, or what was discussed.** Pause length is still behavioural data about the operator. | Capped at the latest 200 sessions. Plain JSON the operator can read; close the app and delete the file to clear it. |
 | `assistant/memory/chosen_name.json` | A name the operator explicitly keeps for the assistant header. | Remains until `name forget` or manual deletion. |
 | `assistant/.tutorial_state.json` | Records whether the first-session invitation was shown. | Remains until manual deletion or uninstall. |
 | `assistant/.model_api_key` | Random bearer secret for the local llama.cpp service. | Retained across launches; delete only while stopped to rotate it. |
@@ -103,6 +104,29 @@ server. Beta 6 rejects a non-loopback `TORMENT_NEXUS_EMBED_SERVER_URL`, so
 personal memory, history, imported passages, and embedding queries are not
 sent to a remote embedding endpoint by this implementation. The local-first
 claim no longer applies to prompts sent through a remote director server.
+
+### machinespirit trajectories
+
+Hazard mode starts a **second local embedding server** on loopback, because
+llama.cpp fixes pooling when a process starts and a per-token trajectory
+cannot come from the pooled one. It is the same small model already
+bundled, running a second time.
+
+Text sent to it is embedded exactly as text sent to the ordinary embedder
+is. The module refuses any non-loopback address outright: a trajectory is
+per-token, so a remote endpoint would be an unusually direct way to leak
+what was typed. When the server is absent, every entry point reports
+unavailable rather than falling back to the pooled server.
+
+A stored trajectory records the source text as a SHA-256 digest, never as
+text. `trace` output names concepts from a fixed anchor list shipped with
+the application — the assistant is not describing your sentence in its own
+words, it is reporting which fixed phrases the vectors sat nearest.
+
+An anchor profile is a readable description of what a piece of text is
+about. Applied to a private memory it would describe that memory's subject
+in shareable terms, which is worth knowing before sharing any file produced
+this way.
 
 ### Offline knowledge
 

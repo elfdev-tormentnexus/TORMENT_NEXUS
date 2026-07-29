@@ -333,6 +333,8 @@ came out negative, and name the prior art first:
 | Local chat, speech, memory, embeddings, and offline library | Local files and loopback services. Files are not encrypted by TORMENT_NEXUS. |
 | Microphone | Off at first launch; enabled by `audio mode`. |
 | Activity awareness | Off at first launch; explicit opt-in, persistent choice, maximum 14-day default retention, deleted by `activity off`. |
+| Session rhythm | Local `session_rhythm.json`: durations, exchange counts, pause lengths. Timings only, never text. Capped at 200 sessions. |
+| machinespirit (hazard mode) | A second local embedding server on loopback only; non-loopback addresses are refused. Stored trajectories record source text as a digest, never as text. |
 | Web search | May send a derived query to configured SearXNG/Brave when current information is requested or inferred. |
 | Cloud escalation | Off; sends only the explicit `escalate` question when separately enabled. |
 | Agent API | Off; loopback-only and bearer-token authenticated, but capable of returning private memory/reference results. |

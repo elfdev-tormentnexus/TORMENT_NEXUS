@@ -57,6 +57,8 @@ operator input
 | `assistant/main.py` | Startup order, session lifecycle, prompt assembly, streaming, retrieval coordination, agent route providers, and mode changes. |
 | `assistant/core/first_run.py` | Mandatory versioned safety/privacy acknowledgement. |
 | `assistant/core/` | Configuration, persona, clock/activity context, model and embedding server ownership, authentication, escalation, tutorial, and health checks. |
+| `assistant/core/machinespirit.py` | Per-token trajectories read against a fixed anchor dictionary (`anchors_v1.json`). Requires a second, unpooled embedding server; reports unavailable rather than falling back to the pooled one. Does not participate in retrieval. |
+| `assistant/core/session_rhythm.py` | Session duration, exchange counts, pause lengths, and rank against previous sessions. Timings only. Supplies the measured pace used to time rendered animations. |
 | `assistant/ui/` | Animated terminal, input, pagination, retrieval display, voice state, and visualizer controls. |
 | `assistant/voice/` | Offline Moonshine recognition, Silero VAD, Piper synthesis, playback, and cancellation. |
 | `assistant/commands/` | Explicit command registry and cautious natural-language routing. |
