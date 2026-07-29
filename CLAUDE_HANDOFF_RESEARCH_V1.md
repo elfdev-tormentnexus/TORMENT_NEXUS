@@ -8,14 +8,34 @@ the gotchas, and you should read it too.
 ## State
 
 ```text
-branch:   beta-6-release   pushed through 407e2eb
+branch:   beta-6-release   pushed through 1d6424a
 release:  v0.2.0-beta.6    PUBLISHED, 21 assets, untouched this session
-tests:    696 pass, 2 expected skips   (was 644 at session start)
+tests:    721 pass, 2 expected skips   (was 644 at session start)
 tree:     clean
 ```
 
-Eleven commits this session. Nothing shipped to the published release; all
-work is on the branch.
+Fifteen commits this session. Nothing shipped to the published release; all
+work is on the branch, and the published assets were not re-uploaded or
+modified.
+
+### Commit order, for context
+
+```text
+d380284  README/install path, LICENSE, hero mark, pq_probe rescued, 3.6x
+21517c2  rosetta stone, cross-model translation measured
+946dc98  describe: vectors in readable anchors, centering fix
+e4b2be2  reordering answered -- negative
+3e2fcf3  the beam: per-token trajectories
+16a24ae  SABLE7 container + translation research doc
+1820361  experimental-mode flag, shadow-first
+243dbeb  trace: locate meaning at a token
+785f33e  hazard stripes + env-var mode start
+407e2eb  machinespirit wired into the assistant
+da55f69  outward docs + this handoff
+5a8f6c2  bulk downloader: discover parts instead of assuming six
+dae86b0  animated APNG beam, lossless time axis
+1d6424a  session rhythm, and beam pacing from it
+```
 
 ## What the release is meant to be
 
@@ -53,7 +73,27 @@ separately and the docs keep them apart deliberately.
 | Commands | `experimental mode`, `trace <text>` in `command_handlers.py` |
 | Launcher | `start_assistant_hazard.bat` + `assets/hazard_icon.ico` |
 | Research tools | `tools/rosetta_stone.py`, `tools/vector_beam.py` |
+| Session rhythm | `assistant/core/session_rhythm.py` |
 | Documents | `docs/VECTOR_TRANSLATION_RESEARCH.md`, `docs/VECTOR_PIXEL_RESEARCH.md` |
+
+### Landed after this handoff was first written
+
+- **Bulk downloader fixed.** The operator wants it on every release from
+  now on, which made a latent bug worth fixing first: the part list was
+  `range(1, 7)` against a `part0{n}` template, and `build()` never checked
+  for parts that exist but are *not* listed. The first release with a
+  larger archive would have shipped a six-part downloader for a seven-part
+  archive, verified every file it carried, reported success, and handed
+  every recipient a corrupt archive. Parts are now discovered from `dist`,
+  required to be consecutive from 1, and a stray part fails the build.
+  **This matters directly for the cut you are about to make.**
+- **Animated beam**, `tools/vector_beam.py animate`. APNG, lossless, one
+  frame per token, frame duration proportional to that step's distance.
+- **Session rhythm**, `assistant/core/session_rhythm.py`. Session duration,
+  exchange counts, typical pause, and rank against past sessions. Feeds
+  `viewing_pace()`, which sets the animation rate from measured behaviour
+  instead of a constant. Not yet wired into the turn loop — the module and
+  its 25 tests exist; nothing calls `note_turn()` yet.
 
 ### The constraint that breaks naive implementations
 
@@ -121,6 +161,36 @@ on not overclaiming here.
 | Cross-model translation | 0.370 vs 0.549 ceiling, 0.056 chance — **67% of reachable** |
 | Trajectory independence from the mean | **98.6%** |
 | PNG alpha channel | gains **nothing**; RGBA-with-pinned-alpha costs **21%** |
+
+## The honesty rule this session converged on
+
+Worth carrying forward, because it settled several arguments and will
+settle more. The line is **not** whether the assistant says "I". It is
+whether the fact underneath is real and checkable.
+
+- "Six hours, the longest session I have a record of" — first person, warm,
+  and every clause verifiable against `session_rhythm.json`. Fine.
+- "I felt every minute of that" — verifiable against nothing. Not fine, and
+  no module here gives ground for it.
+
+The same rule resolved the hidden-activity question. `time_awareness.py`
+says the assistant "cannot claim to have watched, waited, thought, or felt
+anything" during a gap — correct for the *closed* case, where nothing ran.
+But when the assistant is **running and the library worker is rebuilding an
+index**, activity genuinely occurred and was logged. Reporting it is
+measurement, not simulation. The blanket phrasing forbids a true statement
+by accident.
+
+Three states, and only the third has anything to report:
+
+| State | Hidden activity? |
+| --- | --- |
+| Closed | No. Clock only. |
+| Running, idle, nothing queued | No. |
+| Running, background work | **Yes, and logged.** |
+
+Unbuilt: wiring the worker's completed jobs into something the assistant
+can mention. The operator wants this.
 
 ## Still open
 

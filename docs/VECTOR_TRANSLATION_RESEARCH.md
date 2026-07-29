@@ -287,10 +287,74 @@ no benefit above. Untested here.
 
 ---
 
+## 5a. A time axis that stays lossless
+
+The obvious question about rendering a trajectory is why PNG rather than
+video, since video is the medium built for sequences. The answer is that
+MP4 in practice means H.264, and H.264 is lossy — worse than generically
+so for this purpose, because 4:2:0 chroma subsampling stores colour at
+quarter resolution and the colour is where the data lives. A payload would
+be destroyed before the lossy quantiser reached it.
+
+**APNG is the honest form of the same idea.** PNG frames plus a control
+chunk: lossless, browser-native, byte-exact. No invention needed for the
+container.
+
+The invention is in the pacing. APNG frame duration is a real field and
+nothing requires it to be uniform, so `tools/vector_beam.py animate` sets
+each frame's delay from that step's cosine distance. The animation holds
+where the trajectory turns and moves quickly where it does not, which makes
+duration carry the step distance rather than merely enabling playback.
+
+Measured on the fourteen-token sentence: 90 ms fastest frame, 610 ms
+slowest, 4.4 s total. The longest hold falls on the token the anchor trace
+reads as *"the moment before a difficult conversation"*.
+
+A second, independent source sets the *rate* rather than the shape.
+`assistant/core/session_rhythm.py` measures the operator's median pause
+between exchanges across past sessions, and `viewing_pace()` converts it to
+a duration multiplier bounded to 0.6×–1.8×. Pacing anything visual at a
+fixed speed is a guess about the viewer; this one has been counted. It
+requires three sessions before it moves at all and returns exactly 1.0 when
+unmeasured, because an invented preference is worse than none.
+
+**The time axis here is the token axis.** It is not the assistant's clock,
+and the analogy should not be allowed to become an identity in a later
+write-up.
+
+### Capacity was never the constraint
+
+Three separate attempts to find unused room all returned the same answer,
+and it is worth recording as one finding rather than three:
+
+| Attempt | Result |
+| --- | --- |
+| Use the alpha channel (4 bytes/px instead of 3) | **identical file size**, to the byte |
+| Reorder dimensions so PNG filters predict better | within 0.9%; random ordering beat variance-sorting |
+| Use video frames for a third axis | more frames = more bytes, and so does a taller image |
+
+The medium does not create data. 25,728 payload bytes are 25,728 bytes in
+one wide image, one tall image, or three hundred frames.
+
+One actionable finding did come out of it: an image that declares RGBA and
+pins alpha at 255 costs **21% more** than the same image as RGB. That is
+real and unclaimed — see the open questions.
+
 ## 6. Open questions
 
 - Anchors drawn to span the assistant's actual memory content, since the
   present set demonstrably does not. This gates any state-reading work.
+- **Drop the unused alpha channel** from every RGBA image whose alpha is
+  uniformly 255, for a flat 21% saving with no visual change. Blocked:
+  `read_png` in `tools/vector_pixel_compiler.py` hard-requires colour type
+  6, so an RGB re-encode is rejected by this project's own decoder. Fix the
+  decoder with a test first. Attempted 2026-07-28, produced a mark the
+  decoder refused, reverted.
+- **A labelled retrieval corpus.** A dictionary supplies natural ground
+  truth: query with a word, the correct document is its definition.
+  Webster's 1913 Unabridged is public domain. Every negative result in this
+  document is provisional without one, including the MaxSim result, which
+  rests on three unlabelled probes.
 - Whether quantising a relative representation compounds the loss.
 - How few anchors the translation survives.
 - Whether project anchors help or distort when both agents hold the same

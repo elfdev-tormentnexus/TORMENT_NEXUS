@@ -308,6 +308,12 @@ retrieval rather than replacing it, and the mode says so when you turn it
 on. What machinespirit adds today is the trace — a thing the averaged
 vector cannot produce at all, rather than one it produces slightly worse.
 
+The same trajectory renders as an **animated beam** — one frame per token,
+in animated PNG so it stays lossless, with each frame held in proportion to
+how far the meaning moved at that step. It slows where a sentence turns.
+The rate is set from measured session rhythm rather than a fixed guess
+about how fast a person reads.
+
 Two companion documents record the measurements, including the ones that
 came out negative, and name the prior art first:
 
