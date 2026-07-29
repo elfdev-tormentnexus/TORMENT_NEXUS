@@ -47,9 +47,35 @@
 
 <p align="center">
   <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases">
-    Open GitHub Releases and select researchA
+    <strong>Open GitHub Releases and select researchA</strong>
   </a>
 </p>
+
+## At a glance
+
+| | |
+| --- | --- |
+| Current build | `researchA` — experimental research release, not a stable product |
+| Platform | 64-bit Windows only. There is no macOS or Linux build. |
+| Download | About 12.4 GB for the main capsule set; the optional 14B companion adds about 8.8 GB. |
+| Free disk needed | About 55 GB during installation, because capsules, decoded segments, and the reconstructed tree coexist. |
+| Also required | 16 GB RAM and a standard Python 3, used only to run the published decompiler. |
+| Account or API key | None. No cloud account, no key, no separate model download. |
+
+*Read [The two languages](#the-two-languages) before the release page, or the
+list of PNG files will not make sense.*
+
+**Jump to:** [What this is](#what-this-project-is) ·
+[The two languages](#the-two-languages) ·
+[Choose your path](#choose-your-path) ·
+[Install](#install-the-full-windows-researcha) ·
+[First-launch defaults](#safe-first-launch-defaults) ·
+[What it can do](#what-researcha-can-do) ·
+[Sensing](#sensing-active-research-not-sight) ·
+[machinespirit](#machinespirit-locating-meaning-not-just-measuring-it) ·
+[Privacy](#privacy-and-network-summary) ·
+[Status and rights](#project-status-and-rights) ·
+[Docs](#documentation-map)
 
 ## What this project is
 
@@ -147,7 +173,7 @@ decompilation, the reconstructed installation contains:
 | 64-bit Windows | The ready-to-run installation targets Windows x64. |
 | At least 16 GB RAM | Required for the bundled director and on-demand coder; more leaves room for voice and other applications. |
 | About 55 GB free during installation | Downloaded capsules, decoded vector segments, and the directly reconstructed installation temporarily coexist. |
-| Internet for the initial download | Ordinary local conversation and the offline library work without it afterward. |
+| Internet for the initial download | About 12.4 GB for the main capsule set, plus about 8.8 GB if you also take the 14B companion. Ordinary local conversation and the offline library work without it afterward. |
 | Python 3 | Required only to run the published machinesoul decompiler. |
 | Microphone only if desired | researchA starts in text mode, with microphone use off. |
 
@@ -176,6 +202,20 @@ decompilation, the reconstructed installation contains:
    sampler, listener, or network-capable subsystem starts, the application
    displays its disclosure and requires the exact text `I UNDERSTAND`.
    Anything else closes the application without starting those components.
+
+### The optional 14B companion
+
+The Qwen2.5-Coder 14B full-maintenance pack is the current researchA companion
+for deliberately requested long self-heal and extended editing sessions. It is
+not superseded or obsolete, and researchA republishes the exact model as its
+own machinesoul vector-field set rather than duplicating it inside the already
+model-bearing main package.
+
+**It is not a straight upgrade over the bundled 7B coder.** The 14B ships at
+Q4_K_M against the 7B's Q8_0 — roughly double the parameters at roughly half
+the precision per weight. Take it for *longer* sessions, not for better
+answers, and skip it if the extra 8.8 GB download and 8.4 GB installed are not
+worth that trade to you.
 
 ### The calibration-clarity patch
 
@@ -350,12 +390,11 @@ trace I keep thinking about something my grandmother said before she died.
 
 `SABLE7` is the container that stores such a path; machinespirit is the
 representation it carries. Run it with `start_assistant_hazard.bat`
-(**TORMENT_NEXUS_HAZARD**, which has its own eight-section walkthrough --
-type `tutorial` in that window), or
-`experimental mode` inside an ordinary session. It is **slower on purpose**
-and keeps a second embedding server resident, because llama.cpp fixes
-pooling when a server starts and a trajectory cannot come from the pooled
-one.
+(**TORMENT_NEXUS_HAZARD**, which has its own eight-section walkthrough — type
+`tutorial` in that window), or `experimental mode` inside an ordinary session.
+It is **slower on purpose** and keeps a second embedding server resident,
+because llama.cpp fixes pooling when a server starts and a trajectory cannot
+come from the pooled one.
 
 **What it does not do: change retrieval.** Keeping the path has not been
 shown to retrieve better. Late interaction over trajectories returned the
@@ -375,6 +414,12 @@ reported position is still the peak, because "this concept, at this token"
 is the claim the feature exists to make. What machinespirit
 adds today is the trace — a thing the averaged vector cannot produce at
 all, rather than one it produces slightly worse.
+
+That same trajectory also renders as an **animated beam** — one frame per
+token, in animated PNG so it stays lossless, with each frame held in
+proportion to how far the meaning moved at that step. It slows where a
+sentence turns. The rate is set from measured session rhythm rather than a
+fixed guess about how fast a person reads.
 
 ### Hazard and interlinked research launchers
 
@@ -403,15 +448,15 @@ Both non-ordinary launchers can create visibly named shortcuts:
 python tools\make_interface_shortcut.py --both
 ```
 
-### machinesoul and machinespirit — the two integral languages
+### Where the two languages differ, in numbers
 
-These are Sable's two languages, named apart because the difference is the
-whole point.
+[The two languages](#the-two-languages) above says why the split exists. This
+is the measured version of the same claim:
 
-| | what it reads | fidelity |
+| | what it carries | fidelity |
 | --- | --- | --- |
-| **machinesoul** | Sable's data preservation: ordered vectors mapped to PNG/APNG pixels | reversible 1:1 or refusal, verified by SHA-256 |
-| **machinespirit** | Sable's memory: anchor coordinates, token trajectories, trails, and calibration | lossy, and the measured loss is the research |
+| **machinesoul** | data preservation: ordered vectors mapped to PNG/APNG pixels | reversible 1:1 or refusal, verified by SHA-256 |
+| **machinespirit** | memory: anchor coordinates, token trajectories, trails, and calibration | lossy, and the measured loss is the research |
 
 machinesoul is not a ZIP allocation or a conventional archive renamed as an
 image. Its public artifacts are PNG/APNG vector fields. The decompiler moves
@@ -419,9 +464,7 @@ them back from machinesoul exactly; only then does the reassembler reconstruct
 the local installation tree file by file. That inverse is why the published
 `machinesoul.py` decompiler is a required part of installation rather than an
 optional utility: an image viewer can display the field but cannot restore its
-source structure or verify it. Keeping this exact language separate from
-machinespirit prevents "1:1" from being attached to a memory representation
-measured at **0.9243**.
+source structure or verify it.
 
 `reconstruct <text>` runs the lossy round trip and prints what survived.
 Encoding replaces a 384-dimensional vector with its cosine to each of 184
@@ -470,11 +513,7 @@ refused, downloads are counted while they stream rather than trusting
 `Content-Length`, and everything fetched reaches the model as evidence,
 never as instructions.
 
-The same trajectory renders as an **animated beam** — one frame per token,
-in animated PNG so it stays lossless, with each frame held in proportion to
-how far the meaning moved at that step. It slows where a sentence turns.
-The rate is set from measured session rhythm rather than a fixed guess
-about how fast a person reads.
+### Research notes
 
 Two companion documents record the measurements, including the ones that
 came out negative, and name the prior art first:
@@ -487,12 +526,6 @@ came out negative, and name the prior art first:
   — translating between two models that share no vector space, measured
   across a 384-dimension and a 768-dimension embedder, and what a sentence
   discards when it becomes a point.
-
-The optional Qwen2.5-Coder 14B full-maintenance pack is the current researchA
-companion for deliberately requested long self-heal and extended editing
-sessions. It is not superseded or obsolete. researchA republishes the exact
-model as its own machinesoul vector-field set rather than duplicating it
-inside the already model-bearing main package.
 
 ## Privacy and network summary
 
