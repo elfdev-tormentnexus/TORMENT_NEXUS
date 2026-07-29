@@ -165,3 +165,89 @@ separately named future Rosetta coordinate geometry, with its own provenance
 record.  It does not justify silently changing `SABLEROSETTA1`, rewriting the
 published 0.370 result from its different corpus, or claiming that either
 model's ordinary retrieval changed.
+
+## Trajectory-frame follow-up: two-sided whitening was rejected
+
+*Measured locally on 2026-07-29; hazard-mode experiment only. No runtime
+behaviour changed.*
+
+The trajectory reader compares individual vectors from the unpooled embedding
+server with mean-pooled anchor vectors. That makes a two-sided frame a valid
+hypothesis: estimate a token reference frame and an anchor reference frame
+separately, then use paired anchor texts to learn an orthogonal bridge.
+
+The prerequisite first passed. On all 184 anchor texts, the live pooled BGE
+server was reconstructed from its unpooled companion by **mean-all pooling**
+(minimum cosine `0.9999999999999973`). This rules out a server disagreement;
+special tokens are part of the measured deployed pooling rule and must not be
+quietly removed to manufacture a different match.
+
+The bridge itself failed its held-out safety gate. A digest-selected split held
+out 37 of 184 anchors; the anchor-side ZCA fit saw the other 147 anchors and
+the token-side ZCA fit saw 5,266 token vectors from 72 public research chunks.
+An orthogonal Procrustes map was fitted only on the training anchors. Each
+held-out phrase was then read against the full anchor dictionary by summed
+per-token support.
+
+| frame | held-out correct-anchor top-1 | top-3 | MRR | bridge cosine (mean) |
+| --- | ---: | ---: | ---: | ---: |
+| current anchor-centred frame | **100%** | **100%** | **1.000** | n/a |
+| two-sided ZCA, shrinkage 0.02 | 0.0% | 2.7% | 0.080 | 0.089 |
+| two-sided ZCA, shrinkage 0.10 | 29.7% | 89.2% | 0.602 | 0.239 |
+| two-sided ZCA, shrinkage 0.30 | 83.8% | 100% | 0.919 | 0.370 |
+
+The unwhitened shared ambient basis is materially better aligned: separate
+centering without rotation retained every held-out self-anchor, while a fitted
+rotation reduced held-out pooled-versus-mean alignment from 0.911 to 0.593.
+Therefore **two-sided whitening and Procrustes are rejected for machinespirit
+at this time.** This is an alignment safety check, not evidence about phrase
+localisation; it is enough to block a geometry patch.
+
+Blank input confirms a separate boundary. A whitespace-only input always
+contains only special tokens, and changing frames merely changes which
+arbitrary anchor wins. No transform can give it semantic content. Future
+callers must refuse empty/whitespace input at the trajectory boundary.
+
+## Hazard-only contrast observer
+
+`tools/token_contrast_probe.py` is the first instrument for studying a
+trajectory without altering the model. It replaces one declared **source-text
+word span** at a time with `[MASK]`, re-embeds the edited text, and reports
+`1 - cosine(mean_all(baseline), mean_all(edited))`. A word span is not called
+a tokenizer position: model-token boundaries are a separate, unobserved
+representation.
+
+The trace itself is collected by deterministic code. An optional small
+embedding GGUF may later provide an independent semantic *signature* of a
+declared observer record, but it must not become the recorder or alter the
+director, anchors, memory, or trace readout. This is a classical
+counterfactual measurement pipeline, not a quantum-state injection or a claim
+that observation by a program collapses a wavefunction.
+
+### Observable observer-effect control
+
+*Measured locally on 2026-07-29; temporary CPU-only unpooled server, removed
+after the experiment.*
+
+The testable claim is not whether the computer's physical hardware is
+ultimately quantum mechanical. It is whether an external observer changes the
+token vectors available to Sable. A fixed public anchor phrase was sent to a
+fresh unpooled BGE server 40 times in each condition. The complete returned
+path was converted to a fixed float-hex SHA-256 digest; this checks every
+returned coordinate rather than a rounded similarity score.
+
+| condition | runs | distinct path digests | maximum coordinate delta |
+| --- | ---: | ---: | ---: |
+| target request alone | 40 | 1 | 0.0 |
+| read-only `/health` request before every target | 40 | 1 | 0.0 |
+| separate read-only embedding request before every target | 40 | 1 | 0.0 |
+| fresh server process after restart | 1 | same digest | 0.0 |
+
+All conditions returned the same digest:
+`a5810bf7c6a613496bca6bdc5912bfdf4aa325a7a12ef80fbcb612a0ea1be3ac`.
+This rules out a detectable observer-dependent effect at Sable's exposed
+token-vector interface under these controls. It does **not** make a claim
+about quantum mechanics in the underlying hardware, nor can it establish a
+general theorem about every implementation. It is sufficient to reject an
+observer-triggered feedback feature for this system until a reproducible,
+software-level deviation is actually measured.
