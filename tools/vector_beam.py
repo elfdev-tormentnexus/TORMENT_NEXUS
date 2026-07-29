@@ -317,6 +317,115 @@ def decode_beam(png_path):
     return [[low + b * scale for b in row[:dims]] for row in rows], header
 
 
+def _apng(out_path, width, height, frames, delays, text_chunks=()):
+    """Animated PNG. Lossless, unlike every video codec worth the name.
+
+    APNG is the honest answer to "video, but the bytes survive": it is PNG
+    frames with a control chunk, so it keeps byte-exact recovery while
+    gaining a real time axis. H.264 would destroy a payload before it even
+    reached the lossy quantiser, since 4:2:0 stores colour at quarter
+    resolution and the colour is where the data lives.
+
+    `delays` is per frame, in milliseconds. It is not required to be
+    uniform, and here it is not: duration carries the step distance, so the
+    animation lingers where the trajectory turns.
+    """
+    def chunk(kind, body):
+        return (struct.pack(">I", len(body)) + kind + body
+                + struct.pack(">I", zlib.crc32(kind + body) & 0xFFFFFFFF))
+
+    out = [b"\x89PNG\r\n\x1a\n",
+           chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))]
+    for key, value in text_chunks:
+        out.append(chunk(b"tEXt", key.encode() + b"\x00" + value.encode()))
+
+    # acTL must precede the first IDAT: frame count, then play count (0 = loop).
+    out.append(chunk(b"acTL", struct.pack(">II", len(frames), 0)))
+
+    sequence = 0
+    for index, (rows, delay_ms) in enumerate(zip(frames, delays)):
+        raw = b"".join(b"\x00" + bytes(r) for r in rows)
+        out.append(chunk(b"fcTL", struct.pack(
+            ">IIIIIHHBB", sequence, width, height, 0, 0,
+            max(1, int(delay_ms)), 1000, 0, 0)))
+        sequence += 1
+        if index == 0:
+            # The first frame is the still image any non-APNG reader shows.
+            out.append(chunk(b"IDAT", zlib.compress(raw, 9)))
+        else:
+            out.append(chunk(b"fdAT",
+                             struct.pack(">I", sequence) + zlib.compress(raw, 9)))
+            sequence += 1
+
+    out.append(chunk(b"IEND", b""))
+    open(out_path, "wb").write(b"".join(out))
+
+
+def render_animated(path, out_path, text="", width=720, height=200,
+                    seed=20260728, base_ms=90, turn_ms=520):
+    """Draw the trajectory one token at a time, pacing by how far it moved.
+
+    Frame N shows tokens 0..N with the newest burning brightest, so the
+    sentence assembles rather than appearing. Frame duration is base_ms plus
+    a share of turn_ms scaled by that step's distance, which makes a sharp
+    semantic turn visibly hold and a flat stretch pass quickly.
+    """
+    cols = colours(path, seed)
+    n = len(cols)
+    mid = height // 2
+
+    steps = [0.0] + [1.0 - cosine(path[i], path[i + 1]) for i in range(n - 1)]
+    widest = max(steps) or 1.0
+    delays = [base_ms + turn_ms * (s / widest) for s in steps]
+
+    frames = []
+    for upto in range(n):
+        rows = []
+        for y in range(height):
+            row = bytearray()
+            dy = abs(y - mid) / (height / 2.0)
+            for x in range(width):
+                token = min(n - 1, int(x * n / width))
+                if token > upto:
+                    row += b"\x00\x00\x00"
+                    continue
+                r, g, b = cols[token]
+                age = 1.0 if token == upto else 0.34 + 0.4 * (token / max(1, upto))
+                core = math.exp(-(dy ** 2) / 0.05) * age
+                glow = 0.16 * math.exp(-(dy ** 2) / 0.5) * age
+                k = min(1.0, core + glow)
+                row += bytes((int(r * k), int(g * k), int(b * k)))
+            rows.append(row)
+        frames.append(rows)
+
+    stats = measure(path)
+    _apng(out_path, width, height, frames, delays, text_chunks=[
+        ("Title", "SABLE7 beam, animated"),
+        ("Format", MAGIC),
+        ("Comment",
+         "Animated PNG, lossless. One frame per token, drawn in order. "
+         "Frame duration is proportional to that step's cosine distance, so "
+         "the animation holds where the trajectory turns and moves quickly "
+         "where it does not -- the time axis carries the step distance "
+         "rather than merely enabling playback. Colour remains a lossy "
+         "one-way projection; the trajectory itself stores through SABLE7."),
+        ("Source", text[:200]),
+        ("Tokens", str(stats["tokens"])),
+    ])
+    return stats, delays
+
+
+def cmd_animate(args):
+    path = beam(args.text, args.url, args.key)
+    stats, delays = render_animated(path, args.out, args.text,
+                                    args.width, args.height)
+    print(f"wrote {args.out}  ({os.path.getsize(args.out):,} bytes)")
+    print(f"  frames {stats['tokens']}  "
+          f"total {sum(delays) / 1000:.1f}s")
+    print(f"  slowest frame {max(delays):.0f} ms, fastest {min(delays):.0f} ms"
+          "   <- duration tracks how far each step moved")
+
+
 def trace(path, stone, top=1, use_project=False, seed=20260728):
     """Read a trajectory against a concept dictionary, token by token.
 
@@ -410,7 +519,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = p.add_subparsers(dest="cmd", required=True)
     for name, fn in (("render", cmd_render), ("measure", cmd_measure),
-                     ("encode", cmd_encode), ("trace", cmd_trace)):
+                     ("encode", cmd_encode), ("trace", cmd_trace),
+                     ("animate", cmd_animate)):
         s = sub.add_parser(name)
         s.add_argument("text")
         s.add_argument("--url", required=True)
@@ -421,6 +531,10 @@ def main():
             s.add_argument("--stone-key")
             s.add_argument("--top", type=int, default=1)
             s.add_argument("--use-project", action="store_true")
+        if name == "animate":
+            s.add_argument("--out", default="beam_animated.png")
+            s.add_argument("--width", type=int, default=720)
+            s.add_argument("--height", type=int, default=200)
         if name in ("render", "encode"):
             s.add_argument("--out",
                            default="beam.png" if name == "render" else "beam_sable7.png")
