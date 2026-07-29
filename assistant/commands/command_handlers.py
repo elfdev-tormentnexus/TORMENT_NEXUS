@@ -2,6 +2,7 @@ import os
 import json
 import re
 import time
+import sys
 
 from memory import memory_store as mem
 from memory import semantic_index
@@ -15,6 +16,7 @@ from core.config import (
     MODEL_ROLE_AUTONOMOUS_CODER,
     MODEL_ROLE_DIRECTOR,
     MODEL_ROLE_FULL_MAINTENANCE,
+    MODEL_ROLE_SUPER_DEV,
 )
 from project import project_mapper
 from project import project_analyzer
@@ -24,6 +26,7 @@ from editing import approval_manager
 from editing import edit_engine
 from editing import suggestion_engine
 from editing import autonomous_engine
+from editing import super_dev_engine
 from web import search_engine
 from voice import offline_voice
 from voice import session as voice_session
@@ -47,6 +50,9 @@ DEV_MODE = False
 DEV_MODE_EXPIRES_AT = 0.0
 DEV_MODE_DURATION_SECONDS = 15 * 60
 AUTONOMOUS_SERIAL_MODE = False
+SUPER_DEV_MODE = False
+SUPER_DEV_MODE_EXPIRES_AT = 0.0
+SUPER_DEV_MODE_DURATION_SECONDS = 30 * 60
 
 # Experimental mode: SABLE7 token trajectories, deliberately slower.
 #
@@ -81,6 +87,7 @@ _ROLE_LABELS = {
     MODEL_ROLE_DIRECTOR: "director",
     MODEL_ROLE_AUTONOMOUS_CODER: "autonomous coder",
     MODEL_ROLE_FULL_MAINTENANCE: "full-maintenance coder",
+    MODEL_ROLE_SUPER_DEV: "Super Dev 14B planner",
 }
 
 
@@ -103,6 +110,7 @@ def is_dev_mode():
 
 def _expire_dev_mode():
     global DEV_MODE, DEV_MODE_EXPIRES_AT, AUTONOMOUS_SERIAL_MODE
+    global SUPER_DEV_MODE, SUPER_DEV_MODE_EXPIRES_AT
 
     if (
         DEV_MODE
@@ -112,6 +120,25 @@ def _expire_dev_mode():
         DEV_MODE = False
         DEV_MODE_EXPIRES_AT = 0.0
         AUTONOMOUS_SERIAL_MODE = False
+        SUPER_DEV_MODE = False
+        SUPER_DEV_MODE_EXPIRES_AT = 0.0
+
+
+def is_super_dev_mode():
+    _expire_super_dev_mode()
+    return SUPER_DEV_MODE
+
+
+def _expire_super_dev_mode():
+    global SUPER_DEV_MODE, SUPER_DEV_MODE_EXPIRES_AT
+
+    if (
+        SUPER_DEV_MODE
+        and SUPER_DEV_MODE_EXPIRES_AT
+        and time.monotonic() >= SUPER_DEV_MODE_EXPIRES_AT
+    ):
+        SUPER_DEV_MODE = False
+        SUPER_DEV_MODE_EXPIRES_AT = 0.0
 
 
 def is_experimental_mode():
@@ -582,6 +609,7 @@ def handle_dev_mode(user_input):
          group="session")
 def handle_exit_dev_mode(user_input):
     global DEV_MODE, DEV_MODE_EXPIRES_AT, AUTONOMOUS_SERIAL_MODE
+    global SUPER_DEV_MODE, SUPER_DEV_MODE_EXPIRES_AT
 
     if not _match_exact(user_input, "exit dev mode"):
         return False
@@ -589,7 +617,85 @@ def handle_exit_dev_mode(user_input):
     DEV_MODE = False
     DEV_MODE_EXPIRES_AT = 0.0
     AUTONOMOUS_SERIAL_MODE = False
+    SUPER_DEV_MODE = False
+    SUPER_DEV_MODE_EXPIRES_AT = 0.0
     return "Developer mode: OFF"
+
+
+@command("super dev mode", "Unlock the hazard-only two-model repair session",
+         dev_only=False, group="session")
+def handle_super_dev_mode(user_input):
+    """Unlock once, then begin one bounded 14B-plan / 7B-patch session."""
+    global SUPER_DEV_MODE, SUPER_DEV_MODE_EXPIRES_AT
+
+    if _match_prefix(user_input, "super dev mode "):
+        return (
+            "For privacy, never put the Super Dev key in command text. "
+            "Type only 'super dev mode'; a masked numeric prompt will appear."
+        )
+    if not _match_exact(user_input, "super dev mode"):
+        return False
+    if not is_experimental_mode():
+        return "Super Dev is available only from TORMENT_NEXUS_HAZARD."
+    if MODEL_ROLE != MODEL_ROLE_SUPER_DEV:
+        return (
+            "Super Dev needs start_super_dev_hazard.bat, which starts the "
+            "separate 14B planner and 7B patch worker."
+        )
+
+    _expire_super_dev_mode()
+    if not SUPER_DEV_MODE:
+        unlocked, message = dev_auth.unlock_super_interactive(ui.input_secret)
+        if not unlocked:
+            return message
+        SUPER_DEV_MODE = True
+        SUPER_DEV_MODE_EXPIRES_AT = (
+            time.monotonic() + SUPER_DEV_MODE_DURATION_SECONDS
+        )
+    else:
+        message = "Super Dev remains unlocked for this short-lived session."
+
+    ui.set_generating(True)
+    try:
+        applied, result = super_dev_engine.run_session()
+    finally:
+        ui.finish_activity("Super Dev session completed")
+
+    if applied:
+        edit_engine.mark_restart_pending()
+        return message + "\n\n" + result + "\n\nReloading to activate the verified patch."
+    return message + "\n\n" + result
+
+
+@command("super dev status", "Show the hazard-only Super Dev boundary",
+         dev_only=False, group="session")
+def handle_super_dev_status(user_input):
+    if not _match_exact(user_input, "super dev status"):
+        return False
+
+    _expire_super_dev_mode()
+    active = "ON" if SUPER_DEV_MODE else "OFF"
+    ready, worker = super_dev_engine.worker_status()
+    return (
+        f"SUPER DEV: {active}\n{'=' * 58}\n\n"
+        "Only the hazard launcher may use this mode.  The 14B model plans "
+        "from a fixed project allowlist; the loopback-only 7B worker drafts "
+        "one small patch; trusted guards run syntax, capability, backup, and "
+        "fixed regression checks. It cannot read chat/memory/web content, "
+        "run shell commands, change credentials, push Git, or edit its own "
+        f"guards.\n\nWorker: {worker}\nAudit: {super_dev_engine.LOG_FILE}"
+    )
+
+
+@command("exit super dev mode", "Lock Super Dev without changing ordinary developer mode",
+         dev_only=False, group="session")
+def handle_exit_super_dev_mode(user_input):
+    global SUPER_DEV_MODE, SUPER_DEV_MODE_EXPIRES_AT
+    if not _match_exact(user_input, "exit super dev mode"):
+        return False
+    SUPER_DEV_MODE = False
+    SUPER_DEV_MODE_EXPIRES_AT = 0.0
+    return "Super Dev: OFF"
 
 
 def _start_audio_mode():
@@ -3384,6 +3490,119 @@ def handle_spread(user_input):
         "unrelated sentences, because bge token states sit in a narrow "
         "cone. Read it as a sensitive dial over a small range, not a count "
         "of ideas.",
+    ]
+    return "\n".join(lines)
+
+
+def _hazard_study_module(name):
+    """Load a bundled, non-persistent study without making it runtime logic."""
+    tools_root = os.path.join(os.path.dirname(PROJECT_ROOT), "tools")
+    if tools_root not in sys.path:
+        sys.path.insert(0, tools_root)
+    return __import__(name)
+
+
+def _hazard_study_ready():
+    if not is_experimental_mode():
+        return None, "This study is HazardSable-only. Start the hazard launcher first."
+    from core import machinespirit
+    status = machinespirit.diagnose()
+    if not status["ready"]:
+        return None, status["reason"]
+    return machinespirit, None
+
+
+@command("contrast",
+         "Mask one source word at a time and measure trajectory drift",
+         usage="contrast <text>", dev_only=False, group="knowledge")
+def handle_contrast(user_input):
+    if not _match_prefix(user_input, "contrast "):
+        return False
+    text = user_input[len("contrast "):].strip()
+    if not text:
+        return "Usage: contrast <text>"
+
+    machinespirit, problem = _hazard_study_ready()
+    if problem:
+        return problem
+    probe = _hazard_study_module("token_contrast_probe")
+    spans = probe.word_spans(text)
+    if not spans:
+        return "Contrast needs at least one source word."
+    if len(spans) > 24:
+        return "Contrast is capped at 24 source words. Use a shorter passage."
+
+    ui.set_generating(True)
+    try:
+        result = probe.run(text, machinespirit.MACHINESPIRIT_URL,
+                           machinespirit.MACHINESPIRIT_KEY)
+    except Exception as error:
+        return f"Contrast did not complete: {error}"
+    finally:
+        ui.finish_activity("Hazard contrast study completed")
+
+    lines = ["COUNTERFACTUAL TRAJECTORY CONTRAST", "=" * 58, ""]
+    for row in result["spans"]:
+        lines.append(
+            f"  {row['word_index']:>2}  {row['word']!r:<24} "
+            f"drift {row['contrast']:.6f}  "
+            f"tokens {row['baseline_tokens']} -> {row['edited_tokens']}"
+        )
+    lines += [
+        "",
+        "Each row replaces one declared source-word span with [MASK] and "
+        "re-embeds the text. It changes no model state and is not a "
+        "token-state injection, causal attribution, or quantum measurement.",
+    ]
+    return "\n".join(lines)
+
+
+@command("bisect",
+         "Remove each half of a passage and measure contextual token drift",
+         usage="bisect <text>", dev_only=False, group="knowledge")
+def handle_bisect(user_input):
+    if not _match_prefix(user_input, "bisect "):
+        return False
+    text = user_input[len("bisect "):].strip()
+    if not text:
+        return "Usage: bisect <text>"
+
+    machinespirit, problem = _hazard_study_ready()
+    if problem:
+        return problem
+    probe = _hazard_study_module("context_bisection_probe")
+    try:
+        probe.split_at_word_midpoint(text)
+    except ValueError as error:
+        return f"Bisection needs two or more source words: {error}"
+
+    ui.set_generating(True)
+    try:
+        result = probe.run(text, machinespirit.MACHINESPIRIT_URL,
+                           machinespirit.MACHINESPIRIT_KEY)
+    except Exception as error:
+        return f"Bisection did not complete: {error}"
+    finally:
+        ui.finish_activity("Hazard bisection study completed")
+
+    lines = [
+        "CONTEXT BISECTION", "=" * 58, "",
+        f"  full path tokens  {result['full_tokens']}",
+        f"  all-token drift   {result['mean_drift']:.6f}",
+    ]
+    for side in ("prefix", "suffix"):
+        reading = result[side]
+        lines.append(
+            f"  {side:<6} {reading['content_tokens']:>3} tokens  "
+            f"mean {reading['mean_drift']:.6f}  "
+            f"near-cut {reading['nearest_cut_drift']:.6f}"
+        )
+    lines += [
+        "",
+        "The full text, its prefix, and its suffix are embedded separately. "
+        "Only retained matching token rows are compared; changed accounting "
+        "refuses the measurement. This is classical transformer context "
+        "dependence, not token splitting or physical entanglement.",
     ]
     return "\n".join(lines)
 

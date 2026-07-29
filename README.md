@@ -433,6 +433,9 @@ The hazard launcher exposes the measured machinespirit instruments:
 | `reconstruct <text>` | the lossy anchor-space round trip and what did not survive |
 | `consume <url>` | the content an address points at rather than the page around it |
 | `calibrate` | a fixed seven-row reference corpus and any reading that moved |
+| `super dev mode` | HazardSable only: one bounded 14B-plan / 7B-patch repair session after a separately enrolled numeric key |
+| `contrast <text>` | an on-demand, non-persistent `[MASK]` word-span study of trajectory drift |
+| `bisect <text>` | an on-demand, non-persistent prefix/suffix context-dependence study |
 
 `SABLE_CALIBRATION1` gives those readings a scale. Its periodic, Fibonacci,
 and seeded-random controls distinguish content response from ordering: the
@@ -447,6 +450,22 @@ Both non-ordinary launchers can create visibly named shortcuts:
 ```powershell
 python tools\make_interface_shortcut.py --both
 ```
+
+`start_super_dev_hazard.bat` is intentionally separate from both. It starts
+the 14B as a local planner/reviewer and a loopback-only 7B as a patch worker;
+typing `super dev mode` prompts for a separate numeric key and begins **one**
+small, guarded repair session. It cannot publish, run shell commands, touch
+credentials or model weights, or edit its own guardrails. Every retained patch
+has a backup and has passed the fixed regression gate. See
+[Super Dev Hazard](docs/SUPER_DEV_HAZARD.md) before using it.
+
+When the terminal panel is visible, HazardSable also overlays the current
+input's token-vector path as **ordered colour markers** in the same projected
+memory frame. Brightness says how faithfully that 2D projection represents a
+token; a doubled marker says only that the next vector moved farther. The
+display is not extra prompt memory, causal attribution, or a physical path.
+If the memory panel is in its lexical fallback frame, it deliberately draws
+nothing rather than compare incompatible coordinates.
 
 ### Where the two languages differ, in numbers
 

@@ -169,6 +169,7 @@ INCLUDE_FILES = [
     "docs/WIFI_SENSING_NEXT_STEP.md",
     "docs/AGENT_INTERFACE.md",
     "docs/CAPABILITIES_AND_LIMITS.md",
+    "docs/SUPER_DEV_HAZARD.md",
     "docs/OFFLINE_KNOWLEDGE.md",
     "docs/RELEASE_NOTES_researchA.md",
     "docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md",
@@ -190,6 +191,7 @@ INCLUDE_FILES = [
     "setup/requirements-release-windows.txt",
     "start_assistant.bat",
     "start_assistant_hazard.bat",
+    "start_super_dev_hazard.bat",
     "start_interface_mode.bat",
     "start_maintenance_coder.bat",
     "start_autonomous_self_heal.bat",
@@ -1139,6 +1141,7 @@ def _verify_release_launchers(report, problems):
         # they live in at source.
         "start_assistant.bat": "python\\python.exe",
         "start_assistant_hazard.bat": "start_assistant.bat",
+        "start_super_dev_hazard.bat": "start_assistant_hazard.bat",
         "start_interface_mode.bat": "start_assistant.bat",
         "tools/start_glitch.bat": "..\\python\\pythonw.exe",
         "tools/stop_glitch.bat": "..\\python\\python.exe",

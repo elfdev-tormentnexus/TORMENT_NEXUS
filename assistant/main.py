@@ -81,6 +81,7 @@ from core import session_rhythm
 from core.system_awareness import SystemAwareness
 from core.wifi_experimental import WifiExperimental
 from commands import natural_command
+from commands import command_handlers
 from commands.command_handlers import (
     command_catalog,
     is_dev_mode,
@@ -98,6 +99,7 @@ from editing import edit_engine
 from editing import edit_intent
 from editing import autonomous_engine
 from editing import maintenance_engine
+from editing import super_dev_engine
 from editing import self_heal_state
 from web import search_engine
 from web import search_intent
@@ -552,6 +554,8 @@ Core memory:
 # A count alone is not identity: replacing one memory with another leaves the
 # count unchanged, and embeddings becoming ready does too.
 _projected_memory_signature = None
+_hazard_trajectory_input = None
+_hazard_trajectory_vectors = None
 
 
 def _update_retrieval_panel(active, relevant, semantic_vectors=None):
@@ -573,7 +577,7 @@ def _update_retrieval_panel(active, relevant, semantic_vectors=None):
 
     try:
         if not ui.panel_active():
-            return
+            return False
 
         semantic_ready = (
             semantic_vectors is not None
@@ -616,8 +620,46 @@ def _update_retrieval_panel(active, relevant, semantic_vectors=None):
             for index, item in enumerate(active)
             if id(item) in chosen
         )
+        return semantic_ready
     except Exception:
-        pass
+        return False
+
+
+def _update_hazard_trajectory(user_input, semantic_ready):
+    """Best-effort panel-only trajectory, cached once per input string.
+
+    The raw token path is compacted through the same fixed semantic map as the
+    memory cloud, then projected by the panel's existing memory frame. The
+    lexical fallback has unrelated coordinates, so it deliberately shows no
+    trajectory rather than drawing a false comparison.
+    """
+    global _hazard_trajectory_input, _hazard_trajectory_vectors
+
+    try:
+        if (
+            not semantic_ready
+            or not command_handlers.is_experimental_mode()
+            or not ui.panel_active()
+        ):
+            ui.clear_trajectory_points()
+            return
+
+        if user_input != _hazard_trajectory_input:
+            from core import machinespirit
+
+            path = machinespirit.trajectory(user_input)
+            _hazard_trajectory_input = user_input
+            _hazard_trajectory_vectors = (
+                memory_vectors.compact_semantic(path) if path else None
+            )
+
+        if _hazard_trajectory_vectors:
+            ui.set_trajectory_points(_hazard_trajectory_vectors)
+        else:
+            ui.clear_trajectory_points()
+    except Exception:
+        # A representation visualizer is never a reason to lose a turn.
+        ui.clear_trajectory_points()
 
 
 def _start_semantic_layer():
@@ -1044,7 +1086,10 @@ def _runtime_context_prompt(
     machinespirit_shadow.observe(
         user_input, active, active_vectors, query_vector)
 
-    _update_retrieval_panel(active, relevant, semantic_vectors=active_vectors)
+    panel_has_semantic_frame = _update_retrieval_panel(
+        active, relevant, semantic_vectors=active_vectors
+    )
+    _update_hazard_trajectory(user_input, panel_has_semantic_frame)
 
     # Memories saved since the worker's last pass get queued here, so the
     # store converges toward fully-embedded without any hook inside
@@ -3045,6 +3090,13 @@ def main():
     # before the normal UI or any automatic cycle can continue. This runs
     # independently of the currently loaded model profile.
     recovery_message = maintenance_engine.recover_incomplete_session()
+    if recovery_message:
+        ui.print_framed(f"AI > {recovery_message}", color=ui.YELLOW)
+
+    # Super Dev has a one-patch transaction for the same reason.  Its marker
+    # is intentionally separate: a crash in the hazard-only two-model path
+    # must restore its patch before any new chat or autonomous work begins.
+    recovery_message = super_dev_engine.recover_incomplete_session()
     if recovery_message:
         ui.print_framed(f"AI > {recovery_message}", color=ui.YELLOW)
 

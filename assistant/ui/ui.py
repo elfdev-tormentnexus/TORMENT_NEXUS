@@ -3515,6 +3515,18 @@ def light_memories(indices):
         _engine.field.retrieve(list(indices))
 
 
+def set_trajectory_points(vectors):
+    """Show a hazard token path in the current projected memory frame."""
+    with _engine.lock:
+        return _engine.field.set_trajectory(list(vectors))
+
+
+def clear_trajectory_points():
+    """Remove an unavailable or incomparable path from the field."""
+    with _engine.lock:
+        _engine.field.clear_trajectory()
+
+
 def panel_active():
     """
     Whether the retrieval panel is currently being drawn.

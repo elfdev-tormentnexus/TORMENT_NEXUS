@@ -1,7 +1,8 @@
 # Plan — the vector panel in hazard mode
 
-Status: **plan only, nothing built.** Written 2026-07-28 so the next session
-can start from a design rather than from a blank file.
+Status: **partially built 2026-07-29.** The trajectory overlay is live in
+HazardSable only. The step strip, hoverable anchor line, and hazard border
+remain planned rather than implied by the overlay.
 
 Goal: when hazard mode is running, the existing retrieval visualisation
 should reflect what machinespirit actually measures, instead of showing the
@@ -44,6 +45,27 @@ Three measurements the panel does not have today:
 | Nearest anchor concept per token | `machinespirit.trace()` | Real, but the concept comes from a **fixed list**, not from the model |
 
 ## Proposed changes
+
+### Implemented: ordered trajectory markers (the conservative version of §1)
+
+`main.py` requests one unpooled trajectory per distinct input only when the
+panel is visible, machinespirit is enabled, and the panel has a real semantic
+memory frame. It compacts the path through the same fixed semantic projection
+as the memory cloud, then `vector_panel.Field` projects it using the cloud's
+existing centre, PCA axes, and bounds. The lexical fallback deliberately
+draws no path: it has a different coordinate system, so a comparison would
+be false.
+
+The renderer draws **disconnected ordered markers**, not an interpolated
+line. Their hue cycles by token order in a braille-like colour sequence;
+brightness is the existing projection-fidelity measure, and a large
+consecutive-vector change adds a second pixel. That last mark is step size,
+not importance. The choice of markers instead of a beam follows the risk
+below: a line would overstate continuity in a lossy two-dimensional view.
+
+The raw path stays in process only and is not added to prompts, memory, or
+retrieval. A trajectory failure clears the overlay and leaves a normal turn
+unaffected.
 
 ### 1. Draw the trajectory as a path through the existing projection
 

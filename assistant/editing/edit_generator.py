@@ -96,12 +96,12 @@ _TERM_STOPWORDS = {
 }
 
 
-def _count_tokens(text):
+def _count_tokens(text, server_url=SERVER_URL, headers=MODEL_REQUEST_HEADERS):
     """Use llama.cpp's tokenizer, with a safe pessimistic fallback."""
     try:
         response = requests.post(
-            SERVER_URL + "/tokenize",
-            headers=MODEL_REQUEST_HEADERS,
+            server_url + "/tokenize",
+            headers=headers,
             json={"content": text},
             timeout=10,
         )
@@ -109,6 +109,13 @@ def _count_tokens(text):
         return len(response.json().get("tokens") or [])
     except Exception:
         return max(1, len(text) // 3)
+
+
+def _count_for_endpoint(text, server_url, headers):
+    """Keep the ordinary call shape stable for instrumentation and tests."""
+    if server_url == SERVER_URL and headers is MODEL_REQUEST_HEADERS:
+        return _count_tokens(text)
+    return _count_tokens(text, server_url, headers)
 
 
 def _request_terms(request):
@@ -270,10 +277,11 @@ def _user_message(filename, source_text, request, compact=False, outline=""):
     )
 
 
-def _budgeted_user_message(filename, file_content, request):
+def _budgeted_user_message(filename, file_content, request,
+                           server_url=SERVER_URL, headers=MODEL_REQUEST_HEADERS):
     """Return a prompt that is guaranteed to leave room for the patch."""
     complete = _user_message(filename, file_content, request)
-    complete_tokens = _count_tokens(SYSTEM + "\n" + complete)
+    complete_tokens = _count_for_endpoint(SYSTEM + "\n" + complete, server_url, headers)
 
     if complete_tokens <= MAX_INPUT_TOKENS:
         return complete, complete_tokens, False
@@ -303,7 +311,7 @@ def _budgeted_user_message(filename, file_content, request):
             compact=True,
             outline=outline,
         )
-        tokens = _count_tokens(SYSTEM + "\n" + trial)
+        tokens = _count_for_endpoint(SYSTEM + "\n" + trial, server_url, headers)
 
         if tokens <= MAX_INPUT_TOKENS:
             selected = trial_ranges
@@ -332,21 +340,25 @@ def _budgeted_user_message(filename, file_content, request):
         request,
         compact=True,
     )
-    compact_tokens = _count_tokens(SYSTEM + "\n" + compact)
+    compact_tokens = _count_for_endpoint(SYSTEM + "\n" + compact, server_url, headers)
     return compact, compact_tokens, True
 
 
-def generate_edit(filename, file_content, request):
+def generate_edit(filename, file_content, request, *, server_url=None, headers=None):
     """
     Returns (edit_dict, error_message). Exactly one is None.
 
     edit_dict is {"find", "replace", "explanation"} and has already
     been checked for uniqueness against the file.
     """
+    endpoint = (server_url or SERVER_URL).rstrip("/")
+    request_headers = MODEL_REQUEST_HEADERS if headers is None else headers
     user_message, prompt_tokens, compacted = _budgeted_user_message(
         filename,
         file_content,
         request,
+        endpoint,
+        request_headers,
     )
     ui.set_prompt_tokens(prompt_tokens)
 
@@ -363,8 +375,8 @@ def generate_edit(filename, file_content, request):
 
     try:
         response = requests.post(
-            SERVER_URL + "/v1/chat/completions",
-            headers=MODEL_REQUEST_HEADERS,
+            endpoint + "/v1/chat/completions",
+            headers=request_headers,
             json={
                 "messages": [
                     {"role": "system", "content": SYSTEM},

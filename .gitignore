@@ -22,6 +22,7 @@ venv/
 # ---------------------------------------------------------------
 assistant/.model_api_key
 assistant/.dev_passcode
+assistant/.super_dev_passcode
 assistant/.tdeck_ble_pin
 assistant/.spotify_token
 # The read-only agent interface's bearer token. Belongs to one running

@@ -164,12 +164,41 @@ class Field:
         self.echo_steps = max(1, int(echo_steps))
         self.points = []          # [{x, y, hue, fidelity, glow, echo}]
         self._components = None
+        self._projection_centre = None
+        self._projection_bounds = None
+        # Hazard-only, lossy panel overlay. These vectors never enter the
+        # model prompt or memory store.
+        self.trajectory = []      # [{x, y, hue, fidelity, step}]
         self.entropy = []         # recent per-token entropy, 0..1
         self.echo_column = None
 
     def set_memories(self, vectors):
         """Re-project. Existing glow survives so a new memory nudges the field."""
         coords, self._components = project(vectors, self._components)
+        if vectors and self._components:
+            dim = len(vectors[0])
+            self._projection_centre = [
+                sum(row[i] for row in vectors) / len(vectors)
+                for i in range(dim)
+            ]
+            raw = [
+                [
+                    _dot(
+                        [value - centre for value, centre in zip(row, self._projection_centre)],
+                        component,
+                    )
+                    for component in self._components
+                ]
+                for row in vectors
+            ]
+            self._projection_bounds = [
+                (min(row[axis] for row in raw), max(row[axis] for row in raw))
+                for axis in range(3)
+            ]
+        else:
+            self._projection_centre = None
+            self._projection_bounds = None
+            self.trajectory = []
         glow = [p["glow"] for p in self.points]
         echo = [p["echo"] for p in self.points]
 
@@ -183,6 +212,61 @@ class Field:
                 "glow": glow[index] if index < len(glow) else 0,
                 "echo": echo[index] if index < len(echo) else 0,
             })
+
+    def set_trajectory(self, vectors):
+        """Project a token path into the existing memory coordinate frame.
+
+        Re-fitting the axes for every sentence would make a visually pleasant
+        path that cannot be compared to the retrieval cloud. A missing or
+        mismatched frame therefore refuses the overlay.
+        """
+        self.trajectory = []
+        if not vectors or not self._components or not self._projection_centre:
+            return False
+
+        dimension = len(self._projection_centre)
+        if any(len(row) != dimension for row in vectors):
+            return False
+
+        previous = None
+        total = max(1, len(vectors) - 1)
+        for index, vector in enumerate(vectors):
+            centred = [
+                value - centre
+                for value, centre in zip(vector, self._projection_centre)
+            ]
+            raw = [_dot(centred, component) for component in self._components]
+            coords = []
+            for axis, value in enumerate(raw):
+                low, high = self._projection_bounds[axis]
+                span = (high - low) or 1.0
+                coords.append(max(0.0, min(1.0, (value - low) / span)))
+
+            kept = math.sqrt(raw[0] * raw[0] + raw[1] * raw[1])
+            fidelity = (
+                max(0.0, min(1.0, kept / _norm(centred)))
+                if any(centred) else 0.0
+            )
+            step = 0.0
+            if previous is not None:
+                step = max(
+                    0.0,
+                    min(1.0, 1.0 - _dot(_unit(vector), _unit(previous))),
+                )
+
+            self.trajectory.append({
+                "x": coords[0], "y": coords[1],
+                # Hue is an ordered, braille-like sequence code only. It is
+                # not a semantic coordinate or a physical property.
+                "hue": 0.03 + 0.80 * (index / total),
+                "fidelity": fidelity,
+                "step": step,
+            })
+            previous = vector
+        return True
+
+    def clear_trajectory(self):
+        self.trajectory = []
 
     def retrieve(self, indices):
         """Light the memories `select_relevant()` actually returned."""
@@ -283,6 +367,23 @@ class Field:
                 )
 
             pixels[row][col] = _hsv(point["hue"], sat, value)
+
+        # The HazardSable path is rendered last so the ordered colour cycle
+        # remains legible over retrieved memories. Brightness is projection
+        # fidelity; a large adjacent-vector change gets a second pixel. This
+        # is a lossy visual aid, not extra model context or a physical path.
+        for marker in self.trajectory:
+            col = int(marker["x"] * (width - 1))
+            row = int((1.0 - marker["y"]) * (rows * 2 - 1))
+            if not (0 <= col < width and 0 <= row < rows * 2):
+                continue
+
+            colour = _hsv(
+                marker["hue"], 0.95, 0.35 + 0.65 * marker["fidelity"]
+            )
+            pixels[row][col] = colour
+            if marker["step"] >= 0.08 and row + 1 < rows * 2:
+                pixels[row + 1][col] = colour
 
         return self._pack(pixels, width, rows)
 

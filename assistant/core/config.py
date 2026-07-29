@@ -62,11 +62,13 @@ MODEL_DISPLAY_NAME = (
 MODEL_ROLE_DIRECTOR = "director"
 MODEL_ROLE_AUTONOMOUS_CODER = "autonomous-coder"
 MODEL_ROLE_FULL_MAINTENANCE = "full-maintenance"
+MODEL_ROLE_SUPER_DEV = "super-dev"
 MODEL_ROLE_RESTRICTED = "restricted"
 MODEL_ROLES = {
     MODEL_ROLE_DIRECTOR,
     MODEL_ROLE_AUTONOMOUS_CODER,
     MODEL_ROLE_FULL_MAINTENANCE,
+    MODEL_ROLE_SUPER_DEV,
 }
 _configured_model_role = os.environ.get("TORMENT_NEXUS_MODEL_ROLE", "").strip().lower()
 MODEL_ROLE = (
@@ -156,6 +158,22 @@ MODEL_API_KEY = _load_or_create_model_api_key()
 MODEL_REQUEST_HEADERS = {
     "Authorization": f"Bearer {MODEL_API_KEY}",
 }
+
+# Super Dev is deliberately a two-process hazard profile: the resident 14B
+# model plans and reviews a repair, while a separate local 7B model proposes
+# the exact find/replace patch.  These are populated only by
+# start_super_dev_hazard.bat; keeping the worker endpoint explicit prevents a
+# normal or full-maintenance session from quietly borrowing another service.
+SUPER_DEV_WORKER_URL = os.environ.get(
+    "TORMENT_NEXUS_SUPER_DEV_WORKER_URL", ""
+).strip().rstrip("/")
+SUPER_DEV_WORKER_API_KEY = os.environ.get(
+    "TORMENT_NEXUS_SUPER_DEV_WORKER_KEY", ""
+).strip()
+SUPER_DEV_WORKER_HEADERS = (
+    {"Authorization": f"Bearer {SUPER_DEV_WORKER_API_KEY}"}
+    if SUPER_DEV_WORKER_API_KEY else {}
+)
 _MODEL_API_KEY_PATH = os.path.join(ASSISTANT_ROOT, ".model_api_key")
 
 try:

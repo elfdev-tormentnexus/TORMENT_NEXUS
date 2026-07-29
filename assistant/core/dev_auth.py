@@ -13,6 +13,10 @@ from core.config import ASSISTANT_ROOT
 
 
 PASSCODE_FILE = os.path.join(ASSISTANT_ROOT, ".dev_passcode")
+# A Super Dev key is intentionally distinct from the ordinary developer
+# credential.  The numeric secret is never committed or displayed; this file
+# stores only a salted verifier on the local machine.
+SUPER_PASSCODE_FILE = os.path.join(ASSISTANT_ROOT, ".super_dev_passcode")
 PBKDF2_ITERATIONS = 350_000
 SALT_BYTES = 16
 MIN_PASSCODE_LENGTH = 8
@@ -24,6 +28,8 @@ _NUMERIC_CREDENTIAL_RE = re.compile(r"(?<!\d)\d{8,}(?!\d)")
 
 _failed_attempts = 0
 _locked_until = 0.0
+_super_failed_attempts = 0
+_super_locked_until = 0.0
 
 
 class DevAuthError(RuntimeError):
@@ -32,6 +38,10 @@ class DevAuthError(RuntimeError):
 
 def is_configured():
     return os.path.isfile(PASSCODE_FILE)
+
+
+def is_super_configured():
+    return os.path.isfile(SUPER_PASSCODE_FILE)
 
 
 def is_credential_like_input(text):
@@ -76,7 +86,7 @@ def _derive(passcode, salt, iterations):
     )
 
 
-def enroll(passcode, confirmation):
+def _enroll_at(path, passcode, confirmation):
     """
     Create the local credential once.
 
@@ -89,8 +99,8 @@ def enroll(passcode, confirmation):
         raise DevAuthError(problem)
     if not secrets.compare_digest(passcode, confirmation):
         raise DevAuthError("The two entries did not match.")
-    if is_configured():
-        raise DevAuthError("An owner passcode is already configured.")
+    if os.path.isfile(path):
+        raise DevAuthError("A passcode is already configured.")
 
     salt = secrets.token_bytes(SALT_BYTES)
     digest = _derive(passcode, salt, PBKDF2_ITERATIONS)
@@ -104,7 +114,7 @@ def enroll(passcode, confirmation):
 
     try:
         descriptor = os.open(
-            PASSCODE_FILE,
+            path,
             os.O_WRONLY | os.O_CREAT | os.O_EXCL,
             0o600,
         )
@@ -115,17 +125,31 @@ def enroll(passcode, confirmation):
             os.fsync(destination.fileno())
     except FileExistsError as error:
         raise DevAuthError(
-            "An owner passcode is already configured."
+            "A passcode is already configured."
         ) from error
     except OSError as error:
         raise DevAuthError(
-            "The owner credential could not be saved."
+            "The credential could not be saved."
         ) from error
 
 
-def _load_credential():
+def enroll(passcode, confirmation):
+    """Create the ordinary developer credential once."""
+    return _enroll_at(PASSCODE_FILE, passcode, confirmation)
+
+
+def enroll_super(passcode, confirmation):
+    """Create the separate Super Dev credential once."""
+    return _enroll_at(SUPER_PASSCODE_FILE, passcode, confirmation)
+
+
+def _load_credential(path=None, label="Developer"):
+    # Resolve the default at call time: tests and recovery tools can point the
+    # local credential boundary at an isolated path without reimporting this
+    # module.
+    path = PASSCODE_FILE if path is None else path
     try:
-        with open(PASSCODE_FILE, "r", encoding="utf-8") as source:
+        with open(path, "r", encoding="utf-8") as source:
             payload = json.load(source)
 
         if not isinstance(payload, dict):
@@ -151,8 +175,8 @@ def _load_credential():
         return salt, digest, iterations
     except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as error:
         raise DevAuthError(
-            "The owner credential is unreadable. Developer mode remains "
-            "locked; repair or remove assistant/.dev_passcode locally."
+            f"The {label.lower()} credential is unreadable. {label} mode "
+            "remains locked; repair or remove its local credential file."
         ) from error
 
 
@@ -161,6 +185,17 @@ def verify(passcode):
         return False
 
     salt, expected, iterations = _load_credential()
+    actual = _derive(passcode, salt, iterations)
+    return secrets.compare_digest(actual, expected)
+
+
+def verify_super(passcode):
+    if not isinstance(passcode, str):
+        return False
+
+    salt, expected, iterations = _load_credential(
+        SUPER_PASSCODE_FILE, "Super Dev"
+    )
     actual = _derive(passcode, salt, iterations)
     return secrets.compare_digest(actual, expected)
 
@@ -191,6 +226,29 @@ def _record_success():
 def reset_attempt_state_for_tests():
     """Reset only in-memory throttling; never alter the credential file."""
     _record_success()
+    _record_super_success()
+
+
+def _super_retry_after():
+    return max(0, math.ceil(_super_locked_until - time.monotonic()))
+
+
+def _record_super_failure():
+    global _super_failed_attempts, _super_locked_until
+
+    _super_failed_attempts += 1
+    if _super_failed_attempts < FAILURES_BEFORE_LOCKOUT:
+        return 0
+
+    _super_failed_attempts = 0
+    _super_locked_until = time.monotonic() + LOCKOUT_SECONDS
+    return LOCKOUT_SECONDS
+
+
+def _record_super_success():
+    global _super_failed_attempts, _super_locked_until
+    _super_failed_attempts = 0
+    _super_locked_until = 0.0
 
 
 def unlock_interactive(read_secret):
@@ -271,5 +329,55 @@ def unlock_interactive(read_secret):
     return (
         False,
         f"Incorrect passcode. {attempts_left} attempt"
+        f"{'s' if attempts_left != 1 else ''} before a temporary lock.",
+    )
+
+
+def unlock_super_interactive(read_secret):
+    """Enroll or verify the local numeric key for the hazard-only mode."""
+    remaining = _super_retry_after()
+    if remaining:
+        return False, f"Super Dev is temporarily locked. Try again in {remaining} seconds."
+
+    if not is_super_configured():
+        first = read_secret("CREATE SUPER DEV KEY >")
+        if first is None:
+            return False, "Super Dev setup cancelled."
+        problem = _passcode_problem(first)
+        if problem:
+            return False, f"Super Dev key not created: {problem}"
+
+        second = read_secret("CONFIRM SUPER DEV KEY >")
+        if second is None:
+            return False, "Super Dev setup cancelled."
+        try:
+            enroll_super(first, second)
+        except DevAuthError as error:
+            return False, f"Super Dev key not created: {error}"
+
+        _record_super_success()
+        return True, "Super Dev key created. The key is stored only as a local verifier."
+
+    candidate = read_secret("SUPER DEV KEY >")
+    if candidate is None:
+        return False, "Super Dev unlock cancelled."
+
+    try:
+        accepted = verify_super(candidate)
+    except DevAuthError as error:
+        return False, str(error)
+
+    if accepted:
+        _record_super_success()
+        return True, "Super Dev key accepted."
+
+    locked_for = _record_super_failure()
+    if locked_for:
+        return False, f"Incorrect Super Dev key. Locked for {locked_for} seconds."
+
+    attempts_left = FAILURES_BEFORE_LOCKOUT - _super_failed_attempts
+    return (
+        False,
+        f"Incorrect Super Dev key. {attempts_left} attempt"
         f"{'s' if attempts_left != 1 else ''} before a temporary lock.",
     )

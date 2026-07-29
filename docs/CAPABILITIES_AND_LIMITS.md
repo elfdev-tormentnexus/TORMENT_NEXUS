@@ -46,6 +46,7 @@ sandbox Windows. Read [Safety](../SAFETY.md) before installation.
 | Local agent API and `/ask` | Experimental; off | Token-authenticated loopback GET routes | Can reveal private results; no edits; `/ask` cannot see live chat. |
 | Guarded project editing | Experimental/advanced | Files allowed by application rules | Not an OS sandbox; requires human diff review and backup. |
 | Autonomous maintenance launcher | Experimental; off | Bounded project files and local logs | Unattended changes are not human-reviewed. |
+| Super Dev hazard launcher | Experimental; off; separate numeric key | Local 14B planner plus loopback-only 7B patch worker | One allowlisted patch per activation; fixed regression gate and rollback apply. It is not unrestricted autonomy, a shell agent, or a Git publisher. |
 | T-Deck/Meshtastic bridge | Optional | Bluetooth/USB and configured LoRa mesh | Communications, not sight; peers may receive messages. |
 | HLK-LD2450 radar sensing | Pending hardware | Local USB TTL motion/trajectory data | Not identity, a camera, or reliable occupancy; misses still people. |
 | Intel AX211 Wi-Fi proxy sensing | Failed/archived | Disabled aggregate seam only | Measured adapter/traffic, not reliable room state. |
