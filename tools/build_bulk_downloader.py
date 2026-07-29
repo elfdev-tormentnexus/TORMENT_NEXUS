@@ -33,9 +33,49 @@ DOWNLOADER = os.path.join(DIST, f"DOWNLOAD_{PACKAGE_NAME}_{VERSION}.bat")
 # deliberately excluded: it is 8.4 GB, it is for advanced users who have
 # read what it does, and quietly adding it to a bulk download would be the
 # opposite of the disclosure the rest of this release is built around.
-REQUIRED = [f"{ARCHIVE_STEM}.zip.part0{n}" for n in range(1, 7)] + [
-    f"REASSEMBLE_{ARCHIVE_STEM}.bat",
-]
+def _discovered_parts():
+    """Every archive part actually present in dist, in order.
+
+    Discovered rather than assumed. The previous list was
+    `range(1, 7)` with a `part0{n}` template, which silently produced a
+    six-part downloader for any release that built seven -- exactly the
+    failure this file's docstring says it exists to prevent, and it would
+    have hit the first release with a larger archive. The template also
+    could not express part10.
+    """
+    prefix = f"{ARCHIVE_STEM}.zip.part"
+    found = [name for name in os.listdir(DIST) if name.startswith(prefix)]
+
+    def index(name):
+        tail = name[len(prefix):]
+        return int(tail) if tail.isdigit() else -1
+
+    numbered = sorted((n for n in found if index(n) > 0), key=index)
+    if not numbered:
+        raise SystemExit(
+            f"no {prefix}NN files in {DIST} -- build the archive before the "
+            "downloader"
+        )
+
+    # Parts are consecutive from 1 or the archive cannot be rejoined, and a
+    # gap here means a build that half-finished rather than a naming choice.
+    expected = list(range(1, len(numbered) + 1))
+    if [index(n) for n in numbered] != expected:
+        raise SystemExit(
+            "archive parts are not consecutive from 1: found "
+            + ", ".join(str(index(n)) for n in numbered)
+        )
+    return numbered
+
+
+def _required():
+    """Discovered at build time, not import time.
+
+    Importing this module must not depend on dist/ being populated, or the
+    test suite and any tooling that merely inspects it break whenever the
+    tree is clean.
+    """
+    return _discovered_parts() + [f"REASSEMBLE_{ARCHIVE_STEM}.bat"]
 
 OPTIONAL = [
     f"{PACKAGE_NAME}-{VERSION}-docs-patch.zip",
@@ -61,7 +101,7 @@ def build():
     assets = []
     total = 0
 
-    for name in REQUIRED + OPTIONAL:
+    for name in _required() + OPTIONAL:
         path = os.path.join(DIST, name)
         if not os.path.isfile(path):
             raise SystemExit(
@@ -71,6 +111,18 @@ def build():
         size = os.path.getsize(path)
         assets.append((name, size, _digest(path)))
         total += size
+
+    listed = {name for name, _, _ in assets}
+    stray = sorted(
+        name for name in os.listdir(DIST)
+        if f"{ARCHIVE_STEM}.zip.part" in name and name not in listed
+    )
+    if stray:
+        raise SystemExit(
+            "archive parts exist that the downloader does not carry: "
+            + ", ".join(stray)
+            + " -- shipping this would hand every recipient a corrupt archive"
+        )
 
     base = f"https://github.com/{REPO}/releases/download/{VERSION}"
     gigabytes = total / (1024 ** 3)
