@@ -7787,21 +7787,39 @@ class DocumentationTests(unittest.TestCase):
             root / "docs" / "INSTALL_WINDOWS.md"
         ).read_text(encoding="utf-8")
 
-        # The number of parts follows archive size, so beginner instructions
-        # must name the first numbered capsule, the decompiler, both helpers,
-        # and the rule to download every consecutive later part. A fixed list
-        # silently breaks the next time model payload crosses another cap.
-        for text in (readme, installer):
-            with self.subTest(document="README" if text is readme else "installer"):
-                self.assertIn(
-                    "SABLERESEARCHA-WINDOWS.part01.png",
-                    text,
-                )
+        # Compare the literal public filenames rather than checking two
+        # duplicated fixed lists. If either beginner document adds or drops a
+        # required bootstrap or representative field, this fails on the
+        # disagreement itself.
+        pattern = re.compile(
+            r"(?:machinesoul\.py|"
+            r"(?:DECOMPILE|INSTALL)_[A-Za-z0-9_.-]+\.bat|"
+            r"SABLERESEARCHA-[A-Za-z0-9.-]+\.png)"
+        )
+        assets = {
+            "README": set(pattern.findall(readme)),
+            "installer": set(pattern.findall(installer)),
+        }
+        self.assertEqual(assets["README"], assets["installer"])
+
+        required = {
+            "machinesoul.py",
+            "DECOMPILE_SABLE_researchA.bat",
+            "SABLERESEARCHA-MANIFEST.png",
+            "SABLERESEARCHA-REASSEMBLER.png",
+            "SABLERESEARCHA-WINDOWS.part01.png",
+            "SABLERESEARCHA-WINDOWS.part09.png",
+            "SABLERESEARCHA-14B.part01.png",
+            "SABLERESEARCHA-14B.part06.png",
+            "INSTALL_SABLERESEARCHA_CALIBRATION_PATCH.bat",
+            "SABLERESEARCHA-CALIBRATION-PATCH.part01.png",
+            "SABLERESEARCHA-CALIBRATION-PATCH-MANIFEST.png",
+        }
+        self.assertTrue(required.issubset(assets["README"]))
+
+        for document, text in (("README", readme), ("installer", installer)):
+            with self.subTest(document=document):
                 self.assertNotIn(".zip.part01.png", text)
-                self.assertIn("SABLERESEARCHA-REASSEMBLER.png", text)
-                self.assertIn("SABLERESEARCHA-MANIFEST.png", text)
-                self.assertIn("DECOMPILE_SABLE_researchA.bat", text)
-                self.assertIn("machinesoul.py", text)
                 self.assertIn("re-encode", text.lower())
                 self.assertIn("every", text.lower())
                 self.assertIn("Source code", text)

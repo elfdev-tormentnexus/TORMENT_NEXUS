@@ -120,8 +120,8 @@ decompilation, the reconstructed installation contains:
    model provenance, and known issues. Download the plaintext bootstrap
    pair, `machinesoul.py` and `DECOMPILE_SABLE_researchA.bat`, plus
    `SABLERESEARCHA-MANIFEST.png`, `SABLERESEARCHA-REASSEMBLER.png`, and every
-   consecutive file beginning with `SABLERESEARCHA-WINDOWS.part01.png` and
-   continuing through every later `.partNN.png` shown.
+   consecutive file from `SABLERESEARCHA-WINDOWS.part01.png` through
+   `SABLERESEARCHA-WINDOWS.part09.png`.
 2. Keep those files together and run `DECOMPILE_SABLE_researchA.bat`. It calls
    machinesoul for every required image. The manifest and reassembler are
    themselves recovered from machinesoul; each package capsule yields one
@@ -130,9 +130,10 @@ decompilation, the reconstructed installation contains:
    install directory, and runs `setup.bat`. Rosetta Stone, its anchor material,
    tests, and research documents are files in that directly preserved tree.
    **Do not screenshot, optimise, or re-encode the images.**
-3. If all optional `SABLERESEARCHA-14B.partNN.png` capsules are present, that
-   same pass decompiles and installs the 14B companion. If none are present it
-   skips it; a partial set refuses.
+3. If all optional capsules from `SABLERESEARCHA-14B.part01.png` through
+   `SABLERESEARCHA-14B.part06.png` are present, that same pass decompiles and
+   installs the 14B companion. If none are present it skips it; a partial set
+   refuses.
 4. Launch the desktop shortcut. Before any model, microphone, activity
    sampler, listener, or network-capable subsystem starts, the application
    displays its disclosure and requires the exact text `I UNDERSTAND`.
@@ -141,8 +142,9 @@ decompilation, the reconstructed installation contains:
 ### The calibration-clarity patch
 
 The researchA release page also carries
-`INSTALL_SABLERESEARCHA_CALIBRATION_PATCH.bat` and two small machinesoul
-images with `CALIBRATION-PATCH` in their names. Keep them beside the main
+`INSTALL_SABLERESEARCHA_CALIBRATION_PATCH.bat`,
+`SABLERESEARCHA-CALIBRATION-PATCH.part01.png`, and
+`SABLERESEARCHA-CALIBRATION-PATCH-MANIFEST.png`. Keep them beside the main
 release downloads and run that installer after the main reconstruction. The
 main one-click installer also offers to run it automatically when the full
 patch set is present.
@@ -164,10 +166,10 @@ image optimiser, or editor can change their vectors and break the inverse.
 Download the release assets as files, keep their names, and let machinesoul
 verify them.
 
-The optional 14B companion follows the same boundary. Download every
-`SABLERESEARCHA-14B.partNN.png` only if you want long self-heal or extended
-editing sessions. The decompiler recovers its checksum-gated installer and
-exact model parts before that installer can run.
+The optional 14B companion follows the same boundary. Download parts 01
+through 06 only if you want long self-heal or extended editing sessions. The
+decompiler recovers its checksum-gated installer and exact model parts before
+that installer can run.
 
 </details>
 

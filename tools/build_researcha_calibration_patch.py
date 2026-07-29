@@ -34,6 +34,7 @@ PATCH_FILES = (
     "README.md",
     "assistant/core/calibration.py",
     "assistant/tests/test_calibration.py",
+    "docs/INSTALL_WINDOWS.md",
     "docs/RELEASE_NOTES_researchA.md",
     "docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md",
 )

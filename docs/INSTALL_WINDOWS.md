@@ -23,8 +23,8 @@ carried as an ordered vector field in a lossless PNG/APNG capsule:
 
 ```text
 SABLERESEARCHA-WINDOWS.part01.png
-SABLERESEARCHA-WINDOWS.part02.png
-...every later consecutive part shown...
+...every consecutive field...
+SABLERESEARCHA-WINDOWS.part09.png
 ```
 
 These are not screenshots or decorative previews. The ordered pixel vectors
@@ -70,31 +70,41 @@ DECOMPILE_SABLE_researchA.bat
 SABLERESEARCHA-MANIFEST.png
 SABLERESEARCHA-REASSEMBLER.png
 SABLERESEARCHA-WINDOWS.part01.png
-SABLERESEARCHA-WINDOWS.part02.png
-...every later consecutive .partNN.png...
+...every consecutive field...
+SABLERESEARCHA-WINDOWS.part09.png
+INSTALL_SABLERESEARCHA_CALIBRATION_PATCH.bat
+SABLERESEARCHA-CALIBRATION-PATCH.part01.png
+SABLERESEARCHA-CALIBRATION-PATCH-MANIFEST.png
 ```
 
-`machinesoul.py` and its one-click batch launcher are the unavoidable
+`machinesoul.py` and the two one-click batch launchers are the unavoidable
 plaintext bootstrap: without the decompiler nothing can open the first
-capsule. Every other researchA download is itself carried through machinesoul.
-The manifest and reassembler are also capsules. Rosetta Stone, anchor
-material, tests, and the primary research documents live in the directly
-preserved install tree rather than in a ZIP, tar, or separate research
-encoder.
+capsule. The install, patch, manifest, and reassembler payloads are carried
+through machinesoul. The cut-map APNGs are optional visual review records.
+Rosetta Stone, anchor material, tests, and the primary research documents live
+in the directly preserved install tree rather than in a ZIP, tar, or separate
+research encoder.
+
+The three calibration-patch files preserve Claude's final audit correction.
+The patch changes no recorded calibration reading. It corrects the finite
+Fibonacci claim, compares the stable categorical fields exactly, puts top
+support under numeric tolerance, backs up the base files, and updates the
+installed release ledger. The main installer applies it automatically when
+the complete set is present; it may also be run by itself afterward.
 
 For the optional 14B full-maintenance companion, also download every
 consecutive:
 
 ```text
 SABLERESEARCHA-14B.part01.png
-SABLERESEARCHA-14B.part02.png
-...every later consecutive .partNN.png...
+...every consecutive field...
+SABLERESEARCHA-14B.part06.png
 ```
 
 Those extra capsules are only for deliberately requested long self-heal and
 extended editing sessions. They are current researchA companion assets, not
-old Beta 6 clutter. Allow roughly 27 GB more temporary disk space while the
-14B capsules, decoded parts, and final 8.4 GB model coexist.
+old Beta 6 clutter. The 55 GB temporary-space estimate above includes the
+14B reconstruction path; the installed companion adds about 8.4 GB.
 
 Keep every file in one empty folder and do not rename it. GitHub's green
 **Code** button and automatic **Source code (zip)** files are developer source
@@ -109,15 +119,16 @@ DECOMPILE_SABLE_researchA.bat
 ```
 
 This is the only installation action after downloading. The helper uses the
-Python launcher (`py -3`) when available and falls back to `python`. It:
+standard `python` command to bootstrap machinesoul. It:
 
-1. decompiles the support and research capsules;
-2. moves every required package vector field back from machinesoul;
+1. decompiles the encoded combined manifest and verified reassembler;
+2. moves all nine required Windows vector fields back from machinesoul;
 3. invokes the recovered reassembler and verifies every reconstructed file;
 4. creates the install directory directly, without a ZIP or tar layer;
-5. installs the optional 14B companion when its complete capsule set is
+5. installs the optional 14B companion when its complete six-field set is
    present; and
-6. runs `setup.bat`.
+6. applies the calibration-clarity patch when its complete three-file set is
+   present, then runs `setup.bat`.
 
 The internal vector segments appear only during that local process:
 
@@ -131,15 +142,23 @@ Every part is SHA-256 verified by the capsule before it is kept. If a file is
 missing, damaged, renamed, or re-encoded, the helper stops. Do not continue by
 guessing or by using a partial output.
 
-The recovered machinesoul release manifest records both layers:
+The recovered machinesoul release manifests record both payload layers:
 
-- the SHA-256 of every downloaded PNG capsule and helper;
+- the size and SHA-256 of every required data-field PNG;
 - the SHA-256 of every decoded `.msv` vector segment;
 - the size and SHA-256 of every reconstructed file.
+
+GitHub's release-asset digest and the post-upload audit cover the plaintext
+bootstrap and the encoded manifest/reassembler images themselves; a manifest
+cannot safely contain its own final digest.
 
 If every optional 14B capsule is present, the same pass recovers and installs
 its exact model. If none are present, it skips that companion. A partial set
 refuses rather than silently installing an incomplete model.
+
+If all three calibration-patch files are present, the same pass recovers and
+applies them. A partial set refuses. Unknown local versions are never
+overwritten; an already-patched tree is accepted without applying twice.
 
 ## What the one-step process verifies
 
