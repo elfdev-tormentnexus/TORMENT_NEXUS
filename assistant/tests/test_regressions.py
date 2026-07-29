@@ -6880,6 +6880,8 @@ class DeclaredDependencyTests(unittest.TestCase):
     _LOCAL = {
         "commands", "core", "editing", "hardware", "knowledge", "memory", "project",
         "tests", "ui", "visualizer", "voice", "web", "main", "glitch_icon",
+        # Experimental local tooling imported directly by its regression tests.
+        "vector_whitening", "whitening_probe",
         # hardware/setup_hardware.py imports its sibling by bare name.
         "tdeck",
     }
