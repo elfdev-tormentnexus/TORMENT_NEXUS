@@ -59,6 +59,36 @@ by documentation:
 capsule is not encryption, it travels as easily as a photograph, and
 re-encoding destroys it silently.
 
+### The shadow log — evidence, finally being generated
+
+The claim that anchor-space retrieval does not beat pooled cosine rests on
+0.689 against 1.000 over an **eighteen-chunk corpus**, and the plan that
+recorded it said what it indicts: "nothing but the 18-chunk corpus it ran
+on." Nothing has been generating a bigger answer.
+
+Now every hazard-mode retrieval records both rankings of the same
+candidates — the pooled cosine that decided, and the anchor-space ranking
+that did not — plus their top-5 agreement, to
+`logs/machinespirit_shadow.jsonl`. Over a few hundred turns that becomes a
+real answer to a question currently settled by eighteen chunks.
+
+Three properties hold it in place, each a test rather than a promise:
+
+- **It never decides.** `observe()` returns `None` by construction, so
+  there is nothing for a later edit to accidentally start ranking with. A
+  regression asserts retrieval is identical with the module present and
+  absent — Risk #4 of `MACHINESPIRIT_PRIMARY_PLAN.md`, asserted rather
+  than promised.
+- **It never takes a turn down.** Every path swallows its own failures,
+  the rule `_update_retrieval_panel` already follows.
+- **It never writes text.** Memories are SHA-256 digests, the same way a
+  stored trajectory records its source. A test writes a row about a
+  sentence and greps the file to prove the sentence is not in it.
+
+This is Stage 2's shadow half from the machinespirit plan. Stage 2's other
+half, and promotion of anchor space to primary retrieval, remain gated
+behind the labelled corpus exactly as written.
+
 ### The source tree, cut along meaning
 
 The complete release is cut along size boundaries, so `part04` is the
@@ -286,5 +316,5 @@ package.
   denylist, dependency, command, and clean-import checks. The launcher has not
   yet been exercised end-to-end from that package with both model servers
   producing a live trace.
-- 864 automated tests pass; two filesystem-link tests are skipped because
+- 879 automated tests pass; two filesystem-link tests are skipped because
   this Windows account cannot create the required links.

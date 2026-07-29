@@ -76,6 +76,7 @@ from core import dev_auth
 from core import tutorial
 from core import first_run
 from core.time_awareness import TimeAwareness
+from core import machinespirit_shadow
 from core import session_rhythm
 from core.system_awareness import SystemAwareness
 from core.wifi_experimental import WifiExperimental
@@ -1033,6 +1034,15 @@ def _runtime_context_prompt(
         memory_vectors=active_vectors,
         min_cosine=EMBED_MIN_COSINE,
     )
+
+    # Shadow only, and only in hazard mode. It records how anchor space
+    # would have ranked the same candidates, next to the pooled cosine that
+    # actually decided. It returns None by construction and takes `relevant`
+    # nowhere, so nothing below can start depending on it -- the eighteen-
+    # chunk corpus that settled this question deserves a bigger answer, and
+    # this is what generates one. See core/machinespirit_shadow.py.
+    machinespirit_shadow.observe(
+        user_input, active, active_vectors, query_vector)
 
     _update_retrieval_panel(active, relevant, semantic_vectors=active_vectors)
 

@@ -4,6 +4,14 @@
 
 ## researchA — 2026-07-28
 
+- Added the anchor-space shadow log. Every hazard-mode retrieval records
+  both rankings of the same candidates -- the pooled cosine that decided and
+  the anchor-space ranking that did not -- with their top-5 agreement, so the
+  claim that anchor space does not retrieve better stops resting on an
+  eighteen-chunk corpus. `observe()` returns None by construction and a
+  regression asserts retrieval is identical with the module present and
+  absent. Memories are recorded as SHA-256 digests, never as text, and a test
+  greps the written file to prove it.
 - Added `tools/source_capsules.py`: the source tree capsuled one subsystem
   at a time, cut along meaning rather than size, each capsule carrying its
   subsystem's description in metadata so a directory of images is

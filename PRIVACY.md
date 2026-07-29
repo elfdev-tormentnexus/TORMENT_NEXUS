@@ -128,6 +128,16 @@ about. Applied to a private memory it would describe that memory's subject
 in shareable terms, which is worth knowing before sharing any file produced
 this way.
 
+Hazard mode also writes `assistant/logs/machinespirit_shadow.jsonl`: for
+each retrieval, which memories the deciding pooled ranking placed in its
+top five and which the anchor-space ranking would have, so the question of
+whether anchor space retrieves better can be answered with evidence rather
+than an eighteen-chunk corpus. Memories appear as **SHA-256 digests, never
+as text** — a row records that some memory ranked third and nothing about
+what it said. The file is bounded, sits under `logs/` which is excluded
+from git and from release packaging, and can be deleted at any time; losing
+it costs a measurement and nothing else.
+
 ### machinesoul capsules, and the risks specific to image files
 
 A machinesoul capsule is a real PNG or APNG whose pixels **are** the
