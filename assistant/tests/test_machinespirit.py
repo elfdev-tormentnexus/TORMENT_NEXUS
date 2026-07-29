@@ -1,4 +1,4 @@
-"""Tests for the anchor dictionary and the two servers it depends on.
+﻿"""Tests for the anchor dictionary and the two servers it depends on.
 
 The properties here are the ones that fail silently rather than loudly. A
 wrong section slice returns real vectors under the wrong words; a truncated
@@ -209,6 +209,45 @@ class DiagnoseTests(unittest.TestCase):
         self.assertEqual(status["tokens"], 9)
 
 
+class PeaksTests(unittest.TestCase):
+    """Ordering is by summed support; the reported position is still the peak."""
+
+    def test_a_concept_backed_across_the_sentence_outranks_one_lucky_spike(self):
+        """The measured 77 -> 90 change, in miniature.
+
+        'broad' never wins a position outright but is supported everywhere;
+        'spike' wins once and is absent otherwise. Ranking by best position
+        puts spike first, which is what cost 13 points on labelled data.
+        """
+        rows = [
+            (0, [(0.30, "broad")]),
+            (1, [(0.31, "broad")]),
+            (2, [(0.29, "broad")]),
+            (3, [(0.45, "spike")]),
+        ]
+        ordered = ms.peaks(rows)
+        self.assertEqual(ordered[0][0], "broad")
+
+    def test_the_reported_position_is_still_where_the_concept_peaked(self):
+        rows = [
+            (0, [(0.10, "broad")]),
+            (7, [(0.40, "broad")]),
+            (9, [(0.20, "broad")]),
+        ]
+        anchor, score, index = ms.peaks(rows)[0]
+        self.assertEqual(anchor, "broad")
+        self.assertAlmostEqual(score, 0.40)
+        self.assertEqual(index, 7, "summing must not blur where it happened")
+
+    def test_a_single_strong_concept_still_ranks_first_when_alone(self):
+        rows = [(0, [(0.10, "weak")]), (1, [(0.90, "strong")])]
+        self.assertEqual(ms.peaks(rows)[0][0], "strong")
+
+    def test_an_empty_trace_peaks_to_nothing(self):
+        self.assertEqual(ms.peaks([]), [])
+        self.assertEqual(ms.peaks(None), [])
+
+
 class ProfileTests(unittest.TestCase):
     """Centering has to change order, or it is not doing anything."""
 
@@ -226,3 +265,4 @@ class ProfileTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

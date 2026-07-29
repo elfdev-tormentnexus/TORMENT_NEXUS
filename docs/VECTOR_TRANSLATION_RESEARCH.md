@@ -316,7 +316,11 @@ subtracts the sentence's topic, and the topic is usually the answer. What
 looked like resolution was noise spread evenly across more anchors, and
 range/distinct/modal is a proxy that cannot tell those apart.
 
-**The pooled control winning is the honest headline.** 90% against 83%.
+**The pooled control winning was the honest headline, until §5e found the
+cause and removed it.** 90% against 83% here; the trace reaches 90% once
+`peaks()` ranks by summed support instead of by one strongest position. The
+83% in the table above is the *old* ordering, kept because it is what the
+centering variants were measured against.
 This measures *which* concept, which is the question the average is better
 at; the trace's only claim is *where*, which this does not test. But
 "trajectories shadow retrieval" is now a measured 83-versus-90 rather than
@@ -347,8 +351,9 @@ fact about any operator; the file ships):
 | distinct winners / 13 | 8 | **11** |
 | most-repeated winner | 4 | **2** |
 | labels, pooled top-1 | 90% | **90%** |
-| labels, trace top-1 | 83% | 77% |
+| labels, trace top-1 | 83% | 77% → **90%** |
 
+The trace figures are the old max ordering; §5e replaces them with 90%.
 The pooled control holds exactly despite 33% more competitors. The trace
 loses six points, and that is structural rather than noise: it takes a
 **max across positions**, so each added anchor is another chance at a
@@ -414,6 +419,51 @@ of the words before any anchor was involved; recovering wording from an
 embedding needs a trained inverse model and is approximate even then. The
 `reconstruct` command therefore reports identification, not recall, and
 says so in its own output.
+
+## 5e. The readout, not the encoding
+
+Two hypotheses about where the trace loses to the average. One was tested
+and refuted; the other was not a hypothesis at all until the refutation
+pointed at it.
+
+**Refuted: that collapsing each token to one anchor is the lossy step.**
+Scored three readouts of the same trajectories on the same labelled probes:
+
+| readout | top-1 | top-3 | MRR |
+| --- | --- | --- | --- |
+| all 184 coordinates kept | 90% | 93% | 0.920 |
+| top-3 anchors per token | 83% | 93% | 0.888 |
+| **top-1 anchor per token** | **90%** | **100%** | **0.933** |
+
+Collapsing to the single winner is not worse than keeping everything — it is
+marginally *better*, acting as a denoiser. And keeping everything lands
+exactly on the pooled control's 90%, which makes sense once stated: summing
+the whole coordinate field across tokens approximates reconstructing the
+mean.
+
+**The actual cost was aggregation.** The same argmax readout scores 77% when
+anchors are ranked by their single strongest position and **90%** when
+ranked by summed support across positions:
+
+| `peaks()` ordering | top-1 | top-3 | MRR |
+| --- | --- | --- | --- |
+| max over positions (before) | 77% | 100% | 0.867 |
+| sum over positions (after) | **90%** | 100% | **0.933** |
+
+A max gives every additional anchor another chance at one lucky spike, and a
+lucky spike cannot be told from a real one when only the best survives. A
+sum has to be earned across the sentence. This is the same mechanism as the
+v1→v2 degradation in §5b, and it means that degradation was never a property
+of trajectories — it was a property of how they were being read. `peaks()`
+now orders by support and still reports the peak position, because *where* a
+concept sits is the claim the feature exists to make.
+
+**What is still untested.** Every readout above answers *which sentence is
+this*, and all of them answer it well. None of them test whether per-token
+contextual detail survives, which is the trace's actual claim. That needs
+the labelled corpus in §6 and does not have a scoreboard yet. A passing
+sentence-identification test is not evidence for a localisation claim, and
+should not be cited as one.
 
 ---
 

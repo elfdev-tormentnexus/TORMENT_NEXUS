@@ -346,15 +346,35 @@ def diagnose(text=None):
 
 
 def peaks(rows):
-    """Strongest position for each concept that appeared in a trace."""
+    """Where each concept appeared, ordered by how much of the trace backs it.
+
+    Two different questions live here and they were being answered by one
+    number. *Where* a concept sits is its strongest position, and that is
+    what the row reports. *Which* concepts to rank first is a different
+    question, and ranking by that same strongest position was measured to
+    cost 13 points: on 30 labelled paraphrases, ordering by the single best
+    position identifies the right concept 77% of the time, and ordering the
+    identical data by summed evidence gets 90%.
+
+    The reason is the one already recorded for the dictionary growing: a max
+    over positions gives every additional anchor another chance at one
+    lucky spike, and a lucky spike is indistinguishable from a real one when
+    only the best is kept. A sum has to be earned across the sentence.
+
+    So the ordering is by total support and the reported position is still
+    the peak, because "this concept, at this token" is the claim the feature
+    exists to make and summing must not blur where it happened.
+    """
     best = {}
+    support = {}
     for index, hits in rows or []:
         for score, anchor in hits:
+            support[anchor] = support.get(anchor, 0.0) + score
             if anchor not in best or score > best[anchor][0]:
                 best[anchor] = (score, index)
     return sorted(((anchor, score, index)
                    for anchor, (score, index) in best.items()),
-                  key=lambda row: -row[1])
+                  key=lambda row: -support[row[0]])
 
 
 def reset_cache():

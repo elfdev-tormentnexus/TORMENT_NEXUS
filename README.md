@@ -303,10 +303,19 @@ one.
 **What it does not do: change retrieval.** Keeping the path has not been
 shown to retrieve better. Late interaction over trajectories returned the
 same documents as ordinary pooled cosine, and anchor-space coordinates
-scored 0.689 against uint8's perfect 1.000. On 30 labelled paraphrases the
-plain averaged vector identifies the right concept **90%** of the time and
-the trace **83%**, so trajectories run alongside retrieval rather than
-replacing it, and the mode says so when you turn it on. What machinespirit
+scored 0.689 against uint8's perfect 1.000. So trajectories run alongside
+retrieval rather than replacing it, and the mode says so when you turn it
+on.
+
+On 30 labelled paraphrases the trace and the plain averaged vector **both
+identify the right concept 90%** of the time. Getting there was a one-line
+change with 13 measured points behind it: `peaks()` ranked concepts by their
+single strongest token position, and ranking the identical data by summed
+support went from **77% to 90%** (MRR 0.867 → 0.933). A max over positions
+gives every extra anchor another chance at one lucky spike, and a lucky
+spike is indistinguishable from a real one when only the best is kept. The
+reported position is still the peak, because "this concept, at this token"
+is the claim the feature exists to make. What machinespirit
 adds today is the trace — a thing the averaged vector cannot produce at
 all, rather than one it produces slightly worse.
 
