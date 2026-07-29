@@ -8234,6 +8234,7 @@ class ReleaseModelContractTests(unittest.TestCase):
             "docs/OFFLINE_KNOWLEDGE.md",
             "docs/RELEASE_NOTES_researchA.md",
             "docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md",
+            "docs/MACHINESOUL_RELEASE_CUT_METHOD.md",
             "docs/RESEARCH_GOALS.md",
             "docs/RESEARCH_ROADMAP.md",
             "docs/SEMANTIC_AND_AGENT_BRIDGES.md",

@@ -182,6 +182,45 @@ class CutAndReassembleTests(unittest.TestCase):
         for record in plan["files"]:
             self.assertEqual(_sha(rebuilt / record["path"]), record["sha256"])
 
+    def test_combined_manifest_selects_each_release_component(self):
+        _, manifest = self._cut()
+        combined_path = Path(self.folder, "combined.json")
+        combined = release.combine_manifests(
+            str(self.manifest),
+            str(self.manifest),
+            str(combined_path),
+        )
+        self.assertEqual(combined["format"], "SABLERESEARCHA_MANIFEST1")
+        self.assertEqual(
+            set(combined["components"]),
+            {"windows", "optional_14b"},
+        )
+
+        segments = Path(self.folder, "combined-segments")
+        segments.mkdir()
+        for capsule in manifest["capsules"]:
+            release.machinesoul.extract_stream(
+                str(self.out / capsule["name"]),
+                str(segments / capsule["decoded_name"]),
+            )
+
+        rebuilt = Path(self.folder, "combined-rebuilt")
+        release.reassemble(
+            str(combined_path),
+            str(segments),
+            str(rebuilt),
+            component="windows",
+        )
+        for record in manifest["files"]:
+            self.assertEqual(_sha(rebuilt / record["path"]), record["sha256"])
+
+        with self.assertRaises(release.ReleaseError):
+            release.reassemble(
+                str(combined_path),
+                str(segments),
+                str(Path(self.folder, "missing-component")),
+            )
+
     def test_a_tampered_decoded_capsule_is_refused(self):
         _, manifest = self._cut()
         segments = Path(self.folder, "segments")

@@ -502,6 +502,7 @@ activity logs, keys, tokens, passcodes, pairing data, or personal paths.
 - [Semantic retrieval and agent bridges](docs/SEMANTIC_AND_AGENT_BRIDGES.md)
 - [Research goals](docs/RESEARCH_GOALS.md)
 - [researchA pre-release evidence and inheritance](docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md)
+- [How researchA is cut into machinesoul fields](docs/MACHINESOUL_RELEASE_CUT_METHOD.md)
 - [Sensing module notes](docs/SENSING_MODULE.md)
 - [Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md)
 

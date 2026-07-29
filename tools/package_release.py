@@ -161,6 +161,7 @@ INCLUDE_FILES = [
     "docs/BRING_YOUR_OWN_GGUF.md",
     "docs/FIRST_RUN.md",
     "docs/INSTALL_WINDOWS.md",
+    "docs/MACHINESOUL_RELEASE_CUT_METHOD.md",
     "docs/RELEASE_CHECKLIST.md",
     "docs/TESTING.md",
     "docs/TROUBLESHOOTING.md",

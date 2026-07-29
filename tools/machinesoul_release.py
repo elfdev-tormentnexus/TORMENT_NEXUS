@@ -37,6 +37,8 @@ import machinesoul
 
 
 FORMAT = "MACHINESOUL_RELEASE1"
+COMBINED_FORMAT = "SABLERESEARCHA_MANIFEST1"
+COMBINED_COMPONENTS = ("windows", "optional_14b")
 VECTOR_WIDTH = 4
 DEFAULT_PAYLOAD_LIMIT = 1_797_000_000
 GITHUB_ASSET_LIMIT = 2 * 1024**3
@@ -1000,10 +1002,61 @@ def _validate_manifest(manifest: dict) -> None:
             raise ReleaseError(f"invalid file record: {path}")
 
 
-def reassemble(manifest_path: str, segments_dir: str, out_dir: str) -> None:
+def combine_manifests(
+    windows_path: str,
+    optional_14b_path: str,
+    out_path: str,
+) -> dict:
+    """Write the two independently cut components as one public manifest."""
+    components = {}
+    for name, path in (
+        ("windows", windows_path),
+        ("optional_14b", optional_14b_path),
+    ):
+        with open(path, encoding="utf-8") as handle:
+            manifest = json.load(handle)
+        _validate_manifest(manifest)
+        components[name] = manifest
+
+    combined = {
+        "format": COMBINED_FORMAT,
+        "components": components,
+    }
+    _write_json(out_path, combined)
+    return combined
+
+
+def _load_reassembly_manifest(
+    manifest_path: str,
+    component: str | None,
+) -> dict:
     with open(manifest_path, encoding="utf-8") as handle:
         manifest = json.load(handle)
+
+    if manifest.get("format") == COMBINED_FORMAT:
+        if component not in COMBINED_COMPONENTS:
+            choices = ", ".join(COMBINED_COMPONENTS)
+            raise ReleaseError(
+                f"combined manifest requires a component: {choices}"
+            )
+        components = manifest.get("components")
+        if not isinstance(components, dict) or component not in components:
+            raise ReleaseError(f"combined manifest is missing {component}")
+        manifest = components[component]
+    elif component is not None:
+        raise ReleaseError("component applies only to a combined manifest")
+
     _validate_manifest(manifest)
+    return manifest
+
+
+def reassemble(
+    manifest_path: str,
+    segments_dir: str,
+    out_dir: str,
+    component: str | None = None,
+) -> None:
+    manifest = _load_reassembly_manifest(manifest_path, component)
     out_dir = os.path.realpath(out_dir)
     if os.path.exists(out_dir):
         raise ReleaseError(f"reassembly target already exists: {out_dir}")
@@ -1123,8 +1176,13 @@ def _cmd_render(args) -> None:
 
 
 def _cmd_reassemble(args) -> None:
-    reassemble(args.manifest, args.segments_dir, args.out)
+    reassemble(args.manifest, args.segments_dir, args.out, args.component)
     print(f"reassembled and verified: {args.out}")
+
+
+def _cmd_combine(args) -> None:
+    combine_manifests(args.windows, args.optional_14b, args.out)
+    print(f"combined manifest: {args.out}")
 
 
 def main(argv=None) -> int:
@@ -1162,7 +1220,17 @@ def main(argv=None) -> int:
     restore.add_argument("manifest")
     restore.add_argument("segments_dir")
     restore.add_argument("--out", required=True)
+    restore.add_argument("--component", choices=COMBINED_COMPONENTS)
     restore.set_defaults(func=_cmd_reassemble)
+
+    combine = sub.add_parser(
+        "combine",
+        help="combine the Windows and optional 14B manifests",
+    )
+    combine.add_argument("--windows", required=True)
+    combine.add_argument("--optional-14b", required=True)
+    combine.add_argument("--out", required=True)
+    combine.set_defaults(func=_cmd_combine)
 
     args = parser.parse_args(argv)
     try:

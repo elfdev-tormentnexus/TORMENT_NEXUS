@@ -215,6 +215,9 @@ The cross-cutting synthesis now lives in
 reachability failure, trail sufficiency, cluster/curve refutation, basis
 control, calibration design, Rosetta measurement, open hypotheses, and the
 practices future work must preserve. Keep that file in the staged package.
+The cut rationale and exact deterministic algorithm are separately preserved
+in `docs/MACHINESOUL_RELEASE_CUT_METHOD.md`; the per-release plan/APNG remains
+the authoritative record of the actual seam offsets.
 
 ## 6. Deliberately not done
 

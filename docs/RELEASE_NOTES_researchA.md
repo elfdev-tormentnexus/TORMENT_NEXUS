@@ -57,6 +57,10 @@ optional 14B only when its complete set is present, and then runs setup. An
 image viewer can show the vectors; it cannot perform that inverse or integrity
 proof.
 
+The complete boundary-selection algorithm, activity metric, review colors,
+hash binding, and reconstruction checks are recorded in
+[`MACHINESOUL_RELEASE_CUT_METHOD.md`](MACHINESOUL_RELEASE_CUT_METHOD.md).
+
 ### A capsule can say what it carries
 
 `machinesoul.py build --describe` stores a plain-language description of a
