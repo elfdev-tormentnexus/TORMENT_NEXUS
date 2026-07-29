@@ -6375,6 +6375,33 @@ class ModeTutorialTests(unittest.TestCase):
         self.assertIsNotNone(tutorial.explain("trace"))
 
 
+class HazardLauncherLifetimeTests(unittest.TestCase):
+    """The unpooled helper must not outlive its hazard-mode launcher."""
+
+    @staticmethod
+    def _launcher(name):
+        root = Path(__file__).resolve().parents[2]
+        return (root / name).read_text(encoding="utf-8")
+
+    def test_machinespirit_helper_shares_the_launcher_console(self):
+        hazard = self._launcher("start_assistant_hazard.bat")
+
+        self.assertIn('start "" /b "%LLAMA%"', hazard)
+        self.assertNotIn('start "machinespirit-embedder" /min', hazard)
+        self.assertIn("machinespirit_server.log", hazard)
+
+    def test_inner_launcher_does_not_delay_hazard_cleanup(self):
+        hazard = self._launcher("start_assistant_hazard.bat")
+        ordinary = self._launcher("start_assistant.bat")
+
+        self.assertIn(
+            'set "TORMENT_NEXUS_SKIP_LAUNCHER_PAUSE=1"', hazard)
+        self.assertIn(
+            "if not defined TORMENT_NEXUS_SKIP_LAUNCHER_PAUSE pause",
+            ordinary,
+        )
+
+
 class GlitchLabelTests(unittest.TestCase):
     """The desktop label animation must never produce an unusable name."""
 

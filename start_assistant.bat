@@ -25,4 +25,7 @@ if defined TORMENT_NEXUS_PYTHON (
 
 cd /d "%ROOT%assistant"
 "%PY%" main.py
-pause
+REM Wrapper launchers have their own cleanup work to perform after the
+REM assistant exits.  Do not strand their helper processes behind this
+REM otherwise useful "press any key" prompt.
+if not defined TORMENT_NEXUS_SKIP_LAUNCHER_PAUSE pause

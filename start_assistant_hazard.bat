@@ -51,14 +51,20 @@ echo   Starting unpooled embedder on port %UNPOOLED_PORT% ...
 REM llama.cpp fixes pooling when the process starts, so a trajectory
 REM cannot come from the ordinary pooled embedder. This is a second
 REM instance of the same small model, which is cheap beside the director.
-start "machinespirit-embedder" /min "%LLAMA%" -m "%EMBED_MODEL%" ^
+REM Keep it in this launcher's console group instead of opening an
+REM independent minimized window.  A closed hazard window then closes the
+REM helper too, while the explicit cleanup below handles an ordinary exit.
+if not exist "%ROOT%assistant\logs" mkdir "%ROOT%assistant\logs"
+start "" /b "%LLAMA%" -m "%EMBED_MODEL%" ^
     --embedding --pooling none --alias machinespirit ^
     -c 512 -ub 512 --host 127.0.0.1 --port %UNPOOLED_PORT% ^
-    -ngl 0 -t 2 --api-key machinespirit
+    -ngl 0 -t 2 --api-key machinespirit ^
+    > "%ROOT%assistant\logs\machinespirit_server.log" 2>&1
 
 set "TORMENT_NEXUS_EXPERIMENTAL=1"
 set "TORMENT_NEXUS_MACHINESPIRIT_URL=http://127.0.0.1:%UNPOOLED_PORT%"
 set "TORMENT_NEXUS_MACHINESPIRIT_KEY=machinespirit"
+set "TORMENT_NEXUS_SKIP_LAUNCHER_PAUSE=1"
 
 call "%ROOT%start_assistant.bat"
 
