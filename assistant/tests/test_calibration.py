@@ -48,6 +48,21 @@ class FibonacciWordTests(unittest.TestCase):
         noise = "".join(random.Random(4).choice("ab") for _ in range(4000))
         self.assertFalse(cal.is_sturmian(noise))
 
+    def test_the_shipped_control_words_carry_what_their_length_allows(self):
+        """The 13-term corpus row carries the signature only through n=6."""
+        shipped = cal.fibonacci_word(cal.CONTROL_TERMS)
+        for n in range(1, 7):
+            with self.subTest(n=n):
+                self.assertEqual(cal.subword_count(shipped, n), n + 1)
+        self.assertNotEqual(cal.subword_count(shipped, 7), 8)
+        self.assertFalse(cal.is_sturmian(shipped))
+
+        periodic = "a" * cal.CONTROL_TERMS
+        shuffled = list(shipped)
+        random.Random(20260729).shuffle(shuffled)
+        self.assertFalse(cal.is_sturmian(periodic))
+        self.assertFalse(cal.is_sturmian("".join(shuffled)))
+
     def test_it_never_repeats(self):
         """Aperiodic: no prefix of any period tiles the word."""
         word = cal.fibonacci_word(600)
@@ -115,6 +130,33 @@ class CompareTests(unittest.TestCase):
     def test_a_reading_inside_tolerance_is_not_reported(self):
         self.assertEqual(
             cal.compare(self._recorded(), self._fresh(effective_rank=1.51)), [])
+
+    def test_stable_categorical_fields_are_compared_exactly(self):
+        changes = {
+            "tokens": 11,
+            "anchors_fired": 3,
+            "top_anchor": "different",
+        }
+        for field, value in changes.items():
+            with self.subTest(field=field):
+                problems = cal.compare(
+                    self._recorded(),
+                    self._fresh(**{field: value}),
+                )
+                self.assertEqual(len(problems), 1)
+                self.assertIn(field, problems[0])
+
+    def test_top_support_uses_tolerance_not_exact_equality(self):
+        self.assertEqual(
+            cal.compare(self._recorded(), self._fresh(top_support=1.000001)),
+            [],
+        )
+        problems = cal.compare(
+            self._recorded(),
+            self._fresh(top_support=1.1),
+        )
+        self.assertEqual(len(problems), 1)
+        self.assertIn("top_support", problems[0])
 
     def test_a_changed_anchor_digest_is_reported_alone(self):
         """Every row differing is expected then, and would bury the one fact."""

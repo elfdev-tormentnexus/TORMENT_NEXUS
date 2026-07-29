@@ -30,9 +30,11 @@ this one; it is neither a polynomial trend nor a finite periodic signal.
 
 The finite release control cannot prove a theorem about the infinite word.
 `is_sturmian()` instead checks the expected n + 1 subword signature through
-the declared finite range, and the test runs the same check against the
-periodic and seeded-random controls, which fail it. A control that cannot
-demonstrate its defining signature at the scales used is decoration.
+the declared finite range, and the test runs it on a long prefix together
+with the periodic and seeded-random controls, which fail it. The 13-term
+row that ships is a prefix of that word; a word that short carries the
+signature only through n = 6, which is what a 13-letter word can hold. A
+control that cannot demonstrate its defining signature is decoration.
 
 The physics is real rather than an analogy: one-dimensional quasicrystals
 are modelled as Fibonacci chains, and aperiodic order is a genuine state of
@@ -63,9 +65,9 @@ PHRASE_B = "a funeral on a cold morning"
 # embedding window with room to spare.
 CONTROL_TERMS = 13
 
-# A reading is a float from a model. Bit-equality would fail on a rebuild
-# of the same model; this is loose enough to survive that and tight enough
-# to catch a swap, a requantisation, or a pooling change.
+# A reading is a float from a model. Even repeated runs of the same build can
+# move the final decimal place; this is loose enough to survive that and tight
+# enough to catch a swap, a requantisation, or a pooling change.
 TOLERANCE = 0.02
 
 
@@ -93,8 +95,11 @@ def is_sturmian(word, upto=12):
     """Check the finite Sturmian complexity signature through ``upto``.
 
     This verifies p(n) = n + 1 over the tested range. A finite prefix cannot
-    prove the infinite word is Sturmian; it can prove that the shipped
-    control has the expected signature at every scale the instrument uses.
+    prove the infinite word is Sturmian, and a prefix shorter than ``upto``
+    cannot even carry the signature -- a word of length L has only L - n + 1
+    windows of length n, so p(n) = n + 1 is unreachable once n exceeds about
+    L / 2. The test runs this on a long prefix; the 13-term corpus row is a
+    prefix of that word and carries the signature through n = 6.
     """
     return all(subword_count(word, n) == n + 1 for n in range(1, upto + 1))
 
@@ -254,7 +259,18 @@ def compare(recorded, fresh, tolerance=TOLERANCE):
         if now["text_sha256"] != was["text_sha256"]:
             problems.append(f"{name}: the reference text itself changed")
             continue
-        for field in ("effective_rank", "entropy", "purity"):
+        for field in ("tokens", "anchors_fired", "top_anchor"):
+            if now[field] != was[field]:
+                problems.append(
+                    f"{name}: {field} {was[field]!r} -> {now[field]!r}")
+        for field in (
+            "effective_rank", "entropy", "purity", "top_support",
+        ):
+            if now[field] is None or was[field] is None:
+                if now[field] != was[field]:
+                    problems.append(
+                        f"{name}: {field} {was[field]!r} -> {now[field]!r}")
+                continue
             drift = abs(now[field] - was[field])
             if drift > tolerance:
                 problems.append(

@@ -169,9 +169,10 @@ form the scale:
 - seeded random: the same phrase multiset in another order.
 
 The infinite Fibonacci word is Sturmian. The finite release test does not
-prove that theorem; it verifies the expected p(n)=n+1 subword signature
-through twelve scales and shows the periodic and seeded-random controls fail
-the same check.
+prove that theorem; it verifies the expected p(n)=n+1 subword signature on a
+long prefix through twelve scales and shows the periodic and seeded-random
+controls fail the same check. The 13-term corpus row itself can carry the
+signature only through n=6, and the test records that counting limit.
 
 Fibonacci and random share a phrase mix, so a permutation-invariant
 instrument must read them alike: 1.5238 and 1.5132. Periodic changes the mix

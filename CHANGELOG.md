@@ -24,11 +24,11 @@
   name, pooling, and anchor digest, so behavioural drift becomes visible
   instead of silently moving every published figure. Three rows are controls:
   periodic, random, and a **Fibonacci word** ordering. The infinite word is
-  Sturmian; the release test verifies its n+1 subword signature through the
-  first twelve scales and proves that both other controls fail the same
-  finite check. The fibonacci and random rows share a phrase mix and differ
-  only in order, so they must read alike; measured 1.5238 against 1.5132,
-  which demonstrates permutation invariance on live data.
+  Sturmian; the release test verifies its n+1 subword signature on a long
+  prefix through the first twelve scales and proves that both other controls
+  fail the same finite check. The fibonacci and random rows share a phrase
+  mix and differ only in order, so they must read alike; measured 1.5238
+  against 1.5132, which demonstrates permutation invariance on live data.
 - Added `trail <text>`: the same reading `trace` produces, stored per
   anchor rather than per token. Only the anchor nearest a token records
   anything -- accumulated support, its strongest reading, and where that

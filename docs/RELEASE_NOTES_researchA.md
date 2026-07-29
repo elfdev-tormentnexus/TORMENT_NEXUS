@@ -1,5 +1,21 @@
 # researchA
 
+## Calibration-clarity companion patch
+
+Claude's final audit found that the twelve-scale Sturmian test uses a long
+Fibonacci prefix while the corpus row itself contains 13 terms and can carry
+the signature only through *n*=6. It also found that calibration comparison
+covered only three of seven recorded fields. The companion patch corrects
+that scope, tests the shipped finite row directly, compares token count,
+anchors fired, and top anchor exactly, and compares top support with the same
+numeric tolerance as the other measured values. The recorded readings remain
+unchanged.
+
+The patch is a direct machinesoul field with its own encoded manifest and
+one-click bootstrap. It accepts only the exact researchA files or an already
+patched install, keeps backups, updates the installed hash ledger, and refuses
+unknown local edits rather than overwriting them.
+
 Formerly `v0.2.0-beta.6`. The name changed because "beta" implies a product
 on its way to release, and this is a research build that ships
 weakened-refusal models and an unproven representation. Letters, one per
@@ -119,10 +135,12 @@ One-dimensional quasicrystals are modelled as Fibonacci chains, so the
 aperiodic order here is a real structure rather than an analogy.
 
 The finite release prefix cannot prove the infinite theorem. Instead,
-`is_sturmian()` counts subwords through the first twelve scales; a test
-confirms the expected *n+1* signature there and confirms that both other
-controls fail the same finite check. A control that cannot demonstrate its
-defining signature at the scales used is decoration.
+`is_sturmian()` counts subwords on a long prefix through the first twelve
+scales; a test confirms the expected *n+1* signature there and confirms that
+both other controls fail the same finite check. The 13-term row that ships
+can carry that signature only through *n*=6, and a separate test checks that
+exact finite limit. A control that cannot demonstrate its defining signature
+is decoration.
 
 **The corpus tests the instrument in both directions.** Fibonacci and
 random hold the identical phrase mix in a different order, so they must

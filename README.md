@@ -138,6 +138,23 @@ decompilation, the reconstructed installation contains:
    displays its disclosure and requires the exact text `I UNDERSTAND`.
    Anything else closes the application without starting those components.
 
+### The calibration-clarity patch
+
+The researchA release page also carries
+`INSTALL_SABLERESEARCHA_CALIBRATION_PATCH.bat` and two small machinesoul
+images with `CALIBRATION-PATCH` in their names. Keep them beside the main
+release downloads and run that installer after the main reconstruction. The
+main one-click installer also offers to run it automatically when the full
+patch set is present.
+
+The patch does not change the recorded calibration readings. It corrects the
+finite Fibonacci claim, tests the exact limit of the 13-term row, and makes
+calibration compare every recorded field using exact or tolerance semantics
+as appropriate. It decompiles and reassembles through the same machinesoul
+path as the main release, refuses unknown local file versions, backs up the
+originals, and updates the installed release ledger. It is not a ZIP and does
+not ask an image viewer to recover application files.
+
 <details>
 <summary>Why the files must remain unchanged</summary>
 
