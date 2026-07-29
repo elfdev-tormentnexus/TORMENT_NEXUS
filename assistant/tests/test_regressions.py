@@ -7601,14 +7601,12 @@ class DocumentationTests(unittest.TestCase):
         for text in (readme, installer):
             with self.subTest(document="README" if text is readme else "installer"):
                 self.assertIn(
-                    "TORMENT_NEXUS-researchA-windows-x64.zip.part01.png",
+                    "SABLERESEARCHA-WINDOWS.part01.png",
                     text,
                 )
-                self.assertIn(
-                    "REASSEMBLE_TORMENT_NEXUS-"
-                    "researchA-windows-x64.bat",
-                    text,
-                )
+                self.assertNotIn(".zip.part01.png", text)
+                self.assertIn("SABLERESEARCHA-REASSEMBLER.png", text)
+                self.assertIn("SABLERESEARCHA-MANIFEST.png", text)
                 self.assertIn("DECOMPILE_SABLE_researchA.bat", text)
                 self.assertIn("machinesoul.py", text)
                 self.assertIn("re-encode", text.lower())
@@ -7645,6 +7643,7 @@ class DocumentationTests(unittest.TestCase):
     def test_researchA_packages_the_rosetta_bridge_and_its_context(self):
         required = {
             "tools/machinesoul.py",
+            "tools/machinesoul_release.py",
             "tools/rosetta_stone.py",
             "tools/vector_beam.py",
             "docs/VECTOR_PIXEL_RESEARCH.md",

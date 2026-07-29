@@ -194,6 +194,7 @@ INCLUDE_FILES = [
     "setup/test_assistant.bat",
     "tools/glitch_icon.py",
     "tools/machinesoul.py",
+    "tools/machinesoul_release.py",
     "tools/package_model_pack.py",
     "tools/package_release.py",
     "tools/rosetta_stone.py",
@@ -1863,17 +1864,19 @@ WHAT YOU NEED
     - At least 16 GB of RAM for the Q8 director and 7B coder
     - A microphone only if you want to speak; typed input works without one
 
-    The full download, rebuilt ZIP, and extracted folder can temporarily use
-    about 40 GB together. You may delete the download parts and ZIP after the
-    installation works.
+    The machinesoul capsules, decoded vector segments, and reconstructed
+    folder can temporarily use about 40 GB together. You may delete the
+    downloaded capsules and decoded segments after the installation works.
 
 INSTALLING
-    1. Right-click the ZIP and choose "Extract All". Do not run setup while
-       viewing files inside the ZIP.
-    2. Open the extracted TORMENT_NEXUS folder. Keep everything together:
-       setup needs the neighbouring assistant, models, and python folders.
-    3. Run setup.bat
-    4. Launch "TORMENT_NEXUS" from your desktop.
+    The researchA one-step decompiler normally reconstructs this folder and
+    runs setup.bat for you. If setup did not start after every capsule and
+    file hash verified:
+
+    1. Keep this whole TORMENT_NEXUS folder together. Setup needs the
+       neighbouring assistant, models, and python folders.
+    2. Run setup.bat.
+    3. Launch "TORMENT_NEXUS" from your desktop.
 
     Setup takes a couple of minutes and needs no internet.
 

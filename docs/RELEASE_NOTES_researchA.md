@@ -10,24 +10,25 @@ measured to be *worse* than the thing it sits beside, at the job people
 will assume it does. That is stated below rather than buried, because it is
 the finding.
 
-The complete Windows package is capsule-only at the public layer. Every
-numbered ZIP part is carried inside a lossless `.png` and must be recovered
-with the published `machinesoul.py` decompiler before reassembly. The capsule
-is not encryption and does not evade GitHub's file-size ceiling; it is the
-byte-exact installation boundary requested for this research cut. Re-encoding
-an image destroys its payload.
+The complete Windows package is capsule-only at the public layer. The verified
+install tree is cut directly into lossless machinesoul PNG/APNG vector fields,
+without a ZIP or tar layer erasing its file and code boundaries. The published
+`machinesoul.py` decompiler moves those fields back from pixels; the recovered
+reassembler then verifies every final file. The capsule is not encryption and
+does not evade GitHub's file-size ceiling. Re-encoding an image changes the
+vectors and is refused.
 
 ## What is new
 
-### machinespirit and machinesoul, named apart
+### machinesoul and machinespirit, named apart
 
 Two halves that were being called one thing, which let the phrase "1:1"
 attach to something measured at 0.9243.
 
 | | reads | fidelity |
 | --- | --- | --- |
-| **machinespirit** | meaning — anchor coordinates, traces, `consume`, memory | lossy, and the loss is the research |
-| **machinesoul** | bytes — the release capsule and its extractor | 1:1 or an exception, sha256-verified |
+| **machinesoul** | Sable's data-preservation logic language — ordered vectors mapped to PNG/APNG pixels | reversible 1:1 or refusal, SHA-256 verified |
+| **machinespirit** | Sable's memory language — anchor coordinates, traces, `consume`, recall | lossy, and the loss is the research |
 
 ### `consume <url>` — hazard mode
 
@@ -128,10 +129,10 @@ a few hours and someone re-deriving this should see why it changed.
 - **v2 is still wrong on roughly a third of entries.** *"working on their
   project"* matches *"a single-board computer bought for a project"* on the
   word "project".
-- **The capsule is not a compression win.** PNG is DEFLATE, so packing
-  bytes into one costs about 1% over zipping them and about 0.03% on large
-  payloads. It is not a way around a file-size limit either: a capsule
-  holding an 8 GB model is an 8 GB file.
+- **The capsule is not a compression claim.** The public form is the
+  machinesoul PNG/APNG vector field itself, not a ZIP allocation with an
+  image suffix, and it is not a way around a file-size limit. Preserving an
+  8 GB model still requires roughly 8 GB of capsule extent.
 
 ## Unchanged and still true
 
@@ -147,9 +148,9 @@ disappointed.
 
 The optional Qwen2.5-Coder 14B pack is the current researchA companion for
 deliberately requested long self-heal and extended editing sessions. It is
-not superseded. Its exact reviewed model bytes are republished as
-machinesoul-wrapped numbered parts rather than being duplicated inside the
-main package.
+not superseded. Its exact reviewed model is republished as its own
+machinesoul vector-field set rather than being duplicated inside the main
+package.
 
 ## Known gaps in this cut
 

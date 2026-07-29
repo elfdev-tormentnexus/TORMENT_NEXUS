@@ -19,33 +19,36 @@ llama.cpp development environment.
 
 researchA deliberately puts machinesoul in the installation path. The large
 package is split below GitHub's per-asset ceiling, and every numbered part is
-carried as pixels in a lossless PNG capsule:
+carried as an ordered vector field in a lossless PNG/APNG capsule:
 
 ```text
-TORMENT_NEXUS-researchA-windows-x64.zip.part01.png
-TORMENT_NEXUS-researchA-windows-x64.zip.part02.png
+SABLERESEARCHA-WINDOWS.part01.png
+SABLERESEARCHA-WINDOWS.part02.png
 ...every later consecutive part shown...
 ```
 
-These are not screenshots or decorative previews. The pixels are the payload.
-`machinesoul.py` reads them in raster order, verifies the embedded SHA-256,
-and writes the exact `.zip.partNN` bytes. A capsule either verifies or refuses;
-it never presents a partial output as complete.
+These are not screenshots or decorative previews. The ordered pixel vectors
+are the preservation language. `machinesoul.py` reads them in raster order,
+verifies the embedded SHA-256, and writes the exact internal `.msv` segment.
+A capsule either verifies or refuses; it never presents a partial output as
+complete.
 
-This is not encryption, a compression advantage, or a way around GitHub's
-size limit. It is a byte-exact container that makes the project's decompiler
-part of accessing the research build.
+This is not encryption, a compression advantage, a ZIP allocation with an
+image suffix, or a way around GitHub's size limit. machinesoul is Sable's
+data-preservation logic language: ordered vectors map to pixels, and the
+inverse is 1:1 or refuses. The reassembler restores each reviewed source file
+directly; it does not create a ZIP or tar layer.
 
 **Do not screenshot, crop, optimise, resize, or re-encode a capsule.** Download
 each GitHub asset as a file. A social preview or image editor can change the
-pixels and destroy the bytes they carry.
+ordered pixel vectors and break the inverse.
 
 ## Requirements
 
 - 64-bit Windows.
 - At least 16 GB of RAM.
-- About 55 GB of free disk space while the PNG capsules, decoded parts,
-  reassembled ZIP, and extracted folder coexist.
+- About 55 GB of free disk space while the downloaded capsules, decoded
+  vector segments, and directly reconstructed installation coexist.
 - Internet access for the initial multi-gigabyte download.
 - A standard Python 3 installation for the published machinesoul decompiler.
 - A microphone only if you later choose `audio mode`; researchA begins in
@@ -64,26 +67,27 @@ select the release titled `researchA`, expand **Assets**, and download:
 ```text
 machinesoul.py
 DECOMPILE_SABLE_researchA.bat
-SABLE_researchA_support.png
-SABLE_researchA_research.png
-TORMENT_NEXUS-researchA-windows-x64.zip.part01.png
-TORMENT_NEXUS-researchA-windows-x64.zip.part02.png
+SABLERESEARCHA-MANIFEST.png
+SABLERESEARCHA-REASSEMBLER.png
+SABLERESEARCHA-WINDOWS.part01.png
+SABLERESEARCHA-WINDOWS.part02.png
 ...every later consecutive .partNN.png...
 ```
 
 `machinesoul.py` and its one-click batch launcher are the unavoidable
 plaintext bootstrap: without the decompiler nothing can open the first
 capsule. Every other researchA download is itself carried through machinesoul.
-The support capsule contains the checksum ledger and exact reassembler. The
-research capsule contains the Rosetta Stone bridge, anchor material, tests,
-and primary research documents. Neither support image is an installer part.
+The manifest and reassembler are also capsules. Rosetta Stone, anchor
+material, tests, and the primary research documents live in the directly
+preserved install tree rather than in a ZIP, tar, or separate research
+encoder.
 
 For the optional 14B full-maintenance companion, also download every
 consecutive:
 
 ```text
-TORMENT_NEXUS-researchA-full-maintenance-14b.part01.png
-TORMENT_NEXUS-researchA-full-maintenance-14b.part02.png
+SABLERESEARCHA-14B.part01.png
+SABLERESEARCHA-14B.part02.png
 ...every later consecutive .partNN.png...
 ```
 
@@ -96,7 +100,7 @@ Keep every file in one empty folder and do not rename it. GitHub's green
 **Code** button and automatic **Source code (zip)** files are developer source
 snapshots; they do not contain the models or complete Windows runtime.
 
-## Step 2: Verify and decompile the capsules
+## Step 2: Run the one-step decompiler and installer
 
 Double-click:
 
@@ -104,14 +108,22 @@ Double-click:
 DECOMPILE_SABLE_researchA.bat
 ```
 
-The helper uses the Python launcher (`py -3`) when available and falls back to
-`python`. It first decompiles the support and research capsules, then calls the
-published `machinesoul.py` once for every consecutive package capsule. For
-each numbered image it writes the same filename without the final `.png`:
+This is the only installation action after downloading. The helper uses the
+Python launcher (`py -3`) when available and falls back to `python`. It:
+
+1. decompiles the support and research capsules;
+2. moves every required package vector field back from machinesoul;
+3. invokes the recovered reassembler and verifies every reconstructed file;
+4. creates the install directory directly, without a ZIP or tar layer;
+5. installs the optional 14B companion when its complete capsule set is
+   present; and
+6. runs `setup.bat`.
+
+The internal vector segments appear only during that local process:
 
 ```text
-TORMENT_NEXUS-researchA-windows-x64.zip.part01
-TORMENT_NEXUS-researchA-windows-x64.zip.part02
+SABLERESEARCHA-WINDOWS.part01.msv
+SABLERESEARCHA-WINDOWS.part02.msv
 ...
 ```
 
@@ -119,58 +131,41 @@ Every part is SHA-256 verified by the capsule before it is kept. If a file is
 missing, damaged, renamed, or re-encoded, the helper stops. Do not continue by
 guessing or by using a partial output.
 
-The recovered `SHA256SUMS_researchA.txt` records both layers:
+The recovered machinesoul release manifest records both layers:
 
 - the SHA-256 of every downloaded PNG capsule and helper;
-- the SHA-256 of every decoded `.zip.partNN` payload;
-- the SHA-256 of the final ZIP.
+- the SHA-256 of every decoded `.msv` vector segment;
+- the size and SHA-256 of every reconstructed file.
 
-If the optional 14B capsules are present, the same pass recovers their exact
-numbered parts and checksum-gated installer. Install that companion only after
-the main TORMENT_NEXUS folder has been extracted.
+If every optional 14B capsule is present, the same pass recovers and installs
+its exact model. If none are present, it skips that companion. A partial set
+refuses rather than silently installing an incomplete model.
 
-## Step 3: Reassemble and verify
+## What the one-step process verifies
 
-Double-click the reassembler recovered from the support capsule:
+The recovered reassembler knows every approved cut, source path, file offset,
+and digest. It refuses a missing capsule, an altered vector segment, a gap or
+overlap, an unsafe path, or a final file whose SHA-256 differs from the staged
+source. A complete verified tree proves exact reconstruction of the locally
+staged source. It does not certify that the software, generated output, or
+model licensing is safe.
 
-```text
-REASSEMBLE_TORMENT_NEXUS-researchA-windows-x64.bat
-```
+## After setup
 
-The generated helper knows the exact part count from this build. It refuses a
-missing part, joins them in numerical order, and verifies:
-
-```text
-TORMENT_NEXUS-researchA-windows-x64.zip
-```
-
-You can independently compare the result with the release ledger:
-
-```powershell
-Get-FileHash -Algorithm SHA256 -LiteralPath ".\TORMENT_NEXUS-researchA-windows-x64.zip"
-```
-
-A matching hash proves byte identity with the published archive. It does not
-certify that the software, generated output, or model licensing is safe.
-
-## Step 4: Extract and set up
-
-Right-click the verified ZIP, select **Extract All**, open the extracted
-`TORMENT_NEXUS` folder, and double-click:
+The one-step helper has already extracted the package and run:
 
 ```text
 setup.bat
 ```
 
-Do not run setup from inside the ZIP preview. Setup verifies the bundle,
-prepares the private runtime, and creates a desktop shortcut. It does not
-replace system Python or add TORMENT_NEXUS to PATH.
+Setup verifies the bundle, prepares the private runtime, and creates a desktop
+shortcut. It does not replace system Python or add TORMENT_NEXUS to PATH.
 
 The ask guard, near-miss command guard, interface mode, machinespirit work,
 and documentation corrections are already inside researchA. Do not apply the
 separate Beta 6 patch assets to this package.
 
-## Step 5: Read the first-launch notice
+## Read the first-launch notice
 
 Launch the desktop shortcut or run `start_assistant.bat` from the extracted
 folder.
@@ -200,8 +195,8 @@ To uninstall:
 
 1. Close TORMENT_NEXUS and its model-server windows.
 2. Delete the extracted installation folder and desktop shortcut.
-3. Delete the downloaded capsules, decoded parts, and rebuilt ZIP if you do
-   not want to retain an installer.
+3. Delete the downloaded capsules and decoded vector segments if you do not
+   want to retain an installer.
 4. Review the Recycle Bin, backups, cloud-sync folders, search indexes, and
    screenshots separately.
 

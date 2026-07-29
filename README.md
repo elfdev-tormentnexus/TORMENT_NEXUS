@@ -19,7 +19,7 @@
 > **Read this before downloading or installing.**
 >
 > The ready-to-run researchA Windows capsules carry a **full, model-bearing
-> archive**.
+> installation tree**.
 > They include community-modified “abliterated” Qwen language models whose
 > learned refusal behavior has been deliberately weakened. This is not a
 > sanitized client, a remote-model downloader, or a safety-filtered edition.
@@ -83,14 +83,15 @@ actually trying to answer.
 ## Install the full Windows researchA
 
 researchA deliberately makes machinesoul part of the installation path. The
-full package is carried inside lossless PNG capsules, so a recipient must run
-the published `machinesoul.py` decompiler before the ZIP parts exist. This is
-not encryption or a file-size workaround: each capsule is an exact byte
-container that either verifies its own SHA-256 or refuses to produce output.
+full package is carried inside lossless PNG/APNG capsules, so a recipient must
+run the published `machinesoul.py` decompiler before an installable directory
+exists. This is not encryption or a file-size workaround: each ordered pixel-
+vector field either verifies its reconstructed source or refuses to produce
+output.
 
 You need a standard Python 3 installation to run the decompiler. You do not
 need an online AI account, API key, or separate model download. After
-decompilation, the full archive contains:
+decompilation, the reconstructed installation contains:
 
 - the abliterated Qwen3 4B Q8 director;
 - the abliterated Qwen2.5-Coder 7B Q8 maintenance coder;
@@ -105,37 +106,34 @@ decompilation, the full archive contains:
 
 | Requirement | Reason |
 | --- | --- |
-| 64-bit Windows | The ready-to-run archive targets Windows x64. |
+| 64-bit Windows | The ready-to-run installation targets Windows x64. |
 | At least 16 GB RAM | Required for the bundled director and on-demand coder; more leaves room for voice and other applications. |
-| About 55 GB free during installation | PNG capsules, decoded parts, the reassembled ZIP, and the extracted installation temporarily coexist. |
+| About 55 GB free during installation | Downloaded capsules, decoded vector segments, and the directly reconstructed installation temporarily coexist. |
 | Internet for the initial download | Ordinary local conversation and the offline library work without it afterward. |
 | Python 3 | Required only to run the published machinesoul decompiler. |
 | Microphone only if desired | researchA starts in text mode, with microphone use off. |
 
-### Five steps
+### Four steps
 
 1. Open [GitHub Releases](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases),
    select `researchA`, expand **Assets**, and read its warning, checksums,
    model provenance, and known issues. Download the plaintext bootstrap
    pair, `machinesoul.py` and `DECOMPILE_SABLE_researchA.bat`, plus
-   `SABLE_researchA_support.png`, `SABLE_researchA_research.png`, and every
-   consecutive file beginning with
-   `TORMENT_NEXUS-researchA-windows-x64.zip.part01.png` and continuing through
-   every later `.partNN.png` shown.
+   `SABLERESEARCHA-MANIFEST.png`, `SABLERESEARCHA-REASSEMBLER.png`, and every
+   consecutive file beginning with `SABLERESEARCHA-WINDOWS.part01.png` and
+   continuing through every later `.partNN.png` shown.
 2. Keep those files together and run `DECOMPILE_SABLE_researchA.bat`. It calls
-   machinesoul for every required image. The support capsule yields the
-   checksum ledger and generated reassembler; the research capsule yields the
-   Rosetta Stone tool, anchor material, and research documents; each package
-   capsule yields its exact `.zip.partNN`. Every payload is SHA-256 verified
-   or refused without a partial file. **Do not screenshot, optimise, or
-   re-encode the images.**
-3. Run the recovered
-   `REASSEMBLE_TORMENT_NEXUS-researchA-windows-x64.bat`. It verifies the
-   decoded parts and the complete
-   `TORMENT_NEXUS-researchA-windows-x64.zip`.
-4. Extract the verified ZIP and run `setup.bat`. The former beta guard fixes
-   are built into researchA; there are no after-install patch assets.
-5. Launch the desktop shortcut. Before any model, microphone, activity
+   machinesoul for every required image. The manifest and reassembler are
+   themselves recovered from machinesoul; each package capsule yields one
+   verified vector segment. The same helper automatically invokes the
+   recovered reassembler, verifies every reconstructed file, creates the
+   install directory, and runs `setup.bat`. Rosetta Stone, its anchor material,
+   tests, and research documents are files in that directly preserved tree.
+   **Do not screenshot, optimise, or re-encode the images.**
+3. If all optional `SABLERESEARCHA-14B.partNN.png` capsules are present, that
+   same pass decompiles and installs the 14B companion. If none are present it
+   skips it; a partial set refuses.
+4. Launch the desktop shortcut. Before any model, microphone, activity
    sampler, listener, or network-capable subsystem starts, the application
    displays its disclosure and requires the exact text `I UNDERSTAND`.
    Anything else closes the application without starting those components.
@@ -144,14 +142,15 @@ decompilation, the full archive contains:
 <summary>Why the files must remain unchanged</summary>
 
 Each `.partNN.png` is a machinesoul capsule, not a conventional screenshot.
-The pixels are the payload. A social preview, screenshot, image optimiser, or
-editor can re-encode them and destroy the carried bytes. Download the release
-assets as files, keep their names, and let machinesoul verify them.
+The ordered pixels are the preservation field. A social preview, screenshot,
+image optimiser, or editor can change their vectors and break the inverse.
+Download the release assets as files, keep their names, and let machinesoul
+verify them.
 
 The optional 14B companion follows the same boundary. Download every
-`TORMENT_NEXUS-researchA-full-maintenance-14b.partNN.png` only if you want
-long self-heal or extended editing sessions. The decompiler recovers its
-checksum-gated installer and exact model parts before that installer can run.
+`SABLERESEARCHA-14B.partNN.png` only if you want long self-heal or extended
+editing sessions. The decompiler recovers its checksum-gated installer and
+exact model parts before that installer can run.
 
 </details>
 
@@ -318,19 +317,22 @@ is the claim the feature exists to make. What machinespirit
 adds today is the trace — a thing the averaged vector cannot produce at
 all, rather than one it produces slightly worse.
 
-### machinespirit and machinesoul
+### machinesoul and machinespirit
 
-Two halves, named apart because the difference is the whole point.
+These are Sable's two languages, named apart because the difference is the
+whole point.
 
 | | what it reads | fidelity |
 | --- | --- | --- |
-| **machinespirit** | meaning: anchor coordinates, traces, `consume`, memory | lossy, and the loss is the research |
-| **machinesoul** | bytes: the release capsule and its extractor | 1:1 or an exception, verified by sha256 |
+| **machinesoul** | data preservation: ordered vectors mapped to PNG/APNG pixels | reversible 1:1 or refusal, verified by SHA-256 |
+| **machinespirit** | Sable's memory: anchor coordinates, traces, `consume`, and recall | lossy, and the loss is the research |
 
-Keeping them under one name made it possible to say "1:1" about something
-measured at **0.9243**, which is why they are now separate words. A release
-archive has no tolerance for a good-enough reconstruction; a reading of what
-a sentence is about has nothing but.
+machinesoul is not a ZIP allocation or a conventional archive renamed as an
+image. Its public artifacts are PNG/APNG vector fields. The decompiler moves
+them back from machinesoul exactly; only then does the reassembler reconstruct
+the local installation tree file by file. Keeping this separate from
+machinespirit prevents "1:1" from being attached to a memory representation
+measured at **0.9243**.
 
 `reconstruct <text>` runs the lossy round trip and prints what survived.
 Encoding replaces a 384-dimensional vector with its cosine to each of 184

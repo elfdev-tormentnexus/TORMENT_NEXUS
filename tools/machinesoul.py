@@ -1,53 +1,43 @@
-﻿"""machinesoul: carry a payload, exactly, inside an animated capsule.
+﻿"""machinesoul: Sable's data-preservation logic language.
 
-Named against machinespirit, and the pair is the point. They are the two
-halves of what this project does to data, and keeping them under one name
-made it possible to say "1:1" about something measured at 0.9243.
+machinesoul maps an ordered field of four-coordinate integer vectors directly
+to RGBA pixels across PNG or APNG frames. The inverse reads those pixels in
+the same order and reconstructs the preserved source exactly. There is no
+cosine threshold and no "close enough" result: the source digest agrees or
+the decompiler refuses and keeps no partial output.
 
-    machinespirit   the lossy half. Anchor coordinates, per-token traces,
-                    consume, memory. Reads MEANING, discards the words, and
-                    the loss is the subject of the research: 0.9243 cosine
-                    through the codec, 90% pooled retrieval against 83% for
-                    the trace, +0.380 mean profile on real entries.
-    machinesoul     the lossless half. Bytes in, the same bytes out, or an
-                    exception. No cosine appears anywhere in this file. A
-                    release archive has no tolerance for a good enough
-                    reconstruction, and the sha256 is what enforces that.
+This definition is deliberately separate from machinespirit:
 
-A capsule is machinesoul's container. The operator's decision to ship one
-was made with the size measurement in hand rather than instead of it:
-packing bytes into a PNG does not beat zipping them -- PNG
-*is* DEFLATE, so the best case is a tie and the real figure is the container
-overhead:
+    machinesoul     Sable's data-preservation logic language. Vector to
+                    pixel, reversible 1:1, integrity-gated.
+    machinespirit   Sable's memory language. Anchors, per-token traces,
+                    recall and semantic reconstruction. Meaning survives
+                    imperfectly, and that measured loss is the research.
 
-    research prose      51,066 raw   20,178 zlib   20,292 as PNG   1.01x
-    already compressed  20,178       20,194        20,306          1.01x
-    GGUF slice, 4 MB    4,194,304    3,156,813     3,157,802       1.00x
+A machinesoul release artifact is a PNG/APNG file, not a ZIP allocation with
+an image suffix. After the recipient decompiles all capsule vectors, the
+verified reassembler restores each preserved file directly into the install
+tree. No ZIP or tar layer sits between the reviewed source boundaries and the
+published machinesoul fields.
 
-So this costs about 1% on small payloads and about 0.03% on large ones. It
-buys nothing in bytes and it is not a way around a file-size limit: a
-capsule holding an 8 GB model is an 8 GB file. What it buys is that the
-release artifact is made of the release, which is the project's whole
-aesthetic argument and the reason it exists.
+The preservation header occupies the first pixel vectors in raster order:
 
-The frames look like coloured static because they are bytes, which is the
-same thing `build_easter_egg.py` says about its band and for the same
-reason. Anything that re-encodes the image destroys the payload -- an
-optimiser, a screenshot, a social preview. That is stated in the tEXt chunk
-so a recipient who re-saves it learns why extraction then fails.
+    magic       MACHINESOUL1
+    version     current preservation-language version
+    length      exact preserved-source extent
+    frames      declared APNG frame count
+    digest      sha256 of the reconstructed source
+    source      ordered vector field
+    filler      zero vectors to the final frame boundary
 
-Layout, raster order from the first pixel of the first frame:
+Re-encoding, resizing, cropping, optimising, or screenshotting a capsule can
+change its vectors and is refused. Download the PNG/APNG asset itself and use
+the published decompiler.
 
-    magic     9   b"MACHINESOUL1"
-    version   1   currently 1
-    length    8   payload bytes, big-endian
-    frames    4   frame count
-    digest   32   sha256 of the payload
-    payload   n
-    filler        zero to the end of the last frame
-
-    python tools/machinesoul.py build docs --out sable_research.png
-    python tools/machinesoul.py extract sable_research.png --out docs.tar
+    python tools/machinesoul.py build docs/VECTOR_TRANSLATION_RESEARCH.md \
+        --out SABLERESEARCHA-RESEARCH.png
+    python tools/machinesoul.py extract SABLERESEARCHA-RESEARCH.png \
+        --out VECTOR_TRANSLATION_RESEARCH.recovered.md
 """
 import argparse
 import hashlib
@@ -674,4 +664,3 @@ def main(argv=None):
 
 if __name__ == "__main__":
     sys.exit(main())
-

@@ -21,7 +21,7 @@ contain the models or private Windows runtime. Open
 select `researchA`, and download every consecutive file named:
 
 ```text
-TORMENT_NEXUS-researchA-windows-x64.zip.partNN.png
+SABLERESEARCHA-WINDOWS.partNN.png
 ```
 
 Also download:
@@ -29,13 +29,13 @@ Also download:
 ```text
 machinesoul.py
 DECOMPILE_SABLE_researchA.bat
-SABLE_researchA_support.png
-SABLE_researchA_research.png
+SABLERESEARCHA-MANIFEST.png
+SABLERESEARCHA-REASSEMBLER.png
 ```
 
-The reassembler and checksum ledger appear only after the support capsule
-passes machinesoul verification. Rosetta Stone and its research context appear
-only after the research capsule verifies.
+The reassembler and release manifest appear only after their own capsules
+pass machinesoul verification. Rosetta Stone and its research context are
+reconstructed as part of the directly preserved install tree.
 
 The release is the full model-bearing build, including the abliterated
 director and maintenance models. It is not a sanitized or model-free client.
@@ -49,7 +49,7 @@ Read the warning and [model provenance](../MODELS.md) before downloading.
 - Redownload it if the embedded SHA-256 or PNG stream is refused.
 
 A refusal is the safe result: machinesoul removes partial output rather than
-presenting damaged bytes as an installer part.
+presenting a damaged vector field as an installer part.
 
 ### The decompiler or reassembler says a part is missing
 
@@ -60,28 +60,24 @@ presenting damaged bytes as an installer part.
   named asset; do not guess which duplicate is complete.
 - Confirm each browser download has finished and is no longer temporary.
 
-Run `DECOMPILE_SABLE_researchA.bat` first. Run the reassembler only after
-machinesoul has produced every corresponding `.partNN` file.
+Run `DECOMPILE_SABLE_researchA.bat`. It invokes the recovered reassembler
+itself only after machinesoul has produced and verified every corresponding
+internal part. There is no separate reassembly step for the user.
 
-### The rebuilt ZIP will not open or its checksum is wrong
+### The reconstructed directory is refused or incomplete
 
-Do not run setup. Redownload the parts, rebuild
-`TORMENT_NEXUS-researchA-windows-x64.zip`, and compare its SHA-256 with
-the release manifest:
-
-```powershell
-Get-FileHash .\TORMENT_NEXUS-researchA-windows-x64.zip -Algorithm SHA256
-```
-
-The value must match character for character. Security software or a managed
-computer may block an unfamiliar archive. Do not bypass organizational
-policy; use a personal test computer or ask its administrator to inspect it.
+Do not run setup. Delete only the incomplete output folder, redownload the
+named capsule, and rerun the one-step decompiler. The recovered manifest
+checks every decoded vector segment and every final file character for
+character. Security software or a managed computer may block unfamiliar
+scripts or models. Do not bypass organizational policy; use a personal test
+computer or ask its administrator to inspect it.
 
 ### Setup cannot find files
 
-Use **Extract All** first. Running `setup.bat` inside the ZIP preview prevents
-it from finding adjacent files. In the extracted folder, keep `assistant`,
-`models`, `python`, `start_assistant.bat`, and `setup.bat` together.
+Do not move individual files out of the reconstructed installation tree. Keep
+`assistant`, `models`, `python`, `start_assistant.bat`, and `setup.bat`
+together, then rerun `setup.bat` from that directory.
 
 ### The shortcut is missing or stopped working
 

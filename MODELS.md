@@ -208,8 +208,8 @@ Role: local English automatic speech recognition through sherpa-onnx.
   derivative chain.
 - **Release status:** current optional companion to researchA, not an old or
   superseded model. The researchA release republishes its exact verified
-  bytes as machinesoul-wrapped parts rather than placing the 8.4 GB model
-  inside the main Windows package.
+  model as a separate machinesoul vector-field set rather than placing the
+  8.4 GB model inside the main Windows package.
 
 The versioned model-pack manifest and installer refuse any source file whose
 size or SHA-256 differs from the values above.

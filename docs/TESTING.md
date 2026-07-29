@@ -139,17 +139,22 @@ Network and hardware tests require explicit consent and separate test data.
 Before publishing any researchA asset:
 
 - build from the intended clean commit and record it in the manifest;
-- verify archive and part hashes;
-- verify the exact asset names and reassembly helper;
+- render the machinesoul APNG cut maps and record the exact plans the owner
+  approved;
+- verify every capsule, decoded vector segment, and directly reconstructed
+  file against its recorded hash;
+- verify the exact asset names, decompiler, manifest capsule, and reassembler
+  capsule;
 - inventory the bundled model/runtime versions and compare hashes with
   [Models](../MODELS.md);
 - confirm the full-model warning appears before download/install directions;
-- verify the archive contains no keys, tokens, passcodes, acknowledgements,
+- verify the reconstructed tree contains no keys, tokens, passcodes,
+  acknowledgements,
   activity-consent state, conversation history, memories, embedding cache,
   imported library, SQLite knowledge index, activity log, personal music,
   logs, recovery material, or local paths;
-- extract on a clean Windows account, run setup, and repeat the clean-state
-  first-launch test;
+- decompile and reconstruct on a clean Windows account, run setup, and repeat
+  the clean-state first-launch test;
 - inspect [Third-party notices](../THIRD_PARTY_NOTICES.md) and
   [Rights and reuse](../RIGHTS.md) before redistribution.
 

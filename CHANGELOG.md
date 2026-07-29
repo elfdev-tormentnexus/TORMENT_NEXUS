@@ -27,8 +27,9 @@ explicit.
   capabilities.
 - Hardened Windows release packaging with versioned artifacts, a clean-source
   snapshot gate, fatal required-file checks, model/source hashes in the
-  manifest, a verified offline dependency cache, and automatic SHA-256
-  verification after the numbered ZIP parts are joined.
+  manifest, a verified offline dependency cache, review-gated machinesoul cut
+  maps, and automatic SHA-256 verification of every directly reconstructed
+  file.
 - Added explicit warnings and typed acknowledgement gates to the maintenance,
   one-cycle autonomous-repair, and full-maintenance launchers. The ordinary
   companion launcher does not require a terminal confirmation and instead

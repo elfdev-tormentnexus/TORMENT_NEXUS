@@ -3,119 +3,107 @@
 This is a maintainer document, not an installation guide. Windows users should
 follow [Installing on Windows](INSTALL_WINDOWS.md).
 
-The release is built from a clean source tree. The package denylist keeps
-personal runtime state out, and machinesoul carries the split package parts
-without changing their bytes.
+researchA has one public preservation boundary: machinesoul PNG/APNG
+capsules. The verified staged directory is cut directly. It is never flattened
+through ZIP, tar, or another public encoder first, because that would erase the
+file and code seams used by the cut logic.
 
-1. Run the source regression suite:
+1. Run the complete regression suite:
 
    ```powershell
    .\setup\test_assistant.bat
    ```
 
-2. Build and verify the archive from the intended clean commit:
+2. Build the intended clean commit into the staged directory and verify it:
 
    ```powershell
-   python tools\package_release.py --archive --skip-download
+   python tools\package_release.py --skip-download
    python tools\package_release.py --verify-only
    ```
 
-3. Split it below GitHub's asset ceiling and prove the numbered parts rejoin:
+3. Prepare—but do not execute—the vector-aware cut:
 
    ```powershell
-   python tools\package_release.py --split --discard-stage
+   python tools\machinesoul_release.py plan `
+     dist\TORMENT_NEXUS `
+     --prefix SABLERESEARCHA-WINDOWS `
+     --out SABLERESEARCHA\CUT_PLAN_WINDOWS.json `
+     --markdown SABLERESEARCHA\CUT_PLAN_WINDOWS.md
+
+   python tools\machinesoul_release.py render `
+     SABLERESEARCHA\CUT_PLAN_WINDOWS.json `
+     --out SABLERESEARCHA\CUT_PLAN_WINDOWS.png
    ```
 
-   This creates the exact versioned archive, raw numbered parts, and generated
-   reassembler:
+   The lossless APNG is the review surface. Frame 0 shows the whole release;
+   later frames show one proposed capsule each. Green marks whole-file/release
+   seams, cyan marks a text rule/`def` seam, magenta marks a quiet aligned
+   in-file vector window, and orange marks a forced fallback. Coloured bands
+   are source files; the lower graph is local vector activity.
 
-   ```text
-   dist\TORMENT_NEXUS-researchA-windows-x64.zip
-   dist\TORMENT_NEXUS-researchA-windows-x64.zip.partNN
-   dist\REASSEMBLE_TORMENT_NEXUS-researchA-windows-x64.bat
-   ```
+4. Review the APNG, Markdown table, and exact plan SHA-256 with the operator.
+   Do not cut until the operator approves that specific hash.
 
-4. Wrap every raw `.partNN` file with the streaming machinesoul builder:
+5. Supply the approved plan digest back to the cutter:
 
    ```powershell
-   python tools\machinesoul.py build `
-     dist\TORMENT_NEXUS-researchA-windows-x64.zip.partNN `
-     --out SABLERESEARCHA\package\TORMENT_NEXUS-researchA-windows-x64.zip.partNN.png
+   python tools\machinesoul_release.py cut `
+     SABLERESEARCHA\CUT_PLAN_WINDOWS.json `
+     --approved-sha256 <REVIEWED_PLAN_SHA256> `
+     --out-dir SABLERESEARCHA\package `
+     --manifest SABLERESEARCHA\MANIFEST_WINDOWS.json
    ```
 
-   A recipient must run `machinesoul.py` to recover the raw parts. Do not
-   upload the raw `.zip.partNN` files: the public package layer is
-   capsule-only.
+   The cutter refuses a changed plan. Every capsule is decompiled immediately
+   after it is written and compared with the direct staged source before the
+   temporary segment is removed.
 
-5. Build the current optional 14B companion with:
+6. Repeat the plan, APNG review, approval, and cut for the optional 14B
+   companion, using prefix `SABLERESEARCHA-14B` and the exact reviewed GGUF
+   recorded in [Models](../MODELS.md). It remains optional for recipients but
+   follows the identical preservation boundary.
 
-   ```powershell
-   python tools\package_model_pack.py
-   ```
+7. Wrap the two reconstruction support files with machinesoul:
 
-   Wrap every generated model `.partNN` with machinesoul. Do not upload the
-   raw GGUF parts or raw model-pack metadata. The reviewed 14B model remains
-   optional, but its researchA distribution follows the same capsule-only
-   boundary as the main package.
+   - the final release manifest as `SABLERESEARCHA-MANIFEST.png`;
+   - `tools/machinesoul_release.py` as
+     `SABLERESEARCHA-REASSEMBLER.png`.
 
-6. Build `SABLE_researchA_research.png` from the Rosetta Stone tool, vector
-   beam tool, anchor materials, their tests, and the two vector research
-   papers. Build `SABLE_researchA_support.png` from:
+   Do not upload either source file raw.
 
-   - the packager-generated main reassembler;
-   - the 14B checksum-gated installer and its manifest/provenance records;
-   - `SHA256SUMS_researchA.txt`.
+8. Generate and test `DECOMPILE_SABLE_researchA.bat`. The only unavoidable
+   plaintext bootstrap downloads are that one-click launcher and
+   `machinesoul.py`. The launcher must:
 
-   The support files must not also be uploaded raw.
+   - decompile the manifest and reassembler capsules;
+   - decompile every exact `SABLERESEARCHA-WINDOWS.partNN.png`;
+   - invoke the recovered reassembler;
+   - verify every final file;
+   - reconstruct the install directory directly and run `setup.bat`;
+   - install the 14B companion when all optional capsules are present;
+   - skip the 14B set when none are present; and
+   - refuse a partial optional set.
 
-7. Extract every completed capsule to a disposable output and compare the
-   decoded size and SHA-256 with its raw source payload. Refuse the cut if any
-   byte differs. Prove the decoded main parts rejoin to the archive SHA-256
-   and the decoded 14B parts rejoin to the reviewed GGUF SHA-256.
+9. Create GitHub tag/title `researchA` as a draft and upload only:
 
-8. Generate and test:
-
-   - `DECOMPILE_SABLE_researchA.bat`, covering both support capsules, the
-     exact main-package part count, and the optional 14B part count;
-   - `SHA256SUMS_researchA.txt`, covering each downloaded capsule, decoded
-     payload, plaintext bootstrap helper, complete ZIP, and complete GGUF;
-   - the packager-generated reassembler, without hand-editing its part list.
-
-9. Confirm the current release title and filenames in:
-
-   - `README.md`;
-   - `docs/INSTALL_WINDOWS.md`;
-   - `docs/TROUBLESHOOTING.md`;
-   - `docs/RELEASE_NOTES_researchA.md`;
-   - `SABLERESEARCHA/RELEASE_BODY.md`.
-
-10. Create GitHub release title/tag `researchA` as a draft. Upload:
-
-   - every package `.partNN.png` capsule;
-   - every optional 14B `.partNN.png` capsule;
-   - `SABLE_researchA_research.png`;
-   - `SABLE_researchA_support.png`;
+   - every `SABLERESEARCHA-WINDOWS.partNN.png`;
+   - every optional `SABLERESEARCHA-14B.partNN.png`;
+   - `SABLERESEARCHA-MANIFEST.png`;
+   - `SABLERESEARCHA-REASSEMBLER.png`;
    - `machinesoul.py`;
    - `DECOMPILE_SABLE_researchA.bat`.
 
-   Those two plaintext files are the unavoidable decompiler bootstrap. Do
-   not upload the raw reassembler, ledger, research files, ZIP/GGUF parts, or
-   any other release payload.
+10. Compare every GitHub asset's size and SHA-256 with its retained local
+    copy. Download every remote capsule again, decompile it, reassemble the
+    full remote tree and optional 14B model, and compare every reconstructed
+    file digest with the local manifest.
 
-11. Compare every GitHub asset's byte size and SHA-256 with the local file.
-   Then download the remote capsules, decompile them, reassemble the remote
-   package and 14B model, and compare the final ZIP/GGUF SHA-256 values with
-   the local originals.
+11. Inspect the draft release in the browser. Preserve the model, rights,
+    privacy, safety, Rosetta Stone, machinesoul/machinespirit, research-loss,
+    and known-gap disclosures. Publish only after the operator explicitly
+    approves the verified draft.
 
-12. Inspect the draft release in the browser. Preserve the model, rights,
-    privacy, safety, research-loss, and known-gap disclosures. Publish only
-    after the operator explicitly approves the verified draft.
-
-Allow about 55 GB of temporary free space when capsules, decoded parts, the
-reconstructed ZIP, and the extracted package coexist. On a constrained build
-drive, remove only reproducible intermediates after their hashes and remote
-copies are verified.
-
-Do not test `setup.bat` inside the final staged package and send that same
-folder. Installer testing creates local runtime artifacts; rebuild and verify
-a clean package afterward.
+On a constrained drive, remove only reproducible intermediates after their
+hashes and remote copies are verified. Never test `setup.bat` inside the final
+staged source and then ship that mutated folder; rebuild and verify a clean
+stage first.
