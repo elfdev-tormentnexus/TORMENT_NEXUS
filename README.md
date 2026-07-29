@@ -18,7 +18,8 @@
 > [!CAUTION]
 > **Read this before downloading or installing.**
 >
-> The ready-to-run Beta 6 Windows assets are **full, model-bearing archives**.
+> The ready-to-run researchA Windows capsules carry a **full, model-bearing
+> archive**.
 > They include community-modified “abliterated” Qwen language models whose
 > learned refusal behavior has been deliberately weakened. This is not a
 > sanitized client, a remote-model downloader, or a safety-filtered edition.
@@ -38,7 +39,7 @@
 
 <p align="center">
   <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases">
-    Open GitHub Releases and select v0.2.0-beta.6
+    Open GitHub Releases and select researchA
   </a>
 </p>
 
@@ -68,22 +69,28 @@ actually trying to answer.
 
 | I want to... | Start here |
 | --- | --- |
-| Install the complete Windows beta | [Installing on Windows](docs/INSTALL_WINDOWS.md) |
+| Install the complete Windows research build | [Installing on Windows](docs/INSTALL_WINDOWS.md) |
 | Understand the first-launch warning and privacy defaults | [Your first session](docs/FIRST_RUN.md) |
 | See exactly what works and what does not | [Capabilities and limits](docs/CAPABILITIES_AND_LIMITS.md) |
 | Add manuals, encyclopedias, and practical references | [Offline knowledge](docs/OFFLINE_KNOWLEDGE.md) |
-| Test the beta | [Beta guide](docs/BETA_GUIDE.md) and [Testing](docs/TESTING.md) |
+| Test researchA | [Research build guide](docs/BETA_GUIDE.md) and [Testing](docs/TESTING.md) |
 | Review models and third-party terms | [Models](MODELS.md) and [Third-party notices](THIRD_PARTY_NOTICES.md) |
 | Work on the source | [Architecture](docs/ARCHITECTURE.md) and [Contributing](CONTRIBUTING.md) |
 | Connect an outside development agent | [Agent interface](docs/AGENT_INTERFACE.md) |
 | Understand vectors and AI bridges | [Semantic retrieval and agent bridges](docs/SEMANTIC_AND_AGENT_BRIDGES.md) |
 | Review sensing and hardware research | [Sensing module notes](docs/SENSING_MODULE.md) |
 
-## Install the full Windows Beta 6
+## Install the full Windows researchA
 
-You do not need to install Python, use a command line, create an online
-account, provide an API key, or download a separate model. The full archive
-contains:
+researchA deliberately makes machinesoul part of the installation path. The
+full package is carried inside lossless PNG capsules, so a recipient must run
+the published `machinesoul.py` decompiler before the ZIP parts exist. This is
+not encryption or a file-size workaround: each capsule is an exact byte
+container that either verifies its own SHA-256 or refuses to produce output.
+
+You need a standard Python 3 installation to run the decompiler. You do not
+need an online AI account, API key, or separate model download. After
+decompilation, the full archive contains:
 
 - the abliterated Qwen3 4B Q8 director;
 - the abliterated Qwen2.5-Coder 7B Q8 maintenance coder;
@@ -100,61 +107,53 @@ contains:
 | --- | --- |
 | 64-bit Windows | The ready-to-run archive targets Windows x64. |
 | At least 16 GB RAM | Required for the bundled director and on-demand coder; more leaves room for voice and other applications. |
-| About 40 GB free during installation | Download parts, the reassembled ZIP, and the extracted installation temporarily coexist. |
+| About 55 GB free during installation | PNG capsules, decoded parts, the reassembled ZIP, and the extracted installation temporarily coexist. |
 | Internet for the initial download | Ordinary local conversation and the offline library work without it afterward. |
-| Microphone only if desired | Beta 6 starts in text mode, with microphone use off. |
+| Python 3 | Required only to run the published machinesoul decompiler. |
+| Microphone only if desired | researchA starts in text mode, with microphone use off. |
 
 ### Five steps
 
 1. Open [GitHub Releases](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases),
-   select `v0.2.0-beta.6`, expand **Assets**, and read its warning, manifest,
-   checksums, model provenance, and known issues.
-2. Download the single file
-   `DOWNLOAD_TORMENT_NEXUS_v0.2.0-beta.6.bat` into an empty folder with room
-   to spare, and double-click it. It fetches all twelve release files,
-   verifies each one against its published SHA-256, and stops on any
-   mismatch. Nothing else needs downloading by hand.
-3. Run `REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat`, verify the
-   resulting `TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip` against the
-   published SHA-256, extract it, and run `setup.bat`.
-4. **Apply the two guard patches by hand.** Nothing does this for you. Move
-   the four files below into the extracted `TORMENT_NEXUS` folder — the one
-   containing `start_assistant.bat` — and double-click each installer. They
-   are independent and may be run in either order.
-
-   ```text
-   INSTALL_ASK_GUARD_PATCH.bat
-   TORMENT_NEXUS-v0.2.0-beta.6-ask-guard-patch.zip
-
-   INSTALL_COMMAND_GUARD_PATCH.bat
-   TORMENT_NEXUS-v0.2.0-beta.6-command-guard-patch.zip
-   ```
-
-   These replace manifest-hashed files, so an installed tree that has them
-   applied no longer matches the published archive checksum. That is
-   deliberate, and it is why the reassembler names them but refuses to run
-   them. The documentation patch is different — the reassembler applies that
-   one for you.
+   select `researchA`, expand **Assets**, and read its warning, checksums,
+   model provenance, and known issues. Download the plaintext bootstrap
+   pair, `machinesoul.py` and `DECOMPILE_SABLE_researchA.bat`, plus
+   `SABLE_researchA_support.png`, `SABLE_researchA_research.png`, and every
+   consecutive file beginning with
+   `TORMENT_NEXUS-researchA-windows-x64.zip.part01.png` and continuing through
+   every later `.partNN.png` shown.
+2. Keep those files together and run `DECOMPILE_SABLE_researchA.bat`. It calls
+   machinesoul for every required image. The support capsule yields the
+   checksum ledger and generated reassembler; the research capsule yields the
+   Rosetta Stone tool, anchor material, and research documents; each package
+   capsule yields its exact `.zip.partNN`. Every payload is SHA-256 verified
+   or refused without a partial file. **Do not screenshot, optimise, or
+   re-encode the images.**
+3. Run the recovered
+   `REASSEMBLE_TORMENT_NEXUS-researchA-windows-x64.bat`. It verifies the
+   decoded parts and the complete
+   `TORMENT_NEXUS-researchA-windows-x64.zip`.
+4. Extract the verified ZIP and run `setup.bat`. The former beta guard fixes
+   are built into researchA; there are no after-install patch assets.
 5. Launch the desktop shortcut. Before any model, microphone, activity
    sampler, listener, or network-capable subsystem starts, the application
    displays its disclosure and requires the exact text `I UNDERSTAND`.
    Anything else closes the application without starting those components.
 
 <details>
-<summary>Fallback: download the parts by hand</summary>
+<summary>Why the files must remain unchanged</summary>
 
-If the downloader cannot run — locked-down machine, blocked script host, or
-a proxy that mangles it — fetch
-`TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01` and every consecutive
-later `.partNN` file, plus
-`REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat` and the four guard
-patch files above. Keep them together and do not rename them, then continue
-from step 3.
+Each `.partNN.png` is a machinesoul capsule, not a conventional screenshot.
+The pixels are the payload. A social preview, screenshot, image optimiser, or
+editor can re-encode them and destroy the carried bytes. Download the release
+assets as files, keep their names, and let machinesoul verify them.
+
+The optional 14B companion follows the same boundary. Download every
+`TORMENT_NEXUS-researchA-full-maintenance-14b.partNN.png` only if you want
+long self-heal or extended editing sessions. The decompiler recovers its
+checksum-gated installer and exact model parts before that installer can run.
 
 </details>
-
-`INSTALL_INTERFACE_MODE.bat` and the 14B full-maintenance coder are separate
-optional add-ons. Neither is needed for a working install.
 
 Do not use GitHub’s green **Code** button or automatic **Source code**
 archives for this path. Those are developer source snapshots, not
@@ -195,7 +194,7 @@ default. Window titles can reveal filenames, pages, and message previews.
 The choice persists. `activity off` persists the off choice and deletes both
 the in-memory observations and `assistant\memory\activity_log.jsonl`.
 
-## What Beta 6 can do
+## What researchA can do
 
 ### Local companion
 
@@ -209,7 +208,7 @@ the in-memory observations and `assistant\memory\activity_log.jsonl`.
 
 ### Offline practical knowledge
 
-Beta 6 contains an independent local reference library with built-in Canadian
+researchA contains an independent local reference library with built-in Canadian
 preparedness cards and a private user shelf. It supports:
 
 ```text
@@ -343,6 +342,28 @@ and finds it **6%** of the time. The whole gap is anchor correlation. None
 of it recovers the *text*: the embedding was already a lossy function of the
 words before any anchor was involved, so this is identification, not recall.
 
+### Rosetta Stone: crossing the vector gap between models
+
+Two embedding models do not share a coordinate system. Dimension 7 in one
+model has no dependable relationship to dimension 7 in another, even when
+both models happen to have the same number of dimensions. Comparing their
+ordinary vectors directly produces noise.
+
+`tools/rosetta_stone.py` is the experimental bridge included with researchA.
+It gives each model the same ordered, human-readable anchor texts, then
+describes a vector by its similarities to that shared decree. The resulting
+`SABLEROSETTA1` halves can be compared only when their anchor digests match.
+Each model must build its own half; a prebuilt stone is model-, quantization-,
+and pooling-specific, so researchA does not pretend one universal stone can
+exist.
+
+This is an implementation and measurement of published **relative
+representations**, not a claim to have invented the underlying technique.
+Against genuinely incompatible 384- and 768-dimensional embedders it recovered
+about **67% of the agreement the models could reach at all**, at 6.6 times
+chance. It is lossy and worse than uint8 for local storage. Its purpose is
+cross-model portability where direct vector comparison is impossible.
+
 ### consume
 
 `consume <url>` works out what an address actually points at and takes the
@@ -376,6 +397,12 @@ came out negative, and name the prior art first:
   across a 384-dimension and a 768-dimension embedder, and what a sentence
   discards when it becomes a point.
 
+The optional Qwen2.5-Coder 14B full-maintenance pack is the current researchA
+companion for deliberately requested long self-heal and extended editing
+sessions. It is not superseded or obsolete. researchA republishes the exact
+verified model bytes as machinesoul-wrapped parts rather than duplicating the
+model inside the already model-bearing main package.
+
 ## Privacy and network summary
 
 | Feature | Default and boundary |
@@ -388,7 +415,7 @@ came out negative, and name the prior art first:
 | Web search | May send a derived query to configured SearXNG/Brave when current information is requested or inferred. |
 | Cloud escalation | Off; sends only the explicit `escalate` question when separately enabled. |
 | Agent API | Off; loopback-only and bearer-token authenticated, but capable of returning private memory/reference results. |
-| Custom director/model URL | Can receive prompts and retrieved context; “local” no longer applies to that traffic. Beta 6 rejects non-loopback embedding URLs. |
+| Custom director/model URL | Can receive prompts and retrieved context; “local” no longer applies to that traffic. researchA rejects non-loopback embedding URLs. |
 | Spotify and MusicBrainz | Optional; search/account/playback metadata crosses their service boundaries. |
 | T-Deck and LoRa | Optional; messages cross Bluetooth and the configured mesh. |
 
@@ -397,7 +424,7 @@ activity, connected services, or agent access.
 
 ## Project status and rights
 
-Beta 6 is experimental. Important claims and generated code require human
+researchA is experimental. Important claims and generated code require human
 verification. The functional test suite does not certify content safety,
 security, legality, factuality, or fitness for high-stakes use.
 
@@ -421,7 +448,7 @@ activity logs, keys, tokens, passcodes, pairing data, or personal paths.
 - [Capabilities and limits](docs/CAPABILITIES_AND_LIMITS.md)
 - [Offline knowledge](docs/OFFLINE_KNOWLEDGE.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
-- [Beta guide](docs/BETA_GUIDE.md)
+- [Research build guide](docs/BETA_GUIDE.md)
 
 ### Safety, privacy, and rights
 

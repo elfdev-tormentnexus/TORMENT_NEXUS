@@ -193,8 +193,11 @@ INCLUDE_FILES = [
     "start_full_maintenance_coder.bat",
     "setup/test_assistant.bat",
     "tools/glitch_icon.py",
+    "tools/machinesoul.py",
     "tools/package_model_pack.py",
     "tools/package_release.py",
+    "tools/rosetta_stone.py",
+    "tools/vector_beam.py",
     "tools/wifi_sense_collector.py",
     "tools/reassemble_release_parts.bat",
     "tools/start_glitch.bat",
@@ -1846,8 +1849,8 @@ if failures:
 print("  verified: dependencies import and model files are present")
 '''
 
-README = r"""TORMENT_NEXUS - local-first beta
-==========================================
+README = r"""TORMENT_NEXUS researchA - local-first research build
+=========================================================
 
 WHAT THIS IS
     A local-first AI companion and tool system that runs on your machine.
@@ -1944,7 +1947,7 @@ THE GLITCHING ICON (optional)
     off unless you start it, and it does not survive a reboot.
 
 UPDATING LATER
-    Install a newer beta in a new folder instead of extracting it over this
+    Install a newer research build in a new folder instead of extracting it over this
     one. Keep this folder as a backup until the new version launches. Local
     songs are in assistant\music. Private conversation and memory files are
     under assistant\memory; never upload them in a public bug report.

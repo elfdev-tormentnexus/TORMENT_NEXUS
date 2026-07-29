@@ -1,6 +1,6 @@
 # Models and provenance
 
-Status: release artifact inventory for `v0.2.0-beta.6`, reviewed
+Status: release artifact inventory for `researchA`, reviewed
 2026-07-28.
 
 This file separates model behavior, application authority, and redistribution
@@ -12,9 +12,9 @@ All hashes below are SHA-256 values computed from the local files. Byte sizes
 are exact. A matching repository file was treated as the byte source only
 when its published size and complete SHA-256 both matched the local artifact.
 
-## Beta 6 model-bearing release decision
+## researchA model-bearing release decision
 
-The full Windows Beta 6 intentionally carries the 4B director, 7B maintenance
+The full Windows researchA package intentionally carries the 4B director, 7B maintenance
 coder, and BGE embedding model. The 14B full-maintenance coder is intentionally
 published as a separate, versioned add-on asset set because of its size.
 
@@ -56,7 +56,7 @@ controls are not an operating-system sandbox. See `SAFETY.md`.
 - **License status:** the uploader declares no license. The model card says
   “More Information Needed” for license, developer, source, fine-tuned-from,
   risks, and limitations.
-- **Release status:** included in the full Windows Beta 6 by the project
+- **Release status:** included in the full Windows researchA package by the project
   owner's explicit decision. The missing license declaration remains
   unresolved; inclusion must not be represented as proof of permission.
 
@@ -79,7 +79,7 @@ or, by itself, grant rights to this modified GGUF.
 - **Identity evidence:** the repository's Q8_0 GGUF reports the same exact
   byte size and SHA-256 as this local file.
 - **License status:** the uploader declares `AGPL-3.0`.
-- **Release status:** included in the full Windows Beta 6. Any redistribution
+- **Release status:** included in the full Windows researchA package. Any redistribution
   must be reviewed for the uploader-declared AGPL-3.0 terms and any applicable
   upstream model terms. The included Qwen Apache-2.0 notice must not be
   presented as replacing the uploader’s AGPL declaration.
@@ -179,18 +179,19 @@ Role: local English automatic speech recognition through sherpa-onnx.
 - **License evidence:** the upstream Silero VAD project publishes its code and
   pretrained models under MIT and carries the Silero Team MIT notice.
 - **Packaged notice:** `LICENSES/SILERO_VAD_MIT.txt`
-- **Release status:** included in the full Windows Beta 6. The local hash
+- **Release status:** included in the full Windows researchA package. The local hash
   identifies the shipped bytes; the upstream notice identifies the terms
   published for Silero VAD rather than proving a separate artifact signature.
 
-## Optional Beta 6 full-maintenance model
+## Optional researchA full-maintenance companion
 
 ### Qwen2.5-Coder 14B abliterated Q4_K_M
 
 - **Local filename:**
   `models/Qwen2.5-Coder-14B-Instruct-abliterated-Q4_K_M.gguf`
-- **Role:** opt-in full-maintenance coder for the widest, typed-confirmation
-  maintenance profile.
+- **Role:** opt-in full-maintenance coder for deliberately requested long
+  self-heal and extended editing sessions under the widest,
+  typed-confirmation maintenance profile.
 - **Exact size:** `8,988,111,200` bytes
 - **SHA-256:** `E89A7AE4E2B456BF33C75CFF35664751DF20FF273E551D7CF7640AA9E84D3B79`
 - **Exact GGUF repository:**
@@ -205,14 +206,15 @@ Role: local English automatic speech recognition through sherpa-onnx.
   derivative repository display `apache-2.0`. This records uploader metadata;
   it is not an independent legal conclusion about every input to the
   derivative chain.
-- **Release status:** published as the separate
-  `v0.2.0-beta.6` full-maintenance 14B model pack, not placed inside the main
-  Windows ZIP.
+- **Release status:** current optional companion to researchA, not an old or
+  superseded model. The researchA release republishes its exact verified
+  bytes as machinesoul-wrapped parts rather than placing the 8.4 GB model
+  inside the main Windows package.
 
 The versioned model-pack manifest and installer refuse any source file whose
 size or SHA-256 differs from the values above.
 
-## Developer-workspace model not selected for Beta 6
+## Developer-workspace model not selected for researchA
 
 This file currently exists in the development workspace but is not selected
 by either the full Windows package or the optional 14B model pack:

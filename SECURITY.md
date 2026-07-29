@@ -1,6 +1,6 @@
 # Security policy
 
-Status: security policy for the Beta 6 preparation tree, reviewed 2026-07-28.
+Status: security policy for the researchA release tree, reviewed 2026-07-28.
 
 TORMENT_NEXUS is experimental software, not a hardened security product. The
 project still treats authentication bypasses, unexpected data disclosure,

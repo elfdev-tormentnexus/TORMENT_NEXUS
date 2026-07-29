@@ -1,6 +1,6 @@
 # Third-party notices and provenance ledger
 
-Status: evidence-based notice inventory for `v0.2.0-beta.6`, reviewed
+Status: evidence-based notice inventory for `researchA`, reviewed
 2026-07-28.
 
 TORMENT_NEXUS includes or can package third-party runtimes, model weights,
@@ -102,7 +102,7 @@ records below control the current release decision.
 - **Reference:**
   [GNU Affero General Public License version 3](https://www.gnu.org/licenses/agpl-3.0.html)
 
-This model is included in the full Windows Beta 6, accompanied by the complete
+This model is included in the full Windows researchA package, accompanied by the complete
 official AGPL-3.0 text because that is the uploader's declaration. Including
 the text does not independently prove the derivative's legal status. A
 publisher must review the declaration and any additional upstream
@@ -124,7 +124,7 @@ obligations. Do not describe this artifact as Apache-2.0-only.
   `56175aed285a884480f49bb18d2a1b0e05a7749f`.
 
 Repository availability is not permission to redistribute. The project owner
-has deliberately included this exact file in the full Windows Beta 6 while
+has deliberately included this exact file in the full Windows researchA package while
 preserving this warning. That release decision does not resolve the missing
 license declaration and must not be described as proof of permission.
 

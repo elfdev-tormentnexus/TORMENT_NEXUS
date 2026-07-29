@@ -1,6 +1,6 @@
 # Offline knowledge
 
-Beta 6 includes a local reference shelf for manuals, encyclopedias, field
+researchA includes a local reference shelf for manuals, encyclopedias, field
 guides, and practical documents. It is designed to help when the internet is
 unavailable without pretending that a static library is always current or
 authoritative.
@@ -191,7 +191,7 @@ blocks can retain data. For a complete live-index reset, close the
 application, preserve anything you want to keep, and remove the private
 `user_library` and `library.sqlite3`; check those other copies separately.
 
-Beta 6 accepts only a loopback embedding endpoint. A remote director/model
+researchA accepts only a loopback embedding endpoint. A remote director/model
 server can still receive retrieved excerpts as part of the assistant prompt.
 See [Privacy](../PRIVACY.md).
 

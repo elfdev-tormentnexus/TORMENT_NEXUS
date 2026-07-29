@@ -6,52 +6,71 @@ Start with:
 health check
 ```
 
-That command reports which local and optional components are ready. Beta 6 is
+That command reports which local and optional components are ready. researchA is
 experimental and its bundled language models are abliterated. A fluent answer
 is not proof that it is correct or safe; read [Safety](../SAFETY.md) before
 following consequential advice or running generated code.
 
 ## Download and installation
 
-### I downloaded a ZIP but there is no working installer
+### I downloaded a source ZIP but there is no working installer
 
 GitHub's green **Code** button and automatic **Source code** archives do not
 contain the models or private Windows runtime. Open
 [GitHub Releases](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases),
-select `v0.2.0-beta.6`, and download every consecutive file named:
+select `researchA`, and download every consecutive file named:
 
 ```text
-TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.partNN
+TORMENT_NEXUS-researchA-windows-x64.zip.partNN.png
 ```
 
 Also download:
 
 ```text
-REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat
+machinesoul.py
+DECOMPILE_SABLE_researchA.bat
+SABLE_researchA_support.png
+SABLE_researchA_research.png
 ```
+
+The reassembler and checksum ledger appear only after the support capsule
+passes machinesoul verification. Rosetta Stone and its research context appear
+only after the research capsule verifies.
 
 The release is the full model-bearing build, including the abliterated
 director and maintenance models. It is not a sanitized or model-free client.
 Read the warning and [model provenance](../MODELS.md) before downloading.
 
-### The reassembler says a part is missing
+### machinesoul refuses a capsule
 
-- Keep the helper and every consecutive `.partNN` file in one folder.
+- Download the GitHub asset as a file rather than saving its preview.
+- Do not screenshot, optimise, crop, resize, or re-encode it.
+- Keep its original `.partNN.png` filename.
+- Redownload it if the embedded SHA-256 or PNG stream is refused.
+
+A refusal is the safe result: machinesoul removes partial output rather than
+presenting damaged bytes as an installer part.
+
+### The decompiler or reassembler says a part is missing
+
+- Keep the decompiler, both support/research capsules, and every consecutive
+  `.partNN.png` file in one folder.
 - Do not rename any file.
 - Remove browser-added suffixes such as `(1)` by redownloading the correctly
   named asset; do not guess which duplicate is complete.
 - Confirm each browser download has finished and is no longer temporary.
 
-Run the helper only after the names exactly match the release assets.
+Run `DECOMPILE_SABLE_researchA.bat` first. Run the reassembler only after
+machinesoul has produced every corresponding `.partNN` file.
 
 ### The rebuilt ZIP will not open or its checksum is wrong
 
 Do not run setup. Redownload the parts, rebuild
-`TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip`, and compare its SHA-256 with
+`TORMENT_NEXUS-researchA-windows-x64.zip`, and compare its SHA-256 with
 the release manifest:
 
 ```powershell
-Get-FileHash .\TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip -Algorithm SHA256
+Get-FileHash .\TORMENT_NEXUS-researchA-windows-x64.zip -Algorithm SHA256
 ```
 
 The value must match character for character. Security software or a managed
@@ -75,7 +94,7 @@ folder was moved or renamed will still point to the old location.
 ### The application exits at the first warning
 
 Before the model, microphone, activity sampler, listeners, or
-network-capable subsystems start, Beta 6 requires this exact text:
+network-capable subsystems start, researchA requires this exact text:
 
 ```text
 I UNDERSTAND
@@ -92,7 +111,7 @@ application is closed displays the warning again.
 
 ### It starts in text mode
 
-That is the Beta 6 default. The microphone is not initialized until you opt
+That is the researchA default. The microphone is not initialized until you opt
 in:
 
 ```text
@@ -176,7 +195,7 @@ time for a large folder.
 
 ### A PDF returns little or no text
 
-Beta 6 uses `pypdf` and can extract text-based PDFs. A scanned, photographed,
+researchA uses `pypdf` and can extract text-based PDFs. A scanned, photographed,
 encrypted, or unusually encoded PDF may need OCR or conversion before import.
 Do not assume an empty search means the information is absent from the page
 images.
@@ -264,7 +283,7 @@ monitoring, or safety decisions. See [Sensing module notes](SENSING_MODULE.md).
 
 ## Reporting a problem
 
-Include the Beta 6 version, Windows version, launch method, command that
+Include the researchA release name, Windows version, launch method, command that
 failed, expected result, and a minimal synthetic reproduction. Remove user
 paths and never attach conversations, memories, imported documents, library
 databases, activity logs, model/API keys, bearer tokens, passcodes, pairing

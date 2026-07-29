@@ -1,4 +1,4 @@
-# TORMENT_NEXUS Beta 6 architecture
+# TORMENT_NEXUS researchA architecture
 
 This is a technical reference for developers and reviewers. New users should
 start with [Installing on Windows](INSTALL_WINDOWS.md),
@@ -61,6 +61,8 @@ operator input
 | `assistant/core/consume.py` | Identifies what a URL points at, fetches the content rather than the surrounding page, and hands documents to the offline library. Refuses non-loopback-safe addresses, media URLs, and bodies that exceed the library's own ceiling mid-download. |
 | `tools/machinesoul.py` | The lossless half: builds and extracts the `MACHINESOUL1` capsule, an animated PNG whose pixels are the payload. sha256-verified; refuses rather than returning a partially recovered archive. |
 | `tools/machinespirit_codec.py` | Measures the lossy half as a codec — encode to anchor coordinates, decode by least squares, report cosine and whether the reconstruction still retrieves its own chunk. |
+| `tools/rosetta_stone.py` | Builds one model-bound half of a `SABLEROSETTA1` anchor bridge. Two halves are comparable only when their shared anchor digest matches; model identity, quantization, and pooling still matter. |
+| `tools/vector_beam.py` | Measures and renders the unpooled token trajectory, and can read it through a compatible Rosetta Stone anchor space. |
 | `tools/pooling_probe.py` | Determines what the pooled server actually does by reconstructing each candidate pooling from the unpooled server's per-token output. |
 | `assistant/core/session_rhythm.py` | Session duration, exchange counts, pause lengths, and rank against previous sessions. Timings only. Supplies the measured pace used to time rendered animations. |
 | `assistant/ui/` | Animated terminal, input, pagination, retrieval display, voice state, and visualizer controls. |
@@ -75,7 +77,7 @@ operator input
 
 ## Model roles
 
-The complete Beta 6 Windows package has three separate model jobs:
+The complete researchA Windows package has three separate model jobs:
 
 | Artifact | Role |
 | --- | --- |

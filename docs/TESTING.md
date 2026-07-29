@@ -1,4 +1,4 @@
-# Testing Beta 6
+# Testing researchA
 
 Testing is part of the safety boundary, but it is not a safety certification.
 Passing tests can show that an application rule behaves as coded; it cannot
@@ -136,7 +136,7 @@ Network and hardware tests require explicit consent and separate test data.
 
 ## Release-package acceptance
 
-Before publishing any Beta 6 asset:
+Before publishing any researchA asset:
 
 - build from the intended clean commit and record it in the manifest;
 - verify archive and part hashes;

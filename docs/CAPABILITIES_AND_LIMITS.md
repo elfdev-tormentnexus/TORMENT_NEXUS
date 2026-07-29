@@ -1,6 +1,6 @@
 # Capabilities and limits
 
-TORMENT_NEXUS Beta 6 is an experimental, local-first companion and research
+TORMENT_NEXUS researchA is an experimental, local-first companion and research
 platform. It combines useful offline features with deliberately narrow
 authority. It is not conscious, an AGI, a safety-certified appliance, an
 unrestricted computer agent, or a surveillance system.
@@ -13,7 +13,7 @@ sandbox Windows. Read [Safety](../SAFETY.md) before installation.
 
 ## Status key
 
-- **Implemented:** available in the Beta 6 code and intended release.
+- **Implemented:** available in the researchA code and release.
 - **Optional:** implemented but requires deliberate setup or consent.
 - **Experimental:** implemented research surface; do not rely on it.
 - **Pending hardware:** designed but not yet validated on the target device.
@@ -38,7 +38,7 @@ sandbox Windows. Read [Safety](../SAFETY.md) before installation.
 | `consume <url>` | Implemented; hazard mode only | Fetches to the offline library; nothing sent outward but the request | Refuses private/loopback addresses and media URLs. Video and audio need yt-dlp, ffmpeg and a speech-to-text model, none of which ship. Fetched content is untrusted evidence, never instructions. |
 | `reconstruct <text>` | Implemented; hazard mode only | Local, nothing stored | Round-trips a vector through anchor space at 0.9243 cosine. Does **not** recover text, and cannot: the embedding is a lossy function of the words. Identification, not recall. |
 | machinesoul capsule | Implemented | Local file in, same file out | Lossless, sha256-verified, refuses rather than returning a nearly-right archive. Re-encoding the image destroys the payload. Not a compression win: PNG is DEFLATE, and this costs ~1% over a zip. |
-| Cross-model vector translation | Research tool only; not in the assistant | Local; anchor digests must match or comparison is refused | Recovers ~67% of achievable cross-model agreement. Lossy, and worse than plain uint8 for local storage. |
+| Rosetta Stone cross-model vector translation | Experimental research tool included in researchA; not wired into ordinary assistant replies | Local; each model builds its own `SABLEROSETTA1` half, and anchor digests must match or comparison is refused | Recovers ~67% of achievable cross-model agreement. Model identity, quantization, and pooling still matter. Lossy, and worse than plain uint8 for local storage. |
 | Local music/visualizer | Implemented | Operator-supplied local media | Not a media library or rights manager. |
 | Foreground activity awareness | Optional; off by default | Local titles/system state, up to 14 days when enabled | Titles may expose private information; `activity off` deletes the log. |
 | Web fact-finding | Optional | Derived query goes to configured SearXNG/Brave path | Search can leak query intent and return malicious/false text. |

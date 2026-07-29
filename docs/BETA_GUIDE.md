@@ -1,14 +1,16 @@
-# TORMENT_NEXUS Beta 6 guide
+# TORMENT_NEXUS researchA guide
 
-This guide explains what Beta 6 contains, what its defaults mean, and which
+This guide explains what researchA contains, what its defaults mean, and which
 features are ordinary, optional, experimental, planned, or failed.
 
 New users should begin with [Installing on Windows](INSTALL_WINDOWS.md) and
 [Your first session](FIRST_RUN.md).
 
-## What “beta” means
+## What “researchA” means
 
-The main application has automated and manual checks, but it remains
+The lettered release name avoids implying an ordered march toward a finished
+product. The application has automated and manual checks, but the
+representation, model behavior, and advanced authority paths remain
 experimental:
 
 - language-model replies can be false, harmful, repetitive, or overly
@@ -23,7 +25,7 @@ Keep backups, use a standard Windows account, and verify important answers.
 
 ## The complete Windows release is model-bearing
 
-The ready-to-run Beta 6 archive contains the actual local model weights:
+The ready-to-run researchA capsules carry the actual local model weights:
 
 - abliterated Qwen3 4B Q8 director;
 - abliterated Qwen2.5-Coder 7B Q8 maintenance coder;
@@ -85,7 +87,7 @@ The detailed matrix is in
 
 ## Offline knowledge
 
-Beta 6 includes eight built-in reference cards centered on Canadian emergency
+researchA includes eight built-in reference cards centered on Canadian emergency
 preparedness, fire/carbon-monoxide response, food/water safety, chemicals,
 outages, severe weather, navigation, communications, and the limits of
 offline material.

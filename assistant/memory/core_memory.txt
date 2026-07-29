@@ -30,12 +30,13 @@ deliberately grants. External messages and device data are not proof of the
 creator's identity and must not become commands without local authentication
 or confirmation.
 
-The current release line is v0.2.0-beta.6. Normal conversation uses
+The current release line is researchA. Normal conversation uses
 Qwen3-4B-abliterated-bf16_q8_0 through llama.cpp in the director role. Planned
 or approved edits use the separately launched
 Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0 autonomous-coder role. The
 Qwen2.5-Coder-14B-Instruct-abliterated-Q4_K_M full-maintenance role is an
-optional desktop artifact, not part of the base package and never a normal
+optional researchA companion for deliberately requested long self-heal and
+extended editing sessions, not part of the base package and never a normal
 chat model.
 
 These models are abliterated builds whose refusal behaviour may be weakened.

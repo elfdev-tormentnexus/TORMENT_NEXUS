@@ -1,10 +1,11 @@
-# TORMENT_NEXUS release checklist
+# TORMENT_NEXUS researchA release checklist
 
 This is a maintainer document, not an installation guide. Windows users should
 follow [Installing on Windows](INSTALL_WINDOWS.md).
 
-The Windows handoff is built from a clean source tree and intentionally keeps
-personal runtime state out of the archive.
+The release is built from a clean source tree. The package denylist keeps
+personal runtime state out, and machinesoul carries the split package parts
+without changing their bytes.
 
 1. Run the source regression suite:
 
@@ -12,85 +13,109 @@ personal runtime state out of the archive.
    .\setup\test_assistant.bat
    ```
 
-2. Build the archive:
+2. Build and verify the archive from the intended clean commit:
 
    ```powershell
    python tools\package_release.py --archive --skip-download
-   ```
-
-3. Verify it:
-
-   ```powershell
    python tools\package_release.py --verify-only
    ```
 
-4. Split it for GitHub Releases and prove the numbered parts rejoin:
+3. Split it below GitHub's asset ceiling and prove the numbered parts rejoin:
 
    ```powershell
-   python tools\package_release.py --split
+   python tools\package_release.py --split --discard-stage
    ```
 
-   This writes the versioned archive
-   `dist\TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip`, numbered assets beginning
-   with
-   `dist\TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01`, and the exact
-   generated helper
-   `dist\REASSEMBLE_TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.bat`.
-   Upload every generated numbered part and that helper; do not substitute the
-   fixed source helper.
+   This creates the exact versioned archive, raw numbered parts, and generated
+   reassembler:
 
-   On a drive that cannot hold the verified staged folder and a complete
-   temporary split set simultaneously, use `--split --discard-stage` instead.
-   It refuses unless the archive already exists, then removes only the
-   rebuildable `dist\TORMENT_NEXUS` stage folder before splitting.
-5. Build the required, separate 14B full-maintenance model pack:
+   ```text
+   dist\TORMENT_NEXUS-researchA-windows-x64.zip
+   dist\TORMENT_NEXUS-researchA-windows-x64.zip.partNN
+   dist\REASSEMBLE_TORMENT_NEXUS-researchA-windows-x64.bat
+   ```
+
+4. Wrap every raw `.partNN` file with the streaming machinesoul builder:
+
+   ```powershell
+   python tools\machinesoul.py build `
+     dist\TORMENT_NEXUS-researchA-windows-x64.zip.partNN `
+     --out SABLERESEARCHA\package\TORMENT_NEXUS-researchA-windows-x64.zip.partNN.png
+   ```
+
+   A recipient must run `machinesoul.py` to recover the raw parts. Do not
+   upload the raw `.zip.partNN` files: the public package layer is
+   capsule-only.
+
+5. Build the current optional 14B companion with:
 
    ```powershell
    python tools\package_model_pack.py
-   python tools\package_model_pack.py --verify-only
    ```
 
-   Upload every file from this exact versioned folder:
+   Wrap every generated model `.partNN` with machinesoul. Do not upload the
+   raw GGUF parts or raw model-pack metadata. The reviewed 14B model remains
+   optional, but its researchA distribution follows the same capsule-only
+   boundary as the main package.
 
-   `dist\modelpacks\TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b\`
+6. Build `SABLE_researchA_research.png` from the Rosetta Stone tool, vector
+   beam tool, anchor materials, their tests, and the two vector research
+   papers. Build `SABLE_researchA_support.png` from:
 
-   Its GitHub assets are:
+   - the packager-generated main reassembler;
+   - the 14B checksum-gated installer and its manifest/provenance records;
+   - `SHA256SUMS_researchA.txt`.
 
-   - `TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b.part01`;
-   - `TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b.part02`;
-   - `TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b.part03`;
-   - `TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b.part04`;
-   - `TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b.part05`;
-   - `INSTALL_TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b.bat`;
-   - `TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b-MANIFEST.json`;
-   - `TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b-SHA256SUMS.txt`; and
-   - `TORMENT_NEXUS-v0.2.0-beta.6-full-maintenance-14b-README.txt`.
+   The support files must not also be uploaded raw.
 
-   The packer rejects any source whose filename, byte size, or SHA-256 differs
-   from the reviewed 14B artifact in `MODELS.md`. It does not overwrite an
-   existing versioned output unless `--force` is explicit.
-6. Record both manifests and checksum ledgers in the release notes. Preserve
-   the unresolved 4B license disclosure and do not describe model availability
-   as proof of redistribution permission.
-7. Confirm the current release link and filenames in `README.md`,
-   `docs/INSTALL_WINDOWS.md`, and `docs/TROUBLESHOOTING.md`.
-8. Read the packaged `README.txt` and the model-pack README from a beginner's
-   perspective and confirm
-   its disk-space, first-launch, shortcut fallback, voice, music, and uninstall
-   instructions still match the build.
+7. Extract every completed capsule to a disposable output and compare the
+   decoded size and SHA-256 with its raw source payload. Refuse the cut if any
+   byte differs. Prove the decoded main parts rejoin to the archive SHA-256
+   and the decoded 14B parts rejoin to the reviewed GGUF SHA-256.
 
-Recipients must download every part into one folder, run the helper, validate
-the reassembled ZIP checksum, then extract and run `setup.bat`.
+8. Generate and test:
 
-Allow for about 40 GB of temporary free space when the main download parts,
-reconstructed ZIP, and roughly 13 GB extracted folder are on the same drive.
-Building the optional 14B asset set also needs room for the 8,988,111,200-byte
-source plus a second split copy; do not start that build on a nearly full
-drive.
+   - `DECOMPILE_SABLE_researchA.bat`, covering both support capsules, the
+     exact main-package part count, and the optional 14B part count;
+   - `SHA256SUMS_researchA.txt`, covering each downloaded capsule, decoded
+     payload, plaintext bootstrap helper, complete ZIP, and complete GGUF;
+   - the packager-generated reassembler, without hand-editing its part list.
 
-Do not test `setup.bat` inside the final staged package and then send that same
-folder. Installer testing creates local runtime artifacts; rebuild and verify a
-fresh package afterward.
+9. Confirm the current release title and filenames in:
 
-The package targets 64-bit Windows. Raspberry Pi deployment is a separate
-validation target.
+   - `README.md`;
+   - `docs/INSTALL_WINDOWS.md`;
+   - `docs/TROUBLESHOOTING.md`;
+   - `docs/RELEASE_NOTES_researchA.md`;
+   - `SABLERESEARCHA/RELEASE_BODY.md`.
+
+10. Create GitHub release title/tag `researchA` as a draft. Upload:
+
+   - every package `.partNN.png` capsule;
+   - every optional 14B `.partNN.png` capsule;
+   - `SABLE_researchA_research.png`;
+   - `SABLE_researchA_support.png`;
+   - `machinesoul.py`;
+   - `DECOMPILE_SABLE_researchA.bat`.
+
+   Those two plaintext files are the unavoidable decompiler bootstrap. Do
+   not upload the raw reassembler, ledger, research files, ZIP/GGUF parts, or
+   any other release payload.
+
+11. Compare every GitHub asset's byte size and SHA-256 with the local file.
+   Then download the remote capsules, decompile them, reassemble the remote
+   package and 14B model, and compare the final ZIP/GGUF SHA-256 values with
+   the local originals.
+
+12. Inspect the draft release in the browser. Preserve the model, rights,
+    privacy, safety, research-loss, and known-gap disclosures. Publish only
+    after the operator explicitly approves the verified draft.
+
+Allow about 55 GB of temporary free space when capsules, decoded parts, the
+reconstructed ZIP, and the extracted package coexist. On a constrained build
+drive, remove only reproducible intermediates after their hashes and remote
+copies are verified.
+
+Do not test `setup.bat` inside the final staged package and send that same
+folder. Installer testing creates local runtime artifacts; rebuild and verify
+a clean package afterward.

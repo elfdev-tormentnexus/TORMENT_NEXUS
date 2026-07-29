@@ -10,6 +10,13 @@ measured to be *worse* than the thing it sits beside, at the job people
 will assume it does. That is stated below rather than buried, because it is
 the finding.
 
+The complete Windows package is capsule-only at the public layer. Every
+numbered ZIP part is carried inside a lossless `.png` and must be recovered
+with the published `machinesoul.py` decompiler before reassembly. The capsule
+is not encryption and does not evade GitHub's file-size ceiling; it is the
+byte-exact installation boundary requested for this research cut. Re-encoding
+an image destroys its payload.
+
 ## What is new
 
 ### machinespirit and machinesoul, named apart
@@ -67,6 +74,22 @@ operator, because this file ships.
 | labelled paraphrases, pooled | 90% | **90%** |
 | labelled paraphrases, trace | 83% | **90%** |
 
+### Rosetta Stone: a measured bridge across model vector spaces
+
+`tools/rosetta_stone.py` and its `SABLEROSETTA1` anchor language are included
+in both the research capsule and the complete package. Each embedding model
+builds its own half from the identical ordered anchor decree; direct vectors
+from different models are never compared, and mismatched anchor digests are
+refused.
+
+This implements published relative representations rather than claiming the
+underlying method as new. Measured between incompatible 384- and
+768-dimensional embedders, the translated space recovered 0.370 neighbour
+agreement against a 0.549 reachable ceiling and 0.056 chance: about **67% of
+what the two models could agree on at all**. It is a cross-model portability
+experiment, not a storage win and not a universal prebuilt stone. Model,
+quantization, and pooling changes invalidate a measured half.
+
 ### The readout was the bottleneck, not the encoding
 
 `peaks()` ranked concepts by the single strongest token position. Ranking
@@ -122,6 +145,12 @@ The anchor set remains measurably poor at covering personal memory content
 even after v2. Anyone expecting to read a life with this will be
 disappointed.
 
+The optional Qwen2.5-Coder 14B pack is the current researchA companion for
+deliberately requested long self-heal and extended editing sessions. It is
+not superseded. Its exact reviewed model bytes are republished as
+machinesoul-wrapped numbered parts rather than being duplicated inside the
+main package.
+
 ## Known gaps in this cut
 
 - Session rhythm exists as a module with tests; `note_turn()` is still not
@@ -129,5 +158,9 @@ disappointed.
 - The library's vector column is empty until the app runs with the embedder
   up; exact-word search works immediately, semantic search over the library
   does not.
-- The packaged launcher has not been run from a freshly extracted install
-  tree. It is verified as modules, as commands, and by 788 tests.
+- A fresh package built from the release tag passes its manifest, privacy
+  denylist, dependency, command, and clean-import checks. The launcher has not
+  yet been exercised end-to-end from that package with both model servers
+  producing a live trace.
+- 798 automated tests pass; two filesystem-link tests are skipped because
+  this Windows account cannot create the required links.

@@ -1,4 +1,4 @@
-# Your first TORMENT_NEXUS Beta 6 session
+# Your first TORMENT_NEXUS researchA session
 
 This guide assumes you installed the complete Windows archive. You do not need
 to memorize commands; `help` shows the current command list.
@@ -22,9 +22,9 @@ It confirms that you saw the model, authority, privacy, high-stakes, and
 personification limits. Review [Safety](../SAFETY.md) and
 [Privacy](../PRIVACY.md) whenever you enable an advanced feature.
 
-## 2. Beta 6 starts quiet
+## 2. researchA starts quiet
 
-A fresh Beta 6 installation starts with:
+A fresh researchA installation starts with:
 
 - text mode on;
 - microphone listening and spoken replies off;
@@ -86,7 +86,7 @@ See [Models](../MODELS.md) and
 
 ## 5. Use the offline reference library
 
-Beta 6 ships with a small set of practical preparedness cards. Try:
+researchA ships with a small set of practical preparedness cards. Try:
 
 ```text
 library sources
@@ -133,7 +133,7 @@ encrypted storage. See [Privacy](../PRIVACY.md).
 
 ## 7. Opt in to voice only if wanted
 
-Beta 6 does not initialize the microphone on a fresh start.
+researchA does not initialize the microphone on a fresh start.
 
 ```text
 audio mode        enable offline spoken replies and microphone listening

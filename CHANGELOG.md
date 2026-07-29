@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-## v0.2.0-beta.6 — 2026-07-28
+## researchA — 2026-07-28
 
-Beta 6 turns the experimental retrieval and agent seams into measured,
+researchA turns the experimental retrieval and agent seams into measured,
 release-packaged features while making the model and autonomy risks much more
 explicit.
 

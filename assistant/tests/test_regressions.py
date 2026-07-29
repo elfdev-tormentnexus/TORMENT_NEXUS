@@ -7595,20 +7595,23 @@ class DocumentationTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         # The number of parts follows archive size, so beginner instructions
-        # must name the first numbered asset, the generated helper, and the
-        # rule to download every consecutive later part. A fixed two-part list
+        # must name the first numbered capsule, the decompiler, both helpers,
+        # and the rule to download every consecutive later part. A fixed list
         # silently breaks the next time model payload crosses another cap.
         for text in (readme, installer):
             with self.subTest(document="README" if text is readme else "installer"):
                 self.assertIn(
-                    "TORMENT_NEXUS-v0.2.0-beta.6-windows-x64.zip.part01",
+                    "TORMENT_NEXUS-researchA-windows-x64.zip.part01.png",
                     text,
                 )
                 self.assertIn(
                     "REASSEMBLE_TORMENT_NEXUS-"
-                    "v0.2.0-beta.6-windows-x64.bat",
+                    "researchA-windows-x64.bat",
                     text,
                 )
+                self.assertIn("DECOMPILE_SABLE_researchA.bat", text)
+                self.assertIn("machinesoul.py", text)
+                self.assertIn("re-encode", text.lower())
                 self.assertIn("every", text.lower())
                 self.assertIn("Source code", text)
 
@@ -7621,7 +7624,7 @@ class DocumentationTests(unittest.TestCase):
         # both drift silently, and both are read by someone who has no way to
         # tell they are out of date.
         root, _ = self._documents()
-        current = "v0.2.0-beta.6"
+        current = "researchA"
 
         for name in ("README.md", "docs/INSTALL_WINDOWS.md",
                      "docs/TROUBLESHOOTING.md", "docs/BETA_GUIDE.md"):
@@ -7629,6 +7632,7 @@ class DocumentationTests(unittest.TestCase):
 
             with self.subTest(document=name):
                 self.assertNotIn("v0.1.0-beta.3", text)
+                self.assertNotIn("select `v0.2.0-beta.6`", text)
 
         for name in ("README.md", "docs/INSTALL_WINDOWS.md",
                      "docs/TROUBLESHOOTING.md"):
@@ -7636,6 +7640,31 @@ class DocumentationTests(unittest.TestCase):
 
             with self.subTest(document=name, check="names current release"):
                 self.assertIn(current, text)
+
+
+    def test_researchA_packages_the_rosetta_bridge_and_its_context(self):
+        required = {
+            "tools/machinesoul.py",
+            "tools/rosetta_stone.py",
+            "tools/vector_beam.py",
+            "docs/VECTOR_PIXEL_RESEARCH.md",
+            "docs/VECTOR_TRANSLATION_RESEARCH.md",
+        }
+        self.assertTrue(
+            required.issubset(set(package_release.INCLUDE_FILES)),
+            "researchA would separate an experimental tool from the "
+            "documentation required to interpret it",
+        )
+
+        root, _ = self._documents()
+        readme = (root / "README.md").read_text(encoding="utf-8")
+        models = (root / "MODELS.md").read_text(encoding="utf-8")
+        self.assertIn("SABLEROSETTA1", readme)
+        self.assertIn("each model must build its own half", readme.lower())
+        self.assertIn(
+            "optional researcha full-maintenance companion",
+            models.lower(),
+        )
 
 
 class BatchScriptTests(unittest.TestCase):
