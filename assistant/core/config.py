@@ -397,20 +397,28 @@ def _bounded_int_env(name, default, minimum, maximum):
     return max(minimum, min(maximum, value))
 
 
-# How many patches one Super Dev activation may retain before it stops on
-# its own. Every patch still passes the same gates individually -- allowlist,
-# capability boundary, line cap, backup, regression -- so this raises how
-# long the session runs, never what a single patch is allowed to do.
+# How long one unattended Super Dev activation may keep working. The session
+# is bounded by the clock rather than by a patch count, because the point of
+# the mode is to get through a night's worth of work: capping the count caps
+# the value, while capping the time caps the exposure.
 #
-# The ceiling exists because the session is unattended by design. An
-# unbounded loop against a planner that keeps finding work is a process that
-# never gives the machine back, and each patch costs a full regression run.
-# Six is roughly an hour of gate time on this hardware.
-SUPER_DEV_SESSION_PATCH_LIMIT = _bounded_int_env(
-    "TORMENT_NEXUS_SUPER_DEV_SESSION_PATCHES",
-    6,
-    1,
-    25,
+# Six hours is the ceiling as well as the default, so raising the environment
+# variable cannot extend a session past it. The floor is a minute, which is
+# only useful for tests.
+#
+# Read this as "no new patch starts after the window closes", not "the
+# process dies at six hours". A patch already inside its regression gate is
+# allowed to finish, because interrupting the gate is what leaves a pending
+# transaction marker behind. Overrun is bounded by one gate run.
+#
+# Every patch still passes the same gates individually -- allowlist,
+# capability boundary, line cap, backup, regression -- so this changes how
+# long the session runs, never what a single patch is allowed to do.
+SUPER_DEV_SESSION_MAX_SECONDS = _bounded_int_env(
+    "TORMENT_NEXUS_SUPER_DEV_SESSION_SECONDS",
+    6 * 60 * 60,
+    60,
+    6 * 60 * 60,
 )
 
 # Context window passed to llama-server (-c). Shared with main.py's

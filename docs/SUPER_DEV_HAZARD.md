@@ -37,18 +37,35 @@ The 7B gets only the selected file plus the precise change request and must
 return one exact `find` / `replace` JSON patch, capped at 40 changed lines.
 
 A session is unattended and runs a **loop** over that single-patch
-transaction: up to six patches by default, set by
-`TORMENT_NEXUS_SUPER_DEV_SESSION_PATCHES` (1–25). It is a loop rather than a
-batch. The planner re-runs after every accepted patch, because the tree it
-planned against has changed, and each patch clears the full gate list below on
-its own before the next one is attempted. Expect a full regression run per
-patch — the limit is a time budget as much as a safety one.
+transaction. It is a loop rather than a batch: the planner re-runs after every
+accepted patch, because the tree it planned against has changed, and each
+patch clears the full gate list below on its own before the next one is
+attempted.
 
-The session stops when it reaches the limit, when the planner errors or offers
-nothing it has not already tried, or when no untried candidate survives the
-gates. A candidate the gates rejected is never retried within the same
-session; that is what makes the loop terminate rather than grind against the
-same refusal until the limit runs out.
+**The session is bounded by time, not by a patch count.** There is no cap on
+how many patches one activation may retain — the point of the mode is to get
+through a night's work, and capping the count caps the value while capping the
+time caps the exposure. The window is six hours by default and six hours at
+most: `TORMENT_NEXUS_SUPER_DEV_SESSION_SECONDS` accepts 60 to 21600, so
+raising it cannot extend a session past the ceiling.
+
+Read the bound as *no new patch starts after the window closes*, not *the
+process dies at six hours*. A patch already inside its regression gate is
+allowed to finish, because interrupting the gate is what strands a
+transaction marker. Overrun is bounded by one gate run.
+
+The session stops when the window closes, when the planner errors or offers
+nothing it has not already tried, when no untried candidate survives the
+gates, or when a patch reports success without having written anything.
+
+Two rules make the loop safe to leave running overnight. A candidate the gates
+rejected is never retried within the same session, so a planner that keeps
+proposing the same refused change cannot spend the window grinding against it.
+And progress is verified against an internal write counter rather than a
+returned success flag — the counter moves only after a real write clears the
+regression gate, so a success that is secretly a no-op halts the session
+instead of looping for six hours. The bonus self-heal batch in
+`autonomous_engine.run_observed_serial()` guards itself the same way.
 
 Before a patch is retained, trusted code requires all of the following:
 

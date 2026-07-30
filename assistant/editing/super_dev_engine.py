@@ -11,23 +11,35 @@ write, runs the fixed regression gate, and restores the backup on failure.
 Neither model receives chat, memories, web pages, credentials, shell access,
 or Git authority.
 
-One activation runs an unattended session of up to
-SUPER_DEV_SESSION_PATCH_LIMIT patches.  The session is a loop over the
+One activation runs an unattended session bounded by SUPER_DEV_SESSION_MAX_SECONDS
+rather than by a patch count, so a night's run is limited by exposure instead
+of by how much work it manages to get through.  The session is a loop over the
 single-patch transaction, not a batch: the planner is re-run after every
-accepted patch because the tree it planned against has changed, and each
-patch passes the full gate set on its own before the next is attempted.
+accepted patch because the tree it planned against has changed, and each patch
+passes the full gate set on its own before the next is attempted.
 
-Two properties make the loop safe to leave running.  At most one patch is
-ever in flight -- the transaction marker is written before the write and
-cleared once the regression gate passes -- so crash recovery still has
-exactly one patch to undo, and every patch already retained had earned its
-place.  And a candidate the gates rejected is never retried inside the same
-session, which is what guarantees the loop ends instead of grinding on the
-same refusal until the limit runs out.
+Three properties make the loop safe to leave running unattended.
+
+At most one patch is ever in flight -- the transaction marker is written
+before the write and cleared once the regression gate passes -- so crash
+recovery still has exactly one patch to undo, and every patch already retained
+had earned its place.
+
+A candidate the gates rejected is never retried inside the same session, so a
+planner that keeps proposing the same refused change cannot spend the window
+grinding against it.
+
+And progress is verified against a write counter rather than a returned flag.
+_try_patch() increments _patches_written only after a real write clears the
+regression gate; if it ever reports success without that, the session halts.
+With no patch cap, a success that is really a no-op would otherwise loop for
+the entire window.  autonomous_engine.run_observed_serial() guards its batch
+the same way.
 """
 
 import json
 import os
+import time
 from datetime import datetime
 from urllib.parse import urlparse
 
@@ -37,7 +49,7 @@ from core import file_utils
 from core.config import (
     MODEL_ROLE,
     MODEL_ROLE_SUPER_DEV,
-    SUPER_DEV_SESSION_PATCH_LIMIT,
+    SUPER_DEV_SESSION_MAX_SECONDS,
     SUPER_DEV_WORKER_HEADERS,
     SUPER_DEV_WORKER_URL,
 )
@@ -55,6 +67,14 @@ STATE_FILE = os.path.join(
     edit_guard.PROJECT_ROOT, "logs", "super_dev_session_state.json"
 )
 STATE_VERSION = 1
+
+# Incremented only where a patch has actually been written and has cleared
+# the regression gate. The session loop compares it across a call rather than
+# trusting the returned flag, so a future refactor that reports success
+# without doing the work stops the run instead of spinning through the whole
+# window. Borrowed from autonomous_engine.run_observed_serial(), where the
+# same cross-check guards the observed batch.
+_patches_written = 0
 
 
 def _log(message):
@@ -216,6 +236,8 @@ def _try_patch(suggestion):
         return False, f"fixed regression gate rejected the patch.{suffix}\n{str(diagnostic)[-1200:]}"
 
     _clear_state()
+    global _patches_written
+    _patches_written += 1
     summary = edit.get("explanation", "small guarded patch")
     _log(
         f"APPLIED {target}: 14B planned; 7B drafted; +{added} -{removed}; "
@@ -237,12 +259,26 @@ def _candidate_key(suggestion):
     return (str(suggestion.get("file", "")), str(suggestion.get("change", "")))
 
 
-def run_session(limit=None):
-    """Plan, draft, test, and retain up to `limit` tightly scoped patches.
+def _describe_window(seconds):
+    hours, remainder = divmod(int(seconds), 3600)
+    minutes = remainder // 60
+    if hours and minutes:
+        return f"{hours}h{minutes:02d}m"
+    if hours:
+        return f"{hours}h"
+    return f"{minutes}m"
 
-    Returns (applied_any, report). The session stops at the limit, at the
-    first planning round that offers nothing untried, or at the first round
-    where no untried candidate survives the gates.
+
+def run_session(limit=None, max_seconds=None):
+    """Plan, draft, test, and retain patches until the session window closes.
+
+    The session is bounded by time, not by a patch count: `limit` stays
+    available for a watched run or a test, but defaults to no cap. It stops
+    when the window closes, when the planner errors or offers nothing untried,
+    when no untried candidate survives the gates, or when a patch claims
+    success without having written anything.
+
+    Returns (applied_any, report).
     """
     if MODEL_ROLE != MODEL_ROLE_SUPER_DEV:
         return False, "Super Dev requires the dedicated super-dev launcher."
@@ -254,21 +290,41 @@ def run_session(limit=None):
     if not ready:
         return False, f"SUPER DEV BLOCKED\n{'=' * 58}\n\n{detail}. No files changed."
 
-    if limit is None:
-        limit = SUPER_DEV_SESSION_PATCH_LIMIT
+    if max_seconds is None:
+        max_seconds = SUPER_DEV_SESSION_MAX_SECONDS
     try:
-        limit = max(1, int(limit))
+        max_seconds = max(1, int(max_seconds))
     except (TypeError, ValueError):
-        limit = SUPER_DEV_SESSION_PATCH_LIMIT
+        max_seconds = SUPER_DEV_SESSION_MAX_SECONDS
 
+    if limit is not None:
+        try:
+            limit = max(1, int(limit))
+        except (TypeError, ValueError):
+            limit = None
+
+    window = _describe_window(max_seconds)
+    started = time.monotonic()
+    deadline = started + max_seconds
     applied = []
     attempted = set()
-    stop_reason = f"the session patch limit of {limit} was reached"
-    _log(f"SESSION START: patch limit {limit}")
+    stop_reason = f"the {window} session window closed"
+    _log(
+        f"SESSION START: window {window}"
+        + (f"; patch limit {limit}" if limit is not None else "; no patch limit")
+    )
 
-    while len(applied) < limit:
+    while True:
+        if limit is not None and len(applied) >= limit:
+            stop_reason = f"the patch limit of {limit} was reached"
+            break
+        if time.monotonic() >= deadline:
+            break
+
+        left = _describe_window(max(0, deadline - time.monotonic()))
         ui.set_status(
-            f"14B planner reviewing candidates ({len(applied) + 1}/{limit})"
+            f"14B planner reviewing candidates "
+            f"({len(applied)} retained, {left} left)"
         )
         suggestions, error = suggestion_engine.generate(autonomous=True)
         if error:
@@ -285,14 +341,31 @@ def run_session(limit=None):
             break
 
         retained_this_round = False
+        halted = None
         for suggestion in fresh:
             attempted.add(_candidate_key(suggestion))
+            written_before = _patches_written
             accepted, result = _try_patch(suggestion)
+
+            # Trust the counter, not the flag. _try_patch() increments it only
+            # after a real write clears the regression gate, so a success
+            # reported without one means the loop can no longer tell progress
+            # from a no-op -- and with no patch cap that is a whole window
+            # spent spinning. Stop instead.
+            if accepted and _patches_written <= written_before:
+                halted = "a patch reported success without writing anything"
+                _log(f"SESSION HALTED: {halted}")
+                break
+
             if accepted:
                 applied.append(result)
                 retained_this_round = True
                 break
             _log(f"SKIPPED: {result}")
+
+        if halted:
+            stop_reason = halted
+            break
 
         if not retained_this_round:
             stop_reason = (
@@ -301,7 +374,11 @@ def run_session(limit=None):
             )
             break
 
-    _log(f"SESSION END: {len(applied)} applied; stopped because {stop_reason}")
+    elapsed = _describe_window(time.monotonic() - started)
+    _log(
+        f"SESSION END: {len(applied)} applied in {elapsed}; "
+        f"stopped because {stop_reason}"
+    )
 
     if not applied:
         return False, (
@@ -316,8 +393,8 @@ def run_session(limit=None):
     return True, (
         "SUPER DEV VERIFIED\n" + "=" * 58
         + f"\n\n14B planner + 7B patch worker retained {len(applied)} "
-        + f"{noun}. Each passed the fixed regression gate on its own "
-        + f"before the next was attempted.\n\n{body}\n\n"
+        + f"{noun} in {elapsed}. Each passed the fixed regression gate on "
+        + f"its own before the next was attempted.\n\n{body}\n\n"
         + f"The session stopped because {stop_reason}.\n\n"
         + f"Audit: {LOG_FILE}\nBackups retained by the edit guard."
     )
