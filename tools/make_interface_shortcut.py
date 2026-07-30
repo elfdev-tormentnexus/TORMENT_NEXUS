@@ -1,11 +1,13 @@
 """
 Put a mode shortcut on the Desktop, wearing the icon that says which mode.
 
-Both non-ordinary launchers start something an operator should be able to
+Each non-ordinary launcher starts something an operator should be able to
 recognise before double-clicking. INTERLINKED opens a listening socket.
 HAZARD starts a second embedding server and an unproven representation.
-Neither should look like the ordinary launcher, and neither should depend
-on remembering which window is which.
+SUPER_DEV writes to this project. None should look like the ordinary
+launcher, and none should depend on remembering which window is which --
+which is why Super Dev wears blue and red rather than the hazard yellow:
+the two that read and the one that writes must not be one misclick apart.
 
 Built through PowerShell's WScript.Shell rather than a COM binding, for the
 same reason tools/glitch_icon.py does it that way: no third-party package
@@ -19,7 +21,9 @@ only thing it exists to do.
 
     python tools/make_interface_shortcut.py                 INTERLINKED
     python tools/make_interface_shortcut.py --hazard        HAZARD
-    python tools/make_interface_shortcut.py --both          both
+    python tools/make_interface_shortcut.py --both          both readers
+    python tools/make_interface_shortcut.py --super-dev     SUPER_DEV
+    python tools/make_interface_shortcut.py --all           all three
     python tools/make_interface_shortcut.py --remove --both take them away
 """
 
@@ -48,6 +52,14 @@ MODES = {
         "description": ("TORMENT_NEXUS_HAZARD - experimental, two embedding "
                         "servers, slower on purpose"),
         "rebuild": "python tools/build_hazard_icon.py",
+    },
+    "superdev": {
+        "launcher": os.path.join(PROJECT, "start_super_dev_hazard.bat"),
+        "icon": os.path.join(PROJECT, "assets", "super_dev_icon.ico"),
+        "name": "TORMENT_NEXUS_SUPER_DEV.lnk",
+        "description": ("TORMENT_NEXUS_SUPER_DEV - two-model self-editing, "
+                        "key-gated, writes to this project"),
+        "rebuild": "python tools/build_super_dev_icon.py",
     },
 }
 
@@ -153,12 +165,24 @@ def main():
                         help="delete the shortcut instead of creating it")
     parser.add_argument("--hazard", action="store_true",
                         help="TORMENT_NEXUS_HAZARD instead of INTERLINKED")
+    parser.add_argument("--super-dev", action="store_true",
+                        dest="super_dev",
+                        help="TORMENT_NEXUS_SUPER_DEV instead of INTERLINKED")
     parser.add_argument("--both", action="store_true",
                         help="both mode shortcuts")
+    parser.add_argument("--all", action="store_true",
+                        help="every launcher shortcut, Super Dev included")
     arguments = parser.parse_args()
 
-    if arguments.both:
+    # --both keeps meaning the two reading modes it has always meant. Super
+    # Dev is the one that writes to the project, so it is never included by
+    # a flag someone typed expecting the old pair.
+    if arguments.all:
+        modes = ["interlinked", "hazard", "superdev"]
+    elif arguments.both:
         modes = ["interlinked", "hazard"]
+    elif arguments.super_dev:
+        modes = ["superdev"]
     elif arguments.hazard:
         modes = ["hazard"]
     else:

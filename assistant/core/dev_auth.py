@@ -14,7 +14,7 @@ from core.config import ASSISTANT_ROOT
 
 PASSCODE_FILE = os.path.join(ASSISTANT_ROOT, ".dev_passcode")
 # A Super Dev key is intentionally distinct from the ordinary developer
-# credential.  The numeric secret is never committed or displayed; this file
+# credential.  The secret is never committed or displayed; this file
 # stores only a salted verifier on the local machine.
 SUPER_PASSCODE_FILE = os.path.join(ASSISTANT_ROOT, ".super_dev_passcode")
 PBKDF2_ITERATIONS = 350_000
@@ -350,7 +350,7 @@ def unlock_interactive(read_secret):
 
 
 def unlock_super_interactive(read_secret):
-    """Enroll or verify the local numeric key for the hazard-only mode."""
+    """Enroll or verify the local key for the hazard-only mode."""
     remaining = _super_retry_after()
     if remaining:
         return False, f"Super Dev is temporarily locked. Try again in {remaining} seconds."

@@ -21,8 +21,9 @@ or that one model can override the other’s limits.
 1. Close other project editors and make a separate backup.
 2. Run `start_super_dev_hazard.bat` and type the launch acknowledgement.
 3. In the HazardSable window, type `super dev mode`.
-4. On first use, choose and confirm an 8–32 digit Super Dev key at the masked
-   prompt. Later sessions prompt for that same key. The key is never printed,
+4. On first use, choose and confirm a Super Dev key at the masked prompt — 8–32
+   digits, or 7–32 characters if it includes a letter. Later sessions prompt
+   for that same key. The key is never printed,
    logged, or committed; the machine stores only a PBKDF2 salted verifier at
    `assistant/.super_dev_passcode`.
 

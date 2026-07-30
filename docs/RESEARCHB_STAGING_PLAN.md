@@ -76,7 +76,8 @@ Covered by the 975. No new work.
 
 ## Stage 2 — the vector panel
 
-*Not built yet. This section is the plan for when it is.*
+*Built. machinespirit above, machinesoul below. 2.1 has been run once
+against the live servers and passed; the rest are still to do by hand.*
 
 The panel becomes machinespirit on top, machinesoul below. Both halves change
 source, so both need checking against something that is not the panel.
