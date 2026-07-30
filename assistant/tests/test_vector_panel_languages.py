@@ -6,6 +6,7 @@ above must be what `trace` prints, and machinesoul below must be the bytes a
 capsule actually stores.
 """
 
+import re
 import unittest
 from unittest import mock
 
@@ -131,6 +132,83 @@ class PanelFallbackTests(unittest.TestCase):
         field.clear_spirit()
         field.set_soul(b"\xff\x00\x00\xff")
         self.assertNotEqual(field.render_cells(30, 16), cloud)
+
+
+def _brightest(cells):
+    """The highest colour channel anywhere in a rendered block."""
+    best = 0
+    for row in cells:
+        for _, style in row:
+            for triple in re.findall(r"[34]8;2;(\d+);(\d+);(\d+)", style):
+                best = max(best, max(int(value) for value in triple))
+    return best
+
+
+class DisplayRangeTests(unittest.TestCase):
+    """Both readouts measure 0..0.4 and were drawn as though they spanned 0..1.
+
+    Measured live on 2026-07-30: entropy over ten candidates ran 0.00 to 0.39
+    with a mean of 0.16, and anchor support peaked at 0.374. Against the
+    theoretical maximum the strip's top 62% could not be reached by any token
+    a real model produces, and the strongest anchor in a readout arrived at
+    half brightness. Both now scale to the strongest value on screen.
+    """
+
+    def _lit_rows(self, cells, column, strip_rows):
+        return sum(
+            1 for row in cells[-strip_rows:] if row[column][0] != " "
+        )
+
+    def test_a_realistic_entropy_spread_uses_the_whole_strip(self):
+        field = vector_panel.Field()
+        # The shape of the live trace: mostly committed, one real fork.
+        for level in (0.00, 0.05, 0.16, 0.39, 0.01, 0.28, 0.04, 0.00):
+            field.entropy.append(level)
+
+        cells = field.render_cells(8, 10, strip_rows=8)
+
+        # Column 3 holds the peak, and the peak is what the strip is for.
+        self.assertEqual(self._lit_rows(cells, 3, 8), 8)
+        # The committed tokens stay near the floor -- scaling must not
+        # flatten the difference it exists to show.
+        self.assertLessEqual(self._lit_rows(cells, 0, 8), 1)
+
+    def test_a_passage_with_no_forks_is_not_stretched_into_one(self):
+        """The floor, doing the job the floor is there for."""
+        field = vector_panel.Field()
+        for _ in range(8):
+            field.entropy.append(0.02)
+
+        cells = field.render_cells(8, 10, strip_rows=8)
+
+        # 0.02 read against the 0.12 floor, not against itself.
+        self.assertLessEqual(self._lit_rows(cells, 0, 8), 2)
+
+    def test_the_strongest_anchor_reaches_full_brightness(self):
+        field = vector_panel.Field()
+        field.set_spirit([
+            (0, [(0.374, "a fire alarm during an exam")]),
+            (1, [(0.30, "the silence after a loud noise")]),
+        ])
+
+        cells = field.render_cells(12, 10, strip_rows=4)
+
+        # Absolutely scaled, 0.374 landed at 0.22 + 0.78 * 0.374 = 0.51 value,
+        # which is the washed-out panel this replaces.
+        self.assertGreaterEqual(_brightest(cells), 240)
+
+    def test_a_readout_where_nothing_scored_stays_dim(self):
+        field = vector_panel.Field()
+        field.set_spirit([
+            (0, [(0.05, "an anchor that barely matched")]),
+            (1, [(0.04, "another that did not either")]),
+        ])
+
+        cells = field.render_cells(12, 10, strip_rows=4)
+
+        # Read against the 0.20 floor. Weak matches must not be promoted into
+        # a confident-looking reading just because they are the best present.
+        self.assertLess(_brightest(cells), 200)
 
 
 if __name__ == "__main__":

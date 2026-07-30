@@ -34,6 +34,27 @@ RESET = "\x1b[0m"
 GLOW_STEPS = 40
 ECHO_STEPS = 12
 
+# Both readouts below measure something whose arithmetic range is 0..1 and
+# whose *observed* range is nothing like it, so both are scaled to the
+# strongest value currently on screen rather than to the theoretical maximum.
+#
+# The strip: entropy over ten candidates, normalised by log(10). Measured
+# live against a 14B on 2026-07-30 -- floor 0.00, mean 0.16, peak 0.39. Mapped
+# absolutely, the top 62% of the strip could not be reached by any token a
+# real model produces, and most columns sat at one lit row. It read as a flat
+# line, which is exactly as informative as no strip at all.
+#
+# Scaling to the visible window also matches the claim the strip makes. "It
+# nearly said something else" is relative to the passage in front of you, not
+# to a uniform distribution over ten tokens, which is a state no model enters.
+#
+# The floors are what stop the scaling from lying in the other direction. A
+# passage with no forks in it, or a readout where nothing scored, would
+# otherwise have its largest rounding error stretched to full height and look
+# like a decisive moment.
+_STRIP_FLOOR = 0.12
+_SPIRIT_FLOOR = 0.20
+
 
 def _fg(rgb):
     r, g, b = rgb
@@ -412,6 +433,23 @@ class Field:
         lane = {anchor: slot for slot, anchor in enumerate(ranked)}
         height = rows * 2
 
+        # Support is a centred cosine and does not reach 1.0 in practice: a
+        # live trace of "a chirping carbon monoxide alarm" peaked at 0.374.
+        # Read absolutely, the strongest anchor in a readout arrived at half
+        # brightness and everything else below it, so the panel looked washed
+        # out no matter how clear the reading was.
+        #
+        # Scaled to the strongest anchor on screen, the brightest thing
+        # visible is the strongest thing measured, which is the comparison
+        # the panel exists to let you make. The floor stops a readout of
+        # uniformly weak matches from being promoted into a confident-looking
+        # one -- if nothing scored, nothing should look like it did.
+        peak = max(
+            (support for row in visible for _, support in row),
+            default=0.0,
+        )
+        span = max(_SPIRIT_FLOOR, float(peak))
+
         for column, row in enumerate(visible):
             if column >= width:
                 break
@@ -424,7 +462,7 @@ class Field:
                 if not 0 <= y < height:
                     continue
 
-                strength = max(0.0, min(1.0, float(support)))
+                strength = max(0.0, min(1.0, float(support) / span))
                 # Hue identifies the anchor, brightness is its support, so
                 # colour never implies a score it did not measure.
                 pixels[y][column] = _hsv(
@@ -532,20 +570,22 @@ class Field:
         pixels = [[None] * width for _ in range(rows * 2)]
         visible = self.entropy[-width:]
         offset = len(self.entropy) - len(visible)
+        span = max(_STRIP_FLOOR, max(visible, default=0.0))
 
         for col, level in enumerate(visible):
-            filled = int(level * (rows * 2 - 1)) + 1
+            shown = min(1.0, level / span)
+            filled = int(shown * (rows * 2 - 1)) + 1
 
             for step in range(filled):
                 row = rows * 2 - 1 - step
                 intensity = step / max(1, rows * 2 - 1)
 
                 # Red when it committed, toward violet when the mass split.
-                hue = 0.02 + 0.72 * level
+                hue = 0.02 + 0.72 * shown
                 pixels[row][col] = _hsv(
                     hue,
                     0.85,
-                    0.30 + 0.65 * (level * 0.6 + intensity * 0.4),
+                    0.30 + 0.65 * (shown * 0.6 + intensity * 0.4),
                 )
 
             if self.echo_column is not None and offset + col == self.echo_column:

@@ -58,6 +58,9 @@ class SableFieldVisualizer:
         self.palette = tuple(palette)
         self.time = 0.0
         self.slow = 0.0
+        # How far the field has filled. Integrated from a bass-driven rate,
+        # so it only ever moves forward.
+        self.scroll = 0.0
         self.bass = 0.0
         self.mid = 0.0
         self.treble = 0.0
@@ -90,15 +93,38 @@ class SableFieldVisualizer:
         treble = self._feature(features, "treble")
         beat = self._feature(features, "beat")
 
-        self.bass += (bass - self.bass) * response
-        self.mid += (mid - self.mid) * response
-        self.treble += (treble - self.treble) * response
+        # Fast up, slow down. One symmetric coefficient made every band arrive
+        # late and leave early: a hit was still climbing when the transient
+        # had already passed, so the field read as following the music rather
+        # than being struck by it. Attack is nearly instant now; release keeps
+        # the old pace, which is what stops the field strobing and lets it
+        # breathe back down between hits.
+        attack = 1.0 - math.exp(-dt * 26.0)
+        release = 1.0 - math.exp(-dt * 7.0)
+
+        self.bass += (bass - self.bass) * (
+            attack if bass > self.bass else release)
+        self.mid += (mid - self.mid) * (
+            attack if mid > self.mid else release)
+        self.treble += (treble - self.treble) * (
+            attack if treble > self.treble else release)
 
         # Wall-clock, deliberately unscaled by audio. A reference that speeds
         # up with the music is not a reference -- visualizer/anchor.py makes
         # the same argument, and the lanes here are the reference.
         self.slow += dt
-        self.time += dt * (0.55 + self.mid * 0.85)
+        self.time += dt * (0.5 + self.mid * 1.5)
+
+        # Integrated, not `slow * rate`. Multiplying elapsed time by a rate
+        # that changes means the whole field jumps whenever bass moves --
+        # sixty seconds in, a bass swell displaced it by tens of rows at once,
+        # which read as a glitch rather than as speed. Accumulating the rate
+        # makes bass drive how fast the capsule fills, which is the thing it
+        # was always supposed to mean.
+        # Squared for the same reason the field density is: the lifted floor
+        # would otherwise keep the capsule filling at half speed through a
+        # silent passage.
+        self.scroll += dt * (0.26 + (self.bass ** 2) * 2.6)
 
         # The beam slows where the spectrum turns, which is the rule the APNG
         # beam uses: frame duration in proportion to distance moved. A steady
@@ -188,8 +214,7 @@ class SableFieldVisualizer:
         like a single channel would misrepresent what a capsule holds.
         """
         np = self._np
-        scroll = self.slow * (0.35 + self.bass * 0.9)
-        rows = v * 26.0 + scroll * 6.0
+        rows = v * 26.0 + self.scroll * 6.0
         cols = u * 34.0
 
         field = np.zeros_like(intensity)
@@ -204,7 +229,21 @@ class SableFieldVisualizer:
         # Base kept low on purpose: quiet passages must actually go quiet.
         # At 0.30 the field cleared the dot threshold on its own and a
         # silent track looked much like a loud one.
-        density = 0.10 + 0.58 * self.mid + 0.30 * self.treble
+        #
+        # Expanded here, not merely amplified upstream. reactivity.py lifts
+        # quiet detail so it is visible at all, which means a near-silent
+        # passage still arrives in this method around 0.45 -- so raising the
+        # profile gains alone raised the floor exactly as much as the ceiling
+        # and bought a quiet-to-loud contrast of about two to one. Measured,
+        # not assumed.
+        #
+        # Squaring pushes the quiet back down without touching the peaks, so
+        # the distance between a verse and a chorus is roughly four to one.
+        # That is what "more reactive" actually means for this scene: not a
+        # brighter average, a wider gap. Above 1.0 the field saturates rather
+        # than brightening further, which is fine -- a chorus is allowed to
+        # look like the field is full.
+        density = 0.06 + 0.86 * (self.mid ** 2) + 0.46 * (self.treble ** 2)
         shaped = np.clip(field * 0.5 + 0.5, 0.0, 1.0) ** 3.0
         intensity += shaped * density
 

@@ -128,21 +128,27 @@ _PROFILES = {
         "waveform": 1.36,
         "pan": 1.42,
     },
-    # Sable's own scene reads rather than pounds. The spectrum is weighted
-    # highest because it drives the anchor lanes, which are the thing being
-    # read; beat is damped relative to the other scenes because the gate is
-    # a verification pulse and a verification that fires constantly is not
-    # telling you anything.
+    # Sable's own scene. The spectrum is weighted highest because it drives
+    # the anchor lanes, which are the thing being read.
+    #
+    # Beat stays damped where the others are not, and that is the one number
+    # here that is not about spectacle: the gate is a verification pulse, and
+    # a verification that fires on every kick is not telling you anything.
+    # Everything else was damped alongside it on the theory that the scene
+    # should read rather than pound, which turned out to be a different
+    # argument wearing the same clothes -- reading the field does not require
+    # the field to be dim. The band gains now sit with the lattice and the
+    # wormhole; only the gate holds back, and it holds back on purpose.
     "sable field": {
-        "bass": (1.48, 0.62),
-        "mid": (1.62, 0.58),
-        "treble": (1.54, 0.60),
-        "level": (1.40, 0.70),
+        "bass": (1.70, 0.56),
+        "mid": (1.66, 0.57),
+        "treble": (1.62, 0.57),
+        "level": (1.52, 0.64),
         "beat": (1.88, 0.70),
-        "stereo_width": (1.38, 0.72),
-        "spectrum": (1.74, 0.55),
-        "waveform": 1.34,
-        "pan": 1.40,
+        "stereo_width": (1.44, 0.68),
+        "spectrum": (1.78, 0.54),
+        "waveform": 1.40,
+        "pan": 1.44,
     },
 }
 
