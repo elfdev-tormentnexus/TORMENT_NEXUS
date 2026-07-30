@@ -71,9 +71,12 @@ file and code seams used by the cut logic.
 
    Do not upload either source file raw.
 
-8. Generate and test `DECOMPILE_SABLE_researchB.bat`. The only unavoidable
-   plaintext bootstrap downloads are that one-click launcher and
-   `machinesoul.py`. The launcher must:
+8. Generate and test `DECOMPILE_SABLE_researchB.bat`, then generate
+   `FETCH_SABLERESEARCHB.bat` from the completed release directory with
+   `tools/build_researchb_fetcher.py`. The fetcher is plaintext by necessity:
+   it is the small, resumable first download that obtains the decompiler and
+   the capsules. It must be generated from the actual part names and digests,
+   never maintained as a remembered list. The one-step launcher must:
 
    - decompile the manifest and reassembler capsules;
    - decompile every exact `SABLERESEARCHB-WINDOWS.partNN.png`;
@@ -84,12 +87,18 @@ file and code seams used by the cut logic.
    - skip the 14B set when none are present; and
    - refuse a partial optional set.
 
+   The normal fetcher downloads only the required Windows set. The optional
+   14B companion remains a deliberate separate download; generate the clearly
+   named `FETCH_SABLERESEARCHB_WITH_14B.bat` only if that broader path is
+   intentionally offered and separately tested.
+
 9. Create GitHub tag/title `researchB` as a draft and upload only:
 
    - every `SABLERESEARCHB-WINDOWS.partNN.png`;
    - every optional `SABLERESEARCHB-14B.partNN.png`;
    - `SABLERESEARCHB-MANIFEST.png`;
    - `SABLERESEARCHB-REASSEMBLER.png`;
+   - `FETCH_SABLERESEARCHB.bat`;
    - `machinesoul.py`;
    - `DECOMPILE_SABLE_researchB.bat`.
 

@@ -65,6 +65,7 @@ Open the
 select the release titled `researchB`, expand **Assets**, and download:
 
 ```text
+FETCH_SABLERESEARCHB.bat
 machinesoul.py
 DECOMPILE_SABLE_researchB.bat
 SABLERESEARCHB-MANIFEST.png
@@ -73,6 +74,13 @@ SABLERESEARCHB-WINDOWS.part01.png
 ...every consecutive field...
 SABLERESEARCHB-WINDOWS.partNN.png
 ```
+
+`FETCH_SABLERESEARCHB.bat` is the small, readable download helper. Double-click
+it to fetch every required asset, resume interrupted transfers, and verify
+each file against the SHA-256 recorded at the cut. It deliberately does **not**
+download the optional 14B companion. If you use it, wait for its verification
+message and continue at Step 2. If you download manually, take every other
+file in the list.
 
 **How many parts there are is decided by the cut, not by this page.** Take the
 count from the Assets list. A missing part is refused rather than skipped, so
@@ -121,13 +129,12 @@ This is the only installation action after downloading. The helper uses the
 standard `python` command to bootstrap machinesoul. It:
 
 1. decompiles the encoded combined manifest and verified reassembler;
-2. moves all nine required Windows vector fields back from machinesoul;
+2. moves every required Windows vector field back from machinesoul;
 3. invokes the recovered reassembler and verifies every reconstructed file;
 4. creates the install directory directly, without a ZIP or tar layer;
-5. installs the optional 14B companion when its complete six-field set is
-   present; and
-6. applies the calibration-clarity patch when its complete three-file set is
-   present, then runs `setup.bat`.
+5. installs the optional 14B companion when its complete field set is present;
+   and
+6. runs `setup.bat`.
 
 The internal vector segments appear only during that local process:
 

@@ -165,7 +165,7 @@ session for these two alone and do not append them to stage 4.
 
 | stage | date | result | notes |
 | --- | --- | --- | --- |
-| 0 baseline | 2026-07-30 | pass | Suite 1007 pass / 2 skips at the rename; 1021 / 2 skips after the receipt work landed later the same day. Calibration 7/7 rows, drift `0.000000`. Anchor digest `b5421687…1690fd`, 184 anchors (122 core + 16 project + 46 life), dictionary v2. |
+| 0 baseline | 2026-07-30 | pass | Full suite rerun after the fetcher and public-doc work: no failures, 2 expected skips. Calibration 7/7 rows, drift `0.000000`. Anchor digest `b5421687…1690fd`, 184 anchors (122 core + 16 project + 46 life), dictionary v2. |
 | 1 landed changes | | | |
 | 2 vector panel | 2026-07-30 | 2.1 only | `trace` on the README's own example: panel and text readout agreed on the same concept at the same token. 2.2–2.6 not run. |
 | 3 council | | | |
@@ -178,9 +178,10 @@ An empty row is a stage not run. That is a fine state to leave this in.
 
 Recorded after the fact, so the means matters as much as the result.
 
-- Suite count, anchor digest, anchor counts and dictionary version were
-  re-measured on 2026-07-30 while writing this row — the suite by running it,
-  the anchors by reading `machinespirit.dictionary()`, which loads the anchor
+- The full suite was rerun from the repository root after the fetcher and
+  public-documentation work. It had no failures and the same two expected
+  skips. The anchor digest, anchor counts and dictionary version were measured
+  on 2026-07-30 by reading `machinespirit.dictionary()`, which loads the anchor
   file directly and needs no server. The digest matched the figure carried
   forward from earlier the same day.
 - Calibration drift, `machinespirit status` model identity, and the whole of

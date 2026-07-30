@@ -54,10 +54,11 @@ operator input
 
 | Area | Responsibility |
 | --- | --- |
-| `assistant/main.py` | Startup order, session lifecycle, prompt assembly, streaming, retrieval coordination, agent route providers, and mode changes. |
+| `assistant/main.py` | Startup order, session lifecycle, prompt assembly, streaming, retrieval coordination, agent route providers, mode changes, and the reasoning receipt completed after a reply exists. When context is tight it sheds retrieved excerpts before rejecting the operator's message; only excerpts that survived are eligible for a receipt citation. |
 | `assistant/core/first_run.py` | Mandatory versioned safety/privacy acknowledgement. |
 | `assistant/core/` | Configuration, persona, clock/activity context, model and embedding server ownership, authentication, escalation, tutorial, and health checks. |
 | `assistant/core/machinespirit.py` | Per-token trajectories read against a fixed anchor dictionary (`anchors_v2.json` by default; v1 remains loadable and keeps its digests). Requires **both** embedding servers — the unpooled one supplies the path, the pooled one embeds the dictionary — and `diagnose()` reports which is missing rather than blaming one for the other. Does not participate in retrieval. Also carries the density matrix of a trajectory (`spread`): purity, participation ratio, and von Neumann entropy, read off the `n × n` Gram matrix rather than the `384 × 384` second moment since the two share every nonzero eigenvalue. Permutation-invariant by construction — it reports how much ground a text covered, never in what order. |
+| `assistant/core/provenance.py` | Produces an answer's reasoning receipt. It keeps retrieved evidence distinct from the model's inferred reply and records only citations that actually reached the prompt. |
 | `assistant/core/consume.py` | Identifies what a URL points at, fetches the content rather than the surrounding page, and hands documents to the offline library. Refuses non-loopback-safe addresses, media URLs, and bodies that exceed the library's own ceiling mid-download. |
 | `tools/machinesoul.py` | Sable's data-preservation logic language: maps ordered four-coordinate vectors to PNG/APNG pixels and reverses them 1:1. `MACHINESOUL1` is SHA-256 gated and refuses rather than returning a partial reconstruction. |
 | `tools/machinespirit_codec.py` | Measures the lossy half as a codec — encode to anchor coordinates, decode by least squares, report cosine and whether the reconstruction still retrieves its own chunk. |
@@ -70,11 +71,12 @@ operator input
 | `assistant/voice/` | Offline Moonshine recognition, Silero VAD, Piper synthesis, playback, and cancellation. |
 | `assistant/commands/` | Explicit command registry and cautious natural-language routing. |
 | `assistant/memory/` | Durable facts, bounded conversation history, conservative selection, embedding cache, and older-history recall. |
-| `assistant/knowledge/` | Built-in cards, private user documents, extraction, chunking, SQLite FTS, separate vectors, and library commands. |
+| `assistant/knowledge/` | Built-in cards, private user documents, ingestion-time trust classification, extraction, chunking, SQLite FTS, separate vectors, and library commands. Imported content is data, not executable instruction. |
 | `assistant/editing/` | Reviewable plans, backups, protected paths, bounded autonomous cycles, validation, and rollback. |
 | `assistant/web/` | Optional SearXNG/Brave search and untrusted-result handling. |
 | `assistant/hardware/` | Optional T-Deck and Meshtastic bridge. |
 | `tools/` | Release packaging, diagnostics, visualizer helpers, and isolated research utilities. |
+| `TORMENT_NEXUS.bat` | One numeric front door for ordinary, HazardSable, interlinked, and Super Dev modes. It delegates to the existing launchers and can offer to stop a leftover server belonging to this installation only. |
 
 ## Model roles
 

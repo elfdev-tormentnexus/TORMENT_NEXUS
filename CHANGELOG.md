@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+## researchB — 2026-07-30
+
+- Added evidence receipts. A reply can now show the retrieved local material
+  that actually reached its prompt, the model identity, and the boundary
+  between observed evidence and the model's inferred answer. The receipt is
+  explicitly not a truth certificate.
+- Classified imported library material at ingestion. Trust state is visible to
+  retrieval and instructions inside a document remain data rather than
+  authority to perform actions.
+- Added `TORMENT_NEXUS.bat`, one caution-marked menu for the four existing
+  launch modes. It delegates rather than duplicating launcher configuration and
+  can identify a leftover local llama-server before it causes a port conflict.
+- Added a generated, resumable Research B capsule fetcher. It is built only
+  from final release assets, uses Windows `curl.exe` and SHA-256 verification,
+  and deliberately leaves the optional 14B companion as an explicit choice.
+- Fixed machinespirit readiness reporting so it probes authenticated live
+  embedding services instead of confusing model files or a generic health
+  response with a usable server. The regression suite now also shuts down the
+  real server it starts.
+- When prompt space is tight, Sable now drops retrieved excerpts before it
+  rejects an operator's message. A receipt cannot cite an excerpt that was
+  dropped.
+- Added a repository line-ending policy, preserving the published anchor data
+  and Windows launcher exceptions while preventing silent mixed-ending rewrites.
+
 ## researchA — 2026-07-28
 
 - Renamed the two non-ordinary launchers to what they are:

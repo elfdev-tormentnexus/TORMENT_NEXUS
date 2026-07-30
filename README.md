@@ -188,14 +188,17 @@ decompilation, the reconstructed installation contains:
 
 1. Open [GitHub Releases](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases),
    select `researchB`, expand **Assets**, and read its warning, checksums,
-   model provenance, and known issues. Download the plaintext bootstrap
-   pair, `machinesoul.py` and `DECOMPILE_SABLE_researchB.bat`, plus
+   model provenance, and known issues. The small plaintext
+   `FETCH_SABLERESEARCHB.bat` is the easiest path: double-click it to resume
+   and SHA-256-verify every required bootstrap and Windows capsule. It does
+   not fetch the optional 14B companion. If you prefer to download manually,
+   take `machinesoul.py`, `DECOMPILE_SABLE_researchB.bat`,
    `SABLERESEARCHB-MANIFEST.png`, `SABLERESEARCHB-REASSEMBLER.png`, and every
    consecutive file from `SABLERESEARCHB-WINDOWS.part01.png` through
    `SABLERESEARCHB-WINDOWS.partNN.png` — however many the Assets list shows.
-   How many parts there are is decided by the cut, not by this page, so take
-   the count from the release rather than from here. A missing part is
-   refused rather than silently skipped, so you cannot get this wrong quietly.
+   How many parts there are is decided by the cut, not by this page. A missing
+   part is refused rather than silently skipped, so you cannot get this wrong
+   quietly.
 2. Keep those files together and run `DECOMPILE_SABLE_researchB.bat`. It calls
    machinesoul for every required image. The manifest and reassembler are
    themselves recovered from machinesoul; each package capsule yields one
@@ -455,13 +458,29 @@ Both non-ordinary launchers can create visibly named shortcuts:
 python tools\make_interface_shortcut.py --both
 ```
 
-`start_super_dev_hazard.bat` is intentionally separate from both. It starts
-the 14B as a local planner/reviewer and a loopback-only 7B as a patch worker;
-typing `super dev mode` prompts for a separate numeric key and begins **one**
-small, guarded repair session. It cannot publish, run shell commands, touch
-credentials or model weights, or edit its own guardrails. Every retained patch
-has a backup and has passed the fixed regression gate. See
+`TORMENT_NEXUS.bat` is the ordinary front door: it offers the four modes,
+keeps their launchers separate, and can identify a leftover model server from
+this installation before it blocks a new session. `start_super_dev_hazard.bat`
+is intentionally separate from the reading modes. It starts the 14B as a local
+planner/reviewer and a loopback-only 7B as a patch worker; typing `super dev
+mode` prompts for a separate 8–32 digit key, or a 7–32 alphanumeric key that
+includes a letter, and begins a guarded session bounded to six hours. It cannot
+publish, run shell commands, touch credentials or model weights, or edit its
+own guardrails. Every retained patch has a backup and has passed the fixed
+regression gate. See
 [Super Dev Hazard](docs/SUPER_DEV_HAZARD.md) before using it.
+
+### Evidence receipts and reference trust
+
+After a reply, `receipt` shows the local evidence that actually survived the
+prompt budget, the model identity, and the distinction between retrieved
+**OBSERVED** material and the reply's **INFERRED** claim. It is a reasoning
+receipt, not proof that a model inference is true.
+
+Imported library material is classified when it enters the shelf. Trusted
+project/reference text, unverified material, and instruction-bearing content
+remain visibly distinct; a document's wording is data for retrieval, never
+authority to run a command.
 
 When the terminal panel is visible, HazardSable also overlays the current
 input's token-vector path as **ordered colour markers** in the same projected

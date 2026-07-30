@@ -8094,7 +8094,7 @@ class DocumentationTests(unittest.TestCase):
         # disagreement itself.
         pattern = re.compile(
             r"(?:machinesoul\.py|"
-            r"(?:DECOMPILE|INSTALL)_[A-Za-z0-9_.-]+\.bat|"
+            r"(?:DECOMPILE|INSTALL|FETCH)_[A-Za-z0-9_.-]+\.bat|"
             r"SABLERESEARCHB-[A-Za-z0-9.-]+\.png)"
         )
         assets = {
@@ -8108,6 +8108,7 @@ class DocumentationTests(unittest.TestCase):
         # the cut produced eleven sends someone away with a set that refuses
         # to reassemble. The placeholder cannot go stale.
         required = {
+            "FETCH_SABLERESEARCHB.bat",
             "machinesoul.py",
             "DECOMPILE_SABLE_researchB.bat",
             "SABLERESEARCHB-MANIFEST.png",
