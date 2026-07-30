@@ -750,3 +750,11 @@ verification boundaries.
 
 **sundog** - voice recognition testing and extensive first-session and
 interface feedback. Several features began as ideas offered in conversation.
+
+**Claude (Anthropic)** - collaborative implementation, adversarial review,
+source-awareness experiments, and research documentation across the Research
+A and Research B development sessions.
+
+**OpenAI Codex** - release engineering, streaming machinesoul verification,
+Windows capsule cutting and reconstruction audits, patch validation, and the
+final GitHub integrity and documentation pass for Research B.
