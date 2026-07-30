@@ -9,6 +9,30 @@
 
 ## researchB — 2026-07-30
 
+- Let the assistant read its own source, and told it what it is made of before
+  being asked. Grounding it chooses to fetch arrives too late: asked what it had
+  done to the vector panel it described hover tooltips in a terminal that has
+  none, and across three samples of the same opening, one reply in three claimed
+  work that never happened. The fork was one token wide — `" working"` against
+  `" glad"` — five tokens in, and the confabulated reply scored *lower* mean
+  candidate entropy than an honest one (0.104 against 0.152), so nothing
+  downstream can catch it once it starts. A per-turn manifest states the shape of
+  the source, the unattended edit log, and what the weights file declares about
+  itself. Reading is not editing: every file protected from rewriting stays
+  readable, credentials are excluded, and weight files are refused as a read path
+  but reported as a header. `self` shows exactly what the model was told;
+  `read <path>` shows any project file as it reads it.
+- Shipped that as a machinesoul one-click patch alongside the researchB assets.
+  researchB patch manifests declare an action per file, so a patch can add a
+  module and not only replace one — `replace` can never create a file, `add`
+  can never overwrite unknown content, and a refused patch removes anything it
+  created rather than leaving a partial module for Python to import.
+- Fixed the patch installer template: the recovered reassembler does a bare
+  `import machinesoul` from the temporary work folder, so the decoder has to be
+  copied beside it. `DECOMPILE_SABLE_researchB.bat` has always done this and the
+  researchA calibration patch installer never did. Found by decompiling the built
+  capsule with the copy of `machinesoul.py` fetched back down from GitHub instead
+  of by reading the template; the researchA patch has the same defect.
 - Fixed the post-cut decompiler generator's path guard so legitimate Python
   package files such as `assistant/commands/__init__.py` are accepted while
   dot segments, backslashes, hidden leaves, and traversal remain refused.
