@@ -73,6 +73,7 @@
 list of PNG files will not make sense.*
 
 **Jump to:** [What this is](#what-this-project-is) ·
+[Why local](#why-local-and-what-it-is-for) ·
 [The two languages](#the-two-languages) ·
 [Choose your path](#choose-your-path) ·
 [Install](#install-the-full-windows-researchb) ·
@@ -105,6 +106,54 @@ unrestricted agent, not a surveillance product, and not a replacement for
 professionals or human relationships. Read the
 [research goals](docs/RESEARCH_GOALS.md) for the questions the project is
 actually trying to answer.
+
+## Why local, and what it is for
+
+Two properties get bundled together as "runs offline." They are separate, and
+only one of them is contentious.
+
+**The material never leaves the machine.** Some work cannot be handed to a
+third party at all — not because a filter would refuse it, but because sending
+it is itself the disclosure. This needs no argument about whether safety
+training is correct, and it is why regulated work already runs local inference.
+
+**Refusal is applied where it cannot see who is asking.** An exploit payload, a
+malware sample, a hostile message under investigation: the text is identical
+whether the person holding it wrote it or is trying to survive it. A hosted
+filter sees the payload and not the purpose, so the cost falls on whoever has a
+legitimate reason to look. The attacker never needed the model's cooperation.
+
+Both appeared at once in July 2026. During the Hugging Face breach, that
+company's own incident responders found commercial AI APIs blocking analysis
+requests that contained exploit payloads, and completed the forensic work on a
+locally-run open-weight model instead.
+
+Stated carefully, because the detail is the part people get wrong: they used
+**open weights on their own hardware**. They did not use an abliterated model.
+Weight control and refusal-ablation are separate decisions. This project makes
+both, and the second is a trade with a measured cost rather than an assumption
+— abliteration is suspected here of collaterally damaging push-back, which is
+why it has a probe suite in the [research goals](docs/RESEARCH_GOALS.md) rather
+than a claim in this README.
+
+**So the use case is not security work, and this is not a security tool.** The
+narrower claim, and the one there is actual evidence for, is a local agent
+whose authority can be audited:
+
+- a memory store that is readable text, not an opaque index;
+- an authority boundary enforced in Python that the model cannot edit, rather
+  than in the model's disposition — a guard that depended on the model not
+  knowing where it lived would be the weaker guard;
+- every unattended edit logged, bounded, and reversible;
+- self-knowledge read from disk and placed in context *before* generation, so
+  that what it says about itself is grounded rather than composed.
+
+That last one is the shape of the whole argument. It was built because this
+build was measured confabulating about its own work — describing interface
+features that did not exist — and because the same measurement showed the
+confabulated reply carried *lower* token-level uncertainty than an honest one.
+Detection was therefore unavailable and prevention was the only lever. The
+justification is a measurement, and the measurement is published with it.
 
 ## The two languages
 
@@ -184,7 +233,7 @@ decompilation, the reconstructed installation contains:
 | Python 3 | Required only to run the published machinesoul decompiler. |
 | Microphone only if desired | researchB starts in text mode, with microphone use off. |
 
-### Four steps
+### Five steps
 
 1. Open [GitHub Releases](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases),
    select `researchB`, expand **Assets**, and read its warning, checksums,
@@ -213,7 +262,11 @@ decompilation, the reconstructed installation contains:
    `SABLERESEARCHB-14B.partNN.png` are present — again, as many as the Assets
    list shows — that same pass decompiles and installs the 14B companion. If
    none are present it skips it; a partial set refuses.
-4. Launch the desktop shortcut. Before any model, microphone, activity
+4. Install the required self-read patch described below. Keep
+   `machinesoul.py` and `SABLERESEARCHB-REASSEMBLER.png`, download the patch
+   installer and its two machinesoul fields, then double-click
+   `INSTALL_SABLERESEARCHB_SELFREAD_PATCH.bat`.
+5. Launch the desktop shortcut. Before any model, microphone, activity
    sampler, listener, or network-capable subsystem starts, the application
    displays its disclosure and requires the exact text `I UNDERSTAND`.
    Anything else closes the application without starting those components.
@@ -232,17 +285,28 @@ the precision per weight. Take it for *longer* sessions, not for better
 answers, and skip it if the extra 8.8 GB download and 8.4 GB installed are not
 worth that trade to you.
 
-*researchA shipped a separate calibration-clarity patch. researchB does not,
-because that fix is built into this tree rather than applied over it, so
-there is nothing to install afterwards.*
+### Required self-read patch
 
-The patch does not change the recorded calibration readings. It corrects the
-finite Fibonacci claim, tests the exact limit of the 13-term row, and makes
-calibration compare every recorded field using exact or tolerance semantics
-as appropriate. It decompiles and reassembles through the same machinesoul
-path as the main release, refuses unknown local file versions, backs up the
-originals, and updates the installed release ledger. It is not a ZIP and does
-not ask an image viewer to recover application files.
+The main fields preserve the approved `567d4a8` cut. A small required patch
+adds the source-awareness work completed immediately afterward. Download
+these three assets into the same folder as the decompiler and reassembler:
+
+```text
+INSTALL_SABLERESEARCHB_SELFREAD_PATCH.bat
+SABLERESEARCHB-SELFREAD-PATCH.part01.png
+SABLERESEARCHB-SELFREAD-PATCH-MANIFEST.png
+```
+
+Run the patch installer after the main decompiler. It verifies the exact
+Research B base before changing anything, refuses missing or unfamiliar
+files, preserves replaced originals under the installation's `backups`
+folder, adds the two new source-awareness files, and updates
+`RELEASE_MANIFEST.json`. Running it again is safe and reports `already
+applied`.
+
+This is a direct machinesoul patch, not a ZIP. The Research A
+calibration-clarity correction is already incorporated in the main Research B
+tree; this separate patch serves a different purpose.
 
 <details>
 <summary>Why the files must remain unchanged</summary>
@@ -310,6 +374,10 @@ the in-memory observations and `assistant\memory\activity_log.jsonl`.
   earlier conversation and the semantic match is unambiguous.
 - Read the local clock and describe current time, session age, and elapsed
   time between completed conversations without claiming hidden experience.
+- Read a compact inventory of its own source and model header before each
+  reply, then show that same grounding with `self` or read a specific project
+  text file with `read <path>`. Reading does not grant editing authority;
+  credentials and model tensor data remain excluded.
 
 ### Offline practical knowledge
 
@@ -491,6 +559,26 @@ token; a doubled marker says only that the next vector moved farther. The
 display is not extra prompt memory, causal attribution, or a physical path.
 If the memory panel is in its lexical fallback frame, it deliberately draws
 nothing rather than compare incompatible coordinates.
+
+### Source awareness: preventing invented implementation claims
+
+Research B's required self-read patch addresses a measured failure at the
+point where it begins. Asked what it had changed in the vector panel, the 4B
+director once described hover tooltips in a terminal interface that has no
+hover and contained no such work. In three repeated openings, one response
+made the false ownership claim; the fork appeared only five tokens into the
+reply. The confabulated response then had *lower* mean candidate entropy than
+an honest open-ended response (`0.104` versus `0.152`), so downstream
+uncertainty was not a dependable detector.
+
+The patch therefore puts a compact, current source inventory into the runtime
+context before generation. It names the tree's shape, recent files, recorded
+autonomous edits, and the GGUF header's architecture and quantisation without
+feeding tensor data to the model. The `self` command shows exactly that block;
+`read <path>` reads a named project text file with visible truncation. This is
+grounding, not introspective telemetry: it can show what is on disk, but it
+does not prove that the model authored a change or understands its own hidden
+computation.
 
 ### Where the two languages differ, in numbers
 
