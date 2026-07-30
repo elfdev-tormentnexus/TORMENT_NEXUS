@@ -474,6 +474,52 @@ The stay-awake guard prevents the observed automatic trigger. The recovery
 work remains necessary because users are still allowed to change devices or
 sleep the computer deliberately.
 
+## The gates are Bernoulli parameters — name them and inherit the statistics
+
+`q` in Goal 1 and `p(escalate)` in Goal 3 are not just fractions. Each candidate
+is an independent binary trial with a fixed success probability, so both cost
+formulas are already expectations over a Bernoulli process:
+
+```text
+C14B + q(C7B + Ctests)
+Csmall + p(escalate) * Clarge
+```
+
+Calling them by name costs nothing and buys the estimation theory, which is the
+part this project actually needs — because the theory is mostly bad news about
+sample size, and bad news early is cheaper than a threshold fitted on noise.
+
+**Sample size for a threshold.** The standard error on `q` is
+`sqrt(q(1-q)/n)`. Separating `q = 0.5` from `q = 0.6` at conventional confidence
+takes on the order of **400 candidates**. That is the real price of the Goal 1
+comparison table, and it is the strongest argument yet for the existing rule
+that no threshold gets chosen until the table exists.
+
+**Sample size for a reproduction claim.** By the rule of three, zero failures in
+`n` trials bounds the failure rate at roughly `3/n` with 95% confidence. So
+"reproduced 3/3" bounds it at ~1.0 and carries almost no information.
+Claiming a behaviour reproduces more than 90% of the time needs about **30 clean
+runs**. This applies directly to the Goal 4 addendum above: its reproduction
+counts should be read as intervals, not as verification. At 130–200s per
+request, 30 runs is roughly 90 minutes of serialized model time per finding,
+which is the honest cost of ever calling one of those findings confirmed.
+
+Note the asymmetry, because it is useful. The addendum's one *refuted* finding
+rests on a comparison — 3/3 grounded against 3/3 ungrounded — and comparisons
+need far fewer samples than absolute rates. Refutations here are cheaper to earn
+than confirmations, which is a reason to keep the default-to-refuted protocol.
+
+**Where it does not go.** A success probability is a bounded scalar. It belongs
+in the sidecar beside `mean_surprisal`, never concatenated onto an embedding,
+for the reasons in the representation boundary below.
+
+**The assumption to watch.** Bernoulli requires fixed `p` and independent trials.
+Repeated calls on a byte-identical prompt at one temperature fit well. Across
+different prompts `p` varies, so pooling them is a mixture and yields falsely
+tight intervals. The honest upgrade is Beta-Binomial — a Beta prior on `p` —
+which handles the mixture and gives usable intervals at small `n` instead of the
+degenerate ones a raw fraction produces.
+
 ## Experimental controls
 
 - Benchmark logprobs off, chosen-token logprobs, top two, and top ten. The
