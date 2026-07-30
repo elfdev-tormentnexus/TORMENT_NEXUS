@@ -172,6 +172,13 @@ echo   [2/5] Decompiling the verified reassembler...
 python "%DECODER%" extract "%REASSEMBLER_IMAGE%" --out "%WORK%\machinesoul_release.py"
 if errorlevel 1 goto :failed
 
+REM The recovered reassembler does a bare "import machinesoul", and it runs
+REM from the work folder, so the decoder has to sit beside it. Omitting this
+REM is what makes the researchA calibration patch installer fail at step 4;
+REM DECOMPILE_SABLE_researchB.bat has always done it.
+copy /y "%DECODER%" "%WORK%\machinesoul.py" >nul
+if errorlevel 1 goto :failed
+
 echo   [3/5] Decompiling the patch vector field...
 python "%DECODER%" extract "%PATCH_IMAGE%" --out "%WORK%\segments\SABLERESEARCHB-SELFREAD-PATCH.part01.msv"
 if errorlevel 1 goto :failed
