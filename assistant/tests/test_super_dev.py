@@ -323,7 +323,7 @@ class SuperDevSessionLoopTests(unittest.TestCase):
         indistinguishable from the no-op bug the guard watches for.
         """
         super_dev_engine._patches_written += 1
-        return True, suggestion["file"]
+        return True, suggestion["file"], None
 
     @classmethod
     def _accept_taking(cls, clock, seconds):
@@ -388,7 +388,7 @@ class SuperDevSessionLoopTests(unittest.TestCase):
                 side_effect=lambda **kw: ([self._candidate(mock_counter())], None)), \
              mock.patch.object(super_dev_engine, "_patches_written", 7), \
              mock.patch.object(super_dev_engine, "_try_patch",
-                               return_value=(True, "claimed")) as attempt:
+                               return_value=(True, "claimed", None)) as attempt:
             applied, report = super_dev_engine.run_session(max_seconds=600)
 
         self.assertFalse(applied)
@@ -418,7 +418,7 @@ class SuperDevSessionLoopTests(unittest.TestCase):
              mock.patch.object(super_dev_engine.self_heal_state,
                                "validate_restart", return_value=(True, "")):
             before = super_dev_engine._patches_written
-            accepted, _ = super_dev_engine._try_patch(self._candidate(0))
+            accepted, _, _kind = super_dev_engine._try_patch(self._candidate(0))
             after = super_dev_engine._patches_written
 
         self.assertTrue(accepted)
@@ -441,6 +441,54 @@ class SuperDevSessionLoopTests(unittest.TestCase):
         self.assertIn("session window closed", report)
         self.assertNotIn("patch limit", report)
 
+    def test_a_fumbled_draft_gets_one_more_attempt(self):
+        # The live run lost all three candidates to drafting errors and
+        # blacklisted every one, so a six-hour window ended in 49 seconds.
+        # A paraphrased diff says nothing about whether the change was good.
+        same = [self._candidate(1)]
+        with mock.patch.object(super_dev_engine.suggestion_engine, "generate",
+                               return_value=(same, None)), \
+             mock.patch.object(
+                 super_dev_engine, "_try_patch",
+                 return_value=(False, "paraphrased the find text",
+                               super_dev_engine.DRAFTING)) as attempt:
+            applied, report = super_dev_engine.run_session(max_seconds=600)
+
+        self.assertFalse(applied)
+        self.assertEqual(attempt.call_count,
+                         super_dev_engine.MAX_DRAFT_ATTEMPTS)
+
+    def test_a_judged_refusal_is_final_and_not_retried(self):
+        # The gates already answered. Asking again cannot change it.
+        same = [self._candidate(1)]
+        with mock.patch.object(super_dev_engine.suggestion_engine, "generate",
+                               return_value=(same, None)), \
+             mock.patch.object(
+                 super_dev_engine, "_try_patch",
+                 return_value=(False, "crossed the boundary",
+                               super_dev_engine.JUDGMENT)) as attempt:
+            super_dev_engine.run_session(max_seconds=600)
+
+        self.assertEqual(attempt.call_count, 1)
+
+    def test_retries_are_bounded_so_the_window_still_cannot_be_spent(self):
+        # The retry must not reopen the hole the attempted-set closed. Two
+        # candidates, both always fumbling, must still stop in bounded time
+        # rather than looping for the whole window.
+        pair = [self._candidate(1), self._candidate(2)]
+        with mock.patch.object(super_dev_engine.suggestion_engine, "generate",
+                               return_value=(pair, None)), \
+             mock.patch.object(
+                 super_dev_engine, "_try_patch",
+                 return_value=(False, "fumbled",
+                               super_dev_engine.DRAFTING)) as attempt:
+            applied, report = super_dev_engine.run_session(max_seconds=99999)
+
+        self.assertFalse(applied)
+        self.assertEqual(attempt.call_count,
+                         len(pair) * super_dev_engine.MAX_DRAFT_ATTEMPTS)
+        self.assertIn("passed the deterministic patch gates", report)
+
     def test_a_rejected_candidate_is_never_retried_so_the_loop_ends(self):
         # The planner keeps proposing the same two things; the gates keep
         # refusing them. Without the attempted-set this runs until the limit.
@@ -448,7 +496,7 @@ class SuperDevSessionLoopTests(unittest.TestCase):
         with mock.patch.object(super_dev_engine.suggestion_engine, "generate",
                                return_value=(same, None)), \
              mock.patch.object(super_dev_engine, "_try_patch",
-                               return_value=(False, "gate refused")) as attempt:
+                               return_value=(False, "gate refused", super_dev_engine.JUDGMENT)) as attempt:
             applied, report = super_dev_engine.run_session(limit=20)
 
         self.assertFalse(applied)

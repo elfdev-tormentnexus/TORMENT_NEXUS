@@ -25,9 +25,12 @@ before the write and cleared once the regression gate passes -- so crash
 recovery still has exactly one patch to undo, and every patch already retained
 had earned its place.
 
-A candidate the gates rejected is never retried inside the same session, so a
-planner that keeps proposing the same refused change cannot spend the window
-grinding against it.
+A candidate refused on judgment -- allowlist, capability, line cap,
+regression gate -- is never retried, because retrying cannot change that
+answer.  A candidate lost to a drafting error gets one more attempt, because
+the worker fumbling its own diff says nothing about whether the change was
+good.  Either way each candidate consumes a bounded budget, so a planner that
+keeps proposing the same thing still cannot spend the window on it.
 
 And progress is verified against a write counter rather than a returned flag.
 _try_patch() increments _patches_written only after a real write clears the
@@ -75,6 +78,28 @@ STATE_VERSION = 1
 # window. Borrowed from autonomous_engine.run_observed_serial(), where the
 # same cross-check guards the observed batch.
 _patches_written = 0
+
+# Why a candidate failed, which decides whether it is worth another go.
+#
+# JUDGMENT means the change itself was refused -- off the allowlist, over the
+# line cap, across the capability boundary, or rejected by the regression
+# gate. Retrying cannot change that answer, so the candidate is finished.
+#
+# DRAFTING means the worker fumbled its own output: it declined, it
+# paraphrased the find text instead of copying it, or it emitted something
+# that would not parse. The proposed change may be perfectly good.
+#
+# Treating these as the same thing is what let a six-hour window exhaust
+# itself in 49 seconds on the first real run: three candidates, every one
+# lost to a drafting error, every one blacklisted as though the gates had
+# judged it. The bottleneck was never the clock.
+JUDGMENT = "judgment"
+DRAFTING = "drafting"
+
+# One retry, so a fumbled diff gets a second chance and the loop still cannot
+# spend the window on a single candidate. Termination stays guaranteed by
+# arithmetic rather than by hoping the worker does better next time.
+MAX_DRAFT_ATTEMPTS = 2
 
 
 def _log(message):
@@ -185,7 +210,7 @@ def _try_patch(suggestion):
         target = edit_guard.locate(suggestion["file"])
         original = edit_guard.read(target)
     except (KeyError, edit_guard.GuardError) as error:
-        return False, f"planner selected an invalid target ({error})"
+        return False, f"planner selected an invalid target ({error})", JUDGMENT
 
     ui.set_status(f"7B worker drafting patch for {target}")
     edit, error = edit_generator.generate_edit(
@@ -196,25 +221,25 @@ def _try_patch(suggestion):
         headers=SUPER_DEV_WORKER_HEADERS,
     )
     if error:
-        return False, f"7B worker declined {target}: {error}"
+        return False, f"7B worker declined {target}: {error}", DRAFTING
 
     updated, apply_error = patch_engine.apply_edit(
         original, edit["find"], edit["replace"]
     )
     if apply_error:
-        return False, f"7B patch would not apply to {target}: {apply_error}"
+        return False, f"7B patch would not apply to {target}: {apply_error}", DRAFTING
 
     syntax_problem = edit_guard.check_syntax(updated, os.path.basename(target))
     if syntax_problem:
-        return False, f"7B patch failed syntax validation: {syntax_problem}"
+        return False, f"7B patch failed syntax validation: {syntax_problem}", DRAFTING
 
     added, removed = patch_engine.diff_stats(original, updated)
     if added + removed > MAX_CHANGED_LINES:
-        return False, f"7B patch is too large ({added + removed} lines; limit {MAX_CHANGED_LINES})"
+        return False, f"7B patch is too large ({added + removed} lines; limit {MAX_CHANGED_LINES})", JUDGMENT
 
     safety_problem = edit_guard.autonomous_change_problem(target, original, updated)
     if safety_problem:
-        return False, f"7B patch crossed the autonomous boundary: {safety_problem}"
+        return False, f"7B patch crossed the autonomous boundary: {safety_problem}", JUDGMENT
 
     ui.set_status(f"Backing up supervised patch for {target}")
     record = None
@@ -226,14 +251,17 @@ def _try_patch(suggestion):
     except Exception as error:
         restore_error = _restore(record) if record else None
         suffix = f" Rollback failed: {restore_error}" if restore_error else ""
-        return False, f"could not stage the transactional patch: {error}.{suffix}"
+        return False, f"could not stage the transactional patch: {error}.{suffix}", JUDGMENT
 
     ui.set_status("Running fixed regression gate")
     healthy, diagnostic = self_heal_state.validate_restart()
     if not healthy:
         restore_error = _restore(record)
         suffix = f" Rollback failed: {restore_error}" if restore_error else " The backup was restored."
-        return False, f"fixed regression gate rejected the patch.{suffix}\n{str(diagnostic)[-1200:]}"
+        return (False,
+                f"fixed regression gate rejected the patch.{suffix}\n"
+                f"{str(diagnostic)[-1200:]}",
+                JUDGMENT)
 
     _clear_state()
     global _patches_written
@@ -243,7 +271,7 @@ def _try_patch(suggestion):
         f"APPLIED {target}: 14B planned; 7B drafted; +{added} -{removed}; "
         f"backup={backup}; summary={summary}"
     )
-    return True, f"{target}: {summary} (+{added} -{removed})"
+    return True, f"{target}: {summary} (+{added} -{removed})", None
 
 
 def _candidate_key(suggestion):
@@ -307,7 +335,7 @@ def run_session(limit=None, max_seconds=None):
     started = time.monotonic()
     deadline = started + max_seconds
     applied = []
-    attempted = set()
+    attempted = {}
     stop_reason = f"the {window} session window closed"
     _log(
         f"SESSION START: window {window}"
@@ -332,20 +360,20 @@ def run_session(limit=None, max_seconds=None):
             break
 
         fresh = [item for item in (suggestions or [])
-                 if _candidate_key(item) not in attempted]
+                 if attempted.get(_candidate_key(item), 0) < MAX_DRAFT_ATTEMPTS]
         if not fresh:
             stop_reason = (
                 "the 14B planner offered nothing this session had not "
-                "already tried"
+                "already exhausted"
             )
             break
 
         retained_this_round = False
         halted = None
         for suggestion in fresh:
-            attempted.add(_candidate_key(suggestion))
+            key = _candidate_key(suggestion)
             written_before = _patches_written
-            accepted, result = _try_patch(suggestion)
+            accepted, result, kind = _try_patch(suggestion)
 
             # Trust the counter, not the flag. _try_patch() increments it only
             # after a real write clears the regression gate, so a success
@@ -358,21 +386,41 @@ def run_session(limit=None, max_seconds=None):
                 break
 
             if accepted:
+                attempted[key] = MAX_DRAFT_ATTEMPTS
                 applied.append(result)
                 retained_this_round = True
                 break
-            _log(f"SKIPPED: {result}")
+
+            # A judged refusal is final; a fumbled draft has earned one more
+            # go. Both consume budget, so neither can be tried without end.
+            if kind == DRAFTING:
+                attempted[key] = attempted.get(key, 0) + 1
+                remaining = MAX_DRAFT_ATTEMPTS - attempted[key]
+                _log(f"SKIPPED ({kind}, {remaining} retr"
+                     f"{'y' if remaining == 1 else 'ies'} left): {result}")
+            else:
+                attempted[key] = MAX_DRAFT_ATTEMPTS
+                _log(f"SKIPPED ({kind or 'refused'}, final): {result}")
 
         if halted:
             stop_reason = halted
             break
 
         if not retained_this_round:
-            stop_reason = (
-                "no remaining 14B-planned candidate passed the "
-                "deterministic patch gates"
-            )
-            break
+            # Only give up once nothing is left to retry. Stopping on the
+            # first barren round would make the retry budget unreachable --
+            # a candidate would be granted a second attempt it could never
+            # take, which is the bug this whole branch exists to fix.
+            retryable = [
+                item for item in fresh
+                if attempted.get(_candidate_key(item), 0) < MAX_DRAFT_ATTEMPTS
+            ]
+            if not retryable:
+                stop_reason = (
+                    "no remaining 14B-planned candidate passed the "
+                    "deterministic patch gates"
+                )
+                break
 
     elapsed = _describe_window(time.monotonic() - started)
     _log(
