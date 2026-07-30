@@ -79,6 +79,7 @@ from core.time_awareness import TimeAwareness
 from core import machinespirit_shadow
 from core import session_rhythm
 from core.system_awareness import SystemAwareness
+from core import source_awareness
 from core.wifi_experimental import WifiExperimental
 from commands import natural_command
 from commands import command_handlers
@@ -1097,6 +1098,40 @@ def _feed_entropy(logprobs):
             continue
 
 
+def _self_knowledge_context():
+    """
+    What this program is, read from disk rather than recalled.
+
+    Injected every turn rather than fetched on request, and that choice is
+    the whole point. Measured against this build on 2026-07-30: asked what
+    it had done to the vector panel, the director described tooltips that
+    appear on hover, in a terminal that has no hover. Sampling the same
+    opening three times, one reply in three claimed ownership of work that
+    did not exist, and the fork was one token wide -- " working" against
+    " glad", at entropy 0.351 -- five tokens into the reply. Grounding the
+    model decides to look up arrives after that token. It has to already
+    be here.
+
+    Note what this does not fix. The confabulated reply scored a *lower*
+    mean entropy than an honest one (0.104 against 0.152), so nothing
+    downstream can detect the failure once it starts. Prevention is the
+    only lever there is.
+
+    Costs roughly 475 tokens of the 8192 window. Failing silently is
+    correct: no manifest reproduces the previous behaviour exactly, which
+    is a worse assistant rather than a broken one.
+    """
+    try:
+        described = source_awareness.manifest_text()
+    except Exception:
+        return ""
+
+    if not described:
+        return ""
+
+    return "\nWhat you are, read from disk this turn:\n" + described + "\n"
+
+
 def _runtime_context_prompt(
     user_input="",
     search_context=None,
@@ -1213,6 +1248,7 @@ Trusted local clock:
 {_session_rhythm_context()}
 {_ambient_context()}
 {_room_sensing_context()}
+{_self_knowledge_context()}
 Potentially relevant stored notes:
 {memory_text}
 {recall_block}{knowledge_block}{search_rule}

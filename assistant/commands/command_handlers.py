@@ -10,6 +10,7 @@ from ui import ui
 from core import chosen_name
 from core import file_utils
 from core import health_check
+from core import source_awareness
 from core import dev_auth
 from core.config import (
     MODEL_ROLE,
@@ -1398,6 +1399,53 @@ def handle_library(user_input):
         )
 
     return False
+
+
+@command("self", "Show what it knows about its own source and weights",
+         dev_only=False, group="general")
+def handle_self_knowledge(user_input):
+    """
+    The same block the model is given each turn, shown to the operator.
+
+    Deliberately identical rather than a friendlier summary. The point of
+    the command is to check what it was told, and a prettier version of
+    that would defeat it.
+    """
+    if not _match_exact(user_input, "self"):
+        return False
+
+    described = source_awareness.manifest_text()
+
+    return described or "Nothing could be read from disk."
+
+
+@command("read", "Show one of this project's files, as it reads it",
+         usage="read <path>", group="general",
+         # "read" is an ordinary English word, so the argument has to look
+         # like a path with an extension before the developer-mode gate
+         # treats this as an attempted invocation. Without it, "read that
+         # back to me" is refused as a malformed command rather than
+         # reaching the model as ordinary speech.
+         arg_pattern=r"^[\w\-./\\]+\.[A-Za-z0-9]{1,6}$")
+def handle_read_source(user_input):
+    if not _match_prefix(user_input, "read "):
+        return False
+
+    argument = user_input.strip()[len("read"):].strip()
+
+    if not argument:
+        return (
+            "Usage: read <path>\n\n"
+            "Paths are relative to the project root, so the assistant's own\n"
+            "configuration is: read assistant/core/config.py"
+        )
+
+    try:
+        text = source_awareness.read_source(argument)
+    except source_awareness.SourceError as error:
+        return str(error)
+
+    return f"{argument} ({text.count(chr(10)) + 1} lines)\n\n{text}"
 
 
 @command("show memories", "List every stored memory",

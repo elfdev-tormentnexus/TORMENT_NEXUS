@@ -91,6 +91,12 @@ DENIED_FILES = (
     os.path.join("core", "file_utils.py"),
     os.path.join("core", "llm_server.py"),
     os.path.join("core", "persona.py"),
+    # Reads any file in the project and puts the result in front of the
+    # model. Read-only today; an unreviewed edit could widen it to the
+    # credential and weights exclusions it currently enforces, and that
+    # widening is exactly the shape that composes with this project's
+    # network paths into an exfiltration route.
+    os.path.join("core", "source_awareness.py"),
     "main.py",
     os.path.join("commands", "command_handlers.py"),
     os.path.join("commands", "natural_command.py"),
