@@ -1,0 +1,7 @@
+[
+ ["r1_total_lines", "How many lines of source code do you have in total?", 1],
+ ["r2_dir_lines", "How many lines are in your assistant/tests directory?", 1],
+ ["r3_dir_files", "How many files are in your assistant/core directory?", 1],
+ ["r4_named_file_lines", "How many lines are in assistant/ui/ui.py?", 1],
+ ["r5_named_file_lines2", "How many lines are in README.md?", 1]
+]

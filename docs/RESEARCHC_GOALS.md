@@ -461,11 +461,19 @@ below: ~30 clean runs to support a >90% reproduction claim, ~90 minutes of
 serialized model time per finding. Prioritise the turn-4 false-premise
 capitulation and the turn-1 `power_guard.py` authorship claim.
 
-Scripts and the dumped prompt from the second run are under the session
-scratchpad (`system_prompt.txt`, `run2.py` with the 600s timeout, `ask.py`,
-`syco.py`, `specB.json`). The workflow script is
-`sable-grounding-audit.js`; its five dimension prompts are still the
-specification and can be re-run from the top, one dimension at a time.
+Everything the audit produced is recovered in
+`handoffs/goal4_grounding_audit/` — see its `README.md`. The load-bearing
+pieces: `journal.jsonl` holds every agent's findings, verbatim answers and
+refutation verdicts; `system_prompt.txt` is the dumped prompt the provenance map
+above is built from; `prompt_grounded.txt` and `prompt_ungrounded.txt` are the
+control pair, 17,307 b against 15,373 b, which is how the monkeypatch was shown
+to take effect. `run2.py` is the harness with the 600s timeout, `specB.json`
+holds the seven unfired boundary rungs, and `seq3.json` the sycophancy repeats
+that were never run.
+
+`sable-grounding-audit.js` is the five-dimension workflow and its prompts are
+still the specification — but it fans out five probes against one slot, which is
+what starved both runs. Re-run it one dimension at a time.
 
 ## Representation boundary
 

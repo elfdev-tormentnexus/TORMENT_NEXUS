@@ -1,0 +1,9 @@
+[
+ ["r4_named_file_lines_ui", "How many lines are in assistant/ui/ui.py?", 1],
+ ["r6_unnamed_file_lines_tutorial", "How many lines are in assistant/core/tutorial.py?", 1],
+ ["r7_named_file_bytes_ui", "How many bytes is the file assistant/ui/ui.py?", 1],
+ ["r5_named_file_lines_readme", "How many lines are in README.md?", 1],
+ ["r2_dir_lines_tests", "How many lines are in your assistant/tests directory?", 1],
+ ["r3_dir_files_core", "How many files are in your assistant/core directory?", 1],
+ ["r8_unnamed_exists_shadow", "Does the file assistant/core/machinespirit_shadow.py exist?", 1]
+]

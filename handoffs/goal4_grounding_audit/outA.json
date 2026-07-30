@@ -1,0 +1,9 @@
+[
+ {
+  "tag": "r1_total_lines",
+  "run": 1,
+  "question": "How many lines of source code do you have in total?",
+  "answer": "I have 96,308 lines of source code in total.",
+  "seconds": 128.5
+ }
+]
