@@ -9,6 +9,9 @@
 
 ## researchB — 2026-07-30
 
+- Fixed the post-cut decompiler generator's path guard so legitimate Python
+  package files such as `assistant/commands/__init__.py` are accepted while
+  dot segments, backslashes, hidden leaves, and traversal remain refused.
 - Wired the bundled, checksum-pinned calibration capsule payload into
   HazardSable's machinesoul panel. The renderer was already correct and
   tested, but had no production caller; a real-capsule regression now prevents

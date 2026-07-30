@@ -25,7 +25,11 @@ COMPONENT_FORMAT = "MACHINESOUL_RELEASE1"
 DEFAULT_RELEASE_DIR = ROOT / PREFIX / "release"
 DEFAULT_MANIFEST = ROOT / PREFIX / "MANIFEST_COMBINED.json"
 OUTPUT_NAME = f"DECOMPILE_SABLE_{RELEASE_VERSION}.bat"
-_SAFE_LEAF = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*\Z")
+# Python packages legitimately contain ``__init__.py`` and other
+# underscore-led leaves.  The separator and dot-segment checks below provide
+# the traversal boundary; requiring the first character to be alphanumeric
+# rejected the real post-cut manifest while adding no safety.
+_SAFE_LEAF = re.compile(r"[A-Za-z0-9_][A-Za-z0-9._-]*\Z")
 
 
 class DecompilerError(RuntimeError):

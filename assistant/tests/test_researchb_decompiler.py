@@ -90,6 +90,32 @@ class ResearchBDecompilerTests(unittest.TestCase):
         self.assertIn("optional 14B capsule set", text)
         self.assertIn('copy /y "%DECODER%" "%WORK%\\machinesoul.py"', text)
 
+    def test_python_package_init_paths_are_safe_manifest_entries(self):
+        self.manifest["components"]["windows"]["files"].append(
+            {"path": "assistant/commands/__init__.py"}
+        )
+        self._write_manifest()
+
+        windows, _optional = builder.inspect_manifest(self.manifest_path)
+
+        self.assertIn(
+            "assistant/commands/__init__.py",
+            [item["path"] for item in windows["files"]],
+        )
+
+    def test_dot_segments_and_separator_injection_remain_refused(self):
+        for unsafe in (
+            "../setup.bat",
+            "assistant/../setup.bat",
+            "assistant\\main.py",
+            ".hidden",
+        ):
+            with self.subTest(path=unsafe):
+                self.manifest["components"]["windows"]["files"][1]["path"] = unsafe
+                self._write_manifest()
+                with self.assertRaisesRegex(builder.DecompilerError, "unsafe"):
+                    builder.inspect_manifest(self.manifest_path)
+
     def test_missing_or_gapped_capsules_are_refused(self):
         (self.folder / "SABLERESEARCHB-WINDOWS.part02.png").unlink()
         with self.assertRaisesRegex(builder.DecompilerError, "part02"):
