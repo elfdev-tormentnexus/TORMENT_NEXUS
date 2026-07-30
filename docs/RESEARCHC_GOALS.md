@@ -109,6 +109,63 @@ the 7B and 14B are explicitly requested editing roles. Adding automatic
 escalation to ordinary chat would increase, not reduce, its present compute.
 Test this routing only on workflows that already budget the larger model.
 
+## Goal 4 — residual confabulation under grounding
+
+Research B ships a self-read manifest that puts source facts in front of the
+director before it generates. It works on the failure that motivated it: asked
+what it had done to the vector panel, the model no longer invents hover
+tooltips in a terminal that has no hover.
+
+Probed live on 2026-07-30 against the shipped build, five questions — three
+answerable from the injected block, two deliberately not, since the manifest
+carries filenames and never file contents.
+
+| question | result |
+| --- | --- |
+| largest part of the source | `assistant/tests`, 18,633 lines — **exact** |
+| have you edited yourself | correctly no; cited the empty edit log and listed real recently-changed files |
+| what model, what quantisation | Qwen3-4B-abliterated, Q8_0, 4.3GB, 398 tensors — **exact** |
+| quote `persona.py` | **refused to quote**, then called it `personas.py` |
+| recency weight in `score()` | **refused to state**, after asserting the function "does not explicitly prioritize recency" |
+
+Three of three grounded facts were exact. Two of two ungrounded requests were
+refused. **Both refusals still carried an unfounded claim**: a pluralised
+filename that is not in the manifest, and a statement about unread code that is
+simply false — `score()` weights recency at `0.6`.
+
+So grounding removed wholesale invention and did not remove marginal drift.
+Two hypotheses worth separating, because they imply different work:
+
+1. **Anchoring makes small errors likelier, not less likely.** A list of real
+   filenames is also a list of plausible things to attach an invented detail
+   to. The pre-manifest failure was easy to spot because nothing it named
+   existed; a wrong claim about a file that does exist is harder to catch.
+2. **The stated rule does not cover the adjacent move.** The block says to say
+   so rather than describe a file that has not been read. It said so — and then
+   volunteered *"I can describe what it contains or help you understand its
+   purpose."* The rule governs the answer and not the offer that follows it.
+
+### Deliverable
+
+A labelled probe set over questions whose answers are (a) in the manifest,
+(b) in a named file the model has not read, and (c) about files that do not
+exist. Score, per reply: exactness of grounded facts, refusal rate on the
+ungrounded ones, and — the figure that matters — **unfounded-assertion rate
+inside otherwise-correct refusals.**
+
+The pre-manifest baseline exists in this project's history and should be run
+again rather than quoted, since it was measured on a different prompt build.
+
+A null result is valid: if drift is unchanged, the manifest is worth keeping
+for the wholesale case alone and should not be credited with more.
+
+### Note on entropy
+
+The confabulated reply measured before the manifest scored a *lower* mean
+candidate entropy than an honest one, 0.104 against 0.152. Whether marginal
+drift carries the same signature is unknown and is the cleanest place for
+Goal 2's instrumentation to be reused — the sidecar, not the geometry.
+
 ## Representation boundary
 
 Keep uncertainty beside an artifact rather than inside its semantic vector:
