@@ -150,16 +150,30 @@ class ExclusionTests(unittest.TestCase):
         # Refused as a read path, not as knowledge: the header is reported
         # by gguf_identity(). The error has to point there, or the refusal
         # reads as secrecy about something the model is already told.
+        #
+        # These paths sit in the source tree rather than under models/,
+        # which is not guaranteed to be a real directory. An operator short
+        # of disk may relocate models/ to another drive with a junction --
+        # the install wants about 55GB -- and realpath() then resolves it
+        # outside the project, so containment refuses first and the message
+        # differs. Asserting this wording on a models/ path made the suite
+        # fail on a legitimate install; found by running it inside one.
         for path in (
-            "models/some-model-q8_0.gguf",
-            "models/embedding/thing.safetensors",
-            "models/other.pt",
+            "assistant/core/pretend-model-q8_0.gguf",
+            "assistant/pretend.safetensors",
+            "assistant/tests/pretend.pt",
         ):
             with self.subTest(path=path):
                 with self.assertRaises(source_awareness.SourceError) as caught:
                     source_awareness.resolve_for_read(path)
 
                 self.assertIn("weights file", str(caught.exception))
+
+    def test_a_relocated_weights_path_is_still_refused(self):
+        # The other half of the note above. Which rule fires depends on
+        # where the operator put the file; that it is refused does not.
+        with self.assertRaises(source_awareness.SourceError):
+            source_awareness.resolve_for_read("../elsewhere/model-q8_0.gguf")
 
 
 class ReadingTests(unittest.TestCase):
