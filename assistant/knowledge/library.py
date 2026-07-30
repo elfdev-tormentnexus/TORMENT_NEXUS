@@ -461,7 +461,28 @@ def _metadata(text, path):
     )[:16].lower() in {
         "1", "true", "yes", "high",
     }
+
+    # Trust is decided at ingest, so nothing enters the shelf unclassified.
+    # A document's origin is what it starts with -- a shipped card is CLEAN,
+    # anything the operator imported is UNVERIFIED -- and the scan can only
+    # lower that. See core/provenance.classify_trust() for why it may never
+    # raise it: a scanner that promotes documents becomes the weakest link
+    # in the chain it exists to protect.
+    from core import provenance
+
+    origin = (provenance.CLEAN if _is_builtin_source(path)
+              else provenance.UNVERIFIED)
+    trust, reason = provenance.classify_trust(text, origin)
+    metadata["trust"] = trust
+    metadata["trust_reason"] = reason[:240]
+
     return metadata, text
+
+
+def _is_builtin_source(path):
+    """True for the reference cards this project ships and checksums itself."""
+    parts = str(path).replace("\\", "/").split("/")
+    return "builtin" in parts and "knowledge" in parts
 
 
 def _piece_text(paragraphs):
