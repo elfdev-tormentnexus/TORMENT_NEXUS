@@ -50,6 +50,28 @@ _LANES = 7
 # the trace reads as persistence rather than flicker.
 _LANE_DECAY = 3.1
 
+# The wireframe reading of the field, and how far bass bends it.
+#
+# Contour rungs across the field's shaped range. Few enough that a rung is
+# readable at braille resolution -- at ten they aliased into the dot grid and
+# the mesh turned back into fog, which is the failure the gamma above exists
+# to avoid in the first place.
+_WIRE_LEVELS = 5.0
+
+# How thin a rung is. Higher is thinner; this is the reciprocal of the band
+# either side of a contour that counts as being on it.
+_WIRE_SHARPNESS = 7.0
+
+# The lattice is visible at rest, so it reads as the structure the field is
+# written on rather than an effect that switches on for loud passages. Most
+# of its brightness is still bought with bass.
+_WIRE_BASE = 0.10
+_WIRE_BASS = 0.55
+
+# How far bass displaces the lattice. Applied to the coordinates before the
+# interference is evaluated, so the blobs themselves deform.
+_WIRE_WARP = 2.6
+
 
 class SableFieldVisualizer:
     """The preservation field, its anchor lanes, and the beam that reads it."""
@@ -217,6 +239,23 @@ class SableFieldVisualizer:
         rows = v * 26.0 + self.scroll * 6.0
         cols = u * 34.0
 
+        # Bass buckles the lattice the field is written on, and it does it
+        # here -- to the coordinates, before the interference is evaluated --
+        # so the blobs deform rather than a warped overlay sliding across
+        # undeformed ones. Chained on purpose: the column displacement reads
+        # the already-displaced rows, so the mesh shears instead of rippling
+        # along one axis, which is what makes it look like load rather than
+        # decoration.
+        #
+        # Squared like the density and the scroll, and for the same measured
+        # reason: the shared profile lifts a near-silent passage to 0.458, and
+        # a linear term would leave the lattice permanently bent.
+        warp = (self.bass ** 2) * _WIRE_WARP
+
+        if warp > 0.002:
+            rows = rows + warp * np.sin(cols * 0.62 + self.time * 1.9)
+            cols = cols + warp * np.cos(rows * 0.41 - self.time * 1.4)
+
         field = np.zeros_like(intensity)
         for phase, weight in ((0.0, 0.34), (1.7, 0.28), (3.1, 0.22), (4.6, 0.16)):
             field += weight * np.sin(rows * 1.7 + phase + np.cos(cols * 0.9 + phase))
@@ -246,6 +285,24 @@ class SableFieldVisualizer:
         density = 0.06 + 0.86 * (self.mid ** 2) + 0.46 * (self.treble ** 2)
         shaped = np.clip(field * 0.5 + 0.5, 0.0, 1.0) ** 3.0
         intensity += shaped * density
+
+        # The wireframe. Contour lines of the same field rather than a second
+        # pattern laid over it -- a mesh that did not follow the blobs would
+        # be scaffolding drawn on top of the scene instead of the shape of the
+        # thing itself. machinesoul writes coordinates in a fixed order, and
+        # these rungs are the lattice they are written on.
+        #
+        # The rungs are taken from `shaped`, after the gamma, so they crowd
+        # where the field is dense and open out where it is empty. Reading
+        # them off the raw interference gave an even grid that ignored the
+        # blobs entirely.
+        rungs = np.abs((shaped * _WIRE_LEVELS) % 1.0 - 0.5)
+        wire = np.clip(1.0 - rungs * _WIRE_SHARPNESS, 0.0, 1.0) ** 2
+
+        # Present at rest so the lattice is part of the scene rather than an
+        # effect that appears on loud passages, but most of its brightness is
+        # bought with bass.
+        intensity += wire * (_WIRE_BASE + _WIRE_BASS * (self.bass ** 2))
 
     def _draw_lanes(self, intensity, highlight, u, v, pixel_h):
         """machinespirit: one anchor, one lane, held for the scene's life."""
