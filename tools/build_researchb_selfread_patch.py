@@ -44,6 +44,12 @@ PATCH_FILES = (
     ("assistant/main.py", "replace"),
     ("assistant/editing/edit_guard.py", "replace"),
     ("assistant/commands/command_handlers.py", "replace"),
+    # Ships because the /ask change invalidates an assertion inside it.
+    # That test pins the outgoing message count at three, and grounding
+    # /ask makes it four; without this the patched install would fail its
+    # own suite while the source tree passed. A patch that changes
+    # behaviour has to carry the tests that describe it.
+    ("assistant/tests/test_regressions.py", "replace"),
 )
 
 WORK = ROOT / "SABLERESEARCHB"
