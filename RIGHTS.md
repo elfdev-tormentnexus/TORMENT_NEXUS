@@ -1,6 +1,6 @@
 # Rights and reuse
 
-Status: project rights statement for `researchA`, reviewed 2026-07-28.
+Status: project rights statement for `researchB`, reviewed 2026-07-28.
 
 ## No project-wide license grant yet
 
@@ -50,9 +50,9 @@ derivation actually qualify for those terms. It is not a license for the
 entire repository and does not cure a derivative artifact’s missing or
 different license.
 
-## researchA distribution decision
+## researchB distribution decision
 
-The repository owner has explicitly chosen a model-bearing researchA:
+The repository owner has explicitly chosen a model-bearing researchB:
 
 - the full Windows package contains the exact 4B abliterated director, 7B
   abliterated maintenance coder, and BGE embedding weights listed in

@@ -8095,7 +8095,7 @@ class DocumentationTests(unittest.TestCase):
         pattern = re.compile(
             r"(?:machinesoul\.py|"
             r"(?:DECOMPILE|INSTALL)_[A-Za-z0-9_.-]+\.bat|"
-            r"SABLERESEARCHA-[A-Za-z0-9.-]+\.png)"
+            r"SABLERESEARCHB-[A-Za-z0-9.-]+\.png)"
         )
         assets = {
             "README": set(pattern.findall(readme)),
@@ -8103,18 +8103,19 @@ class DocumentationTests(unittest.TestCase):
         }
         self.assertEqual(assets["README"], assets["installer"])
 
+        # The last part is `partNN`, not a number. How many parts a release
+        # has is an output of the cut, and a document that names part09 when
+        # the cut produced eleven sends someone away with a set that refuses
+        # to reassemble. The placeholder cannot go stale.
         required = {
             "machinesoul.py",
-            "DECOMPILE_SABLE_researchA.bat",
-            "SABLERESEARCHA-MANIFEST.png",
-            "SABLERESEARCHA-REASSEMBLER.png",
-            "SABLERESEARCHA-WINDOWS.part01.png",
-            "SABLERESEARCHA-WINDOWS.part09.png",
-            "SABLERESEARCHA-14B.part01.png",
-            "SABLERESEARCHA-14B.part06.png",
-            "INSTALL_SABLERESEARCHA_CALIBRATION_PATCH.bat",
-            "SABLERESEARCHA-CALIBRATION-PATCH.part01.png",
-            "SABLERESEARCHA-CALIBRATION-PATCH-MANIFEST.png",
+            "DECOMPILE_SABLE_researchB.bat",
+            "SABLERESEARCHB-MANIFEST.png",
+            "SABLERESEARCHB-REASSEMBLER.png",
+            "SABLERESEARCHB-WINDOWS.part01.png",
+            "SABLERESEARCHB-WINDOWS.partNN.png",
+            "SABLERESEARCHB-14B.part01.png",
+            "SABLERESEARCHB-14B.partNN.png",
         }
         self.assertTrue(required.issubset(assets["README"]))
 
@@ -8127,6 +8128,14 @@ class DocumentationTests(unittest.TestCase):
 
                 # Retired assets must not be named anywhere a beginner reads.
                 self.assertNotIn("MUSIC_VISUALIZER_PATCH", text)
+
+                # researchA published the calibration correction as three
+                # extra assets. researchB builds it in -- 2a844f0 is an
+                # ancestor of master and it edits calibration.py itself --
+                # so telling a beginner to download it would send them after
+                # files the release page does not have.
+                self.assertNotIn("CALIBRATION_PATCH", text)
+                self.assertNotIn("CALIBRATION-PATCH", text)
                 self.assertNotIn("WITH_MUSIC_PATCH", text)
 
     def test_beginner_docs_point_at_the_current_release(self):
@@ -8134,7 +8143,7 @@ class DocumentationTests(unittest.TestCase):
         # both drift silently, and both are read by someone who has no way to
         # tell they are out of date.
         root, _ = self._documents()
-        current = "researchA"
+        current = "researchB"
 
         for name in ("README.md", "docs/INSTALL_WINDOWS.md",
                      "docs/TROUBLESHOOTING.md", "docs/BETA_GUIDE.md"):
@@ -8152,7 +8161,7 @@ class DocumentationTests(unittest.TestCase):
                 self.assertIn(current, text)
 
 
-    def test_researchA_packages_the_rosetta_bridge_and_its_context(self):
+    def test_the_release_packages_the_rosetta_bridge_and_its_context(self):
         required = {
             "tools/machinesoul.py",
             "tools/machinesoul_release.py",
@@ -8164,7 +8173,7 @@ class DocumentationTests(unittest.TestCase):
         }
         self.assertTrue(
             required.issubset(set(package_release.INCLUDE_FILES)),
-            "researchA would separate an experimental tool from the "
+            "the release would separate an experimental tool from the "
             "documentation required to interpret it",
         )
 
@@ -8174,7 +8183,7 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("SABLEROSETTA1", readme)
         self.assertIn("each model must build its own half", readme.lower())
         self.assertIn(
-            "optional researcha full-maintenance companion",
+            "optional researchb full-maintenance companion",
             models.lower(),
         )
 

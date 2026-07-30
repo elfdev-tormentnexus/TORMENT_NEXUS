@@ -13,7 +13,7 @@
 <h1 align="center">TORMENT_NEXUS</h1>
 
 <p align="center">
-  <code>researchA</code>&nbsp; · &nbsp;<em>the pixels are the payload</em>&nbsp; · &nbsp;<code>MACHINESOUL1</code>
+  <code>researchB</code>&nbsp; · &nbsp;<em>the pixels are the payload</em>&nbsp; · &nbsp;<code>MACHINESOUL1</code>
 </p>
 
 <p align="center">
@@ -33,7 +33,7 @@
 > [!CAUTION]
 > **Read this before downloading or installing.**
 >
-> The ready-to-run researchA Windows capsules carry a **full, model-bearing
+> The ready-to-run researchB Windows capsules carry a **full, model-bearing
 > installation tree**.
 > They include community-modified “abliterated” Qwen language models whose
 > learned refusal behavior has been deliberately weakened. This is not a
@@ -54,7 +54,7 @@
 
 <p align="center">
   <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases">
-    <strong>Open GitHub Releases and select researchA</strong>
+    <strong>Open GitHub Releases and select researchB</strong>
   </a>
 </p>
 
@@ -62,7 +62,7 @@
 
 | | |
 | --- | --- |
-| Current build | `researchA` — experimental research release, not a stable product |
+| Current build | `researchB` — experimental research release, not a stable product |
 | Platform | 64-bit Windows only. There is no macOS or Linux build. |
 | Download | About 12.4 GB for the main capsule set; the optional 14B companion adds about 8.8 GB. |
 | Free disk needed | About 55 GB during installation, because capsules, decoded segments, and the reconstructed tree coexist. |
@@ -141,19 +141,19 @@ the same.
 | Understand the first-launch warning and privacy defaults | [Your first session](docs/FIRST_RUN.md) |
 | See exactly what works and what does not | [Capabilities and limits](docs/CAPABILITIES_AND_LIMITS.md) |
 | Add manuals, encyclopedias, and practical references | [Offline knowledge](docs/OFFLINE_KNOWLEDGE.md) |
-| Test researchA | [Research build guide](docs/BETA_GUIDE.md) and [Testing](docs/TESTING.md) |
+| Test researchB | [Research build guide](docs/BETA_GUIDE.md) and [Testing](docs/TESTING.md) |
 | Review models and third-party terms | [Models](MODELS.md) and [Third-party notices](THIRD_PARTY_NOTICES.md) |
 | Work on the source | [Architecture](docs/ARCHITECTURE.md) and [Contributing](CONTRIBUTING.md) |
 | Connect an outside development agent | [Agent interface](docs/AGENT_INTERFACE.md) |
 | Understand vectors and AI bridges | [Semantic retrieval and agent bridges](docs/SEMANTIC_AND_AGENT_BRIDGES.md) |
 | Review sensing and hardware research | [Sensing module notes](docs/SENSING_MODULE.md) |
 
-## Install the full Windows researchA
+## Install the full Windows researchB
 
 *You are not downloading the program. You are downloading its image, and
 developing it.*
 
-researchA deliberately makes machinesoul part of the installation path. The
+researchB deliberately makes machinesoul part of the installation path. The
 full package is carried inside lossless PNG/APNG capsules, so a recipient must
 run the published `machinesoul.py` decompiler before an installable directory
 exists. This is not encryption or a file-size workaround: each ordered pixel-
@@ -182,18 +182,21 @@ decompilation, the reconstructed installation contains:
 | About 55 GB free during installation | Downloaded capsules, decoded vector segments, and the directly reconstructed installation temporarily coexist. |
 | Internet for the initial download | About 12.4 GB for the main capsule set, plus about 8.8 GB if you also take the 14B companion. Ordinary local conversation and the offline library work without it afterward. |
 | Python 3 | Required only to run the published machinesoul decompiler. |
-| Microphone only if desired | researchA starts in text mode, with microphone use off. |
+| Microphone only if desired | researchB starts in text mode, with microphone use off. |
 
 ### Four steps
 
 1. Open [GitHub Releases](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases),
-   select `researchA`, expand **Assets**, and read its warning, checksums,
+   select `researchB`, expand **Assets**, and read its warning, checksums,
    model provenance, and known issues. Download the plaintext bootstrap
-   pair, `machinesoul.py` and `DECOMPILE_SABLE_researchA.bat`, plus
-   `SABLERESEARCHA-MANIFEST.png`, `SABLERESEARCHA-REASSEMBLER.png`, and every
-   consecutive file from `SABLERESEARCHA-WINDOWS.part01.png` through
-   `SABLERESEARCHA-WINDOWS.part09.png`.
-2. Keep those files together and run `DECOMPILE_SABLE_researchA.bat`. It calls
+   pair, `machinesoul.py` and `DECOMPILE_SABLE_researchB.bat`, plus
+   `SABLERESEARCHB-MANIFEST.png`, `SABLERESEARCHB-REASSEMBLER.png`, and every
+   consecutive file from `SABLERESEARCHB-WINDOWS.part01.png` through
+   `SABLERESEARCHB-WINDOWS.partNN.png` — however many the Assets list shows.
+   How many parts there are is decided by the cut, not by this page, so take
+   the count from the release rather than from here. A missing part is
+   refused rather than silently skipped, so you cannot get this wrong quietly.
+2. Keep those files together and run `DECOMPILE_SABLE_researchB.bat`. It calls
    machinesoul for every required image. The manifest and reassembler are
    themselves recovered from machinesoul; each package capsule yields one
    verified vector segment. The same helper automatically invokes the
@@ -201,10 +204,10 @@ decompilation, the reconstructed installation contains:
    install directory, and runs `setup.bat`. Rosetta Stone, its anchor material,
    tests, and research documents are files in that directly preserved tree.
    **Do not screenshot, optimise, or re-encode the images.**
-3. If all optional capsules from `SABLERESEARCHA-14B.part01.png` through
-   `SABLERESEARCHA-14B.part06.png` are present, that same pass decompiles and
-   installs the 14B companion. If none are present it skips it; a partial set
-   refuses.
+3. If all optional capsules from `SABLERESEARCHB-14B.part01.png` through
+   `SABLERESEARCHB-14B.partNN.png` are present — again, as many as the Assets
+   list shows — that same pass decompiles and installs the 14B companion. If
+   none are present it skips it; a partial set refuses.
 4. Launch the desktop shortcut. Before any model, microphone, activity
    sampler, listener, or network-capable subsystem starts, the application
    displays its disclosure and requires the exact text `I UNDERSTAND`.
@@ -212,9 +215,9 @@ decompilation, the reconstructed installation contains:
 
 ### The optional 14B companion
 
-The Qwen2.5-Coder 14B full-maintenance pack is the current researchA companion
+The Qwen2.5-Coder 14B full-maintenance pack is the current researchB companion
 for deliberately requested long self-heal and extended editing sessions. It is
-not superseded or obsolete, and researchA republishes the exact model as its
+not superseded or obsolete, and researchB republishes the exact model as its
 own machinesoul vector-field set rather than duplicating it inside the already
 model-bearing main package.
 
@@ -224,15 +227,9 @@ the precision per weight. Take it for *longer* sessions, not for better
 answers, and skip it if the extra 8.8 GB download and 8.4 GB installed are not
 worth that trade to you.
 
-### The calibration-clarity patch
-
-The researchA release page also carries
-`INSTALL_SABLERESEARCHA_CALIBRATION_PATCH.bat`,
-`SABLERESEARCHA-CALIBRATION-PATCH.part01.png`, and
-`SABLERESEARCHA-CALIBRATION-PATCH-MANIFEST.png`. Keep them beside the main
-release downloads and run that installer after the main reconstruction. The
-main one-click installer also offers to run it automatically when the full
-patch set is present.
+*researchA shipped a separate calibration-clarity patch. researchB does not,
+because that fix is built into this tree rather than applied over it, so
+there is nothing to install afterwards.*
 
 The patch does not change the recorded calibration readings. It corrects the
 finite Fibonacci claim, tests the exact limit of the 13-term row, and makes
@@ -297,7 +294,7 @@ default. Window titles can reveal filenames, pages, and message previews.
 The choice persists. `activity off` persists the off choice and deletes both
 the in-memory observations and `assistant\memory\activity_log.jsonl`.
 
-## What researchA can do
+## What researchB can do
 
 ### Local companion
 
@@ -311,7 +308,7 @@ the in-memory observations and `assistant\memory\activity_log.jsonl`.
 
 ### Offline practical knowledge
 
-researchA contains an independent local reference library with built-in Canadian
+researchB contains an independent local reference library with built-in Canadian
 preparedness cards and a private user shelf. It supports:
 
 ```text
@@ -509,12 +506,12 @@ model has no dependable relationship to dimension 7 in another, even when
 both models happen to have the same number of dimensions. Comparing their
 ordinary vectors directly produces noise.
 
-`tools/rosetta_stone.py` is the experimental bridge included with researchA.
+`tools/rosetta_stone.py` is the experimental bridge included with researchB.
 It gives each model the same ordered, human-readable anchor texts, then
 describes a vector by its similarities to that shared decree. The resulting
 `SABLEROSETTA1` halves can be compared only when their anchor digests match.
 Each model must build its own half; a prebuilt stone is model-, quantization-,
-and pooling-specific, so researchA does not pretend one universal stone can
+and pooling-specific, so researchB does not pretend one universal stone can
 exist.
 
 This is an implementation and measurement of published **relative
@@ -565,7 +562,7 @@ came out negative, and name the prior art first:
 | Web search | May send a derived query to configured SearXNG/Brave when current information is requested or inferred. |
 | Cloud escalation | Off; sends only the explicit `escalate` question when separately enabled. |
 | Agent API | Off; loopback-only and bearer-token authenticated, but capable of returning private memory/reference results. |
-| Custom director/model URL | Can receive prompts and retrieved context; “local” no longer applies to that traffic. researchA rejects non-loopback embedding URLs. |
+| Custom director/model URL | Can receive prompts and retrieved context; “local” no longer applies to that traffic. researchB rejects non-loopback embedding URLs. |
 | Spotify and MusicBrainz | Optional; search/account/playback metadata crosses their service boundaries. |
 | T-Deck and LoRa | Optional; messages cross Bluetooth and the configured mesh. |
 
@@ -574,7 +571,7 @@ activity, connected services, or agent access.
 
 ## Project status and rights
 
-researchA is experimental. Important claims and generated code require human
+researchB is experimental. Important claims and generated code require human
 verification. The functional test suite does not certify content safety,
 security, legality, factuality, or fitness for high-stakes use.
 
@@ -617,8 +614,8 @@ activity logs, keys, tokens, passcodes, pairing data, or personal paths.
 - [Agent interface](docs/AGENT_INTERFACE.md)
 - [Semantic retrieval and agent bridges](docs/SEMANTIC_AND_AGENT_BRIDGES.md)
 - [Research goals](docs/RESEARCH_GOALS.md)
-- [researchA pre-release evidence and inheritance](docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md)
-- [How researchA is cut into machinesoul fields](docs/MACHINESOUL_RELEASE_CUT_METHOD.md)
+- [researchB pre-release evidence and inheritance](docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md)
+- [How researchB is cut into machinesoul fields](docs/MACHINESOUL_RELEASE_CUT_METHOD.md)
 - [Sensing module notes](docs/SENSING_MODULE.md)
 - [Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md)
 

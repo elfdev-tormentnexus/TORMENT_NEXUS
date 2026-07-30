@@ -1,6 +1,6 @@
 # Semantic retrieval and agent bridges
 
-researchA includes local embeddings without turning every vaguely similar passage
+researchB includes local embeddings without turning every vaguely similar passage
 into prompt context. It also adds two narrow ways to consult another model:
 an inbound loopback interface and an explicit outbound escalation command.
 
@@ -117,7 +117,7 @@ removing imported manuals, use `library remove`; it synchronously drops the
 live source/index rows and attempts database compaction. Backups, snapshots,
 and storage-device remnants still need separate handling.
 
-The embedder is local-only: researchA rejects a non-loopback
+The embedder is local-only: researchB rejects a non-loopback
 `TORMENT_NEXUS_EMBED_SERVER_URL`. A separately configured remote director
 server can still receive retrieved memory or reference context as part of a
 model prompt, so the local-first privacy claim does not apply to that

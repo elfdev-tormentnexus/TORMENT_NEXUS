@@ -1,12 +1,12 @@
-# TORMENT_NEXUS researchA guide
+# TORMENT_NEXUS researchB guide
 
-This guide explains what researchA contains, what its defaults mean, and which
+This guide explains what researchB contains, what its defaults mean, and which
 features are ordinary, optional, experimental, planned, or failed.
 
 New users should begin with [Installing on Windows](INSTALL_WINDOWS.md) and
 [Your first session](FIRST_RUN.md).
 
-## What “researchA” means
+## What “researchB” means
 
 The lettered release name avoids implying an ordered march toward a finished
 product. The application has automated and manual checks, but the
@@ -25,7 +25,7 @@ Keep backups, use a standard Windows account, and verify important answers.
 
 ## The complete Windows release is model-bearing
 
-The ready-to-run researchA capsules carry the actual local model weights:
+The ready-to-run researchB capsules carry the actual local model weights:
 
 - abliterated Qwen3 4B Q8 director;
 - abliterated Qwen2.5-Coder 7B Q8 maintenance coder;
@@ -87,7 +87,7 @@ The detailed matrix is in
 
 ## Offline knowledge
 
-researchA includes eight built-in reference cards centered on Canadian emergency
+researchB includes eight built-in reference cards centered on Canadian emergency
 preparedness, fire/carbon-monoxide response, food/water safety, chemicals,
 outages, severe weather, navigation, communications, and the limits of
 offline material.

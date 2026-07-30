@@ -1,4 +1,4 @@
-# Testing researchA
+# Testing researchB
 
 Testing is part of the safety boundary, but it is not a safety certification.
 Passing tests can show that an application rule behaves as coded; it cannot
@@ -136,7 +136,7 @@ Network and hardware tests require explicit consent and separate test data.
 
 ## Release-package acceptance
 
-Before publishing any researchA asset:
+Before publishing any researchB asset:
 
 - build from the intended clean commit and record it in the manifest;
 - render the machinesoul APNG cut maps and record the exact plans the owner

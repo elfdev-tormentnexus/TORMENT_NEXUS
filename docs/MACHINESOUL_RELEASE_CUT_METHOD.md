@@ -1,6 +1,6 @@
-# How researchA is cut into machinesoul fields
+# How researchB is cut into machinesoul fields
 
-This document records why researchA is divided where it is, how the cutter
+This document records why researchB is divided where it is, how the cutter
 chooses a seam, what the review map proves, and what the heuristic does **not**
 prove. The implementation is `tools/machinesoul_release.py`; the exact seams
 for one release live in its hashed JSON plan, Markdown table, and animated PNG
@@ -8,7 +8,7 @@ cut map.
 
 ## Why the install tree is cut directly
 
-researchA is not first flattened into ZIP, tar, or another public archive.
+researchB is not first flattened into ZIP, tar, or another public archive.
 Doing so would erase the boundaries the operator wanted machinesoul to
 respect: complete files, the ends of Python modules, and quiet structural
 space between rules, classes, and functions.
@@ -25,7 +25,7 @@ archive layer whose boundaries happen to be painted as an image.
 
 ## The size boundary
 
-GitHub release assets have a 2 GiB ceiling. researchA uses a lower maximum
+GitHub release assets have a 2 GiB ceiling. researchB uses a lower maximum
 preserved extent of `1,797,000,000` source units per capsule, leaving margin
 for the machinesoul header, PNG/APNG structure, and variation in compression.
 
@@ -180,7 +180,7 @@ It builds into a temporary sibling directory and replaces the requested
 target only after every file passes. A failed reassembly therefore does not
 present a partial installation as complete.
 
-## The researchA policy produced by this method
+## The researchB policy produced by this method
 
 The main Windows cut should show source and documentation files remaining
 whole, with unavoidable in-file seams confined to the bundled GGUF models.

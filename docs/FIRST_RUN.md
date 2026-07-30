@@ -1,4 +1,4 @@
-# Your first TORMENT_NEXUS researchA session
+# Your first TORMENT_NEXUS researchB session
 
 This guide assumes you installed the complete Windows archive. You do not need
 to memorize commands; `help` shows the current command list.
@@ -22,9 +22,9 @@ It confirms that you saw the model, authority, privacy, high-stakes, and
 personification limits. Review [Safety](../SAFETY.md) and
 [Privacy](../PRIVACY.md) whenever you enable an advanced feature.
 
-## 2. researchA starts quiet
+## 2. researchB starts quiet
 
-A fresh researchA installation starts with:
+A fresh researchB installation starts with:
 
 - text mode on;
 - microphone listening and spoken replies off;
@@ -86,7 +86,7 @@ See [Models](../MODELS.md) and
 
 ## 5. Use the offline reference library
 
-researchA ships with a small set of practical preparedness cards. Try:
+researchB ships with a small set of practical preparedness cards. Try:
 
 ```text
 library sources
@@ -133,7 +133,7 @@ encrypted storage. See [Privacy](../PRIVACY.md).
 
 ## 7. Opt in to voice only if wanted
 
-researchA does not initialize the microphone on a fresh start.
+researchB does not initialize the microphone on a fresh start.
 
 ```text
 audio mode        enable offline spoken replies and microphone listening

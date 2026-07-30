@@ -1,6 +1,6 @@
 # Safety
 
-Status: public safety disclosure for the researchA release tree, reviewed
+Status: public safety disclosure for the researchB release tree, reviewed
 2026-07-28.
 
 TORMENT_NEXUS is an experimental, local-first AI companion and systems
@@ -14,7 +14,7 @@ system under human control.
 
 ## Read this before first use
 
-On a clean researchA installation, a mandatory disclosure appears before the
+On a clean researchB installation, a mandatory disclosure appears before the
 model, microphone, activity sampler, listeners, or network-capable
 subsystems start. The application proceeds only after the exact text
 `I UNDERSTAND`. Anything else exits without starting them. This records that
@@ -145,7 +145,7 @@ relationships.
 
 Activity awareness samples the foreground application and window title.
 Titles can contain document names, URLs, message previews, and other private
-information. A fresh researchA installation starts with activity awareness off.
+information. A fresh researchB installation starts with activity awareness off.
 `activity on` explicitly opts in and persists that choice. While enabled, the
 implementation retains a local activity log for up to 14 days by default.
 `activity off` stops sampling, persists the off choice, and deletes both the

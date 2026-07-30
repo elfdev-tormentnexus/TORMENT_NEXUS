@@ -1,4 +1,4 @@
-# TORMENT_NEXUS researchA architecture
+# TORMENT_NEXUS researchB architecture
 
 This is a technical reference for developers and reviewers. New users should
 start with [Installing on Windows](INSTALL_WINDOWS.md),
@@ -78,7 +78,7 @@ operator input
 
 ## Model roles
 
-The complete researchA Windows package has three separate model jobs:
+The complete researchB Windows package has three separate model jobs:
 
 | Artifact | Role |
 | --- | --- |

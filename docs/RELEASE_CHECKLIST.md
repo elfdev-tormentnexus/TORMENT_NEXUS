@@ -1,9 +1,9 @@
-# TORMENT_NEXUS researchA release checklist
+# TORMENT_NEXUS researchB release checklist
 
 This is a maintainer document, not an installation guide. Windows users should
 follow [Installing on Windows](INSTALL_WINDOWS.md).
 
-researchA has one public preservation boundary: machinesoul PNG/APNG
+researchB has one public preservation boundary: machinesoul PNG/APNG
 capsules. The verified staged directory is cut directly. It is never flattened
 through ZIP, tar, or another public encoder first, because that would erase the
 file and code seams used by the cut logic.
@@ -26,13 +26,13 @@ file and code seams used by the cut logic.
    ```powershell
    python tools\machinesoul_release.py plan `
      dist\TORMENT_NEXUS `
-     --prefix SABLERESEARCHA-WINDOWS `
-     --out SABLERESEARCHA\CUT_PLAN_WINDOWS.json `
-     --markdown SABLERESEARCHA\CUT_PLAN_WINDOWS.md
+     --prefix SABLERESEARCHB-WINDOWS `
+     --out SABLERESEARCHB\CUT_PLAN_WINDOWS.json `
+     --markdown SABLERESEARCHB\CUT_PLAN_WINDOWS.md
 
    python tools\machinesoul_release.py render `
-     SABLERESEARCHA\CUT_PLAN_WINDOWS.json `
-     --out SABLERESEARCHA\CUT_PLAN_WINDOWS.png
+     SABLERESEARCHB\CUT_PLAN_WINDOWS.json `
+     --out SABLERESEARCHB\CUT_PLAN_WINDOWS.png
    ```
 
    The lossless APNG is the review surface. Frame 0 shows the whole release;
@@ -48,10 +48,10 @@ file and code seams used by the cut logic.
 
    ```powershell
    python tools\machinesoul_release.py cut `
-     SABLERESEARCHA\CUT_PLAN_WINDOWS.json `
+     SABLERESEARCHB\CUT_PLAN_WINDOWS.json `
      --approved-sha256 <REVIEWED_PLAN_SHA256> `
-     --out-dir SABLERESEARCHA\package `
-     --manifest SABLERESEARCHA\MANIFEST_WINDOWS.json
+     --out-dir SABLERESEARCHB\package `
+     --manifest SABLERESEARCHB\MANIFEST_WINDOWS.json
    ```
 
    The cutter refuses a changed plan. Every capsule is decompiled immediately
@@ -59,24 +59,24 @@ file and code seams used by the cut logic.
    temporary segment is removed.
 
 6. Repeat the plan, APNG review, approval, and cut for the optional 14B
-   companion, using prefix `SABLERESEARCHA-14B` and the exact reviewed GGUF
+   companion, using prefix `SABLERESEARCHB-14B` and the exact reviewed GGUF
    recorded in [Models](../MODELS.md). It remains optional for recipients but
    follows the identical preservation boundary.
 
 7. Wrap the two reconstruction support files with machinesoul:
 
-   - the final release manifest as `SABLERESEARCHA-MANIFEST.png`;
+   - the final release manifest as `SABLERESEARCHB-MANIFEST.png`;
    - `tools/machinesoul_release.py` as
-     `SABLERESEARCHA-REASSEMBLER.png`.
+     `SABLERESEARCHB-REASSEMBLER.png`.
 
    Do not upload either source file raw.
 
-8. Generate and test `DECOMPILE_SABLE_researchA.bat`. The only unavoidable
+8. Generate and test `DECOMPILE_SABLE_researchB.bat`. The only unavoidable
    plaintext bootstrap downloads are that one-click launcher and
    `machinesoul.py`. The launcher must:
 
    - decompile the manifest and reassembler capsules;
-   - decompile every exact `SABLERESEARCHA-WINDOWS.partNN.png`;
+   - decompile every exact `SABLERESEARCHB-WINDOWS.partNN.png`;
    - invoke the recovered reassembler;
    - verify every final file;
    - reconstruct the install directory directly and run `setup.bat`;
@@ -84,14 +84,14 @@ file and code seams used by the cut logic.
    - skip the 14B set when none are present; and
    - refuse a partial optional set.
 
-9. Create GitHub tag/title `researchA` as a draft and upload only:
+9. Create GitHub tag/title `researchB` as a draft and upload only:
 
-   - every `SABLERESEARCHA-WINDOWS.partNN.png`;
-   - every optional `SABLERESEARCHA-14B.partNN.png`;
-   - `SABLERESEARCHA-MANIFEST.png`;
-   - `SABLERESEARCHA-REASSEMBLER.png`;
+   - every `SABLERESEARCHB-WINDOWS.partNN.png`;
+   - every optional `SABLERESEARCHB-14B.partNN.png`;
+   - `SABLERESEARCHB-MANIFEST.png`;
+   - `SABLERESEARCHB-REASSEMBLER.png`;
    - `machinesoul.py`;
-   - `DECOMPILE_SABLE_researchA.bat`.
+   - `DECOMPILE_SABLE_researchB.bat`.
 
 10. Compare every GitHub asset's size and SHA-256 with its retained local
     copy. Download every remote capsule again, decompile it, reassemble the

@@ -6,7 +6,7 @@ Start with:
 health check
 ```
 
-That command reports which local and optional components are ready. researchA is
+That command reports which local and optional components are ready. researchB is
 experimental and its bundled language models are abliterated. A fluent answer
 is not proof that it is correct or safe; read [Safety](../SAFETY.md) before
 following consequential advice or running generated code.
@@ -18,19 +18,19 @@ following consequential advice or running generated code.
 GitHub's green **Code** button and automatic **Source code** archives do not
 contain the models or private Windows runtime. Open
 [GitHub Releases](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases),
-select `researchA`, and download every consecutive file named:
+select `researchB`, and download every consecutive file named:
 
 ```text
-SABLERESEARCHA-WINDOWS.partNN.png
+SABLERESEARCHB-WINDOWS.partNN.png
 ```
 
 Also download:
 
 ```text
 machinesoul.py
-DECOMPILE_SABLE_researchA.bat
-SABLERESEARCHA-MANIFEST.png
-SABLERESEARCHA-REASSEMBLER.png
+DECOMPILE_SABLE_researchB.bat
+SABLERESEARCHB-MANIFEST.png
+SABLERESEARCHB-REASSEMBLER.png
 ```
 
 The reassembler and release manifest appear only after their own capsules
@@ -60,7 +60,7 @@ presenting a damaged vector field as an installer part.
   named asset; do not guess which duplicate is complete.
 - Confirm each browser download has finished and is no longer temporary.
 
-Run `DECOMPILE_SABLE_researchA.bat`. It invokes the recovered reassembler
+Run `DECOMPILE_SABLE_researchB.bat`. It invokes the recovered reassembler
 itself only after machinesoul has produced and verified every corresponding
 internal part. There is no separate reassembly step for the user.
 
@@ -90,7 +90,7 @@ folder was moved or renamed will still point to the old location.
 ### The application exits at the first warning
 
 Before the model, microphone, activity sampler, listeners, or
-network-capable subsystems start, researchA requires this exact text:
+network-capable subsystems start, researchB requires this exact text:
 
 ```text
 I UNDERSTAND
@@ -107,7 +107,7 @@ application is closed displays the warning again.
 
 ### It starts in text mode
 
-That is the researchA default. The microphone is not initialized until you opt
+That is the researchB default. The microphone is not initialized until you opt
 in:
 
 ```text
@@ -191,7 +191,7 @@ time for a large folder.
 
 ### A PDF returns little or no text
 
-researchA uses `pypdf` and can extract text-based PDFs. A scanned, photographed,
+researchB uses `pypdf` and can extract text-based PDFs. A scanned, photographed,
 encrypted, or unusually encoded PDF may need OCR or conversion before import.
 Do not assume an empty search means the information is absent from the page
 images.
@@ -279,7 +279,7 @@ monitoring, or safety decisions. See [Sensing module notes](SENSING_MODULE.md).
 
 ## Reporting a problem
 
-Include the researchA release name, Windows version, launch method, command that
+Include the researchB release name, Windows version, launch method, command that
 failed, expected result, and a minimal synthetic reproduction. Remove user
 paths and never attach conversations, memories, imported documents, library
 databases, activity logs, model/API keys, bearer tokens, passcodes, pairing
