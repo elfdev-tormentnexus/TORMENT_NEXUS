@@ -17,6 +17,7 @@ from core.config import (
     MODEL_ROLE_DIRECTOR,
     MODEL_ROLE_FULL_MAINTENANCE,
     MODEL_ROLE_SUPER_DEV,
+    SUPER_DEV_SESSION_MAX_SECONDS,
 )
 from project import project_mapper
 from project import project_analyzer
@@ -685,6 +686,128 @@ def handle_super_dev_status(user_input):
         "run shell commands, change credentials, push Git, or edit its own "
         f"guards.\n\nWorker: {worker}\nAudit: {super_dev_engine.LOG_FILE}"
     )
+
+
+# Toggles this command deliberately will not set for you. Each one either
+# starts a sensor, sends data off the machine, or exposes private memory, so
+# each is a consent decision the operator makes once, knowingly, by name.
+# "Enable everything" is exactly the phrasing that should not silently cross
+# those lines -- Super Dev permission is authority over this project's source,
+# not over the microphone.
+_CONSENT_GATED_FEATURES = (
+    ("audio mode", "microphone capture and offline speech"),
+    ("activity on", "foreground window titles, logged for up to 14 days"),
+    ("escalate <question>", "sends that one question to a cloud provider"),
+    ("agent api on", "loopback API that can return private memory"),
+    ("wifi sensing", "the experimental radio seam, off by default"),
+)
+
+
+def _enable_all_experimental_features():
+    """Turn on the experimental research surface, and only that."""
+    global EXPERIMENTAL_MODE, EXPERIMENTAL_MODE_EXPIRES_AT
+
+    enabled = []
+
+    # machinespirit's own timeout is an hour, which is shorter than a YOLO
+    # window. Extending it to match keeps the trajectory reader alive for the
+    # whole unattended run instead of lapsing partway through.
+    if not EXPERIMENTAL_MODE_FROM_ENV:
+        EXPERIMENTAL_MODE = True
+        EXPERIMENTAL_MODE_EXPIRES_AT = (
+            time.monotonic() + SUPER_DEV_SESSION_MAX_SECONDS
+        )
+        window = super_dev_engine._describe_window(SUPER_DEV_SESSION_MAX_SECONDS)
+        enabled.append(
+            f"machinespirit (experimental mode), extended to {window} so it "
+            "outlasts a full session"
+        )
+    else:
+        enabled.append(
+            "machinespirit (experimental mode), already held on by the launcher"
+        )
+
+    body = "\n".join(f"  ON   {item}" for item in enabled)
+    held = "\n".join(
+        f"  ---  {name}  --  {why}" for name, why in _CONSENT_GATED_FEATURES
+    )
+    return (
+        f"EXPERIMENTAL FEATURES\n{'=' * 58}\n\n{body}\n\n"
+        "Not enabled, deliberately. Each of these starts a sensor, sends "
+        "data off this machine, or exposes private memory, so each stays a "
+        "separate decision you make by name:\n\n"
+        f"{held}\n\n"
+        "Super Dev permission is authority over this project's source, not "
+        "over the microphone. Turn any of the above on individually."
+    )
+
+
+def _require_super_dev(what):
+    """Shared gate for commands that exist only under Super Dev permission.
+
+    Returns a refusal string when the caller is not entitled, or None when
+    the command may run. Each condition is reported separately: "not
+    unlocked" and "wrong launcher" need different actions from the operator,
+    and collapsing them into one message sends people to the wrong fix.
+    """
+    if not is_experimental_mode():
+        return f"{what} is available only from TORMENT_NEXUS_HAZARD."
+    if MODEL_ROLE != MODEL_ROLE_SUPER_DEV:
+        return (
+            f"{what} needs start_super_dev_hazard.bat, which starts the "
+            "separate 14B planner and 7B patch worker."
+        )
+    _expire_super_dev_mode()
+    if not SUPER_DEV_MODE:
+        return (
+            f"{what} requires Super Dev permission. Type 'super dev mode' "
+            "and enter your key at the masked prompt first."
+        )
+    return None
+
+
+@command("yolo mode",
+         "Run the unattended Super Dev session for its full window",
+         dev_only=False, group="session")
+def handle_yolo_mode(user_input):
+    """The overnight run. Same gates per patch; the window is the bound."""
+    if not _match_exact(user_input, "yolo mode"):
+        return False
+
+    refusal = _require_super_dev("YOLO mode")
+    if refusal:
+        return refusal
+
+    window = super_dev_engine._describe_window(SUPER_DEV_SESSION_MAX_SECONDS)
+    ui.set_generating(True)
+    try:
+        applied, result = super_dev_engine.run_session()
+    finally:
+        ui.finish_activity("YOLO session completed")
+
+    header = (
+        f"YOLO MODE\n{'=' * 58}\n\nUnattended session, window {window}. "
+        "Every patch passed the allowlist, capability, line-cap, backup, "
+        "and regression gates on its own.\n\n"
+    )
+    if applied:
+        edit_engine.mark_restart_pending()
+        return header + result + "\n\nReloading to activate the verified work."
+    return header + result
+
+
+@command("enable all experimental features",
+         "Turn on every experimental toggle Super Dev is allowed to set",
+         dev_only=False, group="session")
+def handle_enable_all_experimental(user_input):
+    if not _match_exact(user_input, "enable all experimental features"):
+        return False
+
+    refusal = _require_super_dev("Enabling all experimental features")
+    if refusal:
+        return refusal
+
+    return _enable_all_experimental_features()
 
 
 @command("exit super dev mode", "Lock Super Dev without changing ordinary developer mode",

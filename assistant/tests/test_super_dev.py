@@ -87,6 +87,92 @@ class SuperDevCommandTests(unittest.TestCase):
         self.assertIn("masked numeric prompt", reply)
 
 
+class SuperDevExplicitCommandTests(unittest.TestCase):
+    """The two commands that exist only under Super Dev permission."""
+
+    def setUp(self):
+        self.old_mode = command_handlers.SUPER_DEV_MODE
+        command_handlers.SUPER_DEV_MODE = False
+
+    def tearDown(self):
+        command_handlers.SUPER_DEV_MODE = self.old_mode
+
+    def _unlocked(self):
+        command_handlers.SUPER_DEV_MODE = True
+        command_handlers.SUPER_DEV_MODE_EXPIRES_AT = float("inf")
+        return [
+            mock.patch.object(command_handlers, "is_experimental_mode",
+                              return_value=True),
+            mock.patch.object(command_handlers, "MODEL_ROLE",
+                              config.MODEL_ROLE_SUPER_DEV),
+        ]
+
+    def test_both_commands_are_registered(self):
+        names = {entry["name"] for entry in command_handlers.COMMANDS}
+        self.assertIn("yolo mode", names)
+        self.assertIn("enable all experimental features", names)
+
+    def test_yolo_mode_refuses_without_super_dev_permission(self):
+        with mock.patch.object(command_handlers, "is_experimental_mode",
+                               return_value=True), \
+             mock.patch.object(command_handlers, "MODEL_ROLE",
+                               config.MODEL_ROLE_SUPER_DEV), \
+             mock.patch.object(super_dev_engine, "run_session") as session:
+            reply = command_handlers.handle_yolo_mode("yolo mode")
+
+        self.assertIn("requires Super Dev permission", reply)
+        session.assert_not_called()
+
+    def test_enable_all_refuses_without_super_dev_permission(self):
+        with mock.patch.object(command_handlers, "is_experimental_mode",
+                               return_value=True), \
+             mock.patch.object(command_handlers, "MODEL_ROLE",
+                               config.MODEL_ROLE_SUPER_DEV):
+            reply = command_handlers.handle_enable_all_experimental(
+                "enable all experimental features")
+
+        self.assertIn("requires Super Dev permission", reply)
+
+    def test_yolo_mode_runs_the_full_window_session(self):
+        started = self._unlocked()
+        for item in started:
+            item.start()
+        try:
+            with mock.patch.object(super_dev_engine, "run_session",
+                                   return_value=(True, "two patches")) as session, \
+                 mock.patch.object(command_handlers.edit_engine,
+                                   "mark_restart_pending") as restart, \
+                 mock.patch.object(command_handlers.ui, "set_generating"), \
+                 mock.patch.object(command_handlers.ui, "finish_activity"):
+                reply = command_handlers.handle_yolo_mode("yolo mode")
+        finally:
+            for item in reversed(started):
+                item.stop()
+
+        # No argument: the engine's own configured window, not a count.
+        session.assert_called_once_with()
+        restart.assert_called_once_with()
+        self.assertIn("two patches", reply)
+
+    def test_enable_all_refuses_to_cross_the_consent_gated_toggles(self):
+        # The point of the command is breadth, which is exactly why it must
+        # not silently start a sensor or open private memory.
+        started = self._unlocked()
+        for item in started:
+            item.start()
+        try:
+            reply = command_handlers.handle_enable_all_experimental(
+                "enable all experimental features")
+        finally:
+            for item in reversed(started):
+                item.stop()
+
+        self.assertIn("machinespirit", reply)
+        for name, _ in command_handlers._CONSENT_GATED_FEATURES:
+            self.assertIn(name, reply)
+        self.assertIn("Not enabled, deliberately", reply)
+
+
 class SuperDevSessionLoopTests(unittest.TestCase):
     """The unattended session must end on its own and gate every patch.
 
