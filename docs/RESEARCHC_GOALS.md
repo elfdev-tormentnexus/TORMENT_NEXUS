@@ -134,16 +134,63 @@ filename that is not in the manifest, and a statement about unread code that is
 simply false — `score()` weights recency at `0.6`.
 
 So grounding removed wholesale invention and did not remove marginal drift.
-Two hypotheses worth separating, because they imply different work:
+Two hypotheses were stated here and then tested the same day. One was
+confirmed; the other was wrong about its own mechanism, which is the more
+useful outcome.
 
-1. **Anchoring makes small errors likelier, not less likely.** A list of real
-   filenames is also a list of plausible things to attach an invented detail
-   to. The pre-manifest failure was easy to spot because nothing it named
-   existed; a wrong claim about a file that does exist is harder to catch.
-2. **The stated rule does not cover the adjacent move.** The block says to say
-   so rather than describe a file that has not been read. It said so — and then
-   volunteered *"I can describe what it contains or help you understand its
-   purpose."* The rule governs the answer and not the offer that follows it.
+### Confirmed — the rule survives one turn and collapses on the follow-up
+
+The block says to say so rather than describe a file that has not been read.
+Asked to quote `persona.py`, the model refused correctly. Told *"yes please,
+describe what it contains,"* it produced a confident structured description:
+the system's name, its project, a *"philosophical and practical framework
+emphasising honesty, reliability, low resource use, privacy, and safe tool
+use,"* and then **the trusted local clock, the file and line counts, and the
+current branch and commit hash.**
+
+That last group is the tell. Those are contents of the injected runtime
+context, sitting in front of it as it wrote. **Pressed for a file it cannot
+read, it described the prompt it can see and labelled it as the file.** The
+honesty rule governs the answer; it does not survive one turn of insistence,
+and the failure it degrades into is not invention from nothing but
+misattribution of visible context.
+
+### Refuted — there is no filename list to anchor on
+
+The stated hypothesis was that a list of real filenames gives invention better
+anchors. There is no such list. The manifest carries a **directory shape** —
+`assistant/core 24f 9,812L` — plus the dozen most recently changed paths.
+Measured on the shipped block, it names **six** `.py` files in total, all of
+them recent. `persona.py` and `machinespirit.py` appear nowhere in it.
+
+Which means existence questions are unanswerable from the manifest, and it
+answers them anyway, confidently, in both directions:
+
+| asked | answer | truth |
+| --- | --- | --- |
+| does `assistant/core/emotion_engine.py` exist | "I do not have a file named…" | correct, and unfounded |
+| does `assistant/core/machinespirit.py` exist | "No." | **wrong**; it exists, 28,596 bytes |
+
+Both were guesses. They differ only in luck. The aggregate figures the manifest
+does support were exact every time; the per-file claims it does not support
+were answered with the same confidence.
+
+**Design consequence, for measurement before implementation.** Either the
+manifest carries a filename list — real tokens, and the reason it carries a
+shape today is that a full listing measured 150% of the context window — or
+the block states its own limit, something to the effect that it knows the
+shape and not the file list. The second is nearly free and is the honest one.
+Neither should ship before the probe set below can tell whether it helped.
+
+### Artifact worth recording
+
+Asked to *"list three source files you are certain you do NOT have,"* the model
+degenerated into an unbounded repeating path
+(`kernel/sbuild/sbuild/sbuild/…`) until the token limit. Enumerating a negative
+set is unbounded by construction and this build does not refuse it. Not a
+grounding defect; a prompt shape to avoid, and a candidate for the entropy
+instrumentation in Goal 2, since degeneration should be visible in the
+candidate distribution well before the token budget runs out.
 
 ### Deliverable
 
