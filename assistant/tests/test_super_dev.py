@@ -154,23 +154,98 @@ class SuperDevExplicitCommandTests(unittest.TestCase):
         restart.assert_called_once_with()
         self.assertIn("two patches", reply)
 
-    def test_enable_all_refuses_to_cross_the_consent_gated_toggles(self):
-        # The point of the command is breadth, which is exactly why it must
-        # not silently start a sensor or open private memory.
+    def test_enable_all_turns_on_the_sensors_the_key_authorised(self):
+        # The Super Dev key is the consent step, so this command really does
+        # start the sensors rather than listing them.
         started = self._unlocked()
         for item in started:
             item.start()
+        awareness = mock.Mock(retention_days=14)
         try:
-            reply = command_handlers.handle_enable_all_experimental(
-                "enable all experimental features")
+            with mock.patch.object(command_handlers, "_get_system_awareness",
+                                   return_value=awareness), \
+                 mock.patch.object(command_handlers, "_start_audio_mode",
+                                   return_value="Voice is ready."):
+                reply = command_handlers.handle_enable_all_experimental(
+                    "enable all experimental features")
         finally:
             for item in reversed(started):
                 item.stop()
 
+        awareness.set_enabled.assert_called_once_with(True)
         self.assertIn("machinespirit", reply)
-        for name, _ in command_handlers._CONSENT_GATED_FEATURES:
-            self.assertIn(name, reply)
-        self.assertIn("Not enabled, deliberately", reply)
+        self.assertIn("activity awareness", reply)
+        self.assertIn("microphone", reply)
+
+    def test_enable_all_reports_what_it_could_not_start(self):
+        # A feature this process cannot reach must be named as unavailable,
+        # never quietly reported as on.
+        started = self._unlocked()
+        for item in started:
+            item.start()
+        try:
+            with mock.patch.object(command_handlers, "_get_system_awareness",
+                                   return_value=None), \
+                 mock.patch.object(command_handlers, "_start_audio_mode",
+                                   return_value="No microphone was found."):
+                reply = command_handlers.handle_enable_all_experimental(
+                    "enable all experimental features")
+        finally:
+            for item in reversed(started):
+                item.stop()
+
+        self.assertIn("cannot", reply)
+        self.assertIn("No microphone was found", reply)
+        self.assertIn("not available in this session", reply)
+
+
+class EnableAllFeaturesTests(unittest.TestCase):
+    """The ordinary-mode form, which has no key in front of it."""
+
+    def test_command_is_registered_and_needs_no_super_dev(self):
+        names = {entry["name"] for entry in command_handlers.COMMANDS}
+        self.assertIn("enable all features", names)
+
+        awareness = mock.Mock(retention_days=14)
+        command_handlers.SUPER_DEV_MODE = False
+        with mock.patch.object(command_handlers, "_get_system_awareness",
+                               return_value=awareness), \
+             mock.patch.object(command_handlers, "_start_audio_mode",
+                               return_value="Voice is ready."):
+            reply = command_handlers.handle_enable_all_features(
+                "enable all features")
+
+        awareness.set_enabled.assert_called_once_with(True)
+        self.assertIn("activity awareness", reply)
+        self.assertIn("microphone", reply)
+
+    def test_it_names_the_way_back_out_of_everything_it_started(self):
+        # Typing the command is the consent act, so the reply has to carry
+        # the off-switch for each thing it turned on. A switch you cannot
+        # find again is not a switch you consented to.
+        awareness = mock.Mock(retention_days=14)
+        with mock.patch.object(command_handlers, "_get_system_awareness",
+                               return_value=awareness), \
+             mock.patch.object(command_handlers, "_start_audio_mode",
+                               return_value="Voice is ready."):
+            reply = command_handlers.handle_enable_all_features(
+                "enable all features")
+
+        self.assertIn("activity off", reply)
+        self.assertIn("exit audio", reply)
+
+    def test_both_forms_start_the_same_sensor_set(self):
+        # The two commands must not drift into enabling different things
+        # under similar names; they share one helper and this pins it.
+        awareness = mock.Mock(retention_days=14)
+        with mock.patch.object(command_handlers, "_get_system_awareness",
+                               return_value=awareness), \
+             mock.patch.object(command_handlers, "_start_audio_mode",
+                               return_value="Voice is ready."):
+            started, unavailable = command_handlers._enable_sensor_features()
+
+        self.assertEqual(unavailable, [])
+        self.assertEqual(len(started), len(command_handlers._SENSOR_FEATURES))
 
 
 class SuperDevSessionLoopTests(unittest.TestCase):

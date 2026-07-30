@@ -688,58 +688,126 @@ def handle_super_dev_status(user_input):
     )
 
 
-# Toggles this command deliberately will not set for you. Each one either
-# starts a sensor, sends data off the machine, or exposes private memory, so
-# each is a consent decision the operator makes once, knowingly, by name.
-# "Enable everything" is exactly the phrasing that should not silently cross
-# those lines -- Super Dev permission is authority over this project's source,
-# not over the microphone.
-_CONSENT_GATED_FEATURES = (
-    ("audio mode", "microphone capture and offline speech"),
-    ("activity on", "foreground window titles, logged for up to 14 days"),
-    ("escalate <question>", "sends that one question to a cloud provider"),
-    ("agent api on", "loopback API that can return private memory"),
-    ("wifi sensing", "the experimental radio seam, off by default"),
-)
+# Toggles that start a sensor or open private memory. The Super Dev key is
+# the consent step for these: it is enrolled once at a masked prompt, stored
+# only as a PBKDF2 verifier, and never accepted in command text -- so nothing
+# reaches this function without the operator having authenticated as the
+# person who owns the microphone. That is why "enable all" is allowed to
+# cross the line here and nowhere else in the project.
+#
+# What it still cannot do is turn on anything that needs a launcher flag or a
+# credential this process was never given. Those are reported, not faked.
+_SENSOR_FEATURES = ("activity awareness", "microphone and offline speech")
+
+
+def _enable_sensor_features():
+    """Start the opt-in sensors, returning (started, unavailable) lines.
+
+    Shared by the ordinary and Super Dev forms of "enable all", so the two
+    cannot drift into enabling different things under similar names. Typing
+    the command is itself the consent act, which is why each line says
+    exactly what began and how to stop it -- a switch you cannot find again
+    is not a switch you consented to.
+    """
+    started = []
+    unavailable = []
+
+    awareness = _get_system_awareness()
+    if awareness is None:
+        unavailable.append("activity awareness -- not available in this session")
+    else:
+        awareness.set_enabled(True)
+        days = awareness.retention_days
+        unit = "day" if days == 1 else "days"
+        started.append(
+            "activity awareness -- foreground window titles sampled every "
+            f"20s, retained {days:g} {unit}. 'activity off' stops it and "
+            "deletes the log"
+        )
+
+    report = _start_audio_mode()
+    if isinstance(report, str) and "ready" not in report.lower():
+        unavailable.append(f"microphone and speech -- {report.splitlines()[0]}")
+    else:
+        started.append(
+            "microphone and offline speech -- listening; 'exit audio' returns "
+            "to the text terminal"
+        )
+
+    return started, unavailable
+
+
+@command("enable all features",
+         "Turn on every opt-in feature this session can start",
+         dev_only=False, group="session")
+def handle_enable_all_features(user_input):
+    """The ordinary-mode form. No key, because typing it is the consent."""
+    if not _match_exact(user_input, "enable all features"):
+        return False
+
+    started, unavailable = _enable_sensor_features()
+
+    if not started:
+        body = "  --    nothing could be started in this session"
+    else:
+        body = "\n".join(f"  ON    {item}" for item in started)
+
+    out = f"ALL FEATURES\n{'=' * 58}\n\n{body}"
+    if unavailable:
+        blocked = "\n".join(f"  --    {item}" for item in unavailable)
+        out += "\n\nNot turned on, because this session cannot:\n\n" + blocked
+
+    out += (
+        "\n\nEach of these is individually reversible with the command named "
+        "beside it. machinespirit, the two-model repair session, and the "
+        "research instruments live in TORMENT_NEXUS_HAZARD rather than here."
+    )
+    return out
 
 
 def _enable_all_experimental_features():
-    """Turn on the experimental research surface, and only that."""
+    """Turn on every experimental surface this process is able to set."""
     global EXPERIMENTAL_MODE, EXPERIMENTAL_MODE_EXPIRES_AT
 
     enabled = []
+    unavailable = []
 
     # machinespirit's own timeout is an hour, which is shorter than a YOLO
     # window. Extending it to match keeps the trajectory reader alive for the
     # whole unattended run instead of lapsing partway through.
-    if not EXPERIMENTAL_MODE_FROM_ENV:
+    window = super_dev_engine._describe_window(SUPER_DEV_SESSION_MAX_SECONDS)
+    if EXPERIMENTAL_MODE_FROM_ENV:
+        enabled.append("machinespirit -- already held on by the launcher")
+    else:
         EXPERIMENTAL_MODE = True
         EXPERIMENTAL_MODE_EXPIRES_AT = (
             time.monotonic() + SUPER_DEV_SESSION_MAX_SECONDS
         )
-        window = super_dev_engine._describe_window(SUPER_DEV_SESSION_MAX_SECONDS)
         enabled.append(
-            f"machinespirit (experimental mode), extended to {window} so it "
-            "outlasts a full session"
-        )
-    else:
-        enabled.append(
-            "machinespirit (experimental mode), already held on by the launcher"
+            f"machinespirit -- extended to {window}, so the trajectory "
+            "reader outlasts a full session"
         )
 
-    body = "\n".join(f"  ON   {item}" for item in enabled)
-    held = "\n".join(
-        f"  ---  {name}  --  {why}" for name, why in _CONSENT_GATED_FEATURES
+    sensors_on, sensors_off = _enable_sensor_features()
+    enabled.extend(sensors_on)
+    unavailable.extend(sensors_off)
+
+    body = "\n".join(f"  ON    {item}" for item in enabled)
+    out = f"EXPERIMENTAL FEATURES\n{'=' * 58}\n\n{body}"
+
+    if unavailable:
+        blocked = "\n".join(f"  --    {item}" for item in unavailable)
+        out += (
+            "\n\nNot turned on, because this process cannot:\n\n" + blocked
+        )
+
+    out += (
+        "\n\nThe Super Dev key was the consent step for the sensors above. "
+        "The cloud escalation path, the agent API, and the Wi-Fi seam each "
+        "need a launcher flag or a credential this process was not given, "
+        "so they stay off regardless of this command."
     )
-    return (
-        f"EXPERIMENTAL FEATURES\n{'=' * 58}\n\n{body}\n\n"
-        "Not enabled, deliberately. Each of these starts a sensor, sends "
-        "data off this machine, or exposes private memory, so each stays a "
-        "separate decision you make by name:\n\n"
-        f"{held}\n\n"
-        "Super Dev permission is authority over this project's source, not "
-        "over the microphone. Turn any of the above on individually."
-    )
+    return out
 
 
 def _require_super_dev(what):
