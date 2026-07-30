@@ -556,6 +556,7 @@ Core memory:
 _projected_memory_signature = None
 _hazard_trajectory_input = None
 _hazard_trajectory_vectors = None
+_hazard_spirit_readings = None
 
 
 def _update_retrieval_panel(active, relevant, semantic_vectors=None):
@@ -634,6 +635,7 @@ def _update_hazard_trajectory(user_input, semantic_ready):
     trajectory rather than drawing a false comparison.
     """
     global _hazard_trajectory_input, _hazard_trajectory_vectors
+    global _hazard_spirit_readings
 
     try:
         if (
@@ -642,6 +644,7 @@ def _update_hazard_trajectory(user_input, semantic_ready):
             or not ui.panel_active()
         ):
             ui.clear_trajectory_points()
+            ui.clear_spirit_readings()
             return
 
         if user_input != _hazard_trajectory_input:
@@ -652,14 +655,26 @@ def _update_hazard_trajectory(user_input, semantic_ready):
             _hazard_trajectory_vectors = (
                 memory_vectors.compact_semantic(path) if path else None
             )
+            # Read the path we already have rather than fetching a second
+            # one. read_path() is what trace() calls, so the panel and the
+            # printed readout cannot disagree about the same tokens.
+            _hazard_spirit_readings = (
+                machinespirit.read_path(path, top=3) if path else None
+            )
 
         if _hazard_trajectory_vectors:
             ui.set_trajectory_points(_hazard_trajectory_vectors)
         else:
             ui.clear_trajectory_points()
+
+        if _hazard_spirit_readings:
+            ui.set_spirit_readings(_hazard_spirit_readings)
+        else:
+            ui.clear_spirit_readings()
     except Exception:
         # A representation visualizer is never a reason to lose a turn.
         ui.clear_trajectory_points()
+        ui.clear_spirit_readings()
 
 
 def _start_semantic_layer():

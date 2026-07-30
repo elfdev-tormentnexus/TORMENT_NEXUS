@@ -3527,6 +3527,31 @@ def clear_trajectory_points():
         _engine.field.clear_trajectory()
 
 
+def set_spirit_readings(readings):
+    """Show machinespirit's concept-at-token readout in the upper panel.
+
+    Takes read_path()'s output unchanged, which is what `trace` prints.
+    """
+    with _engine.lock:
+        _engine.field.set_spirit(readings)
+
+
+def clear_spirit_readings():
+    with _engine.lock:
+        _engine.field.clear_spirit()
+
+
+def set_soul_payload(payload):
+    """Show a machinesoul preservation field in the lower panel."""
+    with _engine.lock:
+        _engine.field.set_soul(payload)
+
+
+def clear_soul_payload():
+    with _engine.lock:
+        _engine.field.clear_soul()
+
+
 def panel_active():
     """
     Whether the retrieval panel is currently being drawn.

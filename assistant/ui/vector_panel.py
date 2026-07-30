@@ -280,17 +280,33 @@ class Field:
     # THE TWO LANGUAGES
     # --------------------------------------------------------
 
-    def set_spirit(self, readings, labels):
-        """Take machinespirit's own readout: which anchors scored, per token.
+    def set_spirit(self, readings):
+        """Take machinespirit's own readout, in its own shape.
 
-        `readings` is one list per token of (anchor_index, support) pairs --
-        exactly what profile() returns, not a re-derivation of it. The panel
-        must not compute its own answer here: if it did, it could disagree
-        with what `trace` prints for the same text, and a panel that
-        disagrees with the instrument it claims to show is worse than none.
+        `readings` is exactly what read_path() returns and therefore exactly
+        what `trace` prints: [(token_index, [(support, anchor_text), ...])].
+        The panel does not recompute it and does not re-rank it. If it
+        derived its own answer it could disagree with the instrument it
+        claims to show, and a panel that does that is worse than no panel.
+
+        Lanes are keyed on the anchor text rather than a position in some
+        list, so there is no index mapping between here and machinespirit
+        that could quietly go stale.
         """
-        self.spirit = [list(row or []) for row in (readings or [])]
-        self.spirit_labels = list(labels or [])
+        rows = []
+        labels = []
+        seen = {}
+        for entry in (readings or []):
+            scored = entry[1] if isinstance(entry, (tuple, list)) and len(entry) > 1 else entry
+            row = []
+            for support, text in (scored or []):
+                if text not in seen:
+                    seen[text] = len(labels)
+                    labels.append(text)
+                row.append((seen[text], float(support)))
+            rows.append(row)
+        self.spirit = rows
+        self.spirit_labels = labels
 
     def clear_spirit(self):
         self.spirit = []

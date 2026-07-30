@@ -292,9 +292,15 @@ def profile(vector, vectors, texts, top=3):
     return _profile_in_frame(vector, _centred_anchors(vectors), texts, top)
 
 
-def trace(text, top=1, include_project=True, include_life=True):
-    """Which concept appeared at which token. None when unavailable."""
-    path = trajectory(text)
+def read_path(path, top=1, include_project=True, include_life=True):
+    """Read an already-fetched trajectory against the dictionary.
+
+    Split out of trace() so a caller holding a path -- the panel, which
+    fetched one for the beam -- can read it without a second round trip to
+    the unpooled server, and without reimplementing this. Two readouts of
+    the same tokens must not be able to disagree; sharing this is what makes
+    that structural rather than a thing tests have to keep checking.
+    """
     if not path:
         return None
     vectors = anchor_vectors(include_project, include_life)
@@ -306,6 +312,11 @@ def trace(text, top=1, include_project=True, include_life=True):
     frame = _centred_anchors(vectors)
     return [(index, _profile_in_frame(token, frame, texts, top))
             for index, token in enumerate(path)]
+
+
+def trace(text, top=1, include_project=True, include_life=True):
+    """Which concept appeared at which token. None when unavailable."""
+    return read_path(trajectory(text), top, include_project, include_life)
 
 
 def diagnose(text=None):
