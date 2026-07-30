@@ -65,14 +65,30 @@ def redact_credential_like_text(text):
     return _NUMERIC_CREDENTIAL_RE.sub(HIDDEN_NUMERIC_CREDENTIAL, text)
 
 
+# A passcode drawing on letters as well as digits may be one character
+# shorter, because the rule being preserved is the size of the search space,
+# not the character count. Eight digits is 10^8. Seven characters from any
+# alphabet that includes a letter is at least 36^7, roughly 780 times larger.
+# So this is a relaxation of the format and a tightening of the floor -- the
+# shortest thing now accepted is harder to guess than the shortest thing
+# accepted before.
+MIN_ALPHANUMERIC_LENGTH = 7
+
+
 def _passcode_problem(passcode):
     if not isinstance(passcode, str):
         return "The passcode was not text."
-    if not passcode.isascii() or not passcode.isdigit():
-        return "Use digits only."
-    if not MIN_PASSCODE_LENGTH <= len(passcode) <= MAX_PASSCODE_LENGTH:
+    if not passcode.isascii() or not passcode.isalnum():
+        return "Use letters and digits only, with no spaces or symbols."
+
+    minimum = (
+        MIN_PASSCODE_LENGTH if passcode.isdigit() else MIN_ALPHANUMERIC_LENGTH
+    )
+    if not minimum <= len(passcode) <= MAX_PASSCODE_LENGTH:
         return (
-            f"Use {MIN_PASSCODE_LENGTH} to {MAX_PASSCODE_LENGTH} digits."
+            f"Use {MIN_PASSCODE_LENGTH} to {MAX_PASSCODE_LENGTH} digits, or "
+            f"{MIN_ALPHANUMERIC_LENGTH} to {MAX_PASSCODE_LENGTH} characters "
+            "if you include a letter."
         )
     return None
 

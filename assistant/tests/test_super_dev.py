@@ -10,6 +10,41 @@ from core import config, dev_auth
 from editing import edit_engine, super_dev_engine
 
 
+class PasscodeFormatTests(unittest.TestCase):
+    """Alphanumeric keys, with the search space -- not the length -- held."""
+
+    def test_alphanumeric_key_of_seven_is_accepted(self):
+        self.assertIsNone(dev_auth._passcode_problem("1611KJV"))
+
+    def test_digit_only_key_still_needs_eight(self):
+        # 7 digits is 10^7, smaller than the 10^8 this file has always
+        # required. Only a larger alphabet buys the shorter length.
+        self.assertIsNotNone(dev_auth._passcode_problem("1611161"))
+        self.assertIsNone(dev_auth._passcode_problem("16111611"))
+
+    def test_symbols_and_spaces_are_still_refused(self):
+        for bad in ("1611 KJV", "1611-KJV", "1611KJVé", ""):
+            with self.subTest(passcode=bad):
+                self.assertIsNotNone(dev_auth._passcode_problem(bad))
+
+    def test_the_documented_key_round_trips(self):
+        import tempfile as _tf
+        with _tf.TemporaryDirectory() as temp:
+            old_file = dev_auth.SUPER_PASSCODE_FILE
+            old_iter = dev_auth.PBKDF2_ITERATIONS
+            dev_auth.SUPER_PASSCODE_FILE = os.path.join(temp, ".super_key")
+            dev_auth.PBKDF2_ITERATIONS = 100_000
+            dev_auth.reset_attempt_state_for_tests()
+            try:
+                dev_auth.enroll_super("1611KJV", "1611KJV")
+                self.assertTrue(dev_auth.verify_super("1611KJV"))
+                self.assertFalse(dev_auth.verify_super("1611kjv"))
+            finally:
+                dev_auth.SUPER_PASSCODE_FILE = old_file
+                dev_auth.PBKDF2_ITERATIONS = old_iter
+                dev_auth.reset_attempt_state_for_tests()
+
+
 class SuperDevAuthenticationTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -84,7 +119,7 @@ class SuperDevCommandTests(unittest.TestCase):
 
     def test_inline_super_key_is_refused(self):
         reply = command_handlers.handle_super_dev_mode("super dev mode 246813579")
-        self.assertIn("masked numeric prompt", reply)
+        self.assertIn("masked prompt", reply)
 
 
 class SuperDevExplicitCommandTests(unittest.TestCase):

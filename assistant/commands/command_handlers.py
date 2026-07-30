@@ -632,7 +632,7 @@ def handle_super_dev_mode(user_input):
     if _match_prefix(user_input, "super dev mode "):
         return (
             "For privacy, never put the Super Dev key in command text. "
-            "Type only 'super dev mode'; a masked numeric prompt will appear."
+            "Type only 'super dev mode'; a masked prompt will appear."
         )
     if not _match_exact(user_input, "super dev mode"):
         return False
