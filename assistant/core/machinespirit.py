@@ -144,18 +144,53 @@ def configured():
 
 
 def available(timeout=2):
-    """True only when an unpooled server is actually answering."""
+    """True only when an unpooled server is actually answering.
+
+    Probes a route that requires the key, not /health. llama.cpp serves
+    /health without authentication, so a health-only check is satisfied by
+    any process that holds the port -- including one that rejects every
+    request this module would go on to make. That is not hypothetical: a
+    stale service squatting on 8084 answered /health for an hour on
+    2026-07-29 while every trajectory() call returned None, and nothing in
+    the readout said which half was broken.
+
+    /v1/models is the route llm_server and embedding_server already trust
+    for the same reason -- llm_server.accepts_unauthenticated_requests()
+    treats an unkeyed 200 there as a missing protection boundary. Asking it
+    with the key means this probe fails the way a real request would.
+
+    What this still does not verify is that the server was launched with
+    --pooling none. There is no route that reports pooling, and determining
+    it empirically costs a full trajectory (see tools/pooling_probe.py), so
+    a pooled server on this port would pass here and be caught later by
+    looks_truncated()/the single-vector shape. Narrowing that is a separate
+    piece of work; claiming it here would be the same overreach this
+    function is being fixed for.
+    """
     if not configured():
         return False
+
     try:
         headers = {}
         if MACHINESPIRIT_KEY:
             headers["Authorization"] = "Bearer " + MACHINESPIRIT_KEY
-        response = requests.get(MACHINESPIRIT_URL.rstrip("/") + "/health",
+        response = requests.get(MACHINESPIRIT_URL.rstrip("/") + "/v1/models",
                                 headers=headers, timeout=timeout)
-        return response.status_code == 200
-    except requests.RequestException:
+        if response.status_code != 200:
+            return False
+        rows = response.json().get("data", [])
+    except (requests.RequestException, ValueError, AttributeError):
         return False
+
+    if not isinstance(rows, list):
+        return False
+
+    # A 200 carrying no model is a server that is up but serving nothing,
+    # which cannot answer a trajectory request either.
+    return any(
+        isinstance(row, dict) and isinstance(row.get("id"), str)
+        for row in rows
+    )
 
 
 def trajectory(text, timeout=60):
@@ -333,10 +368,20 @@ def diagnose(text=None):
     """
     from core import embedding_server
 
+    # is_alive(), not available(). available() is a configuration question --
+    # EMBED_ENABLED, the model file on disk, a loopback URL -- and answers
+    # True while nothing is listening on the port. Reading it here let
+    # diagnose() return ready:True through a real pooled-server outage, with
+    # reason:None, while anchor_vectors() returned None and the trace came
+    # back empty. That is the one answer this function exists never to give.
+    #
+    # Computed before the configured() early return on purpose: `reconstruct`
+    # reads status["pooled"] alone and needs it meaningful in ordinary mode,
+    # where machinespirit is not configured but 8082 is up and doing the work.
     status = {
         "configured": configured(),
         "unpooled": False,
-        "pooled": bool(embedding_server.available()),
+        "pooled": bool(embedding_server.is_alive()),
         "dictionary": dictionary(),
         "tokens": None,
         "truncated": False,
@@ -362,12 +407,27 @@ def diagnose(text=None):
         return status
 
     if not status["pooled"]:
-        status["reason"] = (
-            "The unpooled server is answering, but the ordinary embedding "
-            "server is not, and the anchor dictionary is embedded through "
-            "that one. Both are required: 8084 supplies the path, 8082 "
-            "supplies the words it is read against."
-        )
+        # Two different repairs, so two different sentences. Telling an
+        # operator whose server has crashed to go and install a model file
+        # is the same wrong-process error this function was written to stop,
+        # one level down.
+        if embedding_server.available():
+            status["reason"] = (
+                "The unpooled server is answering, but the ordinary "
+                "embedding server is not, and the anchor dictionary is "
+                "embedded through that one. Both are required: 8084 "
+                "supplies the path, 8082 supplies the words it is read "
+                "against. The model is installed, so this is a stopped "
+                "server rather than a missing file."
+            )
+        else:
+            status["reason"] = (
+                "The unpooled server is answering, but the ordinary "
+                "embedding server is not configured on this machine, and "
+                "the anchor dictionary is embedded through that one. Both "
+                "are required: 8084 supplies the path, 8082 supplies the "
+                "words it is read against."
+            )
         return status
 
     if text:

@@ -156,11 +156,24 @@ class DiagnoseTests(unittest.TestCase):
     def tearDown(self):
         ms.configured, ms.available, ms.trajectory = self.saved
 
-    def _embedding_server(self, available):
+    def _embedding_server(self, alive, installed=None):
+        """Stub the pooled server's two distinct questions.
+
+        `alive` is whether it is answering; `installed` is whether it is
+        configured at all. They are separate because diagnose() reads the
+        first and this class previously stubbed only the second -- so a test
+        named "pooled down" was really simulating a missing model file, and
+        a genuine outage went unnoticed for two releases.
+        """
         from core import embedding_server
+        if installed is None:
+            installed = alive
+        self.addCleanup(setattr, embedding_server, "is_alive",
+                        embedding_server.is_alive)
         self.addCleanup(setattr, embedding_server, "available",
                         embedding_server.available)
-        embedding_server.available = lambda: available
+        embedding_server.is_alive = lambda timeout=2: alive
+        embedding_server.available = lambda: installed
 
     def test_unconfigured_says_so_and_stops(self):
         ms.configured = lambda: False
@@ -181,12 +194,49 @@ class DiagnoseTests(unittest.TestCase):
         """The regression this function exists for."""
         ms.configured = lambda: True
         ms.available = lambda timeout=2: True
-        self._embedding_server(False)
+        self._embedding_server(False, installed=False)
         status = ms.diagnose()
         self.assertFalse(status["ready"])
         self.assertTrue(status["unpooled"])
         self.assertFalse(status["pooled"])
         self.assertIn("Both are required", status["reason"])
+
+    def test_a_stopped_pooled_server_is_never_reported_as_ready(self):
+        """Installed but not running. The state that shipped as ready:True.
+
+        diagnose() used to ask embedding_server.available(), which is a
+        configuration check -- model file present, loopback URL, feature
+        enabled -- and stays True through any outage. So a killed 8082 left
+        every field looking healthy: pooled True, ready True, reason None,
+        while anchor_vectors() returned None and the trace came back empty.
+        Confirmed against the live servers on 2026-07-30 before this was
+        changed to read is_alive().
+        """
+        ms.configured = lambda: True
+        ms.available = lambda timeout=2: True
+        # The model is installed; the process is simply not running.
+        self._embedding_server(False, installed=True)
+
+        status = ms.diagnose()
+
+        self.assertFalse(status["pooled"])
+        self.assertFalse(status["ready"])
+        self.assertIsNotNone(status["reason"])
+        # And it must send the operator to the right repair: a stopped
+        # process, not a missing download.
+        self.assertIn("stopped server", status["reason"])
+
+    def test_a_missing_pooled_model_is_not_described_as_a_stopped_server(self):
+        """The other half of the same distinction."""
+        ms.configured = lambda: True
+        ms.available = lambda timeout=2: True
+        self._embedding_server(False, installed=False)
+
+        status = ms.diagnose()
+
+        self.assertFalse(status["ready"])
+        self.assertIn("not configured", status["reason"])
+        self.assertNotIn("stopped server", status["reason"])
 
     def test_a_truncated_input_is_reported_even_though_it_succeeded(self):
         ms.configured = lambda: True
@@ -208,6 +258,95 @@ class DiagnoseTests(unittest.TestCase):
         self.assertFalse(status["truncated"])
         self.assertIsNone(status["reason"])
         self.assertEqual(status["tokens"], 9)
+
+
+class UnpooledProbeTests(unittest.TestCase):
+    """available() must fail the way a real request would.
+
+    llama.cpp serves /health without authentication. A probe that reads only
+    that route is satisfied by anything holding the port, which is how a
+    stale service on 8084 was reported as a working embedder for an hour on
+    2026-07-29 while every trajectory() call returned None.
+    """
+
+    def setUp(self):
+        self.saved = (ms.requests.get, ms.MACHINESPIRIT_URL,
+                      ms.MACHINESPIRIT_KEY)
+        ms.MACHINESPIRIT_URL = "http://127.0.0.1:8084"
+        ms.MACHINESPIRIT_KEY = "machinespirit"
+
+    def tearDown(self):
+        (ms.requests.get, ms.MACHINESPIRIT_URL,
+         ms.MACHINESPIRIT_KEY) = self.saved
+
+    def _serve(self, routes):
+        """Answer per route. Records what was asked, and with which headers."""
+        asked = []
+
+        class _Response:
+            def __init__(self, status, body):
+                self.status_code = status
+                self._body = body
+
+            def json(self):
+                if self._body is None:
+                    raise ValueError("not json")
+                return self._body
+
+        def fake_get(url, headers=None, timeout=None):
+            asked.append((url, dict(headers or {})))
+            for suffix, answer in routes.items():
+                if url.endswith(suffix):
+                    return _Response(*answer)
+            return _Response(404, None)
+
+        ms.requests.get = fake_get
+        return asked
+
+    def test_a_server_that_only_answers_health_is_not_available(self):
+        """The 2026-07-29 squatter, as a test."""
+        asked = self._serve({
+            "/health": (200, {"status": "ok"}),
+            "/v1/models": (401, None),
+        })
+
+        self.assertFalse(ms.available())
+        # And it must have asked the route that can actually refuse it.
+        self.assertTrue(any("/v1/models" in url for url, _ in asked))
+
+    def test_a_model_serving_endpoint_is_available(self):
+        self._serve({"/v1/models": (200, {"data": [{"id": "machinespirit"}]})})
+        self.assertTrue(ms.available())
+
+    def test_a_200_carrying_no_model_is_not_available(self):
+        """Up, but serving nothing. It cannot answer a trajectory either."""
+        self._serve({"/v1/models": (200, {"data": []})})
+        self.assertFalse(ms.available())
+
+    def test_a_200_that_is_not_json_is_not_available(self):
+        self._serve({"/v1/models": (200, None)})
+        self.assertFalse(ms.available())
+
+    def test_the_probe_presents_the_key(self):
+        """A probe that skips the key is not testing the same door."""
+        asked = self._serve({
+            "/v1/models": (200, {"data": [{"id": "machinespirit"}]}),
+        })
+
+        ms.available()
+
+        models = [headers for url, headers in asked if "/v1/models" in url]
+        self.assertTrue(models)
+        self.assertEqual(
+            models[0].get("Authorization"), "Bearer machinespirit"
+        )
+
+    def test_an_unconfigured_endpoint_is_never_probed(self):
+        asked = self._serve({"/v1/models": (200, {"data": [{"id": "x"}]})})
+        ms.MACHINESPIRIT_URL = ""
+
+        self.assertFalse(ms.available())
+        self.assertEqual(asked, [])
 
 
 class PeaksTests(unittest.TestCase):
