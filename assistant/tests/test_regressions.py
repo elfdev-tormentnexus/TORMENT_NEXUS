@@ -5154,6 +5154,135 @@ class PromptEfficiencyTests(unittest.TestCase):
             "How should I ventilate the generator?"
         ))
 
+    def _fixed_prompt(self, system_chars):
+        """Pin every part of the prompt the test is not measuring.
+
+        The real persona is 2,335 tokens and will change; a test that
+        depended on it would fail for the wrong reason later.
+        """
+        patches = [
+            mock.patch.object(
+                assistant_main, "_base_prompt_messages",
+                lambda user_input="", search_context=None: [
+                    {"role": "system", "content": "S" * system_chars},
+                ],
+            ),
+            mock.patch.object(assistant_main, "PERSONA_SHOTS", []),
+            mock.patch.object(
+                assistant_main, "PERSONA_SHOTS_BOUNDARY",
+                {"role": "system", "content": ""},
+            ),
+            mock.patch.object(assistant_main, "session_turns", []),
+            mock.patch.object(assistant_main, "CONTEXT_SIZE", 4096),
+            mock.patch.object(assistant_main, "MAX_TOKENS", 420),
+            mock.patch.object(assistant_main, "PROMPT_TOKEN_MARGIN", 64),
+            # Proportional rather than fixed, so the loop converges the way
+            # it does in life instead of on a rigged number.
+            mock.patch.object(
+                assistant_main, "_count_tokens", lambda text: len(text) // 4,
+            ),
+            mock.patch.object(
+                assistant_main.semantic_index, "query_vector",
+                return_value=None,
+            ),
+        ]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def _shrinking_library(self, doc_chars=4000):
+        """A library that returns fewer documents when asked for fewer."""
+        asked = []
+
+        def fake(query, query_vector=None, limit=3):
+            asked.append(limit)
+            count = max(0, min(int(limit), 3))
+            if not count:
+                return "", []
+            block = "".join(
+                f"<doc{i}>{'x' * doc_chars}</doc{i}>" for i in range(count)
+            )
+            return block, [{"document": f"doc{i}"} for i in range(count)]
+
+        patch = mock.patch.object(
+            assistant_main.knowledge_library,
+            "prompt_context_with_citations",
+            side_effect=fake,
+        )
+        patch.start()
+        self.addCleanup(patch.stop)
+        return asked
+
+    def test_the_reference_block_is_shed_before_the_prompt_is_called_too_big(self):
+        """The Super Dev Hazard failure, in miniature.
+
+        The retrieved block is folded into the operator message before the
+        budget loop starts, so it used to be the one growing part the loop
+        could not reduce. Three documents put the prompt 416 tokens over a
+        3,612 budget with no history at all, and the operator was told to
+        shorten an 18-token message.
+        """
+        # 2,000 tokens of fixed prompt against a 3,612 budget, and roughly
+        # 1,050 per document once the untrusted-data wrapper is counted, so
+        # the loop has to walk down to a single document.
+        self._fixed_prompt(system_chars=8000)
+        asked = self._shrinking_library()
+
+        messages = assistant_main.build_messages("how do I ventilate it?")
+
+        self.assertTrue(messages)
+        self.assertEqual(messages[-1]["role"], "user")
+        # One document at a time, rather than giving up at the first miss or
+        # discarding the whole block on principle.
+        self.assertEqual(asked, [3, 2, 1])
+        self.assertIn("<doc0>", messages[-1]["content"])
+        self.assertNotIn("<doc1>", messages[-1]["content"])
+
+    def test_shedding_a_reference_leaves_citations_naming_only_what_remains(self):
+        """A receipt must never cite a document the model was not shown."""
+        self._fixed_prompt(system_chars=8000)
+        self._shrinking_library()
+        self.addCleanup(assistant_main._hold_citations, [])
+
+        messages = assistant_main.build_messages("how do I ventilate it?")
+
+        shown = messages[-1]["content"]
+        held = [c["document"] for c in assistant_main._pending_citations]
+        self.assertEqual(held, ["doc0"])
+        for name in held:
+            self.assertIn(f"<{name}>", shown)
+
+    def test_every_reference_can_be_dropped_rather_than_failing_the_turn(self):
+        """One document over budget is still a turn that should happen."""
+        # 3,000 tokens fixed leaves 612, and a single document needs 1,000.
+        self._fixed_prompt(system_chars=12000)
+        asked = self._shrinking_library()
+
+        messages = assistant_main.build_messages("how do I ventilate it?")
+
+        self.assertEqual(asked, [3, 2, 1])
+        self.assertNotIn("<doc0>", messages[-1]["content"])
+        self.assertEqual(assistant_main._pending_citations, [])
+        # The operator's own question survives everything.
+        self.assertIn("how do I ventilate it?", messages[-1]["content"])
+
+    def test_an_over_budget_prompt_does_not_blame_a_short_message(self):
+        """What is left at this point is fixed cost, not what was typed."""
+        # 4,000 tokens fixed against a 3,612 budget: nothing sheddable helps.
+        self._fixed_prompt(system_chars=16000)
+        self._shrinking_library()
+
+        with self.assertRaises(ValueError) as raised:
+            assistant_main.build_messages("hi")
+
+        message = str(raised.exception)
+        self.assertNotIn("Shorten the message", message)
+        self.assertNotIn("split it into smaller parts", message)
+        # It has to say what does not fit, and what was already given up.
+        self.assertIn("3612", message.replace(",", ""))
+        self.assertIn("already been dropped", message)
+        self.assertIn("core memory", message)
+
     def test_runtime_context_does_not_change_the_cacheable_system_prefix(self):
         with mock.patch.object(
             assistant_main.memory_logic,

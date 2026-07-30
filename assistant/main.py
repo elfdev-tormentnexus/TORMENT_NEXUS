@@ -1284,10 +1284,14 @@ def build_messages(user_input, search_context=None):
     budget = CONTEXT_SIZE - MAX_TOKENS - PROMPT_TOKEN_MARGIN
     turns = list(session_turns[-MAX_SESSION_MESSAGES:])
     effective_search = _bounded_search_context(search_context)
+    # Held so the shedding loop can re-ask the library for fewer documents
+    # without embedding the question again on every pass.
+    query_vector = semantic_index.query_vector(user_input)
+    knowledge_limit = knowledge_library.AUTO_RESULT_LIMIT
     knowledge_block, citations = (
         knowledge_library.prompt_context_with_citations(
             user_input,
-            query_vector=semantic_index.query_vector(user_input),
+            query_vector=query_vector,
         )
     )
     # Held rather than turned into a receipt here: this runs before the model
@@ -1323,11 +1327,55 @@ def build_messages(user_input, search_context=None):
             )
             continue
 
+        # The retrieved block is the only part of the prompt that grows with
+        # the question, and it was the one part the budget could not touch:
+        # it is folded into the operator message before the loop begins. In
+        # Super Dev Hazard, where CONTEXT_SIZE is halved to 4096 to match the
+        # planner's -c, a turn that retrieved three documents came to 4,028
+        # tokens against a 3,612 budget with no history at all -- and the
+        # operator was told to shorten an 18-token message.
+        #
+        # Whole documents, by asking the library for fewer, rather than
+        # truncating the text. Two reasons. A half-quoted manual is worse
+        # evidence than an absent one, since the missing half is invisible to
+        # the reader. And the citations must keep naming exactly what the
+        # model was shown -- re-fetching returns the matching pair, where
+        # cutting the string would leave a receipt describing a document that
+        # was only partly there.
+        if knowledge_block:
+            knowledge_limit -= 1
+
+            if knowledge_limit >= 1:
+                knowledge_block, citations = (
+                    knowledge_library.prompt_context_with_citations(
+                        user_input,
+                        query_vector=query_vector,
+                        limit=knowledge_limit,
+                    )
+                )
+            else:
+                knowledge_block, citations = "", []
+
+            _hold_citations(citations)
+            operator_message = _operator_message(user_input, knowledge_block)
+            continue
+
         ui.set_prompt_tokens(used)
+        # Naming the message here was wrong often enough to matter: by this
+        # point history, web results and every retrieved reference have
+        # already been dropped, so what is left is the fixed instructions.
+        # Telling someone to shorten eighteen tokens out of four thousand
+        # sends them to a repair that cannot work.
+        typed = _count_tokens(user_input)
         raise ValueError(
-            "This message and its required instructions do not fit the "
-            f"{CONTEXT_SIZE}-token context window. Shorten the message or "
-            "split it into smaller parts."
+            f"The prompt needs {used} tokens against a {budget} budget "
+            f"(a {CONTEXT_SIZE}-token window, less {MAX_TOKENS} held for the "
+            f"reply and {PROMPT_TOKEN_MARGIN} for formatting). Your message "
+            f"is {typed} of them. Session history, web results and retrieved "
+            "references have already been dropped; what does not fit is the "
+            "persona, core memory and runtime context. Raise "
+            "TORMENT_NEXUS_CONTEXT_SIZE with the server's -c to match, or "
+            "trim core memory."
         )
 
 
