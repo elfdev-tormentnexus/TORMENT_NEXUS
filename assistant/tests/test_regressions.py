@@ -76,6 +76,18 @@ from visualizer.datastream import DatastreamVisualizer
 from visualizer.wormhole import WormholeVisualizer
 from visualizer.acid_lattice import AcidLatticeVisualizer
 
+
+def _is_user_library(path):
+    """True for anything inside the operator's private document shelf.
+
+    The shelf holds imported reading material, not project source. Tests
+    that scan assistant/ for the project's own code have to skip it, or a
+    reference corpus containing .py -- an algorithms shelf, say -- reads as
+    thousands of undeclared dependencies and as source hidden from git.
+    """
+    return "user_library" in str(path).replace("\\", "/").split("/")
+
+
 # The desktop icon animator lives beside the assistant package, not in it.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__)))), "tools"))
@@ -6938,6 +6950,14 @@ class DeclaredDependencyTests(unittest.TestCase):
 
         for folder, dirs, files in os.walk(base):
             dirs[:] = [d for d in dirs if d != "__pycache__"]
+            # The user's own shelf is imported documents, not project source.
+            # A reference corpus may legitimately contain .py the project
+            # never runs -- an algorithms shelf is exactly that -- and
+            # reading its imports as project dependencies would demand the
+            # project declare every library its reading material mentions.
+            if _is_user_library(folder):
+                dirs[:] = []
+                continue
 
             for name in files:
                 if not name.endswith(".py"):
@@ -9307,10 +9327,21 @@ class RepositoryVisibilityTests(unittest.TestCase):
             str(path.relative_to(repo)).replace(os.sep, "/")
             for path in (repo / "assistant").rglob("*.py")
             if "__pycache__" not in path.parts
+            and not _is_user_library(path)
         ]
 
         self.assertTrue(sources)
         self.assertEqual(self._ignored(repo, sources), set())
+
+    def test_the_user_shelf_is_excluded_rather_than_accidentally_passing(self):
+        # The exclusion above is only safe because the shelf really is
+        # ignored. If it ever stopped being, these documents would ship in
+        # a release, so pin that rather than trusting the skip.
+        repo = self._repo()
+        shelf = "assistant/knowledge/user_library/notes.py"
+
+        self.assertTrue(_is_user_library(shelf))
+        self.assertEqual(self._ignored(repo, [shelf]), {shelf})
 
     def test_the_private_files_are_still_ignored(self):
         # The other half. Anchoring the pattern must not have exposed the

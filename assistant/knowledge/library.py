@@ -51,9 +51,18 @@ ENABLED = (
     not in {"0", "false", "off", "no"}
 )
 
-SUPPORTED_EXTENSIONS = {
-    ".txt", ".md", ".rst", ".html", ".htm", ".json", ".csv",
-    ".pdf", ".epub", ".docx",
+# Plain-text reference formats. These are read exactly like .txt -- the
+# library indexes text and never executes anything it reads, so .py here
+# means "source as reading material", which is what an algorithms or
+# detection-rule shelf is for. Added because a security shelf is mostly
+# these: Sigma ships .yml, YARA ships .yar, and without them the bulk of
+# such a shelf is on disk and invisible to search.
+PLAIN_TEXT_EXTENSIONS = {
+    ".txt", ".md", ".rst", ".yml", ".yaml", ".yar", ".yara", ".py",
+}
+
+SUPPORTED_EXTENSIONS = PLAIN_TEXT_EXTENSIONS | {
+    ".html", ".htm", ".json", ".csv", ".pdf", ".epub", ".docx",
 }
 
 SCHEMA_VERSION = "2"
@@ -370,7 +379,7 @@ def extract_text(path):
             f"Document is {size / (1024 ** 2):.1f} MiB; the per-file import "
             f"limit is {MAX_SOURCE_BYTES / (1024 ** 2):.0f} MiB."
         )
-    if extension in {".txt", ".md", ".rst"}:
+    if extension in PLAIN_TEXT_EXTENSIONS:
         return _bounded_text(_read_text(path), os.path.basename(path))
     if extension in {".html", ".htm"}:
         return _bounded_text(
