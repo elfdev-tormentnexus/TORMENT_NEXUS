@@ -229,6 +229,11 @@ INCLUDE_FILES = [
     # Shipping the icon without its builder leaves a shortcut that cannot be
     # rebuilt after a move.
     "assets/super_dev_icon.ico",
+    # The one door's icon, and its builder for the same reason. This one is
+    # composited from assistant_icon.ico rather than drawn, so that file is
+    # its input as well as an asset in its own right.
+    "assets/torment_nexus_icon.ico",
+    "tools/build_launcher_icon.py",
     "models/Qwen3-4B-abliterated-bf16_q8_0.gguf",
     "models/Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf",
     "models/embedding/bge-small-en-v1.5-q8_0.gguf",

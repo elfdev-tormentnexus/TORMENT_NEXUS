@@ -19,6 +19,7 @@ one points at assets/ instead, so the two do not fight over it -- an
 interface-mode shortcut that glitched into the normal icon would defeat the
 only thing it exists to do.
 
+    python tools/make_interface_shortcut.py --menu          TORMENT_NEXUS
     python tools/make_interface_shortcut.py                 INTERLINKED
     python tools/make_interface_shortcut.py --hazard        HAZARD
     python tools/make_interface_shortcut.py --both          both readers
@@ -37,6 +38,19 @@ import sys
 PROJECT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 MODES = {
+    # The one door, and the only shortcut a person needs. It opens a menu
+    # rather than a mode, so its icon is the ordinary mark inside a hazard
+    # frame: the same program, and every mode reachable from here including
+    # the two that write. The three below stay available for anyone who
+    # wants to land straight in one, but nobody has to know their names.
+    "menu": {
+        "launcher": os.path.join(PROJECT, "TORMENT_NEXUS.bat"),
+        "icon": os.path.join(PROJECT, "assets", "torment_nexus_icon.ico"),
+        "name": "TORMENT_NEXUS.lnk",
+        "description": ("TORMENT_NEXUS - choose standard, interlinked, "
+                        "hazard, or Super Dev"),
+        "rebuild": "python tools/build_launcher_icon.py",
+    },
     "interlinked": {
         "launcher": os.path.join(PROJECT, "start_interface_mode.bat"),
         "icon": os.path.join(PROJECT, "assets", "assistant_icon_interface.ico"),
@@ -170,6 +184,8 @@ def main():
                         help="TORMENT_NEXUS_SUPER_DEV instead of INTERLINKED")
     parser.add_argument("--both", action="store_true",
                         help="both mode shortcuts")
+    parser.add_argument("--menu", action="store_true",
+                        help="TORMENT_NEXUS, the one door onto all four modes")
     parser.add_argument("--all", action="store_true",
                         help="every launcher shortcut, Super Dev included")
     arguments = parser.parse_args()
@@ -177,8 +193,13 @@ def main():
     # --both keeps meaning the two reading modes it has always meant. Super
     # Dev is the one that writes to the project, so it is never included by
     # a flag someone typed expecting the old pair.
+    #
+    # --menu is not in --both for the same reason, though the reason is the
+    # opposite way round: it reaches Super Dev, so it belongs with --all.
     if arguments.all:
-        modes = ["interlinked", "hazard", "superdev"]
+        modes = ["menu", "interlinked", "hazard", "superdev"]
+    elif arguments.menu:
+        modes = ["menu"]
     elif arguments.both:
         modes = ["interlinked", "hazard"]
     elif arguments.super_dev:
