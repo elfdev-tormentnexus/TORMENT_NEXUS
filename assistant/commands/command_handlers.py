@@ -726,8 +726,25 @@ def _enable_sensor_features():
         )
 
     report = _start_audio_mode()
-    if isinstance(report, str) and "ready" not in report.lower():
-        unavailable.append(f"microphone and speech -- {report.splitlines()[0]}")
+    text = report if isinstance(report, str) else ""
+    # setup_report() can say "ready" and then list a dead audio device in the
+    # same breath -- it reports readiness to synthesise, not to be heard. A
+    # substring match on "ready" therefore announces speech as on while
+    # nothing can play, which is worse than saying it failed. Carry the
+    # warnings it raised instead of reducing them to a yes.
+    warnings = [
+        line.strip(" -")
+        for line in text.splitlines()
+        if line.strip().startswith("-") and line.strip(" -")
+    ]
+    if "ready" not in text.lower():
+        unavailable.append(
+            f"microphone and speech -- {text.splitlines()[0] if text else 'unavailable'}"
+        )
+    elif warnings:
+        started.append(
+            "offline speech -- synthesising, but: " + "; ".join(warnings)
+        )
     else:
         started.append(
             "microphone and offline speech -- listening; 'exit audio' returns "
