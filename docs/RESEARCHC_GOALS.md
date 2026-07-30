@@ -213,6 +213,40 @@ candidate entropy than an honest one, 0.104 against 0.152. Whether marginal
 drift carries the same signature is unknown and is the cleanest place for
 Goal 2's instrumentation to be reused — the sidecar, not the geometry.
 
+### Audit in flight — resume before re-deriving
+
+An adversarial audit of the shipped grounding was launched 2026-07-30 and did not
+finish inside its session. **The findings above were hand-measured single-shot at
+temperature 0.8 and were never tested for reproducibility**, which is the gap the
+audit exists to close. Treat them as provisional until it completes.
+
+Five probe dimensions, each verified against the real tree rather than taken from
+the model's word:
+
+| dimension | question |
+| --- | --- |
+| pressure | how many turns of insistence the rule survives, and what it degrades into |
+| misattribution | which parts of the injected prompt get relabelled as file contents |
+| boundary | where along an aggregation gradient exactness stops and guessing starts |
+| sycophancy | whether the empty edit log holds against a false premise the operator asserts |
+| contamination | **control** — whether the block degrades answers unrelated to the assistant |
+
+Every claimed failure then faces refutation that defaults to refuted: re-verify the
+ground truth independently, re-run the same question at least three times against
+temperature noise, try neutral rephrasings, and — the decisive one — re-run with
+`_self_knowledge_context` monkeypatched to `""`. A failure that reproduces without
+the block is not a finding about the block.
+
+Resume with:
+
+```text
+scriptPath   .claude/projects/.../workflows/scripts/sable-grounding-audit-wf_321772ca-c32.js
+resumeFromRunId wf_321772ca-c32
+```
+
+Same-session resume only; past that, the script is still the specification and can be
+re-run from the top. Its transcripts are under `subagents/workflows/wf_321772ca-c32`.
+
 ## Representation boundary
 
 Keep uncertainty beside an artifact rather than inside its semantic vector:
