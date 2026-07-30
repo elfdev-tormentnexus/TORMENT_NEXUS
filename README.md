@@ -75,9 +75,9 @@ list of PNG files will not make sense.*
 **Jump to:** [What this is](#what-this-project-is) ·
 [The two languages](#the-two-languages) ·
 [Choose your path](#choose-your-path) ·
-[Install](#install-the-full-windows-researcha) ·
+[Install](#install-the-full-windows-researchb) ·
 [First-launch defaults](#safe-first-launch-defaults) ·
-[What it can do](#what-researcha-can-do) ·
+[What it can do](#what-researchb-can-do) ·
 [Sensing](#sensing-active-research-not-sight) ·
 [machinespirit](#machinespirit-locating-meaning-not-just-measuring-it) ·
 [Privacy](#privacy-and-network-summary) ·
@@ -635,7 +635,9 @@ activity logs, keys, tokens, passcodes, pairing data, or personal paths.
 - [Agent interface](docs/AGENT_INTERFACE.md)
 - [Semantic retrieval and agent bridges](docs/SEMANTIC_AND_AGENT_BRIDGES.md)
 - [Research goals](docs/RESEARCH_GOALS.md)
-- [researchB pre-release evidence and inheritance](docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md)
+- [Research C goals: logprob compute gates](docs/RESEARCHC_GOALS.md)
+- [Research B release notes](docs/RELEASE_NOTES_researchB.md)
+- [Research A-to-B evidence inherited by this release](docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md)
 - [How researchB is cut into machinesoul fields](docs/MACHINESOUL_RELEASE_CUT_METHOD.md)
 - [Sensing module notes](docs/SENSING_MODULE.md)
 - [Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md)

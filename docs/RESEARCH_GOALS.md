@@ -289,8 +289,8 @@ The most useful things an outside reader can offer, in order:
 4. **Tell us what an insider would consider obvious.** The outsider position
    is an asset for framing and a liability for prior art.
 
-Open a GitHub issue. Do not include private memories, keys, or personal data
-— see the [README](../README.md#feedback) for what a useful report contains.
+Open a GitHub issue. Do not include private memories, keys, or personal data;
+follow the reporting boundary in [Contributing](../CONTRIBUTING.md).
 
 ## Status and honesty
 

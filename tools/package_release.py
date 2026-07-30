@@ -174,6 +174,8 @@ INCLUDE_FILES = [
     "docs/RELEASE_NOTES_researchA.md",
     "docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md",
     "docs/RESEARCHB_STAGING_PLAN.md",
+    "docs/RESEARCHC_GOALS.md",
+    "docs/RELEASE_NOTES_researchB.md",
     "docs/VECTOR_TRANSLATION_RESEARCH.md",
     "docs/VECTOR_PIXEL_RESEARCH.md",
     "docs/RESEARCH_GOALS.md",

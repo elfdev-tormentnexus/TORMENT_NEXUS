@@ -8176,6 +8176,8 @@ class DocumentationTests(unittest.TestCase):
             "tools/vector_beam.py",
             "docs/VECTOR_PIXEL_RESEARCH.md",
             "docs/VECTOR_TRANSLATION_RESEARCH.md",
+            "docs/RESEARCHC_GOALS.md",
+            "docs/RELEASE_NOTES_researchB.md",
         }
         self.assertTrue(
             required.issubset(set(package_release.INCLUDE_FILES)),
@@ -8192,6 +8194,14 @@ class DocumentationTests(unittest.TestCase):
             "optional researchb full-maintenance companion",
             models.lower(),
         )
+
+    def test_readme_jump_links_follow_the_current_release_headings(self):
+        root, _ = self._documents()
+        readme = (root / "README.md").read_text(encoding="utf-8")
+        self.assertIn("(#install-the-full-windows-researchb)", readme)
+        self.assertIn("(#what-researchb-can-do)", readme)
+        self.assertNotIn("(#install-the-full-windows-researcha)", readme)
+        self.assertNotIn("(#what-researcha-can-do)", readme)
 
 
 class BatchScriptTests(unittest.TestCase):

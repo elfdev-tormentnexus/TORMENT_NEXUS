@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Recorded the Research C logprob program as a refusal-only compute experiment:
+  early cancellation in the 14B/7B repair loop, measured memory confidence,
+  and cheapest-first routing, with uncertainty kept beside semantic vectors
+  rather than inserted into their geometry.
+
 ## researchB — 2026-07-30
 
 - Added evidence receipts. A reply can now show the retrieved local material
