@@ -1,0 +1,10 @@
+# Revisions that changed bytes without changing code. Skip them in blame:
+#
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# Adding a revision here is a claim that it altered no behaviour. Verify
+# before you add one -- `git diff --ignore-cr-at-eol` on a pure line-ending
+# commit should come back empty, or show only the files whose BOM was removed.
+
+# Pin the line endings that nothing was pinning
+e48ecd5
