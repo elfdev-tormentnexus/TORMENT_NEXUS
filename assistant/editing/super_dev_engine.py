@@ -9,7 +9,21 @@ Trusted Python keeps all authority: it checks the worker is loopback-only,
 enforces the allowlist and capability rules, makes a durable backup before a
 write, runs the fixed regression gate, and restores the backup on failure.
 Neither model receives chat, memories, web pages, credentials, shell access,
-or Git authority.  One activation attempts at most one patch.
+or Git authority.
+
+One activation runs an unattended session of up to
+SUPER_DEV_SESSION_PATCH_LIMIT patches.  The session is a loop over the
+single-patch transaction, not a batch: the planner is re-run after every
+accepted patch because the tree it planned against has changed, and each
+patch passes the full gate set on its own before the next is attempted.
+
+Two properties make the loop safe to leave running.  At most one patch is
+ever in flight -- the transaction marker is written before the write and
+cleared once the regression gate passes -- so crash recovery still has
+exactly one patch to undo, and every patch already retained had earned its
+place.  And a candidate the gates rejected is never retried inside the same
+session, which is what guarantees the loop ends instead of grinding on the
+same refusal until the limit runs out.
 """
 
 import json
@@ -23,6 +37,7 @@ from core import file_utils
 from core.config import (
     MODEL_ROLE,
     MODEL_ROLE_SUPER_DEV,
+    SUPER_DEV_SESSION_PATCH_LIMIT,
     SUPER_DEV_WORKER_HEADERS,
     SUPER_DEV_WORKER_URL,
 )
@@ -209,8 +224,26 @@ def _try_patch(suggestion):
     return True, f"{target}: {summary} (+{added} -{removed})"
 
 
-def run_session():
-    """Plan, draft, test, and retain at most one tightly scoped patch."""
+def _candidate_key(suggestion):
+    """Identify a planned candidate so one refusal is not retried all session.
+
+    Keyed on the pair the planner actually chose rather than on the whole
+    record, because the 14B rewords its own explanation between rounds and
+    an explanation-sensitive key would let the same rejected change back in
+    under a new sentence.
+    """
+    if not isinstance(suggestion, dict):
+        return repr(suggestion)
+    return (str(suggestion.get("file", "")), str(suggestion.get("change", "")))
+
+
+def run_session(limit=None):
+    """Plan, draft, test, and retain up to `limit` tightly scoped patches.
+
+    Returns (applied_any, report). The session stops at the limit, at the
+    first planning round that offers nothing untried, or at the first round
+    where no untried candidate survives the gates.
+    """
     if MODEL_ROLE != MODEL_ROLE_SUPER_DEV:
         return False, "Super Dev requires the dedicated super-dev launcher."
 
@@ -221,25 +254,70 @@ def run_session():
     if not ready:
         return False, f"SUPER DEV BLOCKED\n{'=' * 58}\n\n{detail}. No files changed."
 
-    ui.set_status("14B planner reviewing bounded improvement candidates")
-    suggestions, error = suggestion_engine.generate(autonomous=True)
-    if error:
-        return False, f"SUPER DEV SKIPPED\n{'=' * 58}\n\n14B planner: {error}. No files changed."
+    if limit is None:
+        limit = SUPER_DEV_SESSION_PATCH_LIMIT
+    try:
+        limit = max(1, int(limit))
+    except (TypeError, ValueError):
+        limit = SUPER_DEV_SESSION_PATCH_LIMIT
 
-    for suggestion in suggestions:
-        accepted, result = _try_patch(suggestion)
-        if accepted:
-            return True, (
-                "SUPER DEV VERIFIED\n" + "=" * 58
-                + "\n\n14B planner + 7B patch worker completed one bounded "
-                + "autonomous repair. The fixed regression gate passed.\n\n"
-                + result
-                + f"\n\nAudit: {LOG_FILE}\nBackup retained by the edit guard."
+    applied = []
+    attempted = set()
+    stop_reason = f"the session patch limit of {limit} was reached"
+    _log(f"SESSION START: patch limit {limit}")
+
+    while len(applied) < limit:
+        ui.set_status(
+            f"14B planner reviewing candidates ({len(applied) + 1}/{limit})"
+        )
+        suggestions, error = suggestion_engine.generate(autonomous=True)
+        if error:
+            stop_reason = f"the 14B planner stopped: {error}"
+            break
+
+        fresh = [item for item in (suggestions or [])
+                 if _candidate_key(item) not in attempted]
+        if not fresh:
+            stop_reason = (
+                "the 14B planner offered nothing this session had not "
+                "already tried"
             )
-        _log(f"SKIPPED: {result}")
+            break
 
-    return False, (
-        "SUPER DEV SKIPPED\n" + "=" * 58
-        + "\n\nNo 14B-planned / 7B-drafted candidate passed the deterministic "
-        + f"patch gates. See {LOG_FILE}. No files changed."
+        retained_this_round = False
+        for suggestion in fresh:
+            attempted.add(_candidate_key(suggestion))
+            accepted, result = _try_patch(suggestion)
+            if accepted:
+                applied.append(result)
+                retained_this_round = True
+                break
+            _log(f"SKIPPED: {result}")
+
+        if not retained_this_round:
+            stop_reason = (
+                "no remaining 14B-planned candidate passed the "
+                "deterministic patch gates"
+            )
+            break
+
+    _log(f"SESSION END: {len(applied)} applied; stopped because {stop_reason}")
+
+    if not applied:
+        return False, (
+            "SUPER DEV SKIPPED\n" + "=" * 58
+            + f"\n\nNo patch was retained because {stop_reason}. "
+            + f"See {LOG_FILE}. No files changed."
+        )
+
+    body = "\n".join(f"  {index}. {entry}"
+                     for index, entry in enumerate(applied, 1))
+    noun = "patch" if len(applied) == 1 else "patches"
+    return True, (
+        "SUPER DEV VERIFIED\n" + "=" * 58
+        + f"\n\n14B planner + 7B patch worker retained {len(applied)} "
+        + f"{noun}. Each passed the fixed regression gate on its own "
+        + f"before the next was attempted.\n\n{body}\n\n"
+        + f"The session stopped because {stop_reason}.\n\n"
+        + f"Audit: {LOG_FILE}\nBackups retained by the edit guard."
     )

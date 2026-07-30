@@ -397,6 +397,22 @@ def _bounded_int_env(name, default, minimum, maximum):
     return max(minimum, min(maximum, value))
 
 
+# How many patches one Super Dev activation may retain before it stops on
+# its own. Every patch still passes the same gates individually -- allowlist,
+# capability boundary, line cap, backup, regression -- so this raises how
+# long the session runs, never what a single patch is allowed to do.
+#
+# The ceiling exists because the session is unattended by design. An
+# unbounded loop against a planner that keeps finding work is a process that
+# never gives the machine back, and each patch costs a full regression run.
+# Six is roughly an hour of gate time on this hardware.
+SUPER_DEV_SESSION_PATCH_LIMIT = _bounded_int_env(
+    "TORMENT_NEXUS_SUPER_DEV_SESSION_PATCHES",
+    6,
+    1,
+    25,
+)
+
 # Context window passed to llama-server (-c). Shared with main.py's
 # prompt-budget accounting so the two can never drift out of sync.
 #

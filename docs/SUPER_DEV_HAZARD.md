@@ -34,8 +34,21 @@ status` to inspect the boundary or `exit super dev mode` to lock it early.
 The 14B sees a fixed inventory of the existing unattended-edit allowlist; it
 does not see chat history, memories, web content, or a free-form user prompt.
 The 7B gets only the selected file plus the precise change request and must
-return one exact `find` / `replace` JSON patch. A session attempts at most one
-accepted patch, capped at 40 changed lines.
+return one exact `find` / `replace` JSON patch, capped at 40 changed lines.
+
+A session is unattended and runs a **loop** over that single-patch
+transaction: up to six patches by default, set by
+`TORMENT_NEXUS_SUPER_DEV_SESSION_PATCHES` (1–25). It is a loop rather than a
+batch. The planner re-runs after every accepted patch, because the tree it
+planned against has changed, and each patch clears the full gate list below on
+its own before the next one is attempted. Expect a full regression run per
+patch — the limit is a time budget as much as a safety one.
+
+The session stops when it reaches the limit, when the planner errors or offers
+nothing it has not already tried, or when no untried candidate survives the
+gates. A candidate the gates rejected is never retried within the same
+session; that is what makes the loop terminate rather than grind against the
+same refusal until the limit runs out.
 
 Before a patch is retained, trusted code requires all of the following:
 
@@ -47,10 +60,19 @@ Before a patch is retained, trusted code requires all of the following:
 5. A timestamped backup and durable transaction marker exist before writing.
 6. The fixed regression gate passes after the write.
 
-Failure at any stage retains no patch: the backup is restored. A crash leaves
-the transaction marker in place, and the next startup restores that one patch
-before normal use resumes. Attempts and outcomes are appended to
-`assistant/logs/super_dev_edits.log`.
+Failure at any stage retains no patch: the backup is restored, and the session
+moves on to the next candidate rather than stopping.
+
+At most one patch is ever in flight, because the transaction marker is written
+before the write and cleared once the regression gate passes. So a crash mid-
+session still leaves exactly one patch to undo, and the next startup restores
+that one before normal use resumes. Patches the session already retained stay
+applied — each had passed the gate on its own — so recovery is not a
+session-wide rollback. If you want the whole session reverted, use the
+per-patch backups the edit guard kept.
+
+Session start, every attempt, and the reason the session stopped are appended
+to `assistant/logs/super_dev_edits.log`.
 
 ## Deliberate non-capabilities
 
