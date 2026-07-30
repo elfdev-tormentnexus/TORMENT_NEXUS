@@ -15,7 +15,11 @@ attempt to hide what they contain.
 3. Double-click `DECOMPILE_SABLE_researchB.bat`. It uses the published
    `machinesoul.py` inverse, recovers the encoded manifest and reassembler,
    reconstructs every file, verifies every digest, and runs `setup.bat`.
-4. Launch the desktop shortcut and read the first-run notice. No model,
+4. Keep `machinesoul.py` and `SABLERESEARCHB-REASSEMBLER.png`, download the
+   three `SELFREAD-PATCH` assets, and double-click
+   `INSTALL_SABLERESEARCHB_SELFREAD_PATCH.bat`. It verifies the exact base,
+   keeps backups, updates the release ledger, and is safe to rerun.
+5. Launch the desktop shortcut and read the first-run notice. No model,
    microphone, activity sampler, agent interface, or network-capable feature
    starts before that acknowledgement.
 
@@ -45,8 +49,13 @@ set is present, skips it when none are present, and refuses a partial set.
   other.
 - The model council and Rosetta Stone experiments ship with their registries,
   tests, and interpretation notes. Ordinary retrieval remains separate.
-- The Research A calibration-clarity correction is already built into this
-  tree. Research B has no separate calibration patch.
+- The required self-read patch grounds implementation claims in a compact
+  source inventory injected before generation, adds `self` and `read <path>`,
+  and excludes credentials and model tensor data. It was motivated by a
+  measured false ownership claim that became more confident after a one-token
+  fork, making prevention more useful than downstream entropy detection.
+- The Research A calibration-clarity correction is already built into the
+  main tree. The self-read patch is separate and serves a different purpose.
 
 ## Requirements and scale
 
@@ -75,10 +84,11 @@ Read `SAFETY.md`, `PRIVACY.md`, `MODELS.md`, `RIGHTS.md`, and
 
 ## Integrity boundary
 
-Every final GitHub asset is compared with its retained local copy. Every
-capsule is then downloaded again, decompiled into a clean directory, and
-reassembled against the encoded manifest. Publication follows only after the
-remote reconstruction matches the locally staged source file-for-file.
+Every final GitHub asset is compared with its retained local copy. The main
+capsules were downloaded again, decompiled into a clean directory, and
+reassembled against the encoded manifest. The self-read patch is separately
+decompiled, reassembled, installed over that exact base, rerun for idempotence,
+and checked against the updated release ledger before publication.
 
 Capsule descriptions are readable without extraction and help explain what an
 unfamiliar image contains. They are explicitly outside the payload SHA-256

@@ -8153,6 +8153,9 @@ class DocumentationTests(unittest.TestCase):
             "SABLERESEARCHB-WINDOWS.partNN.png",
             "SABLERESEARCHB-14B.part01.png",
             "SABLERESEARCHB-14B.partNN.png",
+            "INSTALL_SABLERESEARCHB_SELFREAD_PATCH.bat",
+            "SABLERESEARCHB-SELFREAD-PATCH.part01.png",
+            "SABLERESEARCHB-SELFREAD-PATCH-MANIFEST.png",
         }
         self.assertTrue(required.issubset(assets["README"]))
 

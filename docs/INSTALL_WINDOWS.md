@@ -96,10 +96,19 @@ Rosetta Stone, anchor material, tests, and the primary research documents live
 in the directly preserved install tree rather than in a ZIP, tar, or separate
 research encoder.
 
-researchA published a separate calibration-clarity patch as three extra
-assets. researchB has none: that correction is built into the tree this
-release is cut from, so there is nothing to download and nothing to apply
-afterwards.
+Research A's calibration-clarity correction is already built into the main
+Research B tree. Research B does have a different, required self-read patch,
+published as these three additional assets:
+
+```text
+INSTALL_SABLERESEARCHB_SELFREAD_PATCH.bat
+SABLERESEARCHB-SELFREAD-PATCH.part01.png
+SABLERESEARCHB-SELFREAD-PATCH-MANIFEST.png
+```
+
+Keep those files beside `machinesoul.py` and
+`SABLERESEARCHB-REASSEMBLER.png`. They are small and are not part of the
+optional 14B set.
 
 For the optional 14B full-maintenance companion, also download every
 consecutive:
@@ -184,9 +193,22 @@ setup.bat
 Setup verifies the bundle, prepares the private runtime, and creates a desktop
 shortcut. It does not replace system Python or add TORMENT_NEXUS to PATH.
 
+Before first launch, double-click:
+
+```text
+INSTALL_SABLERESEARCHB_SELFREAD_PATCH.bat
+```
+
+The patch decompiles its manifest and payload through machinesoul, verifies
+that the installed files are the exact Research B base (or already patched),
+backs up every replacement, adds the two new files, and updates the installed
+release ledger. Unknown or damaged installations are refused. A second run is
+safe and reports that the patch is already applied.
+
 The ask guard, near-miss command guard, interface mode, machinespirit work,
-and documentation corrections are already inside researchB. Do not apply the
-separate Beta 6 patch assets to this package.
+and calibration corrections are already inside the main Research B fields.
+Apply only the Research B self-read patch named above; do not apply separate
+Beta 6 or Research A patch assets to this package.
 
 ## Read the first-launch notice
 
