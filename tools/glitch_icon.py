@@ -403,10 +403,6 @@ def _rename(current, label):
     return current
 
 
-def _swap(shortcut, index, attempts=4):
-    return _swap_by_identity(shortcut, shortcut, index, attempts)
-
-
 def _swap_by_identity(shortcut, identity, index, attempts=4):
     """
     Point `shortcut` at frame `index`. False if it could not be written.

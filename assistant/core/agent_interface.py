@@ -127,6 +127,14 @@ def load_or_create_token():
     return generated
 
 
+_unrecorded_calls = 0
+
+
+def unrecorded_calls():
+    """How many calls were served without reaching the log."""
+    return _unrecorded_calls
+
+
 def _log_call(record):
     """
     Every call, the way autonomous edits are logged.
@@ -134,14 +142,35 @@ def _log_call(record):
     An interface that can be queried without leaving a trace is one nobody
     can audit afterwards, which is the property that made autonomous edits
     acceptable in the first place.
+
+    Which is why a failure to write is announced rather than absorbed. This
+    runs after the response has already gone out, so it cannot refuse the
+    call it failed to record; what it can do is refuse to let the gap be
+    invisible. Swallowing the error meant a full disk or a read-only logs
+    directory produced an interface that answered normally and remembered
+    nothing -- which is precisely the state the docstring above says is
+    unacceptable, arrived at quietly.
     """
+    global _unrecorded_calls
+
     try:
         os.makedirs(os.path.dirname(CALL_LOG), exist_ok=True)
 
         with open(CALL_LOG, "a", encoding="utf-8", newline="\n") as handle:
             handle.write(json.dumps(record) + "\n")
-    except OSError:
-        pass
+    except OSError as error:
+        _unrecorded_calls += 1
+
+        # The first one, then every hundredth. Enough that it cannot be
+        # missed, bounded so a failing disk does not flood the terminal it
+        # is trying to report to.
+        if _unrecorded_calls == 1 or _unrecorded_calls % 100 == 0:
+            print(
+                f"Agent interface could not record a call "
+                f"({type(error).__name__}: {error}). "
+                f"{_unrecorded_calls} unrecorded so far -- it is answering "
+                "without an audit trail."
+            )
 
 
 class _Handler(BaseHTTPRequestHandler):

@@ -2940,8 +2940,45 @@ class VoiceModeTests(unittest.TestCase):
         self.assertFalse(completed)
         self.assertEqual(speaker._synthesize_wav_bytes.call_count, 1)
 
+    def _silence_startup_side_effects(self):
+        """Neutralise everything main() starts that would outlive a test.
+
+        The semantic layer is the one that mattered. main() hands it to a
+        daemon thread, and it launches a real llama-server -- a daemon
+        thread is not waited on at exit, but the subprocess it started is
+        nobody's daemon, so every full-suite run left an embedding server
+        behind. Confirmed on 2026-07-30 by process creation time falling
+        inside the run. It also reaches semantic_index, history_recall and
+        the library, against the operator's own files.
+
+        Started here rather than added to the with-chain below because
+        Python caps statically nested blocks at twenty, and that chain is
+        already close enough that eight more make it a SyntaxError.
+        """
+        neutralised = {}
+
+        for label, target, name in (
+            ("_start_semantic_layer", assistant_main, "_start_semantic_layer"),
+            ("library.start_worker",
+             assistant_main.knowledge_library, "start_worker"),
+            ("library.stop_worker",
+             assistant_main.knowledge_library, "stop_worker"),
+            ("start_prompt_cache", assistant_main, "start_prompt_cache"),
+            ("awareness.load", assistant_main._system_awareness, "load"),
+            ("awareness.start", assistant_main._system_awareness, "start"),
+            ("awareness.stop", assistant_main._system_awareness, "stop"),
+            ("embedding_server.start",
+             assistant_main.embedding_server, "start"),
+        ):
+            patch = mock.patch.object(target, name)
+            neutralised[label] = patch.start()
+            self.addCleanup(patch.stop)
+
+        return neutralised
+
     def test_explicit_voice_startup_enters_voice_before_text(self):
         interface_order = []
+        neutralised = self._silence_startup_side_effects()
 
         with mock.patch.object(
             assistant_main.first_run,
@@ -3008,6 +3045,10 @@ class VoiceModeTests(unittest.TestCase):
 
         self.assertEqual(interface_order, ["voice", "text"])
         set_voice_mode.assert_called_once_with(True)
+        # The backstop for _silence_startup_side_effects: if the semantic
+        # layer patch is ever removed, this is what notices. The suite must
+        # not leave a model server running on the machine that ran it.
+        neutralised["embedding_server.start"].assert_not_called()
 
     def test_spoken_markdown_is_clean_and_bounded(self):
         raw = (
@@ -8471,6 +8512,26 @@ class ReleaseModelContractTests(unittest.TestCase):
 
         self.assertEqual(missing, [], "whitelisted for release but absent")
 
+    def test_every_whitelisted_directory_actually_exists(self):
+        # The companion the file check above did not have. INCLUDE_DIRS was
+        # left uncovered when that was written, so the same typo-or-rename
+        # gap stayed open for the recursive trees -- and those carry the
+        # whole of assistant/.
+        #
+        # llama.cpp's build output and the voice model trees are excluded for
+        # the reason the model payloads are: they are built or downloaded,
+        # not repository contents, and a contributor's checkout lacks them.
+        root = self._root()
+        missing = [
+            source for source, _ in package_release.INCLUDE_DIRS
+            if not source.startswith(("models/", "llama.cpp/"))
+            and not os.path.isdir(
+                os.path.join(root, source.replace("/", os.sep))
+            )
+        ]
+
+        self.assertEqual(missing, [], "whitelisted for release but absent")
+
     def test_release_artifacts_are_stably_versioned(self):
         # Pinned so a rename cannot happen as a side effect of something
         # else. Changing the version re-enters the checksum cycle from the
@@ -8979,6 +9040,66 @@ class CentralElementProtectionTests(unittest.TestCase):
         self.assertLessEqual(len(edit_guard.AUTONOMOUS_ALLOWED_FILES), 5)
 
 
+class GuardListRealityTests(unittest.TestCase):
+    """A protection list protects only while it names files that exist.
+
+    resolve() denies by exact path match, and list_editable_files() admits
+    anything resolve() does not refuse. So renaming a protected module
+    silently removes its protection: the deny lists fail *open*. Nothing
+    asserted these thirty-one paths were real until the 2026-07-30 audit.
+
+    The same gap was closed in the release whitelist a day earlier. This is
+    the version that matters more -- that one fails towards a broken build,
+    this one fails towards an editable safety boundary.
+    """
+
+    def _missing(self, paths):
+        return [
+            path for path in paths
+            if not os.path.isfile(
+                os.path.join(edit_guard.PROJECT_ROOT, path)
+            )
+        ]
+
+    def test_every_denied_file_exists(self):
+        self.assertEqual(
+            self._missing(edit_guard.DENIED_FILES), [],
+            "denied but absent -- a rename has removed the protection",
+        )
+
+    def test_every_maintenance_denied_file_exists(self):
+        self.assertEqual(
+            self._missing(edit_guard.MAINTENANCE_DENIED_FILES), [],
+            "denied to unreviewed repair but absent",
+        )
+
+    def test_every_autonomously_allowed_file_exists(self):
+        # This one fails closed rather than open -- a renamed file drops off
+        # the allowlist. Still worth naming, because silently losing an
+        # entry is how the list stops meaning what it says.
+        self.assertEqual(
+            self._missing(edit_guard.AUTONOMOUS_ALLOWED_FILES), [],
+            "on the unattended allowlist but absent",
+        )
+
+    def test_every_denied_file_is_actually_refused(self):
+        """Existence is necessary, not sufficient: the rule must also fire."""
+        for path in edit_guard.DENIED_FILES:
+            with self.subTest(path=path):
+                with self.assertRaises(edit_guard.GuardError):
+                    edit_guard.resolve(path)
+
+    def test_no_denied_file_is_offered_as_an_editing_target(self):
+        """list_editable_files() grounds what the model may propose."""
+        editable = {
+            path.replace(os.sep, "/")
+            for path in edit_guard.list_editable_files()
+        }
+        for path in edit_guard.DENIED_FILES:
+            with self.subTest(path=path):
+                self.assertNotIn(path.replace(os.sep, "/"), editable)
+
+
 class RollbackTargetTests(unittest.TestCase):
     """A rollback that writes to the wrong file is worse than the bad edit.
 
@@ -9064,6 +9185,68 @@ class GuardDoctorTests(unittest.TestCase):
             for path in edit_guard.list_editable_files()
         }
         self.assertNotIn("editing/guard_doctor.py", editable)
+
+
+class AgentInterfaceAuditLogTests(unittest.TestCase):
+    """The trace is the reason this interface was acceptable at all.
+
+    _log_call runs after the response has already been sent, so it cannot
+    refuse a call it failed to record. What it must not do is fail quietly:
+    an unwritable logs directory used to produce an interface that answered
+    normally and remembered nothing, which is the exact state its own
+    docstring rules out.
+    """
+
+    def setUp(self):
+        saved = agent_interface._unrecorded_calls
+        agent_interface._unrecorded_calls = 0
+        self.addCleanup(setattr, agent_interface, "_unrecorded_calls", saved)
+
+    def _unwritable(self):
+        return mock.patch(
+            "builtins.open", side_effect=OSError("read-only file system")
+        )
+
+    def test_a_dropped_record_is_counted(self):
+        with self._unwritable(), mock.patch("builtins.print"):
+            agent_interface._log_call({"route": "/state"})
+
+        self.assertEqual(agent_interface.unrecorded_calls(), 1)
+
+    def test_a_dropped_record_says_so_on_the_terminal(self):
+        with self._unwritable(), mock.patch("builtins.print") as printed:
+            agent_interface._log_call({"route": "/state"})
+
+        said = " ".join(
+            str(arg) for call in printed.call_args_list for arg in call.args
+        )
+        self.assertIn("without an audit trail", said)
+        # Name the cause, so the repair is obvious.
+        self.assertIn("read-only file system", said)
+
+    def test_a_failing_disk_does_not_flood_the_terminal_it_reports_to(self):
+        with self._unwritable(), mock.patch("builtins.print") as printed:
+            for _ in range(50):
+                agent_interface._log_call({"route": "/state"})
+
+        self.assertEqual(agent_interface.unrecorded_calls(), 50)
+        self.assertEqual(printed.call_count, 1)
+
+    def test_a_written_record_counts_nothing_and_says_nothing(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        target = os.path.join(folder, "logs", "agent_api.jsonl")
+
+        with mock.patch.object(agent_interface, "CALL_LOG", target), \
+                mock.patch("builtins.print") as printed:
+            agent_interface._log_call({"route": "/state", "outcome": "ok"})
+
+        with open(target, encoding="utf-8") as handle:
+            written = json.loads(handle.read().strip())
+
+        self.assertEqual(written["route"], "/state")
+        self.assertEqual(agent_interface.unrecorded_calls(), 0)
+        self.assertFalse(printed.called)
 
 
 class AgentInterfaceTests(unittest.TestCase):

@@ -2753,17 +2753,12 @@ class OfflineVoice:
                 f"{song.name} playback failed: {error}"
             ) from error
 
-    def _load_daisy_cache(self):
-        """Backward-compatible wrapper for Daisy Bell's dedicated cache."""
-        return self._load_song_cache(DAISY_SONG)
-
-    def _save_daisy_cache(self, audio, sample_rate):
-        """Backward-compatible wrapper for Daisy Bell's dedicated cache."""
-        self._save_song_cache(DAISY_SONG, audio, sample_rate)
-
-    def _build_daisy_audio(self, cancelled, phase_changed=None):
-        """Backward-compatible wrapper for the generic song builder."""
-        return self._build_song_audio(DAISY_SONG, cancelled, phase_changed)
+    # The song refactor left three private wrappers here -- _load_daisy_cache,
+    # _save_daisy_cache and _build_daisy_audio -- described as
+    # backward-compatible. A leading underscore says there is no outside
+    # caller to be compatible with, and there was none, in this file or the
+    # suite. docs/SINGING_PLAN.md only ever asked for sing_daisy_bell to
+    # survive as a thin wrapper, which it does, immediately below.
 
     def sing_daisy_bell(self, cancelled, phase_changed=None):
         """Perform Daisy Bell without changing its public voice API."""
