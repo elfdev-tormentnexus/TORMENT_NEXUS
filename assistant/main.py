@@ -1284,10 +1284,16 @@ def build_messages(user_input, search_context=None):
     budget = CONTEXT_SIZE - MAX_TOKENS - PROMPT_TOKEN_MARGIN
     turns = list(session_turns[-MAX_SESSION_MESSAGES:])
     effective_search = _bounded_search_context(search_context)
-    knowledge_block = knowledge_library.prompt_context(
-        user_input,
-        query_vector=semantic_index.query_vector(user_input),
+    knowledge_block, citations = (
+        knowledge_library.prompt_context_with_citations(
+            user_input,
+            query_vector=semantic_index.query_vector(user_input),
+        )
     )
+    # Held rather than turned into a receipt here: this runs before the model
+    # has said anything, and a receipt without the answer it belongs to would
+    # have nothing to attribute. _record_conversation_turn() finishes it.
+    _hold_citations(citations)
     operator_message = _operator_message(user_input, knowledge_block)
 
     while True:
@@ -1719,6 +1725,11 @@ def run_generation(
             ui.stream_abort("Request failed")
         else:
             ui.finish_activity("Request failed")
+        # The retrieval for this turn may already have been held, but no
+        # answer came of it. A caller that records the failure as a turn --
+        # the T-Deck bridge does -- would otherwise produce a receipt citing
+        # documents that an error message plainly did not rest on.
+        _hold_citations([])
         result["error"] = str(e)
         return
 
@@ -1843,11 +1854,89 @@ def _try_registered_or_natural_command(user_input):
     return response, canonical
 
 
+# The citations for the turn currently being built, and the finished receipt
+# for the last turn that produced one. Only the most recent is kept: a
+# receipt is evidence for the answer on screen, and keeping a history of
+# them would quietly build a second record of the conversation next to the
+# one the operator already controls.
+_pending_citations = []
+_last_receipt = None
+
+
+def _hold_citations(citations):
+    global _pending_citations
+    _pending_citations = list(citations or [])
+
+
+def last_receipt():
+    return _last_receipt
+
+
+def _build_receipt(user_input, assistant_reply, citations):
+    """Assemble what the answer on screen actually rested on.
+
+    The reply is recorded as one INFERRED claim rather than being split into
+    observed and inferred parts. Marking a sentence OBSERVED asserts it was
+    read out of a named file, and a wrong OBSERVED label is worse than no
+    label at all -- it lends a file's authority to something the model
+    supplied. Splitting the reply properly needs quote-matching against the
+    excerpts, which is worth doing separately and carefully.
+    """
+    from core import provenance
+
+    receipt = provenance.Receipt(user_input)
+    receipt.identify("director", MODEL_DISPLAY_NAME)
+
+    try:
+        from core import machinespirit
+
+        if machinespirit.configured():
+            receipt.identify(
+                "anchors",
+                f"SABLE dictionary v{machinespirit.dictionary()['version']}",
+                digest=machinespirit.core_digest(),
+            )
+    except Exception:
+        # A receipt that cannot be produced is worse than one missing a line,
+        # so an unavailable anchor field costs the line and nothing else.
+        pass
+
+    for citation in citations:
+        receipt.cite(
+            citation.get("path"),
+            locator=citation.get("locator"),
+            trust=citation.get("trust"),
+            note=citation.get("trust_reason") or None,
+        )
+
+    if assistant_reply:
+        receipt.claim(provenance.INFERRED, assistant_reply)
+
+    if citations:
+        receipt.verify_by(
+            "open the cited card at the named heading and read it yourself"
+        )
+    else:
+        receipt.verify_by(
+            "nothing local was cited; this rests on the model alone, so "
+            "check it against a source you trust"
+        )
+    return receipt
+
+
 def _record_conversation_turn(user_input, assistant_reply, allow_memory=True):
     user_input = dev_auth.redact_credential_like_text(user_input)
     assistant_reply = dev_auth.redact_credential_like_text(assistant_reply)
     session_turns.append({"role": "user", "content": user_input})
     session_turns.append({"role": "assistant", "content": assistant_reply})
+
+    # Built from the redacted pair above, so anything dev_auth stripped out
+    # of the transcript is absent from the receipt too.
+    global _last_receipt, _pending_citations
+    _last_receipt = _build_receipt(
+        user_input, assistant_reply, _pending_citations
+    )
+    _pending_citations = []
 
     # Do not queue every greeting and acknowledgement only to wait through the
     # background-worker grace period and reject it later. Durable-looking turns

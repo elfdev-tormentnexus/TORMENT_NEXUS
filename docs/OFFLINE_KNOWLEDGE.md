@@ -157,6 +157,31 @@ arbitrary imported prose intrinsically safe.
 The model can still misunderstand, omit context, merge passages, or invent a
 claim. Open the source and verify important instructions.
 
+## Asking what an answer rested on
+
+`receipt` prints the evidence behind the most recent reply: the documents that
+actually entered the prompt, each with its heading and trust state, the model
+that produced the answer, and one concrete thing you could do to check it.
+
+Two properties are worth knowing, because they are what make it usable rather
+than decorative:
+
+- **It reports the weakest source, not an average.** If one clean shipped card
+  and one suspicious imported page both fed an answer, the receipt says
+  suspicious. Averaging would hide exactly the document worth looking at.
+- **It lists only what reached the model.** Retrieved excerpts are dropped when
+  the prompt budget fills, and the dropped ones are not cited. A receipt that
+  named a document the model never saw would be checkable and wrong, which is
+  worse than citing nothing.
+
+The reply itself is marked `INFERRED` — the model's own words, grounded in the
+cited material but not copied from it. Nothing is labelled as read out of a
+file unless it was, because a wrong `OBSERVED` label lends a document's
+authority to something the model supplied.
+
+The question you asked is stored only as a digest. A receipt can be shown or
+logged without publishing what was asked.
+
 ## Keeping an offline shelf useful
 
 - Prefer primary, authoritative, jurisdiction-relevant sources.

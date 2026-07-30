@@ -5,7 +5,9 @@ while quietly flattening an untrusted document into "a source", or that
 publishes the conversation it was supposed to summarise.
 """
 
+import os
 import unittest
+from unittest import mock
 
 from core import provenance
 
@@ -184,6 +186,187 @@ class LibraryIngestTrustTests(unittest.TestCase):
         meta = self._classify("user_library/x.md", "# X\nAnything at all.")
         self.assertIn("trust", meta)
         self.assertIn(meta["trust"], provenance.TRUST_STATES)
+
+
+class AnswerPathReceiptTests(unittest.TestCase):
+    """The receipt is only worth anything if a real answer produces one.
+
+    Everything above tests the receipt in isolation. These test the part
+    that was missing: that an ordinary turn actually builds one, from the
+    sources that genuinely entered the prompt.
+    """
+
+    CITATIONS = [
+        {"path": "assistant/knowledge/builtin/fire.md",
+         "title": "Fire", "locator": "Carbon monoxide",
+         "trust": provenance.CLEAN, "trust_reason": "shipped reference"},
+        {"path": "library/user/page.md",
+         "title": "Page", "locator": "Advice",
+         "trust": provenance.SUSPICIOUS,
+         "trust_reason": "contains instruction-shaped text"},
+    ]
+
+    def setUp(self):
+        import main
+
+        self.main = main
+
+        # _record_conversation_turn() is the real answer path, so it also
+        # appends to the operator's conversation history and queues that
+        # history for embedding. A test must not write into either: these
+        # questions are invented, and a test that leaves fabricated
+        # exchanges in a real memory file has corrupted the thing the rest
+        # of the application reasons from.
+        patches = [
+            mock.patch.object(main.mem, "append_history"),
+            mock.patch.object(main.history_recall, "refresh"),
+            mock.patch.object(main.memory_worker, "submit"),
+        ]
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+
+        from core.config import HISTORY_FILE
+
+        self.history_file = HISTORY_FILE
+        try:
+            with open(HISTORY_FILE, "rb") as handle:
+                self.history_before = handle.read()
+        except OSError:
+            self.history_before = None
+
+        original_turns = list(main.session_turns)
+        self.addCleanup(main.session_turns.clear)
+        self.addCleanup(main.session_turns.extend, original_turns)
+        main.session_turns.clear()
+
+        self.addCleanup(setattr, main, "_last_receipt", None)
+        self.addCleanup(main._hold_citations, [])
+
+    def _turn(self, question, answer, citations=None):
+        self.main._hold_citations(
+            self.CITATIONS if citations is None else citations
+        )
+        self.main._record_conversation_turn(
+            question, answer, allow_memory=False
+        )
+        return self.main.last_receipt()
+
+    def test_this_test_class_does_not_write_to_real_memory(self):
+        # Guards the isolation above rather than the receipt. The answer path
+        # legitimately calls append_history -- the patches are what keep that
+        # call off disk -- so this checks the file itself rather than whether
+        # the function ran. Written after an earlier version of these tests
+        # appended ten invented exchanges to the real history.
+        self._turn("Is this safe?", "It depends.")
+
+        if self.history_before is None:
+            self.assertFalse(os.path.exists(self.history_file))
+            return
+
+        with open(self.history_file, "rb") as handle:
+            self.assertEqual(handle.read(), self.history_before)
+
+    def test_an_ordinary_turn_produces_a_receipt(self):
+        receipt = self._turn("Is a chirping alarm dangerous?",
+                             "A chirp usually means a low battery.")
+
+        self.assertIsNotNone(receipt)
+        self.assertEqual(len(receipt.sources), 2)
+        self.assertIn("director", receipt.identities)
+        self.assertTrue(receipt.verification)
+
+    def test_the_question_is_digested_and_never_published(self):
+        # The rule the whole design rests on: a receipt may be shown or
+        # logged, and neither may leak what was asked.
+        secret = "does my landlord know about the unpermitted wiring"
+        receipt = self._turn(secret, "Wiring questions vary by jurisdiction.")
+
+        rendered = receipt.render()
+        self.assertNotIn("landlord", rendered)
+        self.assertNotIn("landlord", str(receipt.as_dict()))
+        self.assertTrue(receipt.question_digest)
+
+    def test_the_reader_is_told_about_the_weakest_source_not_an_average(self):
+        receipt = self._turn("Is this safe?", "It depends.")
+
+        self.assertEqual(receipt.weakest_trust, provenance.SUSPICIOUS)
+        self.assertIn("suspicious", receipt.render())
+
+    def test_the_reply_is_inferred_rather_than_claimed_as_observed(self):
+        # Labelling the model's sentence OBSERVED would lend a file's
+        # authority to something the model supplied.
+        receipt = self._turn("Is this safe?", "It depends on ventilation.")
+
+        kinds = {entry["kind"] for entry in receipt.claims}
+        self.assertEqual(kinds, {provenance.INFERRED})
+
+    def test_a_turn_that_retrieved_nothing_says_so_instead_of_citing(self):
+        receipt = self._turn("hello", "Hello.", citations=[])
+
+        self.assertEqual(receipt.sources, [])
+        self.assertIsNone(receipt.weakest_trust)
+        self.assertIn("model alone", receipt.verification)
+
+    def test_each_turn_replaces_the_last_receipt(self):
+        first = self._turn("First question?", "First answer.")
+        second = self._turn("Second question?", "Second answer.")
+
+        self.assertIsNot(first, second)
+        self.assertIs(self.main.last_receipt(), second)
+        self.assertNotEqual(first.question_digest, second.question_digest)
+
+    def test_a_failed_generation_does_not_leave_citations_behind(self):
+        # The T-Deck bridge records a failure as a turn. Without the clear in
+        # run_generation's except branch, the error string would arrive
+        # carrying the citations retrieved for the question that was never
+        # answered -- a receipt for an answer that does not exist.
+        main = self.main
+        result = {}
+
+        with mock.patch.object(
+            main.knowledge_library,
+            "prompt_context_with_citations",
+            return_value=("<offline_references/>", self.CITATIONS),
+        ), mock.patch.object(
+            main.semantic_index, "query_vector", return_value=None,
+        ), mock.patch.object(
+            main, "_count_tokens", return_value=100,
+        ), mock.patch.object(
+            main.requests, "post", side_effect=OSError("connection refused"),
+        ), mock.patch.object(main, "ui"):
+            main.run_generation("Is this safe?", result)
+
+        self.assertIn("error", result)
+        self.assertEqual(main._pending_citations, [])
+
+        receipt = self._turn(
+            "Is this safe?",
+            "I could not complete that request: connection refused",
+            citations=main._pending_citations,
+        )
+        self.assertEqual(receipt.sources, [])
+
+    def test_citations_do_not_leak_into_the_following_turn(self):
+        self._turn("First question?", "First answer.")
+        receipt = self._turn("Second question?", "Second answer.",
+                             citations=[])
+
+        self.assertEqual(receipt.sources, [])
+
+    def test_the_receipt_command_renders_the_last_answer(self):
+        from commands import command_handlers
+
+        self.assertIn("nothing to account for",
+                      command_handlers.handle_receipt("receipt"))
+
+        self._turn("Is this safe?", "It depends on ventilation.")
+        rendered = command_handlers.handle_receipt("receipt")
+
+        self.assertIn("RECEIPT", rendered)
+        self.assertIn("assistant/knowledge/builtin/fire.md", rendered)
+        self.assertFalse(command_handlers.handle_receipt("receipts please"))
+
 
 if __name__ == "__main__":
     unittest.main()

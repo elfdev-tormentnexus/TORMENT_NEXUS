@@ -1,0 +1,55 @@
+{
+  "format": "SABLE_MODEL_REGISTRY1",
+  "purpose": "Local experimental model council for measured interlingua and Rosetta research; none of these models changes ordinary retrieval by default.",
+  "models": [
+    {
+      "file": "snowflake-arctic-embed-xs.Q4_K_M.gguf",
+      "repository": "mradermacher/snowflake-arctic-embed-xs-GGUF",
+      "sha256": "cd2285b02c4b03451ecc91e96dde7f7af0b3cb364eae1b681ce6d15be03bdd38",
+      "role": "small independent retrieval observer",
+      "activation": "experimental, local, on demand"
+    },
+    {
+      "file": "e5-small-v2.Q4_K_M.gguf",
+      "repository": "ChristianAzinn/e5-small-v2-gguf",
+      "sha256": "d9803db6ceb7cb5cdf4a62c07d32e15d88a9d8b08e903db2a4d08da524d0ab7c",
+      "role": "weakly supervised contrastive retrieval observer",
+      "activation": "experimental, local, on demand"
+    },
+    {
+      "file": "gte-small.Q4_K_M.gguf",
+      "repository": "ChristianAzinn/gte-small-gguf",
+      "sha256": "2b330c1579bac032397b48f5aa92b7b5ab2b94d72cc43cd15925db3ffd03fd61",
+      "role": "general-text retrieval observer",
+      "activation": "experimental, local, on demand"
+    },
+    {
+      "file": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+      "repository": "Qwen/Qwen3-Embedding-0.6B-GGUF",
+      "sha256": "06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439",
+      "role": "Qwen-lineage semantic witness for the abliterated director",
+      "activation": "experimental, local, on demand"
+    },
+    {
+      "file": "all-MiniLM-L6-v2-Q5_0.gguf",
+      "repository": "second-state/All-MiniLM-L6-v2-Embedding-GGUF",
+      "sha256": "374ae99e7e3aeb042d3ed39a0c97ae24ff583eb46bb2b5e21194d2b74b8bbfd8",
+      "role": "small baseline control; not an automatic independent committee vote",
+      "activation": "experimental, local, on demand"
+    },
+    {
+      "file": "bge-micro-v2.Q3_K_M.gguf",
+      "repository": "mradermacher/bge-micro-v2-GGUF",
+      "sha256": "f6810766ce8602d5357cc35065f0e4a95d47b62e2ee41b0822cb22a235100c13",
+      "role": "BGE-family ablation control; not an automatic independent committee vote",
+      "activation": "experimental, local, on demand"
+    }
+  ],
+  "quarantined_files": [
+    {
+      "file": "all-MiniLM-L6-v2-Q5_K_M.gguf.partial.unverified-smarttasks",
+      "sha256": "06be9f0c83f60682fcb633a04e098eb31ee1e25f35be4a4293f26bf987b2a6cf",
+      "reason": "Same model name from a different converter than the checksum-pinned source; preserved, never registered as an active model."
+    }
+  ]
+}

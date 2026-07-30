@@ -62,7 +62,7 @@ MANIFEST_NAME = "RELEASE_MANIFEST.json"
 # and an unproven representation is not a "beta" in the ordinary sense, and
 # v0.3 / v1.0 would promise an ordered maturity this does not have. One
 # letter per release: researchA, researchB, and so on.
-RELEASE_VERSION = "researchA"
+RELEASE_VERSION = "researchB"
 ARCHIVE_STEM = f"{PACKAGE_NAME}-{RELEASE_VERSION}-windows-x64"
 ARCHIVE_NAME = f"{ARCHIVE_STEM}.zip"
 
@@ -173,6 +173,7 @@ INCLUDE_FILES = [
     "docs/OFFLINE_KNOWLEDGE.md",
     "docs/RELEASE_NOTES_researchA.md",
     "docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md",
+    "docs/RESEARCHB_STAGING_PLAN.md",
     "docs/VECTOR_TRANSLATION_RESEARCH.md",
     "docs/VECTOR_PIXEL_RESEARCH.md",
     "docs/RESEARCH_GOALS.md",
@@ -203,6 +204,7 @@ INCLUDE_FILES = [
     "tools/make_interface_shortcut.py",
     "tools/package_model_pack.py",
     "tools/package_release.py",
+    "tools/build_super_dev_icon.py",
     "tools/rosetta_stone.py",
     "tools/source_capsules.py",
     "tools/vector_beam.py",
@@ -216,6 +218,13 @@ INCLUDE_FILES = [
     "assets/assistant_icon_interface.ico",
     "assets/hazard_icon.ico",
     "assets/hazard_icon.png",
+    # The README's header image. Without it the front page of a reconstructed
+    # release is a broken image link.
+    "assets/sable_field.png",
+    # Super Dev Hazard's shortcut icon, and the script that regenerates it.
+    # Shipping the icon without its builder leaves a shortcut that cannot be
+    # rebuilt after a move.
+    "assets/super_dev_icon.ico",
     "models/Qwen3-4B-abliterated-bf16_q8_0.gguf",
     "models/Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf",
     "models/embedding/bge-small-en-v1.5-q8_0.gguf",
@@ -1871,7 +1880,7 @@ if failures:
 print("  verified: dependencies import and model files are present")
 '''
 
-README = r"""TORMENT_NEXUS researchA - local-first research build
+README = rf"""TORMENT_NEXUS {RELEASE_VERSION} - local-first research build
 =========================================================
 
 WHAT THIS IS
@@ -1890,7 +1899,7 @@ WHAT YOU NEED
     downloaded capsules and decoded segments after the installation works.
 
 INSTALLING
-    The researchA one-step decompiler normally reconstructs this folder and
+    The {RELEASE_VERSION} one-step decompiler normally reconstructs this folder and
     runs setup.bat for you. If setup did not start after every capsule and
     file hash verified:
 

@@ -148,6 +148,13 @@ record before that record is itself encoded as machinesoul. The reassembler
 requires the caller to select `windows` or `optional_14b`; it cannot silently
 confuse the companion model with the main installation.
 
+`SABLERESEARCHA_MANIFEST1` is the name of the *format*, not of a release, and
+it stays fixed as releases advance — a reader compares it for equality to
+decide whether a manifest is readable at all, so changing it would strand
+every capsule already published. The release is identified by each component's
+separate `prefix` field, set with `--prefix` at cut time. Bump the trailing
+digit only if the combined record's structure changes incompatibly.
+
 ## Verification while cutting
 
 For every approved capsule, the cutter:

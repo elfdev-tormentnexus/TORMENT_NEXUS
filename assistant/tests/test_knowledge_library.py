@@ -231,6 +231,108 @@ Keep the refrigerator door closed during a blackout.
             isolated.prompt_context("what should I do in a power outage")
         )
 
+    def test_citations_name_the_documents_that_entered_the_prompt(self):
+        self._write(
+            self.builtin,
+            "chemicals.md",
+            "# Chemical handling\n\nNever mix household chemical cleaners.",
+        )
+        self.library.rebuild()
+
+        text, citations = self.library.prompt_context_with_citations(
+            "can I mix chemical cleaners"
+        )
+
+        self.assertTrue(text)
+        self.assertEqual(len(citations), 1)
+        entry = citations[0]
+        self.assertTrue(entry["path"].endswith("chemicals.md"))
+        self.assertEqual(entry["locator"], "Chemical handling")
+
+        # UNVERIFIED, not CLEAN, and that is the point: this fixture's shelf
+        # is a temporary directory that merely happens to be called
+        # "builtin". Only the project's own knowledge/builtin cards count as
+        # shipped, so a folder cannot earn trust by taking the right name.
+        self.assertEqual(entry["trust"], "unverified")
+        self.assertFalse(library._is_builtin_source(entry["path"]))
+        self.assertTrue(library._is_builtin_source(
+            os.path.join(library.BUILTIN_DIR, "fire_and_carbon_monoxide.md")
+        ))
+
+        # The plain string form must keep returning a string, since every
+        # existing caller and the prompt builder depend on it.
+        self.assertEqual(
+            self.library.prompt_context("can I mix chemical cleaners"),
+            text,
+        )
+
+    def test_no_retrieval_yields_no_citations(self):
+        self._write(
+            self.builtin,
+            "chemicals.md",
+            "# Chemical handling\n\nNever mix household chemical cleaners.",
+        )
+        self.library.rebuild()
+
+        for query in ("good morning", "tell me something unrelated about stars"):
+            with self.subTest(query=query):
+                text, citations = self.library.prompt_context_with_citations(
+                    query
+                )
+                self.assertEqual(text, "")
+                self.assertEqual(citations, [])
+
+    def test_a_document_dropped_by_the_size_cap_is_not_cited(self):
+        # The failure this exists to prevent: the size cap drops a record,
+        # and the receipt cites a document the model was never shown. That
+        # is worse than citing nothing, because it is checkable and wrong.
+        body = "Generator ventilation prevents carbon monoxide poisoning. "
+        for index in range(6):
+            self._write(
+                self.builtin,
+                f"generator{index}.md",
+                f"# Generator ventilation {index}\n\n{body * 60}\n",
+            )
+        self.library.rebuild()
+
+        text, citations = self.library.prompt_context_with_citations(
+            "generator ventilation carbon monoxide"
+        )
+
+        self.assertTrue(text)
+        self.assertLessEqual(len(text), library.MAX_PROMPT_CONTEXT_CHARS)
+        self.assertTrue(citations)
+
+        # Every cited document appears in the text that was actually built,
+        # and the cap really did drop something.
+        for entry in citations:
+            with self.subTest(path=entry["path"]):
+                self.assertIn(entry["locator"], text)
+
+        results = self.library.search(
+            "generator ventilation carbon monoxide",
+            limit=library.EXPLICIT_RESULT_LIMIT,
+        )
+        self.assertLess(len(citations), len(results))
+
+    def test_a_row_shelved_without_trust_is_not_read_as_clean(self):
+        self._write(
+            self.builtin,
+            "chemicals.md",
+            "# Chemical handling\n\nNever mix household chemical cleaners.",
+        )
+        self.library.rebuild()
+
+        with sqlite3.connect(self.database) as connection:
+            connection.execute("UPDATE sources SET metadata_json='{}'")
+
+        _text, citations = self.library.prompt_context_with_citations(
+            "can I mix chemical cleaners"
+        )
+
+        self.assertEqual(len(citations), 1)
+        self.assertEqual(citations[0]["trust"], "unverified")
+
     def test_embedding_result_is_discarded_if_chunk_changed_midflight(self):
         path = self._write(
             self.builtin,

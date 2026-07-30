@@ -38,6 +38,19 @@ import machinesoul
 
 
 FORMAT = "MACHINESOUL_RELEASE1"
+# Deliberately NOT renamed per release, despite reading like "researchA".
+# This is a wire-format discriminator, not a release marker. Three things
+# settle it: it occupies the same "format" slot as FORMAT above, both ending
+# in a version digit; _load_reassembly_manifest() compares it for equality to
+# decide whether a manifest is readable at all; and the release identity is
+# carried by a separate "prefix" field, which the operator supplies with
+# --prefix at cut time (researchA published prefix "SABLERESEARCHA-WINDOWS").
+# So researchB capsules do not inherit a researchA marker from this string,
+# while changing it would make every already-published researchA combined
+# manifest unreadable -- the equality check fails, the reader falls through
+# to the "component applies only to a combined manifest" error, and ~21 GB of
+# published assets can no longer be reassembled. Bump the trailing digit only
+# if the combined manifest's own structure changes incompatibly.
 COMBINED_FORMAT = "SABLERESEARCHA_MANIFEST1"
 COMBINED_COMPONENTS = ("windows", "optional_14b")
 VECTOR_WIDTH = 4

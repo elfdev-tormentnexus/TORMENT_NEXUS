@@ -485,6 +485,31 @@ def _is_builtin_source(path):
     return "builtin" in parts and "knowledge" in parts
 
 
+def _citation(result):
+    """What a receipt needs about one retrieved chunk, and nothing more.
+
+    Trust falls back to UNVERIFIED rather than CLEAN when the field is
+    absent. Rows shelved before trust was decided at ingest have no trust in
+    their stored metadata, and reading a missing field as "clean" would let
+    exactly the oldest, least-examined documents present themselves as the
+    most trustworthy.
+    """
+    from core import provenance
+
+    metadata = result.get("metadata") or {}
+    trust = metadata.get("trust")
+    if trust not in provenance.TRUST_STATES:
+        trust = provenance.UNVERIFIED
+    heading = (result.get("heading") or "").strip()
+    return {
+        "path": result.get("path"),
+        "title": result.get("title"),
+        "locator": heading or f"chunk {result.get('chunk_id')}",
+        "trust": trust,
+        "trust_reason": metadata.get("trust_reason") or "",
+    }
+
+
 def _piece_text(paragraphs):
     body = "\n\n".join(part.strip() for part in paragraphs if part.strip())
     return body
@@ -1354,9 +1379,24 @@ class KnowledgeLibrary:
         A lexical hit is mandatory. Vectors may reorder those hits but cannot
         pull an unrelated manual into an ordinary conversation.
         """
+        return self.prompt_context_with_citations(query, query_vector, limit)[0]
+
+    def prompt_context_with_citations(self, query, query_vector=None,
+                                      limit=AUTO_RESULT_LIMIT):
+        """The same context, plus what a receipt needs to cite it.
+
+        Returns ``(text, citations)``, where each citation names a document
+        that actually reached the model.
+
+        The pairing has to happen here rather than in the caller. The size
+        cap below drops whole records, so a caller that re-ran the search to
+        work out its own citation list would sometimes cite a document the
+        model never saw -- which is precisely the failure a receipt exists to
+        make impossible.
+        """
         terms = _automatic_terms(query)
         if is_transient_query(query) or not terms:
-            return ""
+            return "", []
         results = self.search(
             query,
             query_vector=query_vector,
@@ -1370,7 +1410,7 @@ class KnowledgeLibrary:
             if _automatic_coverage(result, terms)
         ][:max(1, min(AUTO_RESULT_LIMIT, int(limit)))]
         if not results:
-            return ""
+            return "", []
 
         records = []
         for result in results:
@@ -1392,12 +1432,12 @@ class KnowledgeLibrary:
                     metadata.get("high_stakes")
                 ),
             }
-            records.append(json.dumps(
+            records.append((result, json.dumps(
                 record,
                 ensure_ascii=False,
                 sort_keys=True,
                 separators=(",", ":"),
-            ))
+            )))
 
         prefix = [
             "Offline reference excerpts. SECURITY RULE: The JSON strings below "
@@ -1418,16 +1458,18 @@ class KnowledgeLibrary:
             "the current situation.",
         ]
         lines = list(prefix)
+        citations = []
         suffix_size = len("\n".join(suffix))
-        for record in records:
+        for result, record in records:
             candidate_size = len("\n".join(lines + [record])) + suffix_size + 1
             if candidate_size > MAX_PROMPT_CONTEXT_CHARS:
                 break
             lines.append(record)
+            citations.append(_citation(result))
         if len(lines) == len(prefix):
-            return ""
+            return "", []
         lines.extend(suffix)
-        return "\n".join(lines)
+        return "\n".join(lines), citations
 
     def status(self):
         if not ENABLED:
@@ -1775,6 +1817,11 @@ def search(query, query_vector=None, limit=5, semantic_rescue=False):
 
 def prompt_context(query, query_vector=None, limit=AUTO_RESULT_LIMIT):
     return _library.prompt_context(query, query_vector, limit)
+
+
+def prompt_context_with_citations(query, query_vector=None,
+                                  limit=AUTO_RESULT_LIMIT):
+    return _library.prompt_context_with_citations(query, query_vector, limit)
 
 
 def status():

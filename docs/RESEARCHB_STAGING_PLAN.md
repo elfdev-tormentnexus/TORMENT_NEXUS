@@ -34,7 +34,7 @@ happen first. It changes nothing.
 
 | check | how | expect |
 | --- | --- | --- |
-| Full suite | `.\setup\test_assistant.bat` | 975 pass, 2 skips |
+| Full suite | `.\setup\test_assistant.bat` | no failures, 2 skips (the total grows; see the record below for the count on the day) |
 | Calibration | `calibrate` in hazard mode | drift `0.000000` on all seven rows |
 | Anchor digest | printed by `calibrate` | unchanged from researchA |
 | Model identity | `machinespirit status` | `bge-small-en-v1.5-q8_0`, pooling `mean` |
@@ -53,7 +53,7 @@ does not press the buttons a person presses.
 
 ### Automated
 
-Covered by the 975. No new work.
+Covered by the full suite. No new work.
 
 ### By hand
 
@@ -132,7 +132,7 @@ stage above, and that is the intent.
 | Transpose decoder control | same | 0.6635, 6% |
 | Rosetta agreement | `tools/rosetta_whitening_probe.py` | 0.444 raw, 0.471 anchor-centred, ceiling 0.579 |
 | Held-out pairwise cosine | `tools/whitening_probe.py` | +0.5462 raw |
-| Suite | `.\setup\test_assistant.bat` | 975 / 2 skips |
+| Suite | `.\setup\test_assistant.bat` | no failures / 2 skips |
 
 Any of these moving without a change that explains it is the signal to stop and
 look, not to keep going.
@@ -165,11 +165,29 @@ session for these two alone and do not append them to stage 4.
 
 | stage | date | result | notes |
 | --- | --- | --- | --- |
-| 0 baseline | | | |
+| 0 baseline | 2026-07-30 | pass | Suite 1007 pass / 2 skips at the rename; 1021 / 2 skips after the receipt work landed later the same day. Calibration 7/7 rows, drift `0.000000`. Anchor digest `b5421687…1690fd`, 184 anchors (122 core + 16 project + 46 life), dictionary v2. |
 | 1 landed changes | | | |
-| 2 vector panel | | | |
+| 2 vector panel | 2026-07-30 | 2.1 only | `trace` on the README's own example: panel and text readout agreed on the same concept at the same token. 2.2–2.6 not run. |
 | 3 council | | | |
 | 4 benchmarks | | | |
 | 5 cut | | | |
 
 An empty row is a stage not run. That is a fine state to leave this in.
+
+### How the stage 0 and 2.1 rows above were established
+
+Recorded after the fact, so the means matters as much as the result.
+
+- Suite count, anchor digest, anchor counts and dictionary version were
+  re-measured on 2026-07-30 while writing this row — the suite by running it,
+  the anchors by reading `machinespirit.dictionary()`, which loads the anchor
+  file directly and needs no server. The digest matched the figure carried
+  forward from earlier the same day.
+- Calibration drift, `machinespirit status` model identity, and the whole of
+  2.1 were run live earlier on 2026-07-30, against the same tree, and are
+  transcribed here rather than re-measured. Stage 2.1 in particular needs the
+  live servers and a rendered panel.
+
+Stage 0's suite figure was taken with the researchA to researchB rename
+applied (`RELEASE_VERSION`, the four version pins). The baseline is therefore
+the renamed tree, which is the thing later stages should be compared against.

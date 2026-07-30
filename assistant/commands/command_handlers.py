@@ -3815,6 +3815,32 @@ def handle_bisect(user_input):
     return "\n".join(lines)
 
 
+def _get_last_receipt():
+    """The receipt main.py finished for the last answer, or None."""
+    try:
+        import main
+
+        return main.last_receipt()
+    except Exception:
+        return None
+
+
+@command("receipt",
+         "Show what the last answer rested on, and how to check it",
+         usage="receipt", dev_only=False, group="knowledge")
+def handle_receipt(user_input):
+    if not _match_exact(user_input, "receipt"):
+        return False
+
+    receipt = _get_last_receipt()
+    if receipt is None:
+        return ("No answer has been given yet this session, so there is "
+                "nothing to account for. Ask something first; the receipt "
+                "covers the most recent reply.")
+
+    return receipt.render()
+
+
 @command("trace",
          "Show which concept appeared at which token in a sentence",
          usage="trace <text>", dev_only=False, group="knowledge")

@@ -5127,8 +5127,8 @@ class PromptEfficiencyTests(unittest.TestCase):
         )
         with mock.patch.object(
             assistant_main.knowledge_library,
-            "prompt_context",
-            return_value=hostile,
+            "prompt_context_with_citations",
+            return_value=(hostile, []),
         ), mock.patch.object(
             assistant_main.semantic_index,
             "query_vector",
@@ -8322,13 +8322,33 @@ class ReleaseModelContractTests(unittest.TestCase):
 
         self.assertEqual(required - set(package_release.INCLUDE_FILES), set())
 
+    def test_every_whitelisted_file_actually_exists(self):
+        # The builder does raise on a missing required file, but only once a
+        # long build is already underway. A whitelist entry with a typo, or a
+        # file renamed without updating the list, is worth knowing about in
+        # the fifty seconds the suite takes instead.
+        #
+        # The large model and voice payloads are deliberately excluded: they
+        # are documented external downloads, not repository contents, so a
+        # contributor's checkout legitimately lacks them.
+        root = self._root()
+        missing = [
+            rel for rel in package_release.INCLUDE_FILES
+            if not rel.startswith("models/")
+            and not os.path.isfile(
+                os.path.join(root, rel.replace("/", os.sep))
+            )
+        ]
+
+        self.assertEqual(missing, [], "whitelisted for release but absent")
+
     def test_release_artifacts_are_stably_versioned(self):
         # Pinned so a rename cannot happen as a side effect of something
         # else. Changing the version re-enters the checksum cycle from the
         # top -- notes, patch, its digest, downloader, its digest -- so the
         # string is updated here deliberately, as part of making that cut,
         # and never to make a failing test pass.
-        self.assertEqual(package_release.RELEASE_VERSION, "researchA")
+        self.assertEqual(package_release.RELEASE_VERSION, "researchB")
         self.assertIn(package_release.RELEASE_VERSION, package_release.ARCHIVE_NAME)
         self.assertIn(
             package_release.RELEASE_VERSION,

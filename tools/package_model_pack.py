@@ -1,5 +1,5 @@
 """
-Build and verify the versioned researchA full-maintenance model pack.
+Build and verify the versioned full-maintenance model pack.
 
 The optional 14B GGUF is too large for one GitHub Release asset. This tool
 accepts only the exact reviewed artifact, splits it below GitHub's asset
@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIST_ROOT = os.path.join(ROOT, "dist", "modelpacks")
-RELEASE_VERSION = "researchA"
+RELEASE_VERSION = "researchB"
 MANIFEST_FORMAT = 1
 
 # GitHub rejects release assets over 2 GiB. Keep the same conservative margin
@@ -662,8 +662,8 @@ def _print_verified(folder, manifest):
 def main(argv=None):
     parser = argparse.ArgumentParser(
         description=(
-            "Build or verify the exact versioned TORMENT_NEXUS researchA "
-            "full-maintenance 14B model pack."
+            f"Build or verify the exact versioned TORMENT_NEXUS "
+            f"{RELEASE_VERSION} full-maintenance 14B model pack."
         ),
     )
     parser.add_argument(
