@@ -171,6 +171,14 @@ class Field:
         self.trajectory = []      # [{x, y, hue, fidelity, step}]
         self.entropy = []         # recent per-token entropy, 0..1
         self.echo_column = None
+        # The two languages, when the caller supplies them. machinespirit is
+        # concept-at-token: one column per token, one row per anchor that
+        # scored, brightness is that anchor's support. machinesoul is the
+        # preservation field itself -- payload bytes as RGBA, in written
+        # order, which is what a capsule literally is.
+        self.spirit = []          # [[(anchor_index, support), ...], ...]
+        self.spirit_labels = []   # anchor text, indexed by anchor_index
+        self.soul = b""           # payload bytes, or empty
 
     def set_memories(self, vectors):
         """Re-project. Existing glow survives so a new memory nudges the field."""
@@ -268,6 +276,38 @@ class Field:
     def clear_trajectory(self):
         self.trajectory = []
 
+    # --------------------------------------------------------
+    # THE TWO LANGUAGES
+    # --------------------------------------------------------
+
+    def set_spirit(self, readings, labels):
+        """Take machinespirit's own readout: which anchors scored, per token.
+
+        `readings` is one list per token of (anchor_index, support) pairs --
+        exactly what profile() returns, not a re-derivation of it. The panel
+        must not compute its own answer here: if it did, it could disagree
+        with what `trace` prints for the same text, and a panel that
+        disagrees with the instrument it claims to show is worse than none.
+        """
+        self.spirit = [list(row or []) for row in (readings or [])]
+        self.spirit_labels = list(labels or [])
+
+    def clear_spirit(self):
+        self.spirit = []
+
+    def set_soul(self, payload):
+        """Take the preservation field's own bytes, in written order.
+
+        Not a visualisation of the payload -- the payload. machinesoul maps
+        four-coordinate integer vectors straight onto RGBA, so laying the
+        same bytes out four at a time reproduces the field a capsule holds
+        rather than illustrating it.
+        """
+        self.soul = bytes(payload or b"")
+
+    def clear_soul(self):
+        self.soul = b""
+
     def retrieve(self, indices):
         """Light the memories `select_relevant()` actually returned."""
         for index in indices:
@@ -310,14 +350,99 @@ class Field:
         The terminal UI composites into a cell grid of its own and cannot
         accept pre-joined ANSI lines, while the standalone preview wants
         exactly those. Both come from here so the two cannot drift apart.
-        """
-        cloud_rows = max(1, height - strip_rows - 1)
 
-        rows = self._render_cloud(width, cloud_rows)
-        rows.append([("─", _fg((70, 30, 40)))] * width)
+        When the caller has supplied the two languages, the panel shows
+        those: machinespirit above, machinesoul below. Otherwise it falls
+        back to the retrieval cloud and entropy strip, so an ordinary
+        session -- which has neither a trajectory nor a capsule in hand --
+        is unchanged.
+        """
+        upper_rows = max(1, height - strip_rows - 1)
+
+        if self.spirit or self.soul:
+            rows = self._render_spirit(width, upper_rows)
+            rows.append(self._divider(width))
+            rows.extend(self._render_soul(width, strip_rows))
+            return rows[:height]
+
+        rows = self._render_cloud(width, upper_rows)
+        rows.append(self._divider(width))
         rows.extend(self._render_strip(width, strip_rows))
 
         return rows[:height]
+
+    @staticmethod
+    def _divider(width):
+        return [("─", _fg((70, 30, 40)))] * width
+
+    def _render_spirit(self, width, rows):
+        """Concept at token: columns are tokens, rows are anchors that scored.
+
+        Support drives brightness. The vertical position of an anchor is
+        stable for the whole readout, so watching one row light up across
+        columns is watching one concept persist through a sentence.
+        """
+        pixels = [[None] * width for _ in range(rows * 2)]
+        if not self.spirit:
+            return self._pack(pixels, width, rows)
+
+        visible = self.spirit[-width:]
+        ranked = sorted({index for row in visible for index, _ in row})
+        if not ranked:
+            return self._pack(pixels, width, rows)
+
+        # Anchors keep a fixed lane for the whole readout. Re-sorting per
+        # token would make every column a different chart.
+        lane = {anchor: slot for slot, anchor in enumerate(ranked)}
+        height = rows * 2
+
+        for column, row in enumerate(visible):
+            if column >= width:
+                break
+            for anchor, support in row:
+                slot = lane[anchor]
+                if len(ranked) > 1:
+                    y = int(slot * (height - 1) / (len(ranked) - 1))
+                else:
+                    y = height // 2
+                if not 0 <= y < height:
+                    continue
+
+                strength = max(0.0, min(1.0, float(support)))
+                # Hue identifies the anchor, brightness is its support, so
+                # colour never implies a score it did not measure.
+                pixels[y][column] = _hsv(
+                    (0.06 + 0.68 * (slot / max(1, len(ranked) - 1))) % 1.0,
+                    0.55 + 0.40 * strength,
+                    0.22 + 0.78 * strength,
+                )
+
+        return self._pack(pixels, width, rows)
+
+    def _render_soul(self, width, rows):
+        """The preservation field: payload bytes as RGBA, in written order."""
+        pixels = [[None] * width for _ in range(rows * 2)]
+        if not self.soul:
+            return self._pack(pixels, width, rows)
+
+        capacity = width * rows * 2
+        for index in range(capacity):
+            offset = index * 4
+            if offset + 3 >= len(self.soul):
+                break
+            r, g, b, a = self.soul[offset:offset + 4]
+            row, column = divmod(index, width)
+            if row >= rows * 2:
+                break
+            # Alpha is a preserved coordinate like any other, so it dims the
+            # cell rather than being discarded -- a fully transparent vector
+            # is still data and must remain visible as one.
+            scale = 0.35 + 0.65 * (a / 255.0)
+            pixels[row][column] = (
+                int(r * scale), int(g * scale), int(b * scale)
+            )
+
+        return self._pack(pixels, width, rows)
 
     def render(self, width, height, strip_rows=8):
         """Return `height` ANSI strings, each `width` cells wide."""
