@@ -123,10 +123,11 @@ whether the person holding it wrote it or is trying to survive it. A hosted
 filter sees the payload and not the purpose, so the cost falls on whoever has a
 legitimate reason to look. The attacker never needed the model's cooperation.
 
-Both appeared at once in July 2026. During the Hugging Face breach, that
-company's own incident responders found commercial AI APIs blocking analysis
-requests that contained exploit payloads, and completed the forensic work on a
-locally-run open-weight model instead.
+Both appeared at once in July 2026. In Hugging Face's own
+[incident disclosure](https://huggingface.co/blog/security-incident-july-2026),
+its responders reported commercial AI APIs blocking analysis requests that
+contained exploit payloads, and completed the forensic work on a locally-run
+open-weight model instead.
 
 Stated carefully, because the detail is the part people get wrong: they used
 **open weights on their own hardware**. They did not use an abliterated model.
