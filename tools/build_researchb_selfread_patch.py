@@ -50,6 +50,15 @@ PATCH_FILES = (
     # own suite while the source tree passed. A patch that changes
     # behaviour has to carry the tests that describe it.
     ("assistant/tests/test_regressions.py", "replace"),
+    # And these follow from that one. The shipped suite compares the asset
+    # names in README.md against docs/INSTALL_WINDOWS.md and fails on any
+    # disagreement, so carrying the newer tests without the newer documents
+    # produces an install that fails a check about its own paperwork.
+    # Shipping them is right independently: an install carrying this patch
+    # whose instructions never mention it cannot tell the operator what it
+    # is running.
+    ("README.md", "replace"),
+    ("docs/INSTALL_WINDOWS.md", "replace"),
 )
 
 WORK = ROOT / "SABLERESEARCHB"
