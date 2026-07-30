@@ -53,8 +53,8 @@ presenting a damaged vector field as an installer part.
 
 ### The decompiler or reassembler says a part is missing
 
-- Keep the decompiler, both support/research capsules, and every consecutive
-  `.partNN.png` file in one folder.
+- Keep the decompiler, encoded manifest, encoded reassembler, and every
+  consecutive `.partNN.png` field in one folder.
 - Do not rename any file.
 - Remove browser-added suffixes such as `(1)` by redownloading the correctly
   named asset; do not guess which duplicate is complete.

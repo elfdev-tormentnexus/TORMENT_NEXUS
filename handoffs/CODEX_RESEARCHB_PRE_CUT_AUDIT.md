@@ -5,15 +5,14 @@ or GitHub release work. This is a **read-first, audit-only** handoff: identify
 real defects and missing release work; do not cut, upload, publish, or make
 unrequested changes while reviewing.
 
-## Current source checkpoint
+## Audit base checkpoint
 
-- Branch: `master`, synchronized with `origin/master` at
-  `38d1104756933929c9a8ab9304737063cc86208c`.
-- Commit: **`38d1104 Add the generated researchB capsule fetcher`**.
-- The source tree was clean immediately before this handoff was written.
-- A fresh complete regression run at that checkpoint passed with **no
-  failures and 2 expected skips** (1,065 tests at the time; do not turn that
-  count into a future release promise).
+- The final audit began from `master` synchronized with `origin/master` at
+  **`a10d40b Hand off the researchB pre-cut audit`**.
+- The repaired checkpoint is the commit containing this document.
+- A fresh complete regression run at that repaired checkpoint passed with
+  **no failures and 2 expected skips** (1,071 tests at the time; do not turn
+  that count into a future release promise).
 - All six council GGUFs and the one explicitly quarantined partial matched
   `models/embedding/INTERLINGUA_MODEL_REGISTRY.json` exactly by SHA-256.
 
@@ -52,10 +51,19 @@ unrequested changes while reviewing.
    The batch helper uses `curl.exe -C -` and `certutil`, skips files already
    verified, and does not include optional 14B capsules by default. An
    explicitly named `--include-optional-14b` variant exists only when asked.
-   Five dedicated tests cover ordinary discovery, optional inclusion, gapped
-   or malformed parts, missing bootstrap/tag refusal, and output confinement.
+   Six dedicated tests cover ordinary discovery, optional inclusion, gapped
+   or malformed parts, missing bootstrap/tag refusal, output confinement, and
+   a live Windows resume inside a path containing `!`.
 
-6. **Public materials are updated for this checkpoint.**
+6. **Generated one-click decompiler.**
+   `tools/build_researchb_decompiler.py` builds the plaintext bootstrap from
+   the exact combined cut manifest. It does not remember part counts or
+   decoded segment names. It accepts all or none of the optional 14B fields,
+   confines that component below `models/`, recovers the manifest and
+   reassembler through machinesoul, verifies both reconstructed components,
+   and only then invokes `setup.bat`.
+
+7. **Public materials are updated for this checkpoint.**
    README, INSTALL_WINDOWS, ARCHITECTURE, RELEASE_CHECKLIST and CHANGELOG
    describe the fetcher, current Super Dev passcode/session rules, the front
    door, evidence receipts, trust classification, live server probing and
@@ -75,8 +83,9 @@ unrequested changes while reviewing.
   cut it, verify it as a final stage, or infer anything from it. Rebuild from
   the clean audited commit after the audit/fixes are complete.
 - No Research B capsule, combined manifest capsule, reassembler capsule,
-  one-click decompiler, fetcher asset, tag, release draft, or GitHub upload
-  exists yet.
+  generated one-click decompiler asset, generated fetcher asset, tag, release
+  draft, or GitHub upload exists yet. Their generators are present and tested;
+  the final files cannot truthfully exist before the reviewed cut.
 
 ## Remaining gates — none may be silently assumed complete
 
@@ -129,3 +138,55 @@ do not rename `SABLERESEARCHA_MANIFEST1`, the Research A patch tools, or
 Research A research records. Avoid opportunistic feature work. If a genuine
 fix is needed, make it narrowly, test it, and leave a clear final source
 commit for a fresh build.
+
+## Final audit continuation — completed 2026-07-30
+
+Claude's cutoff still produced one reproducible finding: the original fetcher
+hashed and deleted an existing partial target before calling `curl -C -`, so
+its cross-invocation resume claim was false. The continuation reproduced that
+flow and closed it without weakening verification:
+
+- downloads now use `asset.partial` across invocations;
+- an incomplete partial is resumed;
+- a complete-size but wrong partial is discarded and restarted;
+- the published asset name appears only after SHA-256 succeeds;
+- an interrupted transfer keeps only the visibly temporary name; and
+- delayed expansion is disabled, so a valid Windows folder containing `!`
+  is not corrupted by the batch interpreter.
+
+The same review found that the checklist required a generated one-click
+decompiler but no generator existed. That was a reproducibility gap at the
+most important install boundary. The manifest-driven generator above closes
+it. A live miniature release test now performs the whole chain with actual
+capsules: cut both components, encode the combined manifest and reassembler,
+run the generated launcher on Windows from a `!` path, reconstruct and verify
+the Windows tree, install the optional model, run setup, and remove temporary
+segments. This test also caught that the recovered reassembler needs
+`machinesoul.py` beside it; the launcher now supplies that dependency.
+
+Other corrections made in the same narrow pass:
+
+- the release checklist now uses one unambiguous final directory,
+  `SABLERESEARCHB\release`, for both capsule sets and every bootstrap asset;
+- the optional component must preserve its final `models/` path;
+- the checklist names the combine, wrap, decompiler generation, and fetcher
+  generation order explicitly;
+- the stale Research A calibration-patch paragraph was removed from the
+  Research B Windows guide; and
+- troubleshooting no longer refers to the retired support/research-capsule
+  architecture.
+
+Verification at the repaired checkpoint:
+
+- generated fetcher executed successfully with a resumable partial, a damaged
+  final target, a complete-size bad partial, and a destination containing `!`;
+- generated decompiler executed end to end against real tiny machinesoul
+  capsules, including the optional component and setup;
+- every mandatory package-whitelist path exists; and
+- full suite: **1,071 passed, 2 expected skips, no failures**.
+
+This completes the source and release-tooling audit. It does **not** convert
+the still-empty manual rows in `docs/RESEARCHB_STAGING_PLAN.md` into passes,
+approve a cut map that does not exist yet, or validate the incomplete
+`dist/TORMENT_NEXUS` directory. Rebuild that stage from this final clean commit
+before any plan or cut.

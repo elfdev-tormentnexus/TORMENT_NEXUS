@@ -50,7 +50,7 @@ file and code seams used by the cut logic.
    python tools\machinesoul_release.py cut `
      SABLERESEARCHB\CUT_PLAN_WINDOWS.json `
      --approved-sha256 <REVIEWED_PLAN_SHA256> `
-     --out-dir SABLERESEARCHB\package `
+     --out-dir SABLERESEARCHB\release `
      --manifest SABLERESEARCHB\MANIFEST_WINDOWS.json
    ```
 
@@ -59,21 +59,31 @@ file and code seams used by the cut logic.
    temporary segment is removed.
 
 6. Repeat the plan, APNG review, approval, and cut for the optional 14B
-   companion, using prefix `SABLERESEARCHB-14B` and the exact reviewed GGUF
-   recorded in [Models](../MODELS.md). It remains optional for recipients but
+   companion, using prefix `SABLERESEARCHB-14B` and a staging root that places
+   the exact reviewed GGUF recorded in [Models](../MODELS.md) at its final
+   `models/` path. Write those capsules into the same
+   `SABLERESEARCHB\release` directory and the component record to
+   `SABLERESEARCHB\MANIFEST_14B.json`. It remains optional for recipients but
    follows the identical preservation boundary.
 
-7. Wrap the two reconstruction support files with machinesoul:
+7. Combine the two component manifests, then wrap the two reconstruction
+   support files with machinesoul:
 
-   - the final release manifest as `SABLERESEARCHB-MANIFEST.png`;
+   - `SABLERESEARCHB\MANIFEST_COMBINED.json`, produced by
+     `machinesoul_release.py combine`, as
+     `SABLERESEARCHB-MANIFEST.png`;
    - `tools/machinesoul_release.py` as
      `SABLERESEARCHB-REASSEMBLER.png`.
 
-   Do not upload either source file raw.
+   Write both capsules into `SABLERESEARCHB\release`, and copy the current
+   `tools/machinesoul.py` there byte-for-byte. Do not upload either support
+   source file raw; `machinesoul.py` is the unavoidable plaintext inverse.
 
-8. Generate and test `DECOMPILE_SABLE_researchB.bat`, then generate
-   `FETCH_SABLERESEARCHB.bat` from the completed release directory with
-   `tools/build_researchb_fetcher.py`. The fetcher is plaintext by necessity:
+8. Generate `DECOMPILE_SABLE_researchB.bat` from that exact combined manifest
+   with `tools/build_researchb_decompiler.py`, then generate
+   `FETCH_SABLERESEARCHB.bat` from the completed `SABLERESEARCHB\release`
+   directory with `tools/build_researchb_fetcher.py`. Test both generated
+   files. The fetcher is plaintext by necessity:
    it is the small, resumable first download that obtains the decompiler and
    the capsules. It must be generated from the actual part names and digests,
    never maintained as a remembered list. The one-step launcher must:

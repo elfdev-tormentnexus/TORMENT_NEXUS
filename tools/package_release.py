@@ -210,6 +210,7 @@ INCLUDE_FILES = [
     "tools/package_release.py",
     "tools/build_super_dev_icon.py",
     "tools/build_researchb_fetcher.py",
+    "tools/build_researchb_decompiler.py",
     "tools/rosetta_stone.py",
     "tools/source_capsules.py",
     "tools/vector_beam.py",

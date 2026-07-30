@@ -17,6 +17,14 @@
 - Added a generated, resumable Research B capsule fetcher. It is built only
   from final release assets, uses Windows `curl.exe` and SHA-256 verification,
   and deliberately leaves the optional 14B companion as an explicit choice.
+  Interrupted bytes now remain under a `.partial` name across invocations;
+  delayed expansion is disabled so valid Windows folders containing `!` do
+  not corrupt their own paths.
+- Added a manifest-driven generator for the one-click Research B decompiler.
+  It recovers the manifest and reassembler through machinesoul, reconstructs
+  the required tree, accepts either all or none of the optional 14B fields,
+  verifies both components, and only then runs setup. A live synthetic cut is
+  executed by the regression suite rather than checking batch text alone.
 - Fixed machinespirit readiness reporting so it probes authenticated live
   embedding services instead of confusing model files or a generic health
   response with a usable server. The regression suite now also shuts down the

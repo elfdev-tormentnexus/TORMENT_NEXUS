@@ -191,8 +191,10 @@ decompilation, the reconstructed installation contains:
    model provenance, and known issues. The small plaintext
    `FETCH_SABLERESEARCHB.bat` is the easiest path: double-click it to resume
    and SHA-256-verify every required bootstrap and Windows capsule. It does
-   not fetch the optional 14B companion. If you prefer to download manually,
-   take `machinesoul.py`, `DECOMPILE_SABLE_researchB.bat`,
+   not fetch the optional 14B companion. An interrupted download remains as a
+   plainly named `.partial` file; rerunning the fetcher resumes it, and the
+   final capsule name appears only after its checksum passes. If you prefer to
+   download manually, take `machinesoul.py`, `DECOMPILE_SABLE_researchB.bat`,
    `SABLERESEARCHB-MANIFEST.png`, `SABLERESEARCHB-REASSEMBLER.png`, and every
    consecutive file from `SABLERESEARCHB-WINDOWS.part01.png` through
    `SABLERESEARCHB-WINDOWS.partNN.png` — however many the Assets list shows.

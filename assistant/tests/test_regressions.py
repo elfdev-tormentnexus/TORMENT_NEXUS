@@ -8137,6 +8137,9 @@ class DocumentationTests(unittest.TestCase):
                 # files the release page does not have.
                 self.assertNotIn("CALIBRATION_PATCH", text)
                 self.assertNotIn("CALIBRATION-PATCH", text)
+                self.assertIsNone(
+                    re.search(r"calibration[-_ ]patch", text, re.IGNORECASE)
+                )
                 self.assertNotIn("WITH_MUSIC_PATCH", text)
 
     def test_beginner_docs_point_at_the_current_release(self):
@@ -8166,6 +8169,8 @@ class DocumentationTests(unittest.TestCase):
         required = {
             "tools/machinesoul.py",
             "tools/machinesoul_release.py",
+            "tools/build_researchb_decompiler.py",
+            "tools/build_researchb_fetcher.py",
             "tools/rosetta_stone.py",
             "tools/source_capsules.py",
             "tools/vector_beam.py",

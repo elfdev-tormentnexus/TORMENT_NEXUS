@@ -78,9 +78,11 @@ SABLERESEARCHB-WINDOWS.partNN.png
 `FETCH_SABLERESEARCHB.bat` is the small, readable download helper. Double-click
 it to fetch every required asset, resume interrupted transfers, and verify
 each file against the SHA-256 recorded at the cut. It deliberately does **not**
-download the optional 14B companion. If you use it, wait for its verification
-message and continue at Step 2. If you download manually, take every other
-file in the list.
+download the optional 14B companion. Interrupted bytes remain in a visibly
+named `.partial` file so the next run can resume them; that temporary name is
+promoted to the real asset name only after SHA-256 verification. If you use
+it, wait for its verification message and continue at Step 2. If you download
+manually, take every other file in the list.
 
 **How many parts there are is decided by the cut, not by this page.** Take the
 count from the Assets list. A missing part is refused rather than skipped, so
@@ -161,10 +163,6 @@ cannot safely contain its own final digest.
 If every optional 14B capsule is present, the same pass recovers and installs
 its exact model. If none are present, it skips that companion. A partial set
 refuses rather than silently installing an incomplete model.
-
-If all three calibration-patch files are present, the same pass recovers and
-applies them. A partial set refuses. Unknown local versions are never
-overwritten; an already-patched tree is accepted without applying twice.
 
 ## What the one-step process verifies
 
