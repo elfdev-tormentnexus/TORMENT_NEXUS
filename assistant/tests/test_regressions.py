@@ -6557,6 +6557,87 @@ class ModeTutorialTests(unittest.TestCase):
         self.assertIsNotNone(tutorial.explain("trace"))
 
 
+class SingleDoorLauncherTests(unittest.TestCase):
+    """One launcher, four modes, and no second copy of what they do.
+
+    The menu dispatches to the existing wrappers by name. That is the whole
+    design: a menu that reimplemented the hazard launcher's ports and keys
+    would drift from the real one and be wrong in a way nobody noticed until
+    a mode failed to start.
+    """
+
+    MODES = (
+        "start_assistant.bat",
+        "start_interface_mode.bat",
+        "start_assistant_hazard.bat",
+        "start_super_dev_hazard.bat",
+    )
+
+    @staticmethod
+    def _root():
+        return Path(__file__).resolve().parents[2]
+
+    def _menu(self):
+        return (self._root() / "TORMENT_NEXUS.bat").read_text(
+            encoding="utf-8")
+
+    def test_the_menu_offers_every_mode_and_each_one_exists(self):
+        menu = self._menu()
+
+        for name in self.MODES:
+            with self.subTest(mode=name):
+                self.assertIn(name, menu)
+                self.assertTrue((self._root() / name).is_file())
+
+    def test_the_menu_waits_for_the_mode_it_started(self):
+        """`call`, not `start`: the menu must come back afterwards."""
+        menu = self._menu()
+
+        for name in self.MODES:
+            with self.subTest(mode=name):
+                self.assertIn(f'call :launch "{name}"', menu)
+
+    def test_quitting_is_reachable(self):
+        """The bug this shape avoids.
+
+        `if COND cmd & goto :menu` binds the `&` outside the `if`, so the
+        goto fires whatever was typed -- including Q, which would then never
+        reach its own line and the menu could not be quit.
+        """
+        menu = self._menu()
+
+        # Executable lines only. The REM above the dispatch quotes the broken
+        # form on purpose, and a naive search would match its own warning.
+        for number, line in enumerate(menu.splitlines(), 1):
+            if line.strip().upper().startswith("REM"):
+                continue
+            self.assertNotIn(
+                "& goto", line,
+                f"line {number} rebuilds the unconditional-goto bug",
+            )
+
+        self.assertIn('if /i "%PICK%"=="Q" goto :done', menu)
+
+    def test_leftover_cleanup_is_scoped_to_this_install(self):
+        """A llama-server from another project must never be touched."""
+        menu = self._menu()
+
+        self.assertIn("$env:TN_ROOT", menu)
+        # Stop-Process only ever appears inside a path-matched pipeline.
+        for line in menu.splitlines():
+            if "Stop-Process" in line:
+                self.assertIn("$env:TN_ROOT", line)
+
+    def test_the_menu_ships_with_the_modes_it_names(self):
+        """A package with the door and none of the rooms is worse than neither."""
+        whitelist = set(package_release.INCLUDE_FILES)
+
+        self.assertIn("TORMENT_NEXUS.bat", whitelist)
+        for name in self.MODES:
+            with self.subTest(mode=name):
+                self.assertIn(name, whitelist)
+
+
 class HazardLauncherLifetimeTests(unittest.TestCase):
     """The unpooled helper must not outlive its hazard-mode launcher."""
 

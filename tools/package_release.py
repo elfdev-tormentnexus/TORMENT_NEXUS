@@ -190,6 +190,10 @@ INCLUDE_FILES = [
     "setup/requirements-voice.txt",
     "setup/requirements-hardware.txt",
     "setup/requirements-release-windows.txt",
+    # The one door. Ships alongside the individual launchers rather than
+    # instead of them: it dispatches to these files by name, so a package
+    # carrying the menu without them would present four modes and start none.
+    "TORMENT_NEXUS.bat",
     "start_assistant.bat",
     "start_assistant_hazard.bat",
     "start_super_dev_hazard.bat",
