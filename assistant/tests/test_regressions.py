@@ -11494,13 +11494,85 @@ class AskEndpointTests(unittest.TestCase):
         )
 
         # The request that went out was stateless: the caller's question,
-        # the stable persona, and a framing note -- never the operator's
-        # live session turns.
+        # the stable persona, a framing note, and source facts read from
+        # disk -- never the operator's live session turns. The count is
+        # what pins that; it moved from three to four when the self-read
+        # manifest was added, and the assertion below is the reason such a
+        # move has to be deliberate rather than incidental.
         sent = post.call_args.kwargs["json"]["messages"]
         self.assertEqual(sent[-1], {
             "role": "user", "content": "state of the tests?",
         })
+        self.assertEqual(len(sent), 4)
+        self.assertTrue(all(
+            message["role"] == "system" for message in sent[:-1]
+        ))
+
+    def test_ask_is_told_what_this_program_is(self):
+        # The chat path was grounded first and this one was not, so an
+        # outside agent asking what the assistant had been doing got the
+        # ungrounded answer -- the exact failure the manifest exists to
+        # prevent, on the interface likelier to act on it.
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.iter_lines.return_value = [
+            'data: {"choices":[{"delta":{"content":" ok "}}]}',
+            "data: [DONE]",
+        ]
+        response.raise_for_status.return_value = None
+
+        with mock.patch.object(ui, "is_generating", return_value=False), \
+                mock.patch.object(
+                    assistant_main._prompt_cache_ready,
+                    "is_set",
+                    return_value=True,
+                ), \
+                mock.patch.object(
+                    assistant_main.requests, "post", return_value=response
+                ) as post:
+            self._providers()["/ask"]({"q": "what have you been working on?"})
+
+        sent = post.call_args.kwargs["json"]["messages"]
+        grounding = [
+            message["content"] for message in sent
+            if "read from disk this turn" in message.get("content", "")
+        ]
+        self.assertEqual(len(grounding), 1, "the manifest never reached /ask")
+
+        block = grounding[0]
+        self.assertIn("say so rather than", block)
+        self.assertIn("not a memory of doing the work", block)
+        self.assertNotIn(".model_api_key", block)
+
+    def test_ask_omits_the_block_rather_than_sending_an_empty_turn(self):
+        # Degrading has to cost the paragraph, never the request. An empty
+        # system message would spend a turn to say nothing.
+        response = mock.MagicMock()
+        response.__enter__.return_value = response
+        response.iter_lines.return_value = [
+            'data: {"choices":[{"delta":{"content":" ok "}}]}',
+            "data: [DONE]",
+        ]
+        response.raise_for_status.return_value = None
+
+        with mock.patch.object(ui, "is_generating", return_value=False), \
+                mock.patch.object(
+                    assistant_main._prompt_cache_ready,
+                    "is_set",
+                    return_value=True,
+                ), \
+                mock.patch.object(
+                    assistant_main, "_self_knowledge_context", return_value=""
+                ), \
+                mock.patch.object(
+                    assistant_main.requests, "post", return_value=response
+                ) as post:
+            result = self._providers()["/ask"]({"q": "still there?"})
+
+        sent = post.call_args.kwargs["json"]["messages"]
         self.assertEqual(len(sent), 3)
+        self.assertTrue(all(message["content"] for message in sent))
+        self.assertEqual(result["answer"], "ok")
 
 
 class EscalationTests(unittest.TestCase):

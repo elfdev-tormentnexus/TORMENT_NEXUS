@@ -858,23 +858,44 @@ def _agent_providers():
                     ),
                 }
 
+            messages = [
+                {"role": "system", "content": _stable_system_prompt()},
+                {
+                    "role": "system",
+                    "content": (
+                        "A connected development agent is asking you a "
+                        "question over the local diagnostic interface. "
+                        "It is not the operator. Answer plainly and "
+                        "briefly; say so when you do not know. This "
+                        "exchange can see the project's stable persona "
+                        "and core memory, but not the operator's live "
+                        "conversation, and it will not be remembered."
+                    ),
+                },
+            ]
+
+            # "What have you been working on" is the same question over a
+            # different socket, and this path answered it ungrounded while
+            # the chat path did not. An agent is likelier than the operator
+            # to act on the answer, so the asymmetry ran the wrong way.
+            #
+            # Appended after the framing, so the two stable messages remain
+            # an uninterrupted cacheable prefix, and skipped entirely when
+            # nothing could be read -- an empty system turn spends context
+            # to say nothing. This adds source facts read from disk; it
+            # still carries no session state, which is what the message
+            # count below is really guarding.
+            self_knowledge = _self_knowledge_context()
+
+            if self_knowledge:
+                messages.append(
+                    {"role": "system", "content": self_knowledge}
+                )
+
+            messages.append({"role": "user", "content": question})
+
             payload = {
-                "messages": [
-                    {"role": "system", "content": _stable_system_prompt()},
-                    {
-                        "role": "system",
-                        "content": (
-                            "A connected development agent is asking you a "
-                            "question over the local diagnostic interface. "
-                            "It is not the operator. Answer plainly and "
-                            "briefly; say so when you do not know. This "
-                            "exchange can see the project's stable persona "
-                            "and core memory, but not the operator's live "
-                            "conversation, and it will not be remembered."
-                        ),
-                    },
-                    {"role": "user", "content": question},
-                ],
+                "messages": messages,
                 "temperature": 0.55,
                 "top_p": 0.9,
                 "max_tokens": 128,
