@@ -1,4 +1,4 @@
-﻿"""Tests for the anchor dictionary and the two servers it depends on.
+"""Tests for the anchor dictionary and the two servers it depends on.
 
 The properties here are the ones that fail silently rather than loudly. A
 wrong section slice returns real vectors under the wrong words; a truncated

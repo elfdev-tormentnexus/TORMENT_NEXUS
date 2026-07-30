@@ -1,4 +1,4 @@
-﻿"""Tests for the MACHINESOUL1 capsule.
+"""Tests for the MACHINESOUL1 capsule.
 
 A container that carries a release has exactly one job beyond carrying it:
 never hand back bytes that are not the payload. Every test here is about a

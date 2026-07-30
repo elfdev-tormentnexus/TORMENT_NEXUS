@@ -1,4 +1,4 @@
-﻿"""machinesoul: Sable's data-preservation logic language.
+"""machinesoul: Sable's data-preservation logic language.
 
 machinesoul maps an ordered field of four-coordinate integer vectors directly
 to RGBA pixels across PNG or APNG frames. The inverse reads those pixels in

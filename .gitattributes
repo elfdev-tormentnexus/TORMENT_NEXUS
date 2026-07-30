@@ -1,0 +1,45 @@
+# Line endings are pinned here because nothing was pinning them.
+#
+# Until 2026-07-30 this repository had no .gitattributes and core.autocrlf
+# false, so whatever a tool happened to write was what got committed: 138
+# Python files in LF, 15 in CRLF, and three carrying both inside a single
+# file. The cost was not cosmetic. An ordinary read-edit-write-back rewrite of
+# main.py flipped the whole file and turned a 95-line change into 3,816
+# insertions -- and because the text still compared equal, the round-trip
+# check passed and nothing said a word.
+#
+# Two file types are deliberately NOT pinned below. They are absent on
+# purpose, not by oversight:
+#
+#   *.json -- assistant/core/anchors_v1.json and anchors_v2.json are CRLF and
+#             carry the anchor digests that published figures reproduce
+#             against. Rewriting them to win a whitespace argument is not a
+#             trade worth making.
+#
+#   *.bat  -- eleven launchers are LF and two are CRLF. cmd.exe is the only
+#             consumer in this project that has ever been particular about
+#             this, and an inconsistent launcher is a much better outcome
+#             than a broken one.
+
+*.py   text eol=lf
+*.md   text eol=lf
+*.txt  text eol=lf
+*.sh   text eol=lf
+*.yml  text eol=lf
+*.cfg  text eol=lf
+*.toml text eol=lf
+
+# Named so a capsule, an icon or a model is never line-ending translated on
+# the way in or out. machinesoul reconstructs bytes exactly or refuses, and a
+# checkout that "helpfully" rewrote one would make it refuse.
+*.png  binary
+*.apng binary
+*.gif  binary
+*.webp binary
+*.ico  binary
+*.jpg  binary
+*.gguf binary
+*.onnx binary
+*.wav  binary
+*.zip  binary
+*.pdf  binary
