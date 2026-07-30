@@ -166,13 +166,19 @@ session for these two alone and do not append them to stage 4.
 | stage | date | result | notes |
 | --- | --- | --- | --- |
 | 0 baseline | 2026-07-30 | pass | Full suite rerun after the fetcher and public-doc work: no failures, 2 expected skips. Calibration 7/7 rows, drift `0.000000`. Anchor digest `b5421687…1690fd`, 184 anchors (122 core + 16 project + 46 life), dictionary v2. |
-| 1 landed changes | | | |
-| 2 vector panel | 2026-07-30 | 2.1 only | `trace` on the README's own example: panel and text readout agreed on the same concept at the same token. 2.2–2.6 not run. |
-| 3 council | | | |
-| 4 benchmarks | | | |
-| 5 cut | | | |
+| 1 landed changes | 2026-07-30 | isolated pass | 31 Super Dev boundary tests passed with temporary verifier state and mocked writers: alphanumeric enrolment, inline refusal, locked YOLO refusal, bounded timeout, per-patch gate, sensor start reporting and both off-switch names. No real key was read and no autonomous write was activated. A human did not re-check masked terminal echo or physically start the microphone/activity sampler during this gate. |
+| 2 vector panel | 2026-07-30 | pass | The earlier live `trace` agreement remains recorded. Automated frames now cover the exact 150x32 staging size, both sides of the panel threshold, repeated scene resizing, pager threshold changes, empty greetings, and no chat crossing into the gutter. The bundled `SABLE_CALIBRATION1.png` decompiled to exactly the 2,341 bytes fed to the live Hazard machinesoul half (`8d403116…e5b3fe`); the missing production caller found by this run was fixed before this row was marked pass. |
+| 3 council | 2026-07-30 | pass | All six registry SHA-256 values matched; every model loaded through a temporary authenticated loopback server and embedded the same phrase (five 384d unit vectors, Qwen 1024d). The quarantined MiniLM partial retained its pinned digest and remained unregistered. With Qwen council plus ordinary pooled BGE resident, measured working set was 843.2 MiB (888.5 MiB including the unpooled trajectory server). The inertness regression passed while the council server was live. |
+| 4 benchmarks | 2026-07-30 | pass | Calibration 7/7 unchanged. Codec repeated least-squares 0.9243 / 100% and transpose 0.6635 / 6%. Whitening repeated raw pairwise +0.5462 and whitened +0.0144; reconstruction fell 0.9157 to 0.8199, so no runtime whitening patch is justified. Current-tree Rosetta measured 0.443 raw, 0.465 anchor-centred, ceiling 0.578; the small movement from researchA's 0.444 / 0.471 / 0.579 is explained by the held-out `ARCHITECTURE.md` changing repeatedly since that measurement. Full suite after the two panel fixes: 1,076 pass, 2 expected skips. |
+| 5 cut | 2026-07-30 | pre-cut green | 5.1 is green at 1,076 / 2 skipped. The source checkpoint, fresh package, reviewed cut maps, clean decompile/reassembly, install, tag and remote byte comparison still follow; none is implied by this row. |
 
 An empty row is a stage not run. That is a fine state to leave this in.
+
+The word *isolated* in stage 1 is deliberate. Those checks exercised the real
+command and session-loop code with temporary authentication state and inert
+writers. They establish refusal, timeout and off-switch behavior without
+learning the operator's passcode, changing the source tree, recording the
+microphone, or starting an autonomous edit merely to satisfy a checklist.
 
 ### How the stage 0 and 2.1 rows above were established
 

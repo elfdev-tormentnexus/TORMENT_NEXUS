@@ -9,6 +9,14 @@
 
 ## researchB — 2026-07-30
 
+- Wired the bundled, checksum-pinned calibration capsule payload into
+  HazardSable's machinesoul panel. The renderer was already correct and
+  tested, but had no production caller; a real-capsule regression now prevents
+  that quiet unreachable-feature failure from returning.
+- Froze the vector-panel boundary while a long response is paged. Resizing
+  across the panel threshold can no longer place a new divider through lines
+  that were wrapped for the previous layout.
+
 - Added evidence receipts. A reply can now show the retrieved local material
   that actually reached its prompt, the model identity, and the boundary
   between observed evidence and the model's inferred answer. The receipt is

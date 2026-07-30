@@ -7,11 +7,23 @@ capsule actually stores.
 """
 
 import re
+import importlib.util
+import os
 import unittest
 from unittest import mock
 
+import main as assistant_main
 from core import machinespirit
+from core import calibration
 from ui import vector_panel
+
+
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_spec = importlib.util.spec_from_file_location(
+    "_machinesoul_for_panel_test", os.path.join(ROOT, "tools", "machinesoul.py")
+)
+_machinesoul = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_machinesoul)
 
 
 # The shape read_path() returns: (token index, [(support, anchor text), ...]).
@@ -71,6 +83,37 @@ class TraceAgreementTests(unittest.TestCase):
 
 
 class MachinesoulFieldTests(unittest.TestCase):
+    def test_hazard_wiring_uses_the_payload_from_the_real_capsule(self):
+        capsule = os.path.join(
+            ROOT, "assistant", "core", "SABLE_CALIBRATION1.png"
+        )
+        payload, _meta = _machinesoul.extract(capsule)
+        with open(calibration.RECORD_FILE, "rb") as source:
+            self.assertEqual(payload, source.read())
+
+        old = assistant_main._hazard_soul_payload
+        assistant_main._hazard_soul_payload = None
+        try:
+            with mock.patch.object(
+                assistant_main.command_handlers,
+                "is_experimental_mode",
+                return_value=True,
+            ), mock.patch.object(
+                assistant_main.ui, "panel_active", return_value=True
+            ), mock.patch.object(
+                assistant_main.ui, "set_soul_payload"
+            ) as set_soul, mock.patch.object(
+                assistant_main.ui, "clear_trajectory_points"
+            ), mock.patch.object(
+                assistant_main.ui, "clear_spirit_readings"
+            ):
+                # machinesoul is independent of the semantic memory frame.
+                assistant_main._update_hazard_trajectory("hello", False)
+        finally:
+            assistant_main._hazard_soul_payload = old
+
+        set_soul.assert_called_once_with(payload)
+
     def test_the_lower_half_is_the_payload_bytes_not_a_picture_of_them(self):
         # machinesoul maps four-coordinate vectors onto RGBA. Four bytes in
         # must be one cell out, in written order, or this is decoration.

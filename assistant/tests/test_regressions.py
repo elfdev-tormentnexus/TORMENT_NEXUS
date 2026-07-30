@@ -2509,6 +2509,7 @@ class InputDraftTests(unittest.TestCase):
         old_header = engine.header_height
         old_lines = engine.page_lines
         old_index = engine.page_index
+        old_page_panel = engine.page_panel_columns
         seen_pages = []
 
         engine.running = True
@@ -2539,10 +2540,45 @@ class InputDraftTests(unittest.TestCase):
             engine.header_height = old_header
             engine.page_lines = old_lines
             engine.page_index = old_index
+            engine.page_panel_columns = old_page_panel
 
         self.assertTrue(paged)
         self.assertEqual(seen_pages, [0, 1])
         self.assertIsNone(engine.page_lines)
+        self.assertIsNone(engine.page_panel_columns)
+
+    def test_pager_freezes_the_panel_boundary_across_a_resize(self):
+        engine = ui.LayeredDisplayEngine()
+        engine.width = 104
+        engine.height = 32
+        self.assertEqual(engine.panel_columns(), 0)
+
+        engine.page_panel_columns = engine.panel_columns()
+        engine.page_lines = [("a line already wrapped without a gutter", ui.GREY)]
+        engine.width = 150
+
+        self.assertEqual(engine.panel_columns(), 0)
+        self.assertEqual(engine.content_width(), 150)
+
+        engine.page_lines = None
+        engine.page_panel_columns = None
+        self.assertEqual(
+            engine.panel_columns(),
+            ui.PANEL_WIDTH + ui.PANEL_BORDER,
+        )
+
+    def test_short_text_does_not_leave_the_panel_boundary_frozen(self):
+        engine = ui._engine
+        old_running = engine.running
+        old_page_panel = engine.page_panel_columns
+        engine.running = False
+        engine.page_panel_columns = None
+        try:
+            self.assertFalse(ui.page_text_if_needed("one short line"))
+            self.assertIsNone(engine.page_panel_columns)
+        finally:
+            engine.running = old_running
+            engine.page_panel_columns = old_page_panel
 
     def test_blocking_prompt_restores_type_ahead_draft(self):
         was_running = ui._engine.running
@@ -9882,6 +9918,7 @@ class RetrievalPanelLayoutTests(unittest.TestCase):
     WIDE = (160, 48)
     NARROW = (80, 48)
     SHORT = (160, 16)
+    STAGING_SIZE = (150, 32)
 
     def _frame(self, size, chat=(), music=False, vectors=None):
         """Render one frame and hand back the engine and its finished canvas."""
@@ -9912,6 +9949,23 @@ class RetrievalPanelLayoutTests(unittest.TestCase):
             engine.content_width(),
             self.WIDE[0] - ui.PANEL_WIDTH - ui.PANEL_BORDER,
         )
+
+    def test_the_exact_staging_size_has_a_complete_panel_and_canvas(self):
+        engine, canvas = self._frame(
+            self.STAGING_SIZE,
+            chat=[("X" * 400, ui.GREY, None)],
+        )
+
+        self.assertEqual(
+            engine.panel_columns(),
+            ui.PANEL_WIDTH + ui.PANEL_BORDER,
+        )
+        self.assertEqual(len(canvas), self.STAGING_SIZE[1])
+        self.assertTrue(all(len(row) == self.STAGING_SIZE[0] for row in canvas))
+
+        divider = engine.content_width()
+        for row in canvas[engine.header_height:-3]:
+            self.assertNotIn("X", [cell.char for cell in row[divider:]])
 
     def test_a_narrow_terminal_drops_the_panel_whole(self):
         # Dropped rather than squeezed: the cloud is one memory per cell, so

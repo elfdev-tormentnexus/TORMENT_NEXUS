@@ -606,6 +606,10 @@ class LayeredDisplayEngine:
         # immediately to the normal bottom-of-conversation view.
         self.page_lines = None
         self.page_index = 0
+        # A page is wrapped once. Freeze whether its gutter exists until the
+        # page closes, so resizing across the panel threshold cannot put a
+        # newly-created divider through already-wrapped text.
+        self.page_panel_columns = None
 
         # True while tokens are being pulled from the server.
         self.generating = False
@@ -680,6 +684,9 @@ class LayeredDisplayEngine:
         Music mode owns the whole canvas, so the panel yields to it rather
         than drawing over a full-screen scene.
         """
+        if self.page_panel_columns is not None:
+            return self.page_panel_columns
+
         if not self.panel_enabled or self.music_mode:
             return 0
 
@@ -2755,6 +2762,7 @@ def page_text_if_needed(text, color=GREY):
     """
     with _engine.lock:
         _engine.update_size()
+        _engine.page_panel_columns = _engine.panel_columns()
         width = max(_engine.content_width() - CHAT_INDENT - 2, 10)
         lines = [
             (line, color or RESET)
@@ -2769,6 +2777,7 @@ def page_text_if_needed(text, color=GREY):
             not _engine.running
             or len(lines) <= chat_area_h
         ):
+            _engine.page_panel_columns = None
             return False
 
         _engine.page_lines = lines
@@ -2806,6 +2815,7 @@ def page_text_if_needed(text, color=GREY):
         with _engine.lock:
             _engine.page_lines = None
             _engine.page_index = 0
+            _engine.page_panel_columns = None
 
     return True
 

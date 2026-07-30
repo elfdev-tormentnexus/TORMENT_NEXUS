@@ -557,6 +557,35 @@ _projected_memory_signature = None
 _hazard_trajectory_input = None
 _hazard_trajectory_vectors = None
 _hazard_spirit_readings = None
+_hazard_soul_payload = None
+
+
+def _update_hazard_soul(visible):
+    """Feed one real, bundled machinesoul payload into the lower field.
+
+    The calibration capsule preserves ``calibration_v1.json`` byte for byte.
+    Reading that small source payload keeps the live UI independent of the
+    release decompiler (and cannot accidentally load a multi-gigabyte release
+    capsule), while the capsule round-trip test pins these bytes to the actual
+    PNG field.  The value is cached because the reference is immutable during
+    a running session.
+    """
+    global _hazard_soul_payload
+
+    if not visible:
+        ui.clear_soul_payload()
+        return
+
+    try:
+        if _hazard_soul_payload is None:
+            from core import calibration
+
+            with open(calibration.RECORD_FILE, "rb") as source:
+                _hazard_soul_payload = source.read()
+        ui.set_soul_payload(_hazard_soul_payload)
+    except Exception:
+        # A display language is never a reason to lose a turn.
+        ui.clear_soul_payload()
 
 
 def _update_retrieval_panel(active, relevant, semantic_vectors=None):
@@ -638,11 +667,13 @@ def _update_hazard_trajectory(user_input, semantic_ready):
     global _hazard_spirit_readings
 
     try:
-        if (
-            not semantic_ready
-            or not command_handlers.is_experimental_mode()
-            or not ui.panel_active()
-        ):
+        hazard_visible = (
+            command_handlers.is_experimental_mode()
+            and ui.panel_active()
+        )
+        _update_hazard_soul(hazard_visible)
+
+        if not semantic_ready or not hazard_visible:
             ui.clear_trajectory_points()
             ui.clear_spirit_readings()
             return
@@ -675,6 +706,7 @@ def _update_hazard_trajectory(user_input, semantic_ready):
         # A representation visualizer is never a reason to lose a turn.
         ui.clear_trajectory_points()
         ui.clear_spirit_readings()
+        ui.clear_soul_payload()
 
 
 def _start_semantic_layer():
