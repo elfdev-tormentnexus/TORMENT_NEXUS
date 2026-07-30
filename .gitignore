@@ -101,6 +101,9 @@ models/*.gguf
 # One level down too: the embedding model lives in models/embedding/, and
 # a bare models/*.gguf only matches the top level.
 models/**/*.gguf
+# Interrupted or quarantined downloads keep a suffix after .gguf, so the
+# pattern above does not catch them. A 22 MB partial is still 22 MB.
+models/**/*.gguf.*
 models/voice/cache/
 models/voice/**/*.onnx
 models/voice/**/*.onnx.json
