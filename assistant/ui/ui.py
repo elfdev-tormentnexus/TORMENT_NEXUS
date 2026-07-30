@@ -2393,6 +2393,7 @@ class LayeredDisplayEngine:
         "datastream rain",
         "wormhole",
         "acid lattice",
+        "sable field",
     )
     _MUSIC_SCENE_ROTATION_SECONDS = 165
     _MUSIC_PALETTE_ROTATION_SECONDS = 20
@@ -3350,6 +3351,9 @@ def _make_music_scene(name, palette):
     if name == "acid lattice":
         from visualizer.acid_lattice import AcidLatticeVisualizer
         return AcidLatticeVisualizer(palette)
+    if name == "sable field":
+        from visualizer.sable_field import SableFieldVisualizer
+        return SableFieldVisualizer(palette)
     raise ValueError(f"Unknown music scene: {name}")
 
 

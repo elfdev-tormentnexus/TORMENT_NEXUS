@@ -128,6 +128,22 @@ _PROFILES = {
         "waveform": 1.36,
         "pan": 1.42,
     },
+    # Sable's own scene reads rather than pounds. The spectrum is weighted
+    # highest because it drives the anchor lanes, which are the thing being
+    # read; beat is damped relative to the other scenes because the gate is
+    # a verification pulse and a verification that fires constantly is not
+    # telling you anything.
+    "sable field": {
+        "bass": (1.48, 0.62),
+        "mid": (1.62, 0.58),
+        "treble": (1.54, 0.60),
+        "level": (1.40, 0.70),
+        "beat": (1.88, 0.70),
+        "stereo_width": (1.38, 0.72),
+        "spectrum": (1.74, 0.55),
+        "waveform": 1.34,
+        "pan": 1.40,
+    },
 }
 
 _PROFILES = {name: _amplify(profile) for name, profile in _PROFILES.items()}
