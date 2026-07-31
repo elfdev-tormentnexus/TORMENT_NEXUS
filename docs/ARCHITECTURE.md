@@ -1,4 +1,4 @@
-# TORMENT_NEXUS researchB architecture
+# TORMENT_NEXUS researchC architecture
 
 This is a technical reference for developers and reviewers. New users should
 start with [Installing on Windows](INSTALL_WINDOWS.md),
@@ -61,8 +61,8 @@ operator input
 | `assistant/core/provenance.py` | Produces an answer's reasoning receipt. It keeps retrieved evidence distinct from the model's inferred reply and records only citations that actually reached the prompt. |
 | `assistant/core/consume.py` | Identifies what a URL points at, fetches the content rather than the surrounding page, and hands documents to the offline library. Refuses non-loopback-safe addresses, media URLs, and bodies that exceed the library's own ceiling mid-download. |
 | `tools/machinesoul.py` | Sable's data-preservation logic language: maps ordered four-coordinate vectors to PNG/APNG pixels and reverses them 1:1. `MACHINESOUL1` is SHA-256 gated and refuses rather than returning a partial reconstruction. |
-| `tools/build_researchb_decompiler.py` | Generates the one-click plaintext bootstrap from the exact combined cut manifest. Capsule counts, decoded segment names, optional-model paths, and component selection are outputs of the manifest rather than a hand-maintained release list. |
-| `tools/build_researchb_fetcher.py` | Generates the small Windows downloader from the actual final assets and their SHA-256s. Incomplete transfers retain a `.partial` name and are promoted only after verification. |
+| `tools/build_researchc_decompiler.py` | Generates the one-click plaintext bootstrap from the exact combined cut manifest. Capsule counts, decoded segment names, optional-model paths, and component selection are outputs of the manifest rather than a hand-maintained release list. |
+| `tools/build_researchc_fetcher.py` | Generates the small Windows downloader from the actual final assets and their SHA-256s. Incomplete transfers retain a `.partial` name and are promoted only after verification. |
 | `tools/machinespirit_codec.py` | Measures the lossy half as a codec — encode to anchor coordinates, decode by least squares, report cosine and whether the reconstruction still retrieves its own chunk. |
 | `tools/rosetta_stone.py` | Builds one model-bound half of a `SABLEROSETTA1` anchor bridge. Two halves are comparable only when their shared anchor digest matches; model identity, quantization, and pooling still matter. |
 | `tools/vector_beam.py` | Measures and renders the unpooled token trajectory, and can read it through a compatible Rosetta Stone anchor space. |
@@ -82,7 +82,7 @@ operator input
 
 ## Model roles
 
-The complete researchB Windows package has three separate model jobs:
+The complete researchC Windows package has three separate model jobs:
 
 | Artifact | Role |
 | --- | --- |

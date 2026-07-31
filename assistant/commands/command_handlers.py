@@ -1445,7 +1445,7 @@ def handle_read_source(user_input):
     except source_awareness.SourceError as error:
         return str(error)
 
-    return f"{argument} ({text.count(chr(10)) + 1} lines)\n\n{text}"
+    return f"{argument} ({source_awareness.line_count(text)} lines)\n\n{text}"
 
 
 @command("show memories", "List every stored memory",

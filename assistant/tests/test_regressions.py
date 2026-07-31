@@ -32,6 +32,7 @@ from core import file_utils
 from core import health_check
 from core import llm_server
 from core import persona
+from core import power_guard
 from core import session_rhythm
 from core import time_awareness
 from core import tutorial
@@ -4650,6 +4651,52 @@ class AudioModeUiTests(unittest.TestCase):
             ) as handle:
                 self.assertIn("backend diagnostic", handle.read())
 
+    def test_windows_power_guard_requests_display_and_system(self):
+        kernel32 = SimpleNamespace(SetThreadExecutionState=mock.Mock())
+
+        with mock.patch.object(power_guard.os, "name", "nt"):
+            self.assertTrue(power_guard.prevent_idle_sleep(kernel32))
+            self.assertTrue(power_guard.allow_idle_sleep(kernel32))
+
+        self.assertEqual(
+            kernel32.SetThreadExecutionState.call_args_list,
+            [
+                mock.call(
+                    power_guard.ES_CONTINUOUS
+                    | power_guard.ES_SYSTEM_REQUIRED
+                    | power_guard.ES_DISPLAY_REQUIRED
+                ),
+                mock.call(power_guard.ES_CONTINUOUS),
+            ],
+        )
+
+    def test_renderer_releases_power_guard_after_failure(self):
+        engine = ui.LayeredDisplayEngine()
+        engine.running = True
+
+        def fail_once():
+            engine.running = False
+            raise RuntimeError("render failed")
+
+        with mock.patch.object(
+            engine,
+            "render_frame",
+            side_effect=fail_once,
+        ), mock.patch.object(
+            ui.time,
+            "sleep",
+        ), mock.patch.object(
+            power_guard,
+            "prevent_idle_sleep",
+        ) as prevent, mock.patch.object(
+            power_guard,
+            "allow_idle_sleep",
+        ) as release:
+            engine._loop()
+
+        prevent.assert_called_once_with()
+        release.assert_called_once_with()
+
     def test_music_frame_receives_scene_specific_dramatic_features(self):
         engine = ui.LayeredDisplayEngine()
         engine.music_mode = True
@@ -8131,7 +8178,7 @@ class DocumentationTests(unittest.TestCase):
         pattern = re.compile(
             r"(?:machinesoul\.py|"
             r"(?:DECOMPILE|INSTALL|FETCH)_[A-Za-z0-9_.-]+\.bat|"
-            r"SABLERESEARCHB-[A-Za-z0-9.-]+\.png)"
+            r"SABLERESEARCHC-[A-Za-z0-9.-]+\.png)"
         )
         assets = {
             "README": set(pattern.findall(readme)),
@@ -8144,18 +8191,15 @@ class DocumentationTests(unittest.TestCase):
         # the cut produced eleven sends someone away with a set that refuses
         # to reassemble. The placeholder cannot go stale.
         required = {
-            "FETCH_SABLERESEARCHB.bat",
+            "FETCH_SABLERESEARCHC.bat",
             "machinesoul.py",
-            "DECOMPILE_SABLE_researchB.bat",
-            "SABLERESEARCHB-MANIFEST.png",
-            "SABLERESEARCHB-REASSEMBLER.png",
-            "SABLERESEARCHB-WINDOWS.part01.png",
-            "SABLERESEARCHB-WINDOWS.partNN.png",
-            "SABLERESEARCHB-14B.part01.png",
-            "SABLERESEARCHB-14B.partNN.png",
-            "INSTALL_SABLERESEARCHB_SELFREAD_PATCH.bat",
-            "SABLERESEARCHB-SELFREAD-PATCH.part01.png",
-            "SABLERESEARCHB-SELFREAD-PATCH-MANIFEST.png",
+            "DECOMPILE_SABLE_researchC.bat",
+            "SABLERESEARCHC-MANIFEST.png",
+            "SABLERESEARCHC-REASSEMBLER.png",
+            "SABLERESEARCHC-WINDOWS.part01.png",
+            "SABLERESEARCHC-WINDOWS.partNN.png",
+            "SABLERESEARCHC-14B.part01.png",
+            "SABLERESEARCHC-14B.partNN.png",
         }
         self.assertTrue(required.issubset(assets["README"]))
 
@@ -8186,7 +8230,7 @@ class DocumentationTests(unittest.TestCase):
         # both drift silently, and both are read by someone who has no way to
         # tell they are out of date.
         root, _ = self._documents()
-        current = "researchB"
+        current = "researchC"
 
         for name in ("README.md", "docs/INSTALL_WINDOWS.md",
                      "docs/TROUBLESHOOTING.md", "docs/BETA_GUIDE.md"):
@@ -8208,8 +8252,8 @@ class DocumentationTests(unittest.TestCase):
         required = {
             "tools/machinesoul.py",
             "tools/machinesoul_release.py",
-            "tools/build_researchb_decompiler.py",
-            "tools/build_researchb_fetcher.py",
+            "tools/build_researchc_decompiler.py",
+            "tools/build_researchc_fetcher.py",
             "tools/rosetta_stone.py",
             "tools/source_capsules.py",
             "tools/vector_beam.py",
@@ -8217,6 +8261,7 @@ class DocumentationTests(unittest.TestCase):
             "docs/VECTOR_TRANSLATION_RESEARCH.md",
             "docs/RESEARCHC_GOALS.md",
             "docs/RELEASE_NOTES_researchB.md",
+            "docs/RELEASE_NOTES_researchC.md",
         }
         self.assertTrue(
             required.issubset(set(package_release.INCLUDE_FILES)),
@@ -8230,15 +8275,15 @@ class DocumentationTests(unittest.TestCase):
         self.assertIn("SABLEROSETTA1", readme)
         self.assertIn("each model must build its own half", readme.lower())
         self.assertIn(
-            "optional researchb full-maintenance companion",
+            "optional researchc full-maintenance companion",
             models.lower(),
         )
 
     def test_readme_jump_links_follow_the_current_release_headings(self):
         root, _ = self._documents()
         readme = (root / "README.md").read_text(encoding="utf-8")
-        self.assertIn("(#install-the-full-windows-researchb)", readme)
-        self.assertIn("(#what-researchb-can-do)", readme)
+        self.assertIn("(#install-the-full-windows-researchc)", readme)
+        self.assertIn("(#what-researchc-can-do)", readme)
         self.assertNotIn("(#install-the-full-windows-researcha)", readme)
         self.assertNotIn("(#what-researcha-can-do)", readme)
 
@@ -8683,7 +8728,7 @@ class ReleaseModelContractTests(unittest.TestCase):
         # top -- notes, patch, its digest, downloader, its digest -- so the
         # string is updated here deliberately, as part of making that cut,
         # and never to make a failing test pass.
-        self.assertEqual(package_release.RELEASE_VERSION, "researchB")
+        self.assertEqual(package_release.RELEASE_VERSION, "researchC")
         self.assertIn(package_release.RELEASE_VERSION, package_release.ARCHIVE_NAME)
         self.assertIn(
             package_release.RELEASE_VERSION,

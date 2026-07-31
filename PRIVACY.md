@@ -1,6 +1,6 @@
 # Privacy
 
-Status: researchB data-handling disclosure, reviewed 2026-07-28.
+Status: researchC data-handling disclosure, reviewed 2026-07-28.
 
 TORMENT_NEXUS is local-first. That does not mean "nothing is stored" or
 "nothing can go online." Local conversation, speech, embeddings, memory, and
@@ -14,7 +14,7 @@ backup, search index, or synchronized copy.
 
 ## First-launch sequence and defaults
 
-On a clean researchB installation, a mandatory disclosure appears before the
+On a clean researchC installation, a mandatory disclosure appears before the
 model, microphone, activity sampler, listeners, or network-capable
 subsystems start. The exact `I UNDERSTAND` acknowledgement is saved locally.
 Anything else exits without starting those components.
@@ -100,7 +100,7 @@ process running under the same account. Bearer keys remain secrets.
 
 If `TORMENT_NEXUS_SERVER_URL` points elsewhere, complete prompts and supplied
 context—including retrieved offline-reference excerpts—can go to that
-server. researchB rejects a non-loopback `TORMENT_NEXUS_EMBED_SERVER_URL`, so
+server. researchC rejects a non-loopback `TORMENT_NEXUS_EMBED_SERVER_URL`, so
 personal memory, history, imported passages, and embedding queries are not
 sent to a remote embedding endpoint by this implementation. The local-first
 claim no longer applies to prompts sent through a remote director server.
@@ -250,7 +250,7 @@ sensed space and require consent.
 
 ### Installation and model downloads
 
-The complete researchB release is model-bearing. Initial release download
+The complete researchC release is model-bearing. Initial release download
 contacts GitHub and exposes ordinary request metadata. Source setup or model
 replacement may contact package, GitHub, Hugging Face, Piper, or other
 documented upstream services. These downloads are not designed to include

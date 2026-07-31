@@ -167,6 +167,13 @@ MODEL_REQUEST_HEADERS = {
 SUPER_DEV_WORKER_URL = os.environ.get(
     "TORMENT_NEXUS_SUPER_DEV_WORKER_URL", ""
 ).strip().rstrip("/")
+SUPER_DEV_WORKER_MODEL_PATH = os.environ.get(
+    "TORMENT_NEXUS_SUPER_DEV_WORKER_MODEL_PATH", ""
+).strip() or os.path.join(
+    PROJECT_HOME,
+    "models",
+    "Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf",
+)
 SUPER_DEV_WORKER_API_KEY = os.environ.get(
     "TORMENT_NEXUS_SUPER_DEV_WORKER_KEY", ""
 ).strip()

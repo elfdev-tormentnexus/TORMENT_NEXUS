@@ -1,8 +1,119 @@
 # Research C goals — measured uncertainty as a compute gate
 
-Status: **future work after the Research B release boundary.** Nothing in this
-document changes Research B behavior, its vector formats, or its release
-artifacts.
+Status: **Research C release candidate implemented on 2026-07-30.** Measurement
+plumbing, proof-carrying source answers, and audio endpoint recovery are in the
+candidate. No uncertainty threshold or automatic model escalation is live:
+the labelled fit/holdout evidence required to authorize either one does not
+exist yet.
+
+## Completion report — read this before the chronological lab notebook
+
+The sections below preserve the hypotheses and audit in the order they were
+formed. This report is the current disposition when an older section says
+"future work," "in flight," or "still required."
+
+### Goal 1 — instrumented, gate deliberately not installed
+
+The 14B planner and 7B patch drafter now request top-two token candidates and
+record chosen-token surprisal, worst-decile and peak surprisal, top-one/top-two
+probability margin, prompt/model/sampler binding, parseability, uniqueness,
+every existing deterministic gate outcome, and wall/server timing. Measurement
+is span-selective for the target/change and exact find/replace payloads.
+
+The sidecar cannot authorize a write, bypass a guard, or change an embedding.
+`tools/researchc_report.py` fits on one JSONL file, reports on a different
+holdout, shows false refusals beside compute avoided, and refuses unbound
+release evidence by default. The roughly 400 labelled candidates needed for a
+stable threshold have not been collected, so early refusal remains a
+counterfactual analysis only.
+
+### Goal 2 — instrumented, self-confidence behavior unchanged
+
+Durable-memory extraction now measures only the generated memory/category
+spans and records parseability, bounded category, self-reported confidence,
+deterministic rejection class, and whether the candidate was retained. Prompt,
+reply, and memory text cannot enter the telemetry API; unregistered strings
+are reduced to `unknown`, and tests attempt to smuggle private text through
+outcomes, sampler data, and timings.
+
+The existing lexical rules and confidence floor still decide retention. No
+logprob value changes memory authority, and no density-matrix representation
+has been introduced.
+
+### Goal 3 — simulation and sequential statistics, no automatic routing
+
+The offline report computes counterfactual thresholds, Bernoulli Wilson
+intervals, exact paired McNemar tests, and a predeclared Wald sequential
+probability ratio decision. It also evaluates rate–distortion candidates
+against a reduced weighted query distribution without storing raw query text.
+
+Ordinary chat still uses the 4B director and explicit editing roles still use
+their assigned models. No measured workflow currently justifies automatic
+escalation, so installing it would add compute rather than demonstrate a
+saving.
+
+### Goal 4 — causal audit completed; source facts moved into trusted code
+
+The serial paired run is frozen under
+`handoffs/researchc_evidence_2026-07-30/`. Its principal results:
+
+- `voice/session.py`: unsupported voice/session machinery in 8/8 grounded
+  answers versus 1/8 ungrounded; exact paired McNemar p = 0.015625;
+- `ui.py` line count: the grounded model copied a directory aggregate onto
+  the file in 8/8 while the ungrounded model refused 8/8; p = 0.0078125;
+- real unnamed `machinespirit_shadow.py`: false grounded denial in 7/7 and
+  ungrounded refusal in 7/7; p = 0.015625;
+- nonexistent `MemoryLedger` and false authorship: accepted 6/6 in both
+  grounded and ungrounded conditions, with zero discordant pairs. Agreement
+  and authorship capitulation are base-model biases; the manifest can decorate
+  them but this experiment does not identify it as their cause.
+
+The audit also found a source-of-truth bug: manifest line counts used newline
+count plus one, so every terminal-newline file was overcounted. Research C uses
+displayed `splitlines()` counts everywhere, reads retained edit evidence from
+the two logs the engines actually write, labels recency as neither existence
+nor authorship, and excludes `handoffs/` from product-source recency.
+
+Most importantly, narrow source questions no longer go to the director for a
+guess. Trusted code checks containment, reads the named path, computes byte and
+line counts and SHA-256, parses Python definitions or Markdown headings, and
+answers existence, definition, outline, and retained-authorship questions with
+a source receipt. This is proof on demand: it avoids spending the prompt budget
+on a full filename list and prevents a directory aggregate from becoming a
+per-file "fact."
+
+### Goal 5 — automated recovery implemented; hardware matrix remains manual
+
+The Windows renderer holds and releases a thread-scoped display/system
+execution-state request. Visualizer capture preserves the primary endpoint
+exception when SoundCard cleanup throws `S_FALSE`, renders a plain explanation,
+re-enumerates the current default endpoint, and reopens with capped backoff
+without duplicating its capture thread. Local playback detects callback/stream
+failure, reports it, and retries the same track at the last played frame;
+manual Play or Stop cancels the old recovery epoch.
+
+Mock endpoint tests and all existing local-music tests pass. A real Windows
+matrix—automatic display sleep/wake, manual lock/unlock, device switching, and
+HDMI disconnect/reconnect—is still required before the release notes may call
+the audio path hardware-validated.
+
+### New theoretical ideas — measured disposition
+
+- Equal-length gzip was promising for the voice prompt (8/8) but mixed on the
+  validation and boundary sets. It remains an offline AIT feature, not a truth
+  detector.
+- Reversing the two propositions changed compliance and formatting in two
+  replies. That is an order-effect candidate, not evidence of a
+  law-of-total-probability violation, sheaf obstruction, or quantum
+  contextuality.
+- A density matrix is not backward-compatible with cosine as proposed:
+  `tr(vvᵀwwᵀ) = |vᵀw|²` for normalized pure states, which squares similarity
+  and loses its sign. No density-matrix migration ships without a task,
+  metric, storage design, and comparison against the existing vector.
+- Rate–distortion is implemented as an offline weighted frontier. The live
+  design instead uses proof-on-demand because the real query distribution is
+  not yet measured and a trusted read is cheaper and more exact than asking
+  the model to decode a lossy manifest.
 
 ## Origin
 
@@ -528,21 +639,16 @@ power-off and automatic sleep, then restores the operator's ordinary Windows
 power policy when Sable closes. It does not prevent an intentional lock,
 sleep, lid close, or power-button action.
 
-### Still required before calling the audio path resilient
+### Recovery implementation and remaining validation
 
-- Make visualizer capture re-enumerate the default endpoint and reopen with
-  bounded backoff after endpoint/resource invalidation.
-- Make offline playback report output callback/stream failure and resume the
-  same track position after the endpoint returns.
-- Preserve the original capture exception when SoundCard cleanup produces
-  `S_FALSE`, and render a plain explanation instead of an opaque HRESULT.
-- Test display sleep/wake, manual lock/unlock, device switching, and an HDMI
-  disconnect/reconnect. Confirm that playback and visualization recover
-  without duplicating player, reader, or capture threads.
+Research C now re-enumerates visualizer capture with capped backoff, preserves
+the primary exception over cleanup `S_FALSE`, reopens playback at the saved
+frame after output failure, and prevents duplicate recovery/capture threads.
+The automated failure/recovery tests pass.
 
-The stay-awake guard prevents the observed automatic trigger. The recovery
-work remains necessary because users are still allowed to change devices or
-sleep the computer deliberately.
+Still required: test display sleep/wake, manual lock/unlock, device switching,
+and HDMI disconnect/reconnect on physical Windows audio hardware. Confirm
+playback and visualization recover and that the thread counts remain stable.
 
 ## The gates are Bernoulli parameters — name them and inherit the statistics
 
@@ -605,7 +711,9 @@ degenerate ones a raw fraction produces.
 
 ## Release boundary
 
-Research B already exposes per-token entropy when its vector panel is active.
-Research C should reuse that plumbing where appropriate, but no Research C
-threshold or routing behavior belongs in a Research B patch. The comparison
-tables come first; implementation follows only if the measurements justify it.
+Research C ships the instruments and deterministic fixes. It does **not** ship
+a learned refusal threshold, automatic model routing, compression-based truth
+score, density-matrix memory format, or contextuality claim. Those require
+their own labelled data and held-out result. The comparison tables still come
+first; instrumentation is not permission to promote a hypothesis into
+authority.

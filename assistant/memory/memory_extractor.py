@@ -19,12 +19,41 @@ import json
 import re
 import requests
 
-from core.config import DEBUG, MODEL_REQUEST_HEADERS, SERVER_URL
+from core import research_c
+from core.config import DEBUG, MODEL_PATH, MODEL_REQUEST_HEADERS, SERVER_URL
 from memory import extraction_rules as rules
 
 
 MAX_MEMORIES_PER_TURN = 3
 TIMEOUT = 60
+_CATEGORIES = {"hardware", "project", "goal", "preference", "personal"}
+
+
+def _category_label(value):
+    value = str(value or "").strip().casefold()
+    return value if value in _CATEGORIES else "other"
+
+
+def _rejection_label(reason):
+    """Stable, privacy-safe class for a deterministic memory refusal."""
+    lowered = str(reason or "").casefold()
+    if lowered == "empty":
+        return "empty"
+    if lowered == "is a question":
+        return "question"
+    if lowered == "starts like a question or instruction":
+        return "instruction"
+    if lowered.startswith("meta-commentary"):
+        return "meta_commentary"
+    if lowered.startswith("transient state"):
+        return "transient_state"
+    if lowered == "not about the person":
+        return "not_about_person"
+    if lowered == "too short":
+        return "too_short"
+    if lowered == "too long":
+        return "too_long"
+    return "unknown"
 
 
 _DURABLE_HINTS = re.compile(
@@ -105,18 +134,21 @@ def extract_memories(user_message, min_confidence=0.75):
     messages = [{"role": "system", "content": SYSTEM}]
     messages.extend(SHOTS)
     messages.append({"role": "user", "content": user_message})
+    payload = {
+        "messages": messages,
+        "temperature": 0.0,
+        "max_tokens": 200,
+        "stream": False,
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
+    payload.update(research_c.request_fields())
+    timer = research_c.Timer()
 
     try:
         response = requests.post(
             SERVER_URL + "/v1/chat/completions",
             headers=MODEL_REQUEST_HEADERS,
-            json={
-                "messages": messages,
-                "temperature": 0.0,
-                "max_tokens": 200,
-                "stream": False,
-                "chat_template_kwargs": {"enable_thinking": False},
-            },
+            json=payload,
             timeout=TIMEOUT,
         )
 
@@ -133,7 +165,28 @@ def extract_memories(user_message, min_confidence=0.75):
     if not choices:
         return []
 
-    raw = (choices[0].get("message", {}).get("content") or "").strip()
+    choice = choices[0]
+    raw = (choice.get("message", {}).get("content") or "").strip()
+
+    def record(outcomes, spans=()):
+        research_c.record(
+            "durable_memory",
+            "extraction",
+            artifact_digest=research_c.digest(user_message),
+            prompt_sha256=research_c.prompt_digest(messages),
+            sampler=research_c.sampler_record(payload),
+            measurements=research_c.measure(
+                choice.get("logprobs"),
+                raw,
+                spans=spans or None,
+            ),
+            outcomes=outcomes,
+            timing={
+                "wall_seconds": timer.elapsed(),
+                "server": result.get("timings"),
+            },
+            binding=research_c.model_binding(MODEL_PATH),
+        )
 
     if DEBUG:
         print("\nDEBUG EXTRACTION RAW:")
@@ -142,6 +195,7 @@ def extract_memories(user_message, min_confidence=0.75):
     data = _extract_json(raw)
 
     if not data:
+        record({"parseable": False, "emitted_memory": False, "kept": False})
         if DEBUG:
             print("[No JSON found in extraction]")
         return []
@@ -153,17 +207,37 @@ def extract_memories(user_message, min_confidence=0.75):
         found = [data]
 
     if not isinstance(found, list):
+        record({"parseable": True, "emitted_memory": False, "kept": False})
         return []
 
     kept = []
 
+    if not found:
+        record({"parseable": True, "emitted_memory": False, "kept": False})
+
     for item in found[:MAX_MEMORIES_PER_TURN]:
         if not isinstance(item, dict):
+            record(
+                {
+                    "parseable": True,
+                    "valid_item": False,
+                    "emitted_memory": False,
+                    "kept": False,
+                }
+            )
             continue
 
         text = item.get("memory")
 
         if not isinstance(text, str) or not text.strip():
+            record(
+                {
+                    "parseable": True,
+                    "valid_item": False,
+                    "emitted_memory": False,
+                    "kept": False,
+                }
+            )
             continue
 
         text = rules.normalize(text)
@@ -171,6 +245,16 @@ def extract_memories(user_message, min_confidence=0.75):
         reason = rules.reject_reason(text)
 
         if reason:
+            record(
+                {
+                    "parseable": True,
+                    "valid_item": True,
+                    "emitted_memory": True,
+                    "deterministic_rejection": _rejection_label(reason),
+                    "kept": False,
+                },
+                spans=(text, str(item.get("category", ""))),
+            )
             if DEBUG:
                 print(f"[Rejected: {reason}] {text}")
             continue
@@ -181,10 +265,34 @@ def extract_memories(user_message, min_confidence=0.75):
             confidence = 0.0
 
         if confidence < min_confidence:
+            record(
+                {
+                    "parseable": True,
+                    "valid_item": True,
+                    "emitted_memory": True,
+                    "self_reported_confidence": confidence,
+                    "category": _category_label(item.get("category")),
+                    "below_confidence_floor": True,
+                    "kept": False,
+                },
+                spans=(text, str(item.get("category", ""))),
+            )
             if DEBUG:
                 print(f"[Confidence {confidence:.2f} too low] {text}")
             continue
 
+        record(
+            {
+                "parseable": True,
+                "valid_item": True,
+                "emitted_memory": True,
+                "self_reported_confidence": confidence,
+                "category": _category_label(item.get("category")),
+                "deterministic_rejection": None,
+                "kept": True,
+            },
+            spans=(text, str(item.get("category", ""))),
+        )
         kept.append({
             "memory": text,
             "category": item.get("category", "other"),

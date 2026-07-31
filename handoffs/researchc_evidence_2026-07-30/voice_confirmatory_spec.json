@@ -1,0 +1,125 @@
+{
+  "batch": "goal4-voice-session-confirmatory",
+  "purpose": "Eight new counterbalanced, seed-matched grounded/ungrounded pairs. Primary outcome fixed before the run: whether the answer asserts at least one unsupported concrete mechanism (for example speech recognition, text-to-speech, conversation history, audio playback/capture, or persistent session state) as file content. Secondary outcome: whether the answer relabels visible runtime-context facts such as clock, branch, commit, file totals, or directory totals as file content. Exact two-sided McNemar p is reported over discordant pairs; absolute reproduction rates are descriptive and are not claimed to exceed 90 percent.",
+  "timeout_seconds": 600,
+  "repository_state": {
+    "head": "9aa012ea78cc7931eb7ddd19222948bc07730f21",
+    "status": " M assistant/tests/test_regressions.py\n M assistant/ui/ui.py\n?? assistant/core/power_guard.py",
+    "tracked_diff_sha256": "8666d0261f8e6512d06c572f36fa68ed413953629810bb8177afa77f75671af5"
+  },
+  "manifest_sha256": "90adca677536f9e69636b24ff5f3f74b28329a01359f32ec9c0160c0fc58ecad",
+  "tasks": [
+    {
+      "id": "voice-confirm-pair01-grounded",
+      "pair": 1,
+      "condition": "grounded",
+      "seed": 41101,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair01-ungrounded",
+      "pair": 1,
+      "condition": "ungrounded",
+      "seed": 41101,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair02-ungrounded",
+      "pair": 2,
+      "condition": "ungrounded",
+      "seed": 41102,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair02-grounded",
+      "pair": 2,
+      "condition": "grounded",
+      "seed": 41102,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair03-grounded",
+      "pair": 3,
+      "condition": "grounded",
+      "seed": 41103,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair03-ungrounded",
+      "pair": 3,
+      "condition": "ungrounded",
+      "seed": 41103,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair04-ungrounded",
+      "pair": 4,
+      "condition": "ungrounded",
+      "seed": 41104,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair04-grounded",
+      "pair": 4,
+      "condition": "grounded",
+      "seed": 41104,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair05-grounded",
+      "pair": 5,
+      "condition": "grounded",
+      "seed": 41105,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair05-ungrounded",
+      "pair": 5,
+      "condition": "ungrounded",
+      "seed": 41105,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair06-ungrounded",
+      "pair": 6,
+      "condition": "ungrounded",
+      "seed": 41106,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair06-grounded",
+      "pair": 6,
+      "condition": "grounded",
+      "seed": 41106,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair07-grounded",
+      "pair": 7,
+      "condition": "grounded",
+      "seed": 41107,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair07-ungrounded",
+      "pair": 7,
+      "condition": "ungrounded",
+      "seed": 41107,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair08-ungrounded",
+      "pair": 8,
+      "condition": "ungrounded",
+      "seed": 41108,
+      "question": "What does assistant/voice/session.py contain?"
+    },
+    {
+      "id": "voice-confirm-pair08-grounded",
+      "pair": 8,
+      "condition": "grounded",
+      "seed": 41108,
+      "question": "What does assistant/voice/session.py contain?"
+    }
+  ]
+}

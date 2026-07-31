@@ -62,7 +62,7 @@ MANIFEST_NAME = "RELEASE_MANIFEST.json"
 # and an unproven representation is not a "beta" in the ordinary sense, and
 # v0.3 / v1.0 would promise an ordered maturity this does not have. One
 # letter per release: researchA, researchB, and so on.
-RELEASE_VERSION = "researchB"
+RELEASE_VERSION = "researchC"
 ARCHIVE_STEM = f"{PACKAGE_NAME}-{RELEASE_VERSION}-windows-x64"
 ARCHIVE_NAME = f"{ARCHIVE_STEM}.zip"
 
@@ -176,6 +176,7 @@ INCLUDE_FILES = [
     "docs/RESEARCHB_STAGING_PLAN.md",
     "docs/RESEARCHC_GOALS.md",
     "docs/RELEASE_NOTES_researchB.md",
+    "docs/RELEASE_NOTES_researchC.md",
     "docs/VECTOR_TRANSLATION_RESEARCH.md",
     "docs/VECTOR_PIXEL_RESEARCH.md",
     "docs/RESEARCH_GOALS.md",
@@ -210,9 +211,10 @@ INCLUDE_FILES = [
     "tools/make_interface_shortcut.py",
     "tools/package_model_pack.py",
     "tools/package_release.py",
+    "tools/researchc_report.py",
     "tools/build_super_dev_icon.py",
-    "tools/build_researchb_fetcher.py",
-    "tools/build_researchb_decompiler.py",
+    "tools/build_researchc_fetcher.py",
+    "tools/build_researchc_decompiler.py",
     "tools/rosetta_stone.py",
     "tools/source_capsules.py",
     "tools/vector_beam.py",

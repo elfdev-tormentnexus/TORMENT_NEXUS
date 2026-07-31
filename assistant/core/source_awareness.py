@@ -70,17 +70,25 @@ whole cached prompt on every save, which during development is every few
 seconds.
 """
 
+import ast
+import hashlib
 import os
+import re
 import struct
 import time
 from collections import Counter
+
+from core import research_c
 
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROJECT_ROOT = os.path.dirname(PROJECT_ROOT)
 
 ASSISTANT_ROOT = os.path.join(PROJECT_ROOT, "assistant")
-AUTONOMOUS_LOG = os.path.join(PROJECT_ROOT, "logs", "autonomous_edits.log")
+EDIT_LOGS = (
+    os.path.join(ASSISTANT_ROOT, "logs", "autonomous_edits.log"),
+    os.path.join(ASSISTANT_ROOT, "logs", "super_dev_edits.log"),
+)
 
 # Never readable. Not safety theatre -- exactly the files whose contents
 # are an access token rather than a description of the program.
@@ -104,8 +112,8 @@ WEIGHT_SUFFIXES = (".gguf", ".safetensors", ".pt", ".pth", ".onnx", ".bin")
 
 # Excluded from the manifest only. Every one of these stays readable on
 # request; they are left out of the always-injected block because they
-# are not what this program is made of. SABLERESEARCHB is release
-# staging and contains a second copy of the whole tree plus a bundled
+# are not what this program is made of. SABLERESEARCH* directories are release
+# staging and contain a second copy of the whole tree plus a bundled
 # site-packages; assistant/cache holds a 22,000-line embedding cache;
 # the logs are read through recent_edits() rather than by name.
 MANIFEST_SKIP = (
@@ -116,13 +124,16 @@ MANIFEST_SKIP = (
     "change_plans",
     "dist",
     "firmware",
+    "handoffs",
     "llama.cpp",
     "logs",
     "models",
     "node_modules",
     "raspberry_pi_goals",
     "searxng",
+    "SABLERESEARCHA",
     "SABLERESEARCHB",
+    "SABLERESEARCHC",
     "user_library",
     "venv",
 )
@@ -134,6 +145,20 @@ MANIFEST_SUFFIXES = (".py", ".md")
 RECENT_FILE_COUNT = 12
 
 MAX_READ_BYTES = 40000
+
+# Tight recognition for questions trusted code can answer without asking the
+# director to infer from a pathname. The resolver below still applies the
+# ordinary containment and credential rules before it touches the path.
+_SOURCE_PATH = re.compile(
+    r"`([^`\r\n]+\.[A-Za-z0-9]{1,8})`"
+    r"|(?<![\w.])((?:[\w.-]+[\\/])+[\w.-]+\.[A-Za-z0-9]{1,8}"
+    r"|[\w.-]+\.(?:py|md))",
+    re.IGNORECASE,
+)
+_DEFINITION = re.compile(
+    r"\b(class|function)\s+(?:called\s+)?[`'\"]?([A-Za-z_]\w*)",
+    re.IGNORECASE,
+)
 
 # Readable on request. Broader than the manifest: the operator's decision
 # was that the logs are part of what she may know about herself.
@@ -266,6 +291,267 @@ def read_source(relative_path, max_bytes=MAX_READ_BYTES):
     return text
 
 
+def line_count(raw):
+    """Displayed text lines, without inventing one after a terminal newline."""
+    if isinstance(raw, str):
+        return len(raw.splitlines())
+    return len(bytes(raw or b"").splitlines())
+
+
+def source_facts(relative_path):
+    """Exact, proof-carrying facts for one readable project path."""
+    full = resolve_for_read(relative_path)
+    relative = os.path.relpath(full, PROJECT_ROOT).replace("\\", "/")
+
+    if not os.path.isfile(full):
+        return {
+            "path": relative,
+            "exists": False,
+            "bytes": None,
+            "lines": None,
+            "sha256": None,
+            "definitions": (),
+            "headings": (),
+        }
+
+    try:
+        with open(full, "rb") as handle:
+            raw = handle.read()
+    except OSError as error:
+        raise SourceError(f"Could not read {relative_path}: {error}") from error
+
+    definitions = []
+    headings = []
+    text = raw.decode("utf-8", "replace")
+
+    if relative.casefold().endswith(".py"):
+        try:
+            tree = ast.parse(text)
+        except SyntaxError:
+            tree = None
+
+        if tree is not None:
+            for node in ast.walk(tree):
+                if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    definitions.append(("function", node.name, node.lineno))
+                elif isinstance(node, ast.ClassDef):
+                    definitions.append(("class", node.name, node.lineno))
+            definitions.sort(key=lambda item: (item[2], item[0], item[1]))
+    elif relative.casefold().endswith(".md"):
+        for number, value in enumerate(text.splitlines(), 1):
+            match = re.match(r"^\s{0,3}(#{1,6})\s+(.+?)\s*$", value)
+            if match:
+                headings.append((len(match.group(1)), match.group(2), number))
+
+    return {
+        "path": relative,
+        "exists": True,
+        "bytes": len(raw),
+        "lines": line_count(raw),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "definitions": tuple(definitions),
+        "headings": tuple(headings),
+    }
+
+
+def _proof(facts):
+    if not facts["exists"]:
+        return f"Checked the project path `{facts['path']}` directly."
+    return (
+        f"Source receipt: `{facts['path']}`; {facts['bytes']:,} bytes; "
+        f"sha256 `{facts['sha256']}`."
+    )
+
+
+def _mentioned_path(question):
+    match = _SOURCE_PATH.search(str(question or ""))
+    if not match:
+        return None
+    return (match.group(1) or match.group(2)).strip().replace("\\", "/")
+
+
+def _retained_edit_lines():
+    """Only edits that reached a retained write, from the logs that own them."""
+    found = []
+
+    for path in EDIT_LOGS:
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace") as handle:
+                lines = [line.strip() for line in handle if line.strip()]
+        except OSError:
+            continue
+
+        found.extend(line for line in lines if "] APPLIED " in line)
+
+    return found
+
+
+def answer_question(question):
+    """Answer narrow self-source questions in trusted code, or return ``None``.
+
+    The Goal 4 audit showed why this boundary has to be executable rather than
+    aspirational. With the manifest present, the 4B copied a directory total
+    onto a file in 8/8 trials and denied a real unnamed file in 7/7. Direct
+    false-premise and authorship failures also occurred 6/6 with the manifest
+    removed. The model is therefore the wrong component to decide whether a
+    source fact is true; it may explain a checked fact, but it may not mint it.
+    """
+    path = _mentioned_path(question)
+    if not path:
+        return None
+
+    lowered = " ".join(str(question or "").casefold().split())
+    is_authorship = bool(
+        re.search(
+            r"\byou\b.{0,80}\b(?:added|changed|created|edited|wrote)\b"
+            r"|\b(?:added|changed|created|edited|wrote)\b.{0,80}\bby you\b",
+            lowered,
+        )
+    )
+    wants_lines = "how many lines" in lowered or "line count" in lowered
+    wants_bytes = "how many bytes" in lowered or "byte count" in lowered
+    definition = _DEFINITION.search(str(question or ""))
+    wants_existence = bool(
+        re.search(r"\b(?:does|do|is|are)\b.{0,90}\b(?:exist|present|have)\b", lowered)
+        or re.search(r"\b(?:exist|present)\b.{0,90}\?", lowered)
+    )
+    wants_outline = bool(
+        re.search(
+            r"\bwhat (?:does|is in)\b|\b(?:describe|summari[sz]e)\b.{0,60}\bfile\b",
+            lowered,
+        )
+    )
+
+    if not any(
+        (is_authorship, wants_lines, wants_bytes, definition,
+         wants_existence, wants_outline)
+    ):
+        return None
+
+    try:
+        facts = source_facts(path)
+    except SourceError as error:
+        return str(error)
+
+    query_kind = (
+        "authorship" if is_authorship
+        else "definition" if definition
+        else "line_count" if wants_lines
+        else "byte_count" if wants_bytes
+        else "existence" if wants_existence
+        else "outline"
+    )
+    research_c.record(
+        "source_grounding",
+        "trusted_answer",
+        artifact_digest=research_c.digest(facts["path"]),
+        prompt_sha256=research_c.digest(question),
+        sampler={},
+        measurements={},
+        outcomes={"query_kind": query_kind, "exists": facts["exists"]},
+        binding={},
+    )
+
+    if is_authorship:
+        normalized = facts["path"].casefold()
+        matches = [
+            line for line in _retained_edit_lines()
+            if normalized in line.replace("\\", "/").casefold()
+        ]
+        if not matches:
+            state = "exists" if facts["exists"] else "does not exist"
+            return (
+                f"No retained edit record says I changed `{facts['path']}`. "
+                f"The path currently {state}, but existence or recency is not "
+                f"authorship. {_proof(facts)}"
+            )
+        return (
+            f"Yes. A trusted unattended-edit record names `{facts['path']}`:\n"
+            + "\n".join(matches[-3:])
+            + "\n\n"
+            + _proof(facts)
+        )
+
+    if definition:
+        kind, name = definition.group(1).casefold(), definition.group(2)
+        matches = [
+            item for item in facts["definitions"]
+            if item[0] == kind and item[1] == name
+        ]
+        if matches:
+            lines = ", ".join(str(item[2]) for item in matches)
+            return (
+                f"Yes. `{facts['path']}` defines {kind} `{name}` at "
+                f"line {lines}. {_proof(facts)}"
+            )
+        return (
+            f"No. `{facts['path']}` defines no {kind} named `{name}`. "
+            f"{_proof(facts)}"
+        )
+
+    if wants_lines:
+        if not facts["exists"]:
+            return f"`{facts['path']}` does not exist. {_proof(facts)}"
+        return (
+            f"`{facts['path']}` has {facts['lines']:,} displayed text lines. "
+            f"{_proof(facts)}"
+        )
+
+    if wants_bytes:
+        if not facts["exists"]:
+            return f"`{facts['path']}` does not exist. {_proof(facts)}"
+        return (
+            f"`{facts['path']}` is {facts['bytes']:,} bytes. {_proof(facts)}"
+        )
+
+    if wants_existence:
+        return (
+            f"Yes, `{facts['path']}` exists. {_proof(facts)}"
+            if facts["exists"]
+            else f"No, `{facts['path']}` does not exist. {_proof(facts)}"
+        )
+
+    if wants_outline:
+        if not facts["exists"]:
+            return f"`{facts['path']}` does not exist. {_proof(facts)}"
+
+        if facts["definitions"]:
+            shown = facts["definitions"][:24]
+            outline = ", ".join(
+                f"{kind} `{name}` (line {number})"
+                for kind, name, number in shown
+            )
+            remainder = len(facts["definitions"]) - len(shown)
+            suffix = f", plus {remainder} more" if remainder else ""
+            return (
+                f"Exact Python outline for `{facts['path']}`: {outline}{suffix}. "
+                f"This is an AST outline, not a filename-based summary. "
+                f"Use `read {facts['path']}` for the source. {_proof(facts)}"
+            )
+
+        if facts["headings"]:
+            shown = facts["headings"][:24]
+            outline = ", ".join(
+                f"`{title}` (line {number})"
+                for _level, title, number in shown
+            )
+            remainder = len(facts["headings"]) - len(shown)
+            suffix = f", plus {remainder} more" if remainder else ""
+            return (
+                f"Exact Markdown headings for `{facts['path']}`: "
+                f"{outline}{suffix}. Use `read {facts['path']}` for the text. "
+                f"{_proof(facts)}"
+            )
+
+        return (
+            f"`{facts['path']}` contains no Python definitions or Markdown "
+            f"headings to outline. Use `read {facts['path']}` for the source. "
+            f"{_proof(facts)}"
+        )
+
+    return None
+
+
 def _walk_manifest_files():
     """The source files the manifest describes, relative and slash-separated."""
     skip = {_policy_key(name) for name in MANIFEST_SKIP}
@@ -314,22 +600,12 @@ def git_head():
 
 def recent_edits(limit=6):
     """
-    The tail of the autonomous edit log -- what was actually changed.
+    The tail of the trusted unattended-edit logs -- retained writes only.
 
     This is the half that answers "what have you been working on". A reply
     about work performed should come from here or from nowhere.
     """
-    if not os.path.isfile(AUTONOMOUS_LOG):
-        return []
-
-    try:
-        with open(AUTONOMOUS_LOG, "r", encoding="utf-8",
-                  errors="replace") as handle:
-            lines = [line.strip() for line in handle if line.strip()]
-    except OSError:
-        return []
-
-    return lines[-max(0, int(limit)):]
+    return _retained_edit_lines()[-max(0, int(limit)):]
 
 
 def inventory():
@@ -342,7 +618,7 @@ def inventory():
 
         try:
             with open(full, "rb") as handle:
-                lines = handle.read().count(b"\n") + 1
+                lines = line_count(handle.read())
             age_days = (now - os.path.getmtime(full)) / 86400.0
         except OSError:
             continue
@@ -605,7 +881,7 @@ def manifest_text():
     ) + ".")
 
     recent = sorted(entries, key=lambda e: e["age_days"])[:RECENT_FILE_COUNT]
-    pieces.append("Changed most recently: " + ", ".join(
+    pieces.append("Recently changed paths (recency only, never authorship): " + ", ".join(
         f"{entry['path']} ({entry['lines']}L)" for entry in recent
     ) + ".")
 
@@ -616,19 +892,21 @@ def manifest_text():
     edits = recent_edits()
     if edits:
         pieces.append(
-            "Your unattended edits, from logs/autonomous_edits.log:\n"
+            "Your retained unattended edits, from verified local edit logs:\n"
             + "\n".join(edits)
         )
     else:
         pieces.append(
-            "logs/autonomous_edits.log records no unattended edits. If you "
-            "are asked what you have changed, that is the answer: nothing "
-            "is recorded."
+            "The verified local unattended-edit logs contain no retained "
+            "edits. If you are asked what you changed, that is the answer: "
+            "nothing is recorded."
         )
 
     pieces.append(
         "This is a directory of yourself, not a memory of doing the work. "
-        "It lists what exists; it does not say what any file contains. "
+        "The Shape figures are directory aggregates, never per-file counts. "
+        "A path missing from the recent list may still exist. The list says "
+        "nothing about file contents or authorship. "
         "State what a file contains only after reading it, and state what "
         "you changed only if the edit log above says so. If you have not "
         "read a file, say so rather than describing it."

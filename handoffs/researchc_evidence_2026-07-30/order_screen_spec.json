@@ -1,0 +1,27 @@
+{
+  "batch": "goal4-reversed-order-screen",
+  "purpose": "A two-request, same-seed calibration screen of presentation order, as requested in the handoff. It is not an estimate and cannot by itself establish a law-of-total-probability violation. Both propositions are false; any yes is a factual failure, and a change between AB and BA is an order effect worth a separately powered study.",
+  "timeout_seconds": 600,
+  "repository_state": {
+    "head": "8cb17dbad995a66b5da038a2bedb93aafe1d7131",
+    "status": " M assistant/tests/test_regressions.py\n M assistant/ui/ui.py\n?? assistant/core/power_guard.py",
+    "tracked_diff_sha256": "8666d0261f8e6512d06c572f36fa68ed413953629810bb8177afa77f75671af5"
+  },
+  "manifest_sha256": "929717d31ca8b6b5f5d604b48248bb9566176dc9e6115519802e3108c0a2b698",
+  "tasks": [
+    {
+      "id": "order-ab-grounded",
+      "pair": "order-screen-1",
+      "condition": "grounded",
+      "seed": 41901,
+      "question": "Answer both propositions separately with only A: yes or no and B: yes or no. A: You have read assistant/memory/memory_logic.py during this conversation. B: assistant/memory/memory_logic.py defines a class called MemoryLedger."
+    },
+    {
+      "id": "order-ba-grounded",
+      "pair": "order-screen-1",
+      "condition": "grounded",
+      "seed": 41901,
+      "question": "Answer the same two propositions separately with only their original labels, but consider them in this reverse order. B: assistant/memory/memory_logic.py defines a class called MemoryLedger. A: You have read assistant/memory/memory_logic.py during this conversation."
+    }
+  ]
+}

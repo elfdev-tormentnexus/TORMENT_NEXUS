@@ -55,6 +55,7 @@ BASS_RELEASE_SECONDS = 0.18
 BEAT_RELEASE_SECONDS = 0.11
 BEAT_REFRACTORY_SECONDS = 0.115
 ONSET_HISTORY_SECONDS = 1.5
+RECONNECT_BACKOFF_SECONDS = (0.25, 0.5, 1.0, 2.0, 4.0)
 
 SILENT = {
     "bass": 0.0,
@@ -90,6 +91,11 @@ class AudioSource:
         self._sub_bass_mask = None
         self._kick_mask = None
         self._onset_mask = None
+        self._soundcard = None
+        self._recovering = False
+        self._capture_opened = False
+        self.last_capture_exception = None
+        self.last_cleanup_exception = None
 
         # Per-band decaying ceilings keep the display legible at any volume.
         # Their release is time-based so the same song behaves consistently
@@ -105,6 +111,9 @@ class AudioSource:
     # -- lifecycle -------------------------------------------------------
 
     def start(self):
+        if self._thread is not None and self._thread.is_alive():
+            return True
+
         try:
             import numpy as np
             import soundcard
@@ -116,6 +125,7 @@ class AudioSource:
             return False
 
         self._np = np
+        self._soundcard = soundcard
         self._buffer = np.zeros(WINDOW, dtype=np.float32)
         self._stereo_buffer = np.zeros((WINDOW, 2), dtype=np.float32)
         self._window = np.hanning(WINDOW).astype(np.float32)
@@ -129,11 +139,16 @@ class AudioSource:
             return False
 
         self.device_name = microphone.name
+        self.error = None
+        self._recovering = False
+        self.last_capture_exception = None
+        self.last_cleanup_exception = None
         self._stop.clear()
         self._ready.clear()
         self._thread = threading.Thread(
             target=self._capture_loop,
-            args=(microphone,),
+            args=(soundcard, microphone),
+            name="system-audio-capture",
             daemon=True,
         )
         self._thread.start()
@@ -143,7 +158,7 @@ class AudioSource:
         # timeout because a healthy capture thread is intentionally long-lived.
         self._ready.wait(timeout=1.2)
 
-        if self.error:
+        if self.error and not self._thread.is_alive():
             return False
 
         return True
@@ -154,6 +169,7 @@ class AudioSource:
 
         if thread is not None:
             thread.join(timeout=1.5)
+        self._recovering = False
 
     @staticmethod
     def _loopback_device(soundcard):
@@ -179,49 +195,125 @@ class AudioSource:
             "enable one with: pactl load-module module-loopback"
         )
 
-    def _capture_loop(self, microphone):
+    @staticmethod
+    def _plain_capture_error(error):
+        rendered = str(error or "").strip()
+        lowered = rendered.casefold()
+        if "0x100000001" in lowered or "s_false" in lowered:
+            return (
+                "The Windows audio endpoint stopped while the display or "
+                "device changed. Reopening the current default output."
+            )
+        return (
+            f"System audio capture was interrupted: {rendered or type(error).__name__}. "
+            "Reopening the current default output."
+        )
+
+    def _record_from(self, microphone):
+        """Record until stopped, preserving a primary error over cleanup noise."""
         np = self._np
-
+        context = microphone.recorder(
+            samplerate=SAMPLE_RATE,
+            channels=2,
+            blocksize=BLOCK,
+        )
+        recorder = None
+        primary = None
         try:
-            with microphone.recorder(
-                samplerate=SAMPLE_RATE,
-                channels=2,
-                blocksize=BLOCK,
-            ) as recorder:
-                self._ready.set()
-                while not self._stop.is_set():
-                    block = np.asarray(
-                        recorder.record(numframes=BLOCK),
-                        dtype=np.float32,
-                    )
+            recorder = context.__enter__()
+            self._capture_opened = True
+            self.error = None
+            self._recovering = False
+            self._ready.set()
+            while not self._stop.is_set():
+                block = np.asarray(
+                    recorder.record(numframes=BLOCK),
+                    dtype=np.float32,
+                )
 
-                    if block.ndim == 1:
-                        block = block.reshape(-1, 1)
+                if block.ndim == 1:
+                    block = block.reshape(-1, 1)
 
-                    if block.shape[1] == 1:
-                        stereo = np.repeat(block, 2, axis=1)
+                if block.shape[1] == 1:
+                    stereo = np.repeat(block, 2, axis=1)
+                else:
+                    stereo = block[:, :2]
+
+                mono = stereo.mean(axis=1)
+                count = len(mono)
+
+                if not count:
+                    continue
+
+                with self._lock:
+                    if count >= WINDOW:
+                        self._buffer[:] = mono[-WINDOW:]
+                        self._stereo_buffer[:] = stereo[-WINDOW:]
                     else:
-                        stereo = block[:, :2]
-
-                    mono = stereo.mean(axis=1)
-                    count = len(mono)
-
-                    if not count:
-                        continue
-
-                    with self._lock:
-                        if count >= WINDOW:
-                            self._buffer[:] = mono[-WINDOW:]
-                            self._stereo_buffer[:] = stereo[-WINDOW:]
-                        else:
-                            self._buffer[:-count] = self._buffer[count:]
-                            self._buffer[-count:] = mono
-                            self._stereo_buffer[:-count] = (
-                                self._stereo_buffer[count:]
-                            )
-                            self._stereo_buffer[-count:] = stereo
+                        self._buffer[:-count] = self._buffer[count:]
+                        self._buffer[-count:] = mono
+                        self._stereo_buffer[:-count] = (
+                            self._stereo_buffer[count:]
+                        )
+                        self._stereo_buffer[-count:] = stereo
         except Exception as error:
-            self.error = f"System audio capture stopped: {error}"
+            primary = error
+        finally:
+            if recorder is not None:
+                try:
+                    context.__exit__(
+                        type(primary) if primary else None,
+                        primary,
+                        primary.__traceback__ if primary else None,
+                    )
+                except Exception as cleanup_error:
+                    self.last_cleanup_exception = repr(cleanup_error)
+                    if primary is None and not self._stop.is_set():
+                        primary = cleanup_error
+
+        if primary is not None:
+            raise primary
+
+    def _capture_loop(self, soundcard, microphone):
+        attempt = 0
+        current = microphone
+
+        while not self._stop.is_set():
+            self.device_name = getattr(current, "name", None)
+            self._capture_opened = False
+            try:
+                self._record_from(current)
+            except Exception as error:
+                if self._stop.is_set():
+                    break
+                self.last_capture_exception = repr(error)
+                self.error = self._plain_capture_error(error)
+                self._recovering = True
+                self._ready.set()
+                if self._capture_opened:
+                    attempt = 0
+            else:
+                break
+
+            delay = RECONNECT_BACKOFF_SECONDS[
+                min(attempt, len(RECONNECT_BACKOFF_SECONDS) - 1)
+            ]
+            attempt += 1
+            if self._stop.wait(delay):
+                break
+
+            try:
+                current = self._loopback_device(soundcard)
+            except Exception as error:
+                self.last_capture_exception = repr(error)
+                self.error = self._plain_capture_error(error)
+                continue
+
+            # Re-enumeration alone is not recovery. _record_from clears the
+            # visible error only after the replacement recorder really opens.
+
+        if not self._stop.is_set() and self._recovering:
+            self.error = self.error or "System audio capture stopped."
             self._ready.set()
 
     # -- analysis --------------------------------------------------------

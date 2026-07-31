@@ -21,11 +21,15 @@ import json
 import re
 import requests
 
+from core import research_c
 from core.config import (
     CONTEXT_SIZE,
     DEBUG,
+    MODEL_PATH,
     MODEL_REQUEST_HEADERS,
     SERVER_URL,
+    SUPER_DEV_WORKER_MODEL_PATH,
+    SUPER_DEV_WORKER_URL,
 )
 from ui import ui
 
@@ -372,21 +376,25 @@ def generate_edit(filename, file_content, request, *, server_url=None, headers=N
         )
 
     response_tokens = min(MAX_TOKENS, available_output)
+    messages = [
+        {"role": "system", "content": SYSTEM},
+        {"role": "user", "content": user_message},
+    ]
+    payload = {
+        "messages": messages,
+        "temperature": 0.0,
+        "max_tokens": response_tokens,
+        "stream": False,
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
+    payload.update(research_c.request_fields())
+    timer = research_c.Timer()
 
     try:
         response = requests.post(
             endpoint + "/v1/chat/completions",
             headers=request_headers,
-            json={
-                "messages": [
-                    {"role": "system", "content": SYSTEM},
-                    {"role": "user", "content": user_message},
-                ],
-                "temperature": 0.0,
-                "max_tokens": response_tokens,
-                "stream": False,
-                "chat_template_kwargs": {"enable_thinking": False},
-            },
+            json=payload,
             timeout=TIMEOUT,
         )
 
@@ -404,7 +412,41 @@ def generate_edit(filename, file_content, request, *, server_url=None, headers=N
     if not choices:
         return None, f"Unexpected response from the model: {result}"
 
-    raw = (choices[0].get("message", {}).get("content") or "").strip()
+    choice = choices[0]
+    raw = (choice.get("message", {}).get("content") or "").strip()
+    binding_path = (
+        SUPER_DEV_WORKER_MODEL_PATH
+        if SUPER_DEV_WORKER_URL
+        and endpoint.casefold() == SUPER_DEV_WORKER_URL.casefold()
+        else MODEL_PATH
+    )
+
+    def record(outcomes, spans=()):
+        research_c.record(
+            "super_dev" if binding_path == SUPER_DEV_WORKER_MODEL_PATH else "edit",
+            "patch",
+            artifact_digest=research_c.digest(filename, request),
+            prompt_sha256=research_c.prompt_digest(messages),
+            sampler=research_c.sampler_record(payload),
+            measurements=research_c.measure(
+                choice.get("logprobs"),
+                raw,
+                spans=spans or None,
+            ),
+            outcomes=outcomes,
+            timing={
+                "wall_seconds": timer.elapsed(),
+                "server": result.get("timings"),
+            },
+            binding=research_c.model_binding(
+                binding_path,
+                role=(
+                    "worker"
+                    if binding_path == SUPER_DEV_WORKER_MODEL_PATH
+                    else "director"
+                ),
+            ),
+        )
 
     if DEBUG:
         print("\nDEBUG EDIT RAW:")
@@ -417,6 +459,7 @@ def generate_edit(filename, file_content, request, *, server_url=None, headers=N
     data = _extract_json(raw)
 
     if not data:
+        record({"parseable": False, "unique_patch": False})
         return None, "The model did not return usable JSON."
 
     find = data.get("find")
@@ -424,18 +467,28 @@ def generate_edit(filename, file_content, request, *, server_url=None, headers=N
     explanation = (data.get("explanation") or "").strip()
 
     if find is None:
+        record(
+            {"parseable": True, "declined": True, "unique_patch": False},
+            spans=(explanation,),
+        )
         return None, explanation or "The model declined to make this change."
 
     if not isinstance(find, str) or not isinstance(replace, str):
+        record({"parseable": True, "valid_types": False, "unique_patch": False})
         return None, "The model returned the wrong types for find/replace."
 
     if not find.strip():
+        record({"parseable": True, "empty_find": True, "unique_patch": False})
         return None, "The model returned an empty search block."
 
     # The load-bearing check.
     occurrences = file_content.count(find)
 
     if occurrences == 0:
+        record(
+            {"parseable": True, "occurrences": 0, "unique_patch": False},
+            spans=(find, replace),
+        )
         return None, (
             "The text the model wants to replace is not in the file.\n"
             "It most likely paraphrased instead of copying exactly.\n\n"
@@ -444,6 +497,14 @@ def generate_edit(filename, file_content, request, *, server_url=None, headers=N
         )
 
     if occurrences > 1:
+        record(
+            {
+                "parseable": True,
+                "occurrences": occurrences,
+                "unique_patch": False,
+            },
+            spans=(find, replace),
+        )
         return None, (
             f"That text appears {occurrences} times in the file, so the "
             "edit is ambiguous.\nTry a more specific request naming the "
@@ -451,8 +512,16 @@ def generate_edit(filename, file_content, request, *, server_url=None, headers=N
         )
 
     if find == replace:
+        record(
+            {"parseable": True, "no_op": True, "unique_patch": False},
+            spans=(find, replace),
+        )
         return None, "The model returned an edit that changes nothing."
 
+    record(
+        {"parseable": True, "occurrences": 1, "unique_patch": True},
+        spans=(find, replace),
+    )
     return {
         "find": find,
         "replace": replace,

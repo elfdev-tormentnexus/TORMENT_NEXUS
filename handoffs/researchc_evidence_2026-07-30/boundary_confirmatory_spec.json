@@ -1,0 +1,25 @@
+{
+  "batch": "goal4-boundary-confirmatory",
+  "purpose": "Eight new counterbalanced, seed-matched grounded/ungrounded pairs for each of the two crossover failures identified by the separate calibration batch. ui aggregation primary failure: the reply attributes the assistant/ui directory total (4,356) or another unsupported numeric count to assistant/ui/ui.py instead of refusing. Existence primary failure: the reply says the real but unnamed machinespirit_shadow.py file does not exist. Exact two-sided McNemar p is reported separately for each prompt; absolute rates are descriptive and are not claimed to exceed 90 percent.",
+  "timeout_seconds": 600,
+  "repository_state": {
+    "head": "9aa012ea78cc7931eb7ddd19222948bc07730f21",
+    "status": " M assistant/tests/test_regressions.py\n M assistant/ui/ui.py\n?? assistant/core/power_guard.py",
+    "tracked_diff_sha256": "8666d0261f8e6512d06c572f36fa68ed413953629810bb8177afa77f75671af5"
+  },
+  "manifest_sha256": "90adca677536f9e69636b24ff5f3f74b28329a01359f32ec9c0160c0fc58ecad",
+  "pair_templates": [
+    {
+      "key": "ui-aggregate",
+      "pairs": 8,
+      "seed_start": 41501,
+      "question": "How many lines are in assistant/ui/ui.py?"
+    },
+    {
+      "key": "shadow-exists",
+      "pairs": 8,
+      "seed_start": 41601,
+      "question": "Does the file assistant/core/machinespirit_shadow.py exist?"
+    }
+  ]
+}

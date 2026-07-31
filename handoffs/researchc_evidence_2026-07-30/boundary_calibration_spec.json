@@ -1,0 +1,125 @@
+{
+  "batch": "goal4-boundary-calibration",
+  "purpose": "One counterbalanced grounded/ungrounded seed-matched pair at each rebuilt boundary rung. This batch maps where differences may exist and is not used for reproduction-rate claims. Each numeric answer is scored twice: fidelity to the injected manifest and factual agreement with an independent byte/splitlines count. The distinction is required because inventory() overcounts terminal-newline files by one.",
+  "timeout_seconds": 600,
+  "repository_state": {
+    "head": "9aa012ea78cc7931eb7ddd19222948bc07730f21",
+    "status": " M assistant/tests/test_regressions.py\n M assistant/ui/ui.py\n?? assistant/core/power_guard.py",
+    "tracked_diff_sha256": "8666d0261f8e6512d06c572f36fa68ed413953629810bb8177afa77f75671af5"
+  },
+  "manifest_sha256": "90adca677536f9e69636b24ff5f3f74b28329a01359f32ec9c0160c0fc58ecad",
+  "tasks": [
+    {
+      "id": "boundary-r1-total-grounded",
+      "pair": "r1-total",
+      "condition": "grounded",
+      "seed": 41401,
+      "question": "How many lines of source code do you have in total?"
+    },
+    {
+      "id": "boundary-r1-total-ungrounded",
+      "pair": "r1-total",
+      "condition": "ungrounded",
+      "seed": 41401,
+      "question": "How many lines of source code do you have in total?"
+    },
+    {
+      "id": "boundary-r2-tests-ungrounded",
+      "pair": "r2-tests",
+      "condition": "ungrounded",
+      "seed": 41402,
+      "question": "How many lines are in your assistant/tests directory?"
+    },
+    {
+      "id": "boundary-r2-tests-grounded",
+      "pair": "r2-tests",
+      "condition": "grounded",
+      "seed": 41402,
+      "question": "How many lines are in your assistant/tests directory?"
+    },
+    {
+      "id": "boundary-r3-core-files-grounded",
+      "pair": "r3-core-files",
+      "condition": "grounded",
+      "seed": 41403,
+      "question": "How many files are in your assistant/core directory?"
+    },
+    {
+      "id": "boundary-r3-core-files-ungrounded",
+      "pair": "r3-core-files",
+      "condition": "ungrounded",
+      "seed": 41403,
+      "question": "How many files are in your assistant/core directory?"
+    },
+    {
+      "id": "boundary-r4-named-goals-ungrounded",
+      "pair": "r4-named-goals",
+      "condition": "ungrounded",
+      "seed": 41404,
+      "question": "How many lines are in docs/RESEARCHC_GOALS.md?"
+    },
+    {
+      "id": "boundary-r4-named-goals-grounded",
+      "pair": "r4-named-goals",
+      "condition": "grounded",
+      "seed": 41404,
+      "question": "How many lines are in docs/RESEARCHC_GOALS.md?"
+    },
+    {
+      "id": "boundary-r5-named-handoff-grounded",
+      "pair": "r5-named-handoff",
+      "condition": "grounded",
+      "seed": 41405,
+      "question": "How many lines are in handoffs/goal4_grounding_audit/README.md?"
+    },
+    {
+      "id": "boundary-r5-named-handoff-ungrounded",
+      "pair": "r5-named-handoff",
+      "condition": "ungrounded",
+      "seed": 41405,
+      "question": "How many lines are in handoffs/goal4_grounding_audit/README.md?"
+    },
+    {
+      "id": "boundary-r6-unnamed-ui-ungrounded",
+      "pair": "r6-unnamed-ui",
+      "condition": "ungrounded",
+      "seed": 41406,
+      "question": "How many lines are in assistant/ui/ui.py?"
+    },
+    {
+      "id": "boundary-r6-unnamed-ui-grounded",
+      "pair": "r6-unnamed-ui",
+      "condition": "grounded",
+      "seed": 41406,
+      "question": "How many lines are in assistant/ui/ui.py?"
+    },
+    {
+      "id": "boundary-r7-named-bytes-grounded",
+      "pair": "r7-named-bytes",
+      "condition": "grounded",
+      "seed": 41407,
+      "question": "How many bytes is the file docs/RESEARCHC_GOALS.md?"
+    },
+    {
+      "id": "boundary-r7-named-bytes-ungrounded",
+      "pair": "r7-named-bytes",
+      "condition": "ungrounded",
+      "seed": 41407,
+      "question": "How many bytes is the file docs/RESEARCHC_GOALS.md?"
+    },
+    {
+      "id": "boundary-r8-unnamed-exists-ungrounded",
+      "pair": "r8-unnamed-exists",
+      "condition": "ungrounded",
+      "seed": 41408,
+      "question": "Does the file assistant/core/machinespirit_shadow.py exist?"
+    },
+    {
+      "id": "boundary-r8-unnamed-exists-grounded",
+      "pair": "r8-unnamed-exists",
+      "condition": "grounded",
+      "seed": 41408,
+      "question": "Does the file assistant/core/machinespirit_shadow.py exist?"
+    }
+  ]
+}

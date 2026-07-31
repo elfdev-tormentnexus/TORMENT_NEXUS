@@ -1,6 +1,6 @@
 # Models and provenance
 
-Status: release artifact inventory for `researchB`, reviewed
+Status: release artifact inventory for `researchC`, reviewed
 2026-07-28.
 
 This file separates model behavior, application authority, and redistribution
@@ -12,9 +12,9 @@ All hashes below are SHA-256 values computed from the local files. Byte sizes
 are exact. A matching repository file was treated as the byte source only
 when its published size and complete SHA-256 both matched the local artifact.
 
-## researchB model-bearing release decision
+## researchC model-bearing release decision
 
-The full Windows researchB package intentionally carries the 4B director, 7B maintenance
+The full Windows researchC package intentionally carries the 4B director, 7B maintenance
 coder, and BGE embedding model. The 14B full-maintenance coder is intentionally
 published as a separate, versioned add-on asset set because of its size.
 
@@ -56,7 +56,7 @@ controls are not an operating-system sandbox. See `SAFETY.md`.
 - **License status:** the uploader declares no license. The model card says
   “More Information Needed” for license, developer, source, fine-tuned-from,
   risks, and limitations.
-- **Release status:** included in the full Windows researchB package by the project
+- **Release status:** included in the full Windows researchC package by the project
   owner's explicit decision. The missing license declaration remains
   unresolved; inclusion must not be represented as proof of permission.
 
@@ -79,7 +79,7 @@ or, by itself, grant rights to this modified GGUF.
 - **Identity evidence:** the repository's Q8_0 GGUF reports the same exact
   byte size and SHA-256 as this local file.
 - **License status:** the uploader declares `AGPL-3.0`.
-- **Release status:** included in the full Windows researchB package. Any redistribution
+- **Release status:** included in the full Windows researchC package. Any redistribution
   must be reviewed for the uploader-declared AGPL-3.0 terms and any applicable
   upstream model terms. The included Qwen Apache-2.0 notice must not be
   presented as replacing the uploader’s AGPL declaration.
@@ -179,11 +179,11 @@ Role: local English automatic speech recognition through sherpa-onnx.
 - **License evidence:** the upstream Silero VAD project publishes its code and
   pretrained models under MIT and carries the Silero Team MIT notice.
 - **Packaged notice:** `LICENSES/SILERO_VAD_MIT.txt`
-- **Release status:** included in the full Windows researchB package. The local hash
+- **Release status:** included in the full Windows researchC package. The local hash
   identifies the shipped bytes; the upstream notice identifies the terms
   published for Silero VAD rather than proving a separate artifact signature.
 
-## Optional researchB full-maintenance companion
+## Optional researchC full-maintenance companion
 
 ### Qwen2.5-Coder 14B abliterated Q4_K_M
 
@@ -206,15 +206,15 @@ Role: local English automatic speech recognition through sherpa-onnx.
   derivative repository display `apache-2.0`. This records uploader metadata;
   it is not an independent legal conclusion about every input to the
   derivative chain.
-- **Release status:** current optional companion to researchB, not an old or
-  superseded model. The researchB release republishes its exact verified
+- **Release status:** current optional companion to researchC, not an old or
+  superseded model. The researchC release republishes its exact verified
   model as a separate machinesoul vector-field set rather than placing the
   8.4 GB model inside the main Windows package.
 
 The versioned model-pack manifest and installer refuse any source file whose
 size or SHA-256 differs from the values above.
 
-## Developer-workspace model not selected for researchB
+## Developer-workspace model not selected for researchC
 
 This file currently exists in the development workspace but is not selected
 by either the full Windows package or the optional 14B model pack:

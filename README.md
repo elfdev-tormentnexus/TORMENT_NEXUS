@@ -13,7 +13,7 @@
 <h1 align="center">TORMENT_NEXUS</h1>
 
 <p align="center">
-  <code>researchB</code>&nbsp; · &nbsp;<em>the pixels are the payload</em>&nbsp; · &nbsp;<code>MACHINESOUL1</code>
+  <code>researchC</code>&nbsp; · &nbsp;<em>the pixels are the payload</em>&nbsp; · &nbsp;<code>MACHINESOUL1</code>
 </p>
 
 <p align="center">
@@ -33,7 +33,7 @@
 > [!CAUTION]
 > **Read this before downloading or installing.**
 >
-> The ready-to-run researchB Windows capsules carry a **full, model-bearing
+> The ready-to-run researchC Windows capsules carry a **full, model-bearing
 > installation tree**.
 > They include community-modified “abliterated” Qwen language models whose
 > learned refusal behavior has been deliberately weakened. This is not a
@@ -54,7 +54,7 @@
 
 <p align="center">
   <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases">
-    <strong>Open GitHub Releases and select researchB</strong>
+    <strong>Open GitHub Releases and select researchC</strong>
   </a>
 </p>
 
@@ -62,7 +62,7 @@
 
 | | |
 | --- | --- |
-| Current build | `researchB` — experimental research release, not a stable product |
+| Current build | `researchC` — experimental research release, not a stable product |
 | Platform | 64-bit Windows only. There is no macOS or Linux build. |
 | Download | About 12.4 GB for the main capsule set; the optional 14B companion adds about 8.8 GB. |
 | Free disk needed | About 55 GB during installation, because capsules, decoded segments, and the reconstructed tree coexist. |
@@ -76,9 +76,9 @@ list of PNG files will not make sense.*
 [Why local](#why-local-and-what-it-is-for) ·
 [The two languages](#the-two-languages) ·
 [Choose your path](#choose-your-path) ·
-[Install](#install-the-full-windows-researchb) ·
+[Install](#install-the-full-windows-researchc) ·
 [First-launch defaults](#safe-first-launch-defaults) ·
-[What it can do](#what-researchb-can-do) ·
+[What it can do](#what-researchc-can-do) ·
 [Sensing](#sensing-active-research-not-sight) ·
 [machinespirit](#machinespirit-locating-meaning-not-just-measuring-it) ·
 [Privacy](#privacy-and-network-summary) ·
@@ -191,19 +191,19 @@ the same.
 | Understand the first-launch warning and privacy defaults | [Your first session](docs/FIRST_RUN.md) |
 | See exactly what works and what does not | [Capabilities and limits](docs/CAPABILITIES_AND_LIMITS.md) |
 | Add manuals, encyclopedias, and practical references | [Offline knowledge](docs/OFFLINE_KNOWLEDGE.md) |
-| Test researchB | [Research build guide](docs/BETA_GUIDE.md) and [Testing](docs/TESTING.md) |
+| Test researchC | [Research build guide](docs/BETA_GUIDE.md) and [Testing](docs/TESTING.md) |
 | Review models and third-party terms | [Models](MODELS.md) and [Third-party notices](THIRD_PARTY_NOTICES.md) |
 | Work on the source | [Architecture](docs/ARCHITECTURE.md) and [Contributing](CONTRIBUTING.md) |
 | Connect an outside development agent | [Agent interface](docs/AGENT_INTERFACE.md) |
 | Understand vectors and AI bridges | [Semantic retrieval and agent bridges](docs/SEMANTIC_AND_AGENT_BRIDGES.md) |
 | Review sensing and hardware research | [Sensing module notes](docs/SENSING_MODULE.md) |
 
-## Install the full Windows researchB
+## Install the full Windows researchC
 
 *You are not downloading the program. You are downloading its image, and
 developing it.*
 
-researchB deliberately makes machinesoul part of the installation path. The
+researchC deliberately makes machinesoul part of the installation path. The
 full package is carried inside lossless PNG/APNG capsules, so a recipient must
 run the published `machinesoul.py` decompiler before an installable directory
 exists. This is not encryption or a file-size workaround: each ordered pixel-
@@ -232,26 +232,26 @@ decompilation, the reconstructed installation contains:
 | About 55 GB free during installation | Downloaded capsules, decoded vector segments, and the directly reconstructed installation temporarily coexist. |
 | Internet for the initial download | About 12.4 GB for the main capsule set, plus about 8.8 GB if you also take the 14B companion. Ordinary local conversation and the offline library work without it afterward. |
 | Python 3 | Required only to run the published machinesoul decompiler. |
-| Microphone only if desired | researchB starts in text mode, with microphone use off. |
+| Microphone only if desired | researchC starts in text mode, with microphone use off. |
 
-### Five steps
+### Four steps
 
 1. Open [GitHub Releases](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases),
-   select `researchB`, expand **Assets**, and read its warning, checksums,
+   select `researchC`, expand **Assets**, and read its warning, checksums,
    model provenance, and known issues. The small plaintext
-   `FETCH_SABLERESEARCHB.bat` is the easiest path: double-click it to resume
+   `FETCH_SABLERESEARCHC.bat` is the easiest path: double-click it to resume
    and SHA-256-verify every required bootstrap and Windows capsule. It does
    not fetch the optional 14B companion. An interrupted download remains as a
    plainly named `.partial` file; rerunning the fetcher resumes it, and the
    final capsule name appears only after its checksum passes. If you prefer to
-   download manually, take `machinesoul.py`, `DECOMPILE_SABLE_researchB.bat`,
-   `SABLERESEARCHB-MANIFEST.png`, `SABLERESEARCHB-REASSEMBLER.png`, and every
-   consecutive file from `SABLERESEARCHB-WINDOWS.part01.png` through
-   `SABLERESEARCHB-WINDOWS.partNN.png` — however many the Assets list shows.
+   download manually, take `machinesoul.py`, `DECOMPILE_SABLE_researchC.bat`,
+   `SABLERESEARCHC-MANIFEST.png`, `SABLERESEARCHC-REASSEMBLER.png`, and every
+   consecutive file from `SABLERESEARCHC-WINDOWS.part01.png` through
+   `SABLERESEARCHC-WINDOWS.partNN.png` — however many the Assets list shows.
    How many parts there are is decided by the cut, not by this page. A missing
    part is refused rather than silently skipped, so you cannot get this wrong
    quietly.
-2. Keep those files together and run `DECOMPILE_SABLE_researchB.bat`. It calls
+2. Keep those files together and run `DECOMPILE_SABLE_researchC.bat`. It calls
    machinesoul for every required image. The manifest and reassembler are
    themselves recovered from machinesoul; each package capsule yields one
    verified vector segment. The same helper automatically invokes the
@@ -259,24 +259,20 @@ decompilation, the reconstructed installation contains:
    install directory, and runs `setup.bat`. Rosetta Stone, its anchor material,
    tests, and research documents are files in that directly preserved tree.
    **Do not screenshot, optimise, or re-encode the images.**
-3. If all optional capsules from `SABLERESEARCHB-14B.part01.png` through
-   `SABLERESEARCHB-14B.partNN.png` are present — again, as many as the Assets
+3. If all optional capsules from `SABLERESEARCHC-14B.part01.png` through
+   `SABLERESEARCHC-14B.partNN.png` are present — again, as many as the Assets
    list shows — that same pass decompiles and installs the 14B companion. If
    none are present it skips it; a partial set refuses.
-4. Install the required self-read patch described below. Keep
-   `machinesoul.py` and `SABLERESEARCHB-REASSEMBLER.png`, download the patch
-   installer and its two machinesoul fields, then double-click
-   `INSTALL_SABLERESEARCHB_SELFREAD_PATCH.bat`.
-5. Launch the desktop shortcut. Before any model, microphone, activity
+4. Launch the desktop shortcut. Before any model, microphone, activity
    sampler, listener, or network-capable subsystem starts, the application
    displays its disclosure and requires the exact text `I UNDERSTAND`.
    Anything else closes the application without starting those components.
 
 ### The optional 14B companion
 
-The Qwen2.5-Coder 14B full-maintenance pack is the current researchB companion
+The Qwen2.5-Coder 14B full-maintenance pack is the current researchC companion
 for deliberately requested long self-heal and extended editing sessions. It is
-not superseded or obsolete, and researchB republishes the exact model as its
+not superseded or obsolete, and researchC republishes the exact model as its
 own machinesoul vector-field set rather than duplicating it inside the already
 model-bearing main package.
 
@@ -285,29 +281,6 @@ Q4_K_M against the 7B's Q8_0 — roughly double the parameters at roughly half
 the precision per weight. Take it for *longer* sessions, not for better
 answers, and skip it if the extra 8.8 GB download and 8.4 GB installed are not
 worth that trade to you.
-
-### Required self-read patch
-
-The main fields preserve the approved `567d4a8` cut. A small required patch
-adds the source-awareness work completed immediately afterward. Download
-these three assets into the same folder as the decompiler and reassembler:
-
-```text
-INSTALL_SABLERESEARCHB_SELFREAD_PATCH.bat
-SABLERESEARCHB-SELFREAD-PATCH.part01.png
-SABLERESEARCHB-SELFREAD-PATCH-MANIFEST.png
-```
-
-Run the patch installer after the main decompiler. It verifies the exact
-Research B base before changing anything, refuses missing or unfamiliar
-files, preserves replaced originals under the installation's `backups`
-folder, adds the two new source-awareness files, and updates
-`RELEASE_MANIFEST.json`. Running it again is safe and reports `already
-applied`.
-
-This is a direct machinesoul patch, not a ZIP. The Research A
-calibration-clarity correction is already incorporated in the main Research B
-tree; this separate patch serves a different purpose.
 
 <details>
 <summary>Why the files must remain unchanged</summary>
@@ -364,7 +337,7 @@ default. Window titles can reveal filenames, pages, and message previews.
 The choice persists. `activity off` persists the off choice and deletes both
 the in-memory observations and `assistant\memory\activity_log.jsonl`.
 
-## What researchB can do
+## What researchC can do
 
 ### Local companion
 
@@ -382,7 +355,7 @@ the in-memory observations and `assistant\memory\activity_log.jsonl`.
 
 ### Offline practical knowledge
 
-researchB contains an independent local reference library with built-in Canadian
+researchC contains an independent local reference library with built-in Canadian
 preparedness cards and a private user shelf. It supports:
 
 ```text
@@ -563,7 +536,7 @@ nothing rather than compare incompatible coordinates.
 
 ### Source awareness: preventing invented implementation claims
 
-Research B's required self-read patch addresses a measured failure at the
+Research C's integrated source awareness addresses a measured failure at the
 point where it begins. Asked what it had changed in the vector panel, the 4B
 director once described hover tooltips in a terminal interface that has no
 hover and contained no such work. In three repeated openings, one response
@@ -572,11 +545,13 @@ reply. The confabulated response then had *lower* mean candidate entropy than
 an honest open-ended response (`0.104` versus `0.152`), so downstream
 uncertainty was not a dependable detector.
 
-The patch therefore puts a compact, current source inventory into the runtime
-context before generation. It names the tree's shape, recent files, recorded
-autonomous edits, and the GGUF header's architecture and quantisation without
-feeding tensor data to the model. The `self` command shows exactly that block;
-`read <path>` reads a named project text file with visible truncation. This is
+The release therefore puts a compact, current source inventory into the
+runtime context before generation. It names the tree's shape, recent files,
+recorded autonomous edits, and the GGUF header's architecture and quantisation
+without feeding tensor data to the model. The `self` command shows exactly
+that block; `read <path>` reads a named project text file with visible
+truncation. Narrow existence, count, definition, outline, and authorship
+questions are checked in trusted code and carry a source receipt. This is
 grounding, not introspective telemetry: it can show what is on disk, but it
 does not prove that the model authored a change or understands its own hidden
 computation.
@@ -616,12 +591,12 @@ model has no dependable relationship to dimension 7 in another, even when
 both models happen to have the same number of dimensions. Comparing their
 ordinary vectors directly produces noise.
 
-`tools/rosetta_stone.py` is the experimental bridge included with researchB.
+`tools/rosetta_stone.py` is the experimental bridge included with researchC.
 It gives each model the same ordered, human-readable anchor texts, then
 describes a vector by its similarities to that shared decree. The resulting
 `SABLEROSETTA1` halves can be compared only when their anchor digests match.
 Each model must build its own half; a prebuilt stone is model-, quantization-,
-and pooling-specific, so researchB does not pretend one universal stone can
+and pooling-specific, so researchC does not pretend one universal stone can
 exist.
 
 This is an implementation and measurement of published **relative
@@ -672,7 +647,7 @@ came out negative, and name the prior art first:
 | Web search | May send a derived query to configured SearXNG/Brave when current information is requested or inferred. |
 | Cloud escalation | Off; sends only the explicit `escalate` question when separately enabled. |
 | Agent API | Off; loopback-only and bearer-token authenticated, but capable of returning private memory/reference results. |
-| Custom director/model URL | Can receive prompts and retrieved context; “local” no longer applies to that traffic. researchB rejects non-loopback embedding URLs. |
+| Custom director/model URL | Can receive prompts and retrieved context; “local” no longer applies to that traffic. researchC rejects non-loopback embedding URLs. |
 | Spotify and MusicBrainz | Optional; search/account/playback metadata crosses their service boundaries. |
 | T-Deck and LoRa | Optional; messages cross Bluetooth and the configured mesh. |
 
@@ -681,7 +656,7 @@ activity, connected services, or agent access.
 
 ## Project status and rights
 
-researchB is experimental. Important claims and generated code require human
+researchC is experimental. Important claims and generated code require human
 verification. The functional test suite does not certify content safety,
 security, legality, factuality, or fitness for high-stakes use.
 
@@ -725,9 +700,9 @@ activity logs, keys, tokens, passcodes, pairing data, or personal paths.
 - [Semantic retrieval and agent bridges](docs/SEMANTIC_AND_AGENT_BRIDGES.md)
 - [Research goals](docs/RESEARCH_GOALS.md)
 - [Research C goals: logprob compute gates](docs/RESEARCHC_GOALS.md)
-- [Research B release notes](docs/RELEASE_NOTES_researchB.md)
+- [Research C release notes](docs/RELEASE_NOTES_researchC.md)
 - [Research A-to-B evidence inherited by this release](docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md)
-- [How researchB is cut into machinesoul fields](docs/MACHINESOUL_RELEASE_CUT_METHOD.md)
+- [How researchC is cut into machinesoul fields](docs/MACHINESOUL_RELEASE_CUT_METHOD.md)
 - [Sensing module notes](docs/SENSING_MODULE.md)
 - [Bring your own GGUF](docs/BRING_YOUR_OWN_GGUF.md)
 
@@ -754,8 +729,8 @@ interface feedback. Several features began as ideas offered in conversation.
 
 **Claude (Anthropic)** - collaborative implementation, adversarial review,
 source-awareness experiments, and research documentation across the Research
-A and Research B development sessions.
+A and Research C development sessions.
 
 **OpenAI Codex** - release engineering, streaming machinesoul verification,
 Windows capsule cutting and reconstruction audits, patch validation, and the
-final GitHub integrity and documentation pass for Research B.
+final GitHub integrity and documentation pass for Research C.

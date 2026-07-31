@@ -1,9 +1,9 @@
-# TORMENT_NEXUS researchB release checklist
+# TORMENT_NEXUS researchC release checklist
 
 This is a maintainer document, not an installation guide. Windows users should
 follow [Installing on Windows](INSTALL_WINDOWS.md).
 
-researchB has one public preservation boundary: machinesoul PNG/APNG
+researchC has one public preservation boundary: machinesoul PNG/APNG
 capsules. The verified staged directory is cut directly. It is never flattened
 through ZIP, tar, or another public encoder first, because that would erase the
 file and code seams used by the cut logic.
@@ -26,13 +26,13 @@ file and code seams used by the cut logic.
    ```powershell
    python tools\machinesoul_release.py plan `
      dist\TORMENT_NEXUS `
-     --prefix SABLERESEARCHB-WINDOWS `
-     --out SABLERESEARCHB\CUT_PLAN_WINDOWS.json `
-     --markdown SABLERESEARCHB\CUT_PLAN_WINDOWS.md
+     --prefix SABLERESEARCHC-WINDOWS `
+     --out SABLERESEARCHC\CUT_PLAN_WINDOWS.json `
+     --markdown SABLERESEARCHC\CUT_PLAN_WINDOWS.md
 
    python tools\machinesoul_release.py render `
-     SABLERESEARCHB\CUT_PLAN_WINDOWS.json `
-     --out SABLERESEARCHB\CUT_PLAN_WINDOWS.png
+     SABLERESEARCHC\CUT_PLAN_WINDOWS.json `
+     --out SABLERESEARCHC\CUT_PLAN_WINDOWS.png
    ```
 
    The lossless APNG is the review surface. Frame 0 shows the whole release;
@@ -48,10 +48,10 @@ file and code seams used by the cut logic.
 
    ```powershell
    python tools\machinesoul_release.py cut `
-     SABLERESEARCHB\CUT_PLAN_WINDOWS.json `
+     SABLERESEARCHC\CUT_PLAN_WINDOWS.json `
      --approved-sha256 <REVIEWED_PLAN_SHA256> `
-     --out-dir SABLERESEARCHB\release `
-     --manifest SABLERESEARCHB\MANIFEST_WINDOWS.json
+     --out-dir SABLERESEARCHC\release `
+     --manifest SABLERESEARCHC\MANIFEST_WINDOWS.json
    ```
 
    The cutter refuses a changed plan. Every capsule is decompiled immediately
@@ -59,37 +59,37 @@ file and code seams used by the cut logic.
    temporary segment is removed.
 
 6. Repeat the plan, APNG review, approval, and cut for the optional 14B
-   companion, using prefix `SABLERESEARCHB-14B` and a staging root that places
+   companion, using prefix `SABLERESEARCHC-14B` and a staging root that places
    the exact reviewed GGUF recorded in [Models](../MODELS.md) at its final
    `models/` path. Write those capsules into the same
-   `SABLERESEARCHB\release` directory and the component record to
-   `SABLERESEARCHB\MANIFEST_14B.json`. It remains optional for recipients but
+   `SABLERESEARCHC\release` directory and the component record to
+   `SABLERESEARCHC\MANIFEST_14B.json`. It remains optional for recipients but
    follows the identical preservation boundary.
 
 7. Combine the two component manifests, then wrap the two reconstruction
    support files with machinesoul:
 
-   - `SABLERESEARCHB\MANIFEST_COMBINED.json`, produced by
+   - `SABLERESEARCHC\MANIFEST_COMBINED.json`, produced by
      `machinesoul_release.py combine`, as
-     `SABLERESEARCHB-MANIFEST.png`;
+     `SABLERESEARCHC-MANIFEST.png`;
    - `tools/machinesoul_release.py` as
-     `SABLERESEARCHB-REASSEMBLER.png`.
+     `SABLERESEARCHC-REASSEMBLER.png`.
 
-   Write both capsules into `SABLERESEARCHB\release`, and copy the current
+   Write both capsules into `SABLERESEARCHC\release`, and copy the current
    `tools/machinesoul.py` there byte-for-byte. Do not upload either support
    source file raw; `machinesoul.py` is the unavoidable plaintext inverse.
 
-8. Generate `DECOMPILE_SABLE_researchB.bat` from that exact combined manifest
-   with `tools/build_researchb_decompiler.py`, then generate
-   `FETCH_SABLERESEARCHB.bat` from the completed `SABLERESEARCHB\release`
-   directory with `tools/build_researchb_fetcher.py`. Test both generated
+8. Generate `DECOMPILE_SABLE_researchC.bat` from that exact combined manifest
+   with `tools/build_researchc_decompiler.py`, then generate
+   `FETCH_SABLERESEARCHC.bat` from the completed `SABLERESEARCHC\release`
+   directory with `tools/build_researchc_fetcher.py`. Test both generated
    files. The fetcher is plaintext by necessity:
    it is the small, resumable first download that obtains the decompiler and
    the capsules. It must be generated from the actual part names and digests,
    never maintained as a remembered list. The one-step launcher must:
 
    - decompile the manifest and reassembler capsules;
-   - decompile every exact `SABLERESEARCHB-WINDOWS.partNN.png`;
+   - decompile every exact `SABLERESEARCHC-WINDOWS.partNN.png`;
    - invoke the recovered reassembler;
    - verify every final file;
    - reconstruct the install directory directly and run `setup.bat`;
@@ -99,18 +99,18 @@ file and code seams used by the cut logic.
 
    The normal fetcher downloads only the required Windows set. The optional
    14B companion remains a deliberate separate download; generate the clearly
-   named `FETCH_SABLERESEARCHB_WITH_14B.bat` only if that broader path is
+   named `FETCH_SABLERESEARCHC_WITH_14B.bat` only if that broader path is
    intentionally offered and separately tested.
 
-9. Create GitHub tag/title `researchB` as a draft and upload only:
+9. Create GitHub tag/title `researchC` as a draft and upload only:
 
-   - every `SABLERESEARCHB-WINDOWS.partNN.png`;
-   - every optional `SABLERESEARCHB-14B.partNN.png`;
-   - `SABLERESEARCHB-MANIFEST.png`;
-   - `SABLERESEARCHB-REASSEMBLER.png`;
-   - `FETCH_SABLERESEARCHB.bat`;
+   - every `SABLERESEARCHC-WINDOWS.partNN.png`;
+   - every optional `SABLERESEARCHC-14B.partNN.png`;
+   - `SABLERESEARCHC-MANIFEST.png`;
+   - `SABLERESEARCHC-REASSEMBLER.png`;
+   - `FETCH_SABLERESEARCHC.bat`;
    - `machinesoul.py`;
-   - `DECOMPILE_SABLE_researchB.bat`.
+   - `DECOMPILE_SABLE_researchC.bat`.
 
 10. Compare every GitHub asset's size and SHA-256 with its retained local
     copy. Download every remote capsule again, decompile it, reassemble the

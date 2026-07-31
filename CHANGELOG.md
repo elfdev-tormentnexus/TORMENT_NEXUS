@@ -2,10 +2,28 @@
 
 ## Unreleased
 
-- Recorded the Research C logprob program as a refusal-only compute experiment:
-  early cancellation in the 14B/7B repair loop, measured memory confidence,
-  and cheapest-first routing, with uncertainty kept beside semantic vectors
-  rather than inserted into their geometry.
+## researchC — 2026-07-30
+
+- Added privacy-safe top-two uncertainty sidecars to the 14B planner, 7B patch
+  drafter, and 4B memory extractor. Measurements remain outside embeddings and
+  outside every authority path; no learned refusal threshold ships without a
+  separate held-out table.
+- Added the offline Research C report for fit/holdout threshold simulation,
+  false-refusal accounting, Wilson intervals, exact paired McNemar tests, Wald
+  sequential decisions, length-controlled gzip screens, and rate–distortion
+  frontiers.
+- Replaced model guesses about named source paths with proof-carrying trusted
+  answers for existence, line/byte counts, AST definitions, Markdown outlines,
+  and retained edit authorship.
+- Corrected manifest line arithmetic, edit-log ownership, aggregate/recency
+  wording, and audit-handoff contamination; moved stable self-knowledge before
+  the live clock for a longer reusable prompt prefix.
+- Added Windows display/system execution-state protection plus endpoint
+  recovery: visualizer capture re-enumerates the default device, primary
+  errors survive cleanup `S_FALSE`, and local playback retries the same track
+  from its saved frame.
+- Completed the serialized grounding probes and preserved positive, null, and
+  refuted results under `handoffs/researchc_evidence_2026-07-30/`.
 
 ## researchB — 2026-07-30
 

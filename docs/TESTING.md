@@ -1,4 +1,4 @@
-# Testing researchB
+# Testing researchC
 
 Testing is part of the safety boundary, but it is not a safety certification.
 Passing tests can show that an application rule behaves as coded; it cannot
@@ -103,6 +103,41 @@ and vectors are private runtime data and must not enter a release.
 - Exercise long-output pagination and cancellation.
 - Confirm no feature silently enables activity sampling or networking.
 
+### Research C endpoint-recovery matrix
+
+Automated tests simulate endpoint loss, cleanup `S_FALSE`, default-device
+re-enumeration, same-frame playback recovery, recovery cancellation, and power
+guard release. Before publishing the hardware claim, run all four cases on a
+non-Administrator Windows account:
+
+1. automatic display sleep and wake;
+2. manual lock and unlock;
+3. switch the default output while a local track is playing; and
+4. disconnect and reconnect the active HDMI/DisplayPort audio device.
+
+For every case, record whether playback resumes at the same position, whether
+the visualizer resumes, the visible explanation, and capture/reader/player
+thread counts before and after. A manual Stop or Play must cancel the old
+recovery loop.
+
+## Research C measurement acceptance
+
+- Run repair and memory calls with top-two measurement and with
+  `TORMENT_NEXUS_RESEARCHC_LOGPROBS=off`; existing decisions must be identical.
+- Confirm `assistant/logs/research_c.jsonl` contains no prompt, reply, source,
+  memory, API key, or arbitrary outcome/timing text.
+- Bind director and worker rows to separate exact model SHA-256 values and
+  record the llama-server revision.
+- Fit and holdout files must be different. The report must refuse unbound rows
+  unless an operator explicitly selects exploratory `--allow-unbound`.
+- Report false refusals beside compute avoided. Do not install a threshold from
+  the release-candidate probe transcripts; they are grounding probes, not the
+  labelled repair/memory dataset.
+- Use paired McNemar for grounded/ungrounded binary outcomes. Use a
+  predeclared SPRT only within one fixed Bernoulli stratum; do not pool prompts
+  with different success probabilities as though they were independent
+  repeats.
+
 ## Agent-interface tests
 
 With the interface disabled, confirm `127.0.0.1:8099` is unavailable. Then
@@ -136,7 +171,7 @@ Network and hardware tests require explicit consent and separate test data.
 
 ## Release-package acceptance
 
-Before publishing any researchB asset:
+Before publishing any researchC asset:
 
 - build from the intended clean commit and record it in the manifest;
 - render the machinesoul APNG cut maps and record the exact plans the owner

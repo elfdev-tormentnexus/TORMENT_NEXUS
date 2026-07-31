@@ -13,7 +13,8 @@ import json
 
 import requests
 
-from core.config import DEBUG, MODEL_REQUEST_HEADERS, SERVER_URL
+from core import research_c
+from core.config import DEBUG, MODEL_PATH, MODEL_REQUEST_HEADERS, SERVER_URL
 from editing import edit_guard
 from ui import ui
 
@@ -87,20 +88,24 @@ def generate(autonomous=False, diagnostic=""):
         )
 
     ui.set_status("Generating improvement ideas")
+    messages = [
+        {"role": "system", "content": SYSTEM},
+        {"role": "user", "content": request},
+    ]
+    payload = {
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": MAX_TOKENS,
+        "stream": False,
+        "chat_template_kwargs": {"enable_thinking": False},
+    }
+    payload.update(research_c.request_fields())
+    timer = research_c.Timer()
     try:
         response = requests.post(
             SERVER_URL + "/v1/chat/completions",
             headers=MODEL_REQUEST_HEADERS,
-            json={
-                "messages": [
-                    {"role": "system", "content": SYSTEM},
-                    {"role": "user", "content": request},
-                ],
-                "temperature": 0.7,
-                "max_tokens": MAX_TOKENS,
-                "stream": False,
-                "chat_template_kwargs": {"enable_thinking": False},
-            },
+            json=payload,
             timeout=TIMEOUT,
         )
         response.raise_for_status()
@@ -113,7 +118,8 @@ def generate(autonomous=False, diagnostic=""):
     if not choices:
         return None, "no response from the model"
 
-    raw = (choices[0].get("message", {}).get("content") or "").strip()
+    choice = choices[0]
+    raw = (choice.get("message", {}).get("content") or "").strip()
 
     if DEBUG:
         print("\nDEBUG SUGGESTIONS RAW:")
@@ -149,8 +155,29 @@ def generate(autonomous=False, diagnostic=""):
         change = str(item.get("change", "")).strip()
         title = str(item.get("title", "")).strip() or change
 
-        if file in valid_files and change:
-            cleaned.append({"title": title, "file": file, "change": change})
+        validated = file in valid_files and bool(change)
+        research_c.record(
+            "super_dev",
+            "plan",
+            artifact_digest=research_c.digest(file, change),
+            prompt_sha256=research_c.prompt_digest(messages),
+            sampler=research_c.sampler_record(payload),
+            measurements=research_c.measure(
+                choice.get("logprobs"),
+                raw,
+                spans=(file, change),
+            ),
+            outcomes={"validated_target": validated},
+            timing={
+                "wall_seconds": timer.elapsed(),
+                "server": result.get("timings"),
+            },
+            binding=research_c.model_binding(MODEL_PATH),
+        )
+
+        if validated:
+            suggestion = {"title": title, "file": file, "change": change}
+            cleaned.append(suggestion)
 
     if not cleaned:
         return None, "none of the suggestions named a real, editable file"
