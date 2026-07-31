@@ -1,7 +1,8 @@
 # Research C theory ledger
 
-Status: **reconciled 2026-07-30; live empirical rows still pending where
-explicitly marked.**
+Status: **reconciled 2026-07-31. The manifest rate/distortion and council
+studies are measured. The response-coherence collector is blocked pre-launch
+with its design refuted, not deferred.**
 
 This ledger prevents an attractive mathematical analogy from silently becoming
 a product claim. Every idea raised during Research C ends in one of four
@@ -108,6 +109,45 @@ directly solve exact top-k maximum-inner-product search.
 Status: **rejected at current scale. Benchmark conventional ANN first if exact
 cosine later becomes measurable.**
 
+### Council hedge calibration
+
+Preregistered at
+`5cffceb428fe8c09eeb01fddf6b72f593104d77043ea9044d7e4afd222698b0e` before any
+member was loaded. Evidence under
+`handoffs/researchc_experiments_2026-07-30/council/`.
+
+The blocked coherence run left one question: is the director's unanimous
+hedge a property of the question, or a habit of one checkpoint? The same
+sixteen propositions went to three members with the answer split into a
+confidence token and a guess token.
+
+| member | P(Maybe) median | q(Yes) median | hedged | correct | sign test |
+|---|---:|---:|---:|---:|---:|
+| Qwen3-4B director | 1.0000 | 5.2e-03 | 16/16 | 8/16 | 1.0000 |
+| Qwen2.5-Coder-7B | 0.9390 | 3.1e-01 | 16/16 | 8/16 | 1.0000 |
+| Qwen2.5-Coder-14B | 0.8942 | 2.7e-01 | 16/16 | 8/16 | 1.0000 |
+
+**Unanimous hedge, 48/48. Zero resolution: every member scored exactly the
+8/16 constant-responder baseline, all answering `No` sixteen times. Zero
+disagreements, so the disagreement map is empty** — which is a result, not a
+missing section. Following `core/provenance.py`, no vote was taken; a vote
+would have discarded the disagreement and returned a number more certain than
+the evidence.
+
+Entailment ordering `q(B) <= q(A)` held 6/8, 5/8, 5/8 — sign tests p = 0.29,
+0.73, 0.73. No member shows a reliable ordering.
+
+**The members are not independently trained.** Two are the same Coder family
+at different sizes and all three are Qwen. Agreement is partly guaranteed by
+shared pretraining and architecture, so this is materially weaker than
+independent corroboration and must never be described as such.
+
+Every proposition is unanswerable from the controlled context by design, so
+this shows models use a hedge channel when they cannot know. It does not show
+they stay confident when they should — that case is untested here.
+
+Status: **measured; unanimous hedge, zero resolution, no production gate.**
+
 ## Bounded experiments
 
 ### Manifest rate–distortion
@@ -131,7 +171,36 @@ three paired questions cannot establish significance. A larger encoding study
 uses independent file targets, keeps discovery and confirmation targets
 separate, and applies Holm correction to multiple code comparisons.
 
-Status: **bound live experiment in progress.**
+**Measured.** 120/120 calls completed: 112 primary plus 8 exact replays, zero
+HTTP failures, retries, repository/source drift, or replay mismatches.
+Evidence is under `handoffs/researchc_experiments_2026-07-30/rate_distortion/`
+with a sanitized public derivative in `../public/`.
+
+Four contrasts under Holm correction:
+
+| Contrast | Raw p | Holm p | What it is |
+|---|---:|---:|---|
+| low code, LE−LC | .015625 | .046875 | **Output-format compliance, not changed source belief.** Every discordance was `YES.` against strict `YES`; accepting one terminal period makes the raw p = 1. |
+| high code, HE−HC | .609375 | .609375 | No resolved format winner. |
+| compact rate, HC−LC | .0625 | .125 | Screen only; support gain changes sign across query profiles. |
+| explicit rate, HE−LE | .001953125 | .0078125 | Real but narrow: target-matched supplied line facts improved greedy transcription. |
+
+The explicit-rate effect is **not an allocation result**. The twelve high-rate
+facts were chosen to match the twelve frozen line questions, so that arm is a
+tailored channel code. No code-by-rate interaction was preregistered or
+tested, and significant-versus-nonsignificant is not an interaction.
+
+**No encoding passed the absolute guards.** All four cells fail
+omission-honesty and referent-binding, so none is a shipping or screening
+candidate. The trusted proof-carrying source resolver remains the product
+answer.
+
+Provenance caveat: this run's frozen `server_bundle_sha256`
+`2cfd58b8b4a2e9a1081cab1168877dfa6598f0c430c6970afbd41a37f08f96ab` omitted
+`mtmd.dll`. The launcher, main libraries, model, repository, prompt, and
+sampler were still bound, but it is not a complete dependency-closure digest.
+
+Status: **measured; no shipping candidate.**
 
 ### Response-coherence lattice
 
@@ -148,7 +217,44 @@ The bounded test therefore uses constrained binary output, randomized
 paraphrases/orders, several independent targets, and reports violation sets
 before magnitudes. It is called response coherence, not a Dutch-book proof.
 
-Status: **bounded descriptive experiment.**
+**Blocked at call 1 of 98, and the reason is worth more than the batch.** The
+frozen collection is preserved at
+`handoffs/researchc_experiments_2026-07-30/coherence/` with its single error
+row and matching dispatch intent. Under the no-retry rule it cannot be
+continued.
+
+Two instrument defects, both fixed:
+
+- `top_logprobs: 2` is too narrow. llama.cpp applies a grammar as a
+  *resampling check*, so a first sample that already satisfies it leaves the
+  reported candidate array unmasked. A grammar-illegal token (`The`, 2.6e-06)
+  came back as runner-up while `Yes` sat at rank 2–5.
+- Nothing here was ever grammar-conditioned, whatever the parser docstring
+  and spec claimed. The quantity is the raw sampler distribution restricted
+  to the answer tokens and renormalized, and it is now named that way. The
+  old sum-to-one check went with the false premise; what replaced it records
+  how much probability mass the answer tokens actually hold.
+
+**The design itself cannot produce a result.** Sixteen diagnostic calls
+covering every target and both propositions all answered `No`, including the
+eight where the proposition is **true**, at `q(Yes)` between 5.0e-09 and
+1.1e-07. The spec's own informativeness gate wants one target per wording
+with `q(A) > 0.9` and `q(B) < 0.1`; it fails **8/8** by seven orders of
+magnitude. Monotonicity passes everywhere, but only because both values sit
+near zero — the vacuous pass that gate exists to catch. No target appears in
+the recent-file list and directory figures are aggregates, so the controlled
+context holds no per-file line count for any of them.
+
+**A forced binary cannot separate a belief from a decline.** `No` is simply
+the token this model declines with, and the format was dressing that up as a
+confident denial at `q(No) = 0.99999997`. This is the probability-level form
+of the rate/distortion result that every high-rate cell denied real-but-
+omitted files instead of reporting them unknown, and it locates the cause in
+the **output format** rather than in manifest wording.
+
+Status: **blocked pre-launch; design refuted, not the model.** Any successor
+must offer a non-binary answer and must mix in propositions the controlled
+context genuinely *can* settle.
 
 ### Binary bit-price of truth and Fisher pivotality
 
@@ -173,7 +279,35 @@ inverse temperature: I_beta  = delta^2 q(1-q)
 separate equal logits. `I_theta` is maximal there. Neither tells whether a
 branch changes truth; only a forced-continuation outcome can establish that.
 
-Status: **bounded diagnostic experiment; no live gate.**
+**A forced binary starves both quantities, and that was not visible until the
+binary was escaped.** Under the coherence protocol every `q` sat at ~1e-8, so
+`I_theta = q(1-q)` was ~1e-8 at every fork in the design: maximally
+non-pivotal by construction. Any statistic built on `I_theta`, or on the
+ordering among `q` values, was being handed a degenerate input rather than
+being wrong.
+
+Measured on the director, forced binary against hedge-plus-guess over the
+same sixteen propositions:
+
+```text
+q(Yes)      median 2.78e-08 -> 5.22e-03      ratio 1.88e5
+max I_theta       1.06e-07 -> 9.49e-02      gain  8.9e5
+```
+
+Five to six orders of magnitude. The measurement stops being degenerate. It
+does **not** start being informative: guess accuracy stayed at the
+constant-responder baseline.
+
+The degeneracy also moved rather than vanishing, and it is model-dependent.
+At the confidence fork the director is pinned at `P(Maybe) = 1.0000` to four
+places on all sixteen, giving `I_theta = 2.17e-10`, while the 7B and 14B give
+7.53e-02 and 1.44e-01. A design needing a pivotal confidence fork has nothing
+to work with on the director specifically. Any successor must also mix in
+propositions the controlled context genuinely *can* settle, or the confidence
+channel stays degenerate for every member.
+
+Status: **bounded diagnostic; binary form refuted, hedged form measured, no
+live gate.**
 
 ### Sequential order/context screen
 
@@ -216,6 +350,14 @@ The present data do not form a crossed respondent-by-item matrix with local
 independence and one latent trait. Seeds are not respondents, and three model
 sizes supply little ability variation. A mixed-effects logistic model is the
 more natural first analysis if a real multi-model benchmark is collected.
+
+**The council study supplies the missing shape, and confirms the objection.**
+Three members over sixteen propositions is a genuine crossed 3x16 matrix with
+graded responses, which the all-`No` binary data never was. It is still not
+enough: all three members scored identically at 8/16, so there is **zero
+ability variation to estimate** — the exact degeneracy that makes a Rasch fit
+unidentifiable. The members are also two Coder-family sizes plus one Qwen3,
+so local independence fails through shared pretraining. Shape is not power.
 
 ### CUSUM and Page–Hinkley
 

@@ -1,0 +1,153 @@
+{
+  "propositions": [
+    {
+      "event": "A",
+      "measurement": "a",
+      "proposition_id": "T01-a",
+      "question": "Does the file `assistant/core/chosen_name.py` contain at least 764 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T01",
+      "target_path": "assistant/core/chosen_name.py",
+      "truth_is_yes": true
+    },
+    {
+      "event": "B",
+      "measurement": "b",
+      "proposition_id": "T01-b",
+      "question": "Does the file `assistant/core/chosen_name.py` contain at least 1195 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T01",
+      "target_path": "assistant/core/chosen_name.py",
+      "truth_is_yes": false
+    },
+    {
+      "event": "A",
+      "measurement": "a",
+      "proposition_id": "T02-a",
+      "question": "Does the file `assistant/memory/memory_logic.py` contain at least 352 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T02",
+      "target_path": "assistant/memory/memory_logic.py",
+      "truth_is_yes": true
+    },
+    {
+      "event": "B",
+      "measurement": "b",
+      "proposition_id": "T02-b",
+      "question": "Does the file `assistant/memory/memory_logic.py` contain at least 550 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T02",
+      "target_path": "assistant/memory/memory_logic.py",
+      "truth_is_yes": false
+    },
+    {
+      "event": "A",
+      "measurement": "a",
+      "proposition_id": "T03-a",
+      "question": "Does the file `assistant/commands/natural_command.py` contain at least 415 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T03",
+      "target_path": "assistant/commands/natural_command.py",
+      "truth_is_yes": true
+    },
+    {
+      "event": "B",
+      "measurement": "b",
+      "proposition_id": "T03-b",
+      "question": "Does the file `assistant/commands/natural_command.py` contain at least 649 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T03",
+      "target_path": "assistant/commands/natural_command.py",
+      "truth_is_yes": false
+    },
+    {
+      "event": "A",
+      "measurement": "a",
+      "proposition_id": "T04-a",
+      "question": "Does the file `assistant/ui/vector_panel.py` contain at least 549 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T04",
+      "target_path": "assistant/ui/vector_panel.py",
+      "truth_is_yes": true
+    },
+    {
+      "event": "B",
+      "measurement": "b",
+      "proposition_id": "T04-b",
+      "question": "Does the file `assistant/ui/vector_panel.py` contain at least 859 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T04",
+      "target_path": "assistant/ui/vector_panel.py",
+      "truth_is_yes": false
+    },
+    {
+      "event": "A",
+      "measurement": "a",
+      "proposition_id": "T05-a",
+      "question": "Does the file `assistant/voice/setup_voice.py` contain at least 133 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T05",
+      "target_path": "assistant/voice/setup_voice.py",
+      "truth_is_yes": true
+    },
+    {
+      "event": "B",
+      "measurement": "b",
+      "proposition_id": "T05-b",
+      "question": "Does the file `assistant/voice/setup_voice.py` contain at least 209 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T05",
+      "target_path": "assistant/voice/setup_voice.py",
+      "truth_is_yes": false
+    },
+    {
+      "event": "A",
+      "measurement": "a",
+      "proposition_id": "T06-a",
+      "question": "Does the file `assistant/project/project_builder.py` contain at least 337 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T06",
+      "target_path": "assistant/project/project_builder.py",
+      "truth_is_yes": true
+    },
+    {
+      "event": "B",
+      "measurement": "b",
+      "proposition_id": "T06-b",
+      "question": "Does the file `assistant/project/project_builder.py` contain at least 528 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T06",
+      "target_path": "assistant/project/project_builder.py",
+      "truth_is_yes": false
+    },
+    {
+      "event": "A",
+      "measurement": "a",
+      "proposition_id": "T07-a",
+      "question": "Does the file `assistant/web/search_engine.py` contain at least 98 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T07",
+      "target_path": "assistant/web/search_engine.py",
+      "truth_is_yes": true
+    },
+    {
+      "event": "B",
+      "measurement": "b",
+      "proposition_id": "T07-b",
+      "question": "Does the file `assistant/web/search_engine.py` contain at least 154 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T07",
+      "target_path": "assistant/web/search_engine.py",
+      "truth_is_yes": false
+    },
+    {
+      "event": "A",
+      "measurement": "a",
+      "proposition_id": "T08-a",
+      "question": "Does the file `assistant/hardware/setup_hardware.py` contain at least 110 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T08",
+      "target_path": "assistant/hardware/setup_hardware.py",
+      "truth_is_yes": true
+    },
+    {
+      "event": "B",
+      "measurement": "b",
+      "proposition_id": "T08-b",
+      "question": "Does the file `assistant/hardware/setup_hardware.py` contain at least 173 text lines? Answer exactly Sure or Maybe, then a space, then your best guess Yes or No.",
+      "target_id": "T08",
+      "target_path": "assistant/hardware/setup_hardware.py",
+      "truth_is_yes": false
+    }
+  ],
+  "propositions_sha256": "d3ab6dedd3ca3d384b4018b0156643495d24054c697e4613a020a592a28c56b4",
+  "source_coherence_spec_sha256": "ad6ad28c5ffddea8eef1910597b49a43e07da5a58c137ec5b6b00d34ea8a2749",
+  "source_system_prompt_sha256": "143db34dfe6b1fb0b3948953d96df69faf89a17fb693c55b11c08531387178d8",
+  "system_prompt": "You are the language-model participant in a bounded, descriptive source-grounding experiment.\nUse only the controlled public source context below and the conversation in\nthis request. Do not claim access to private memories, prior conversations,\ncredentials, local absolute paths, or facts absent from that context.\nFor every question in this experiment, follow its exact response format. Say Maybe rather than Sure when the controlled context does not settle the question, and still give your best guess. A repository path being absent from the recent-path list does not\nestablish that it is absent from the repository.\n\nCONTROLLED PUBLIC SOURCE CONTEXT\nRepository inventory: 248 manifest-counted source files, 96025 text lines.\nDirectory shape: assistant/tests 34f 20155L; tools 48f 17640L; assistant/core 26f 10778L; docs 47f 10368L; assistant/visualizer 18f 6423L; assistant/commands 3f 4763L; assistant/ui 3f 4353L; assistant/editing 16f 4231L; assistant 3f 3654L; assistant/voice 5f 3188L; (root) 9f 2528L; assistant/memory 10f 2283L; assistant/knowledge 10f 2265L; assistant/hardware 3f 1318L; voice_training 4f 1118L; assistant/project 4f 562L; assistant/web 5f 398L.\nRecently changed repository-relative paths (recency only, never authorship): assistant/tests/test_release_packaging_privacy.py (369L), assistant/tests/test_regressions.py (11765L), tools/package_release.py (2409L), docs/TESTING.md (206L), docs/RELEASE_CHECKLIST.md (140L), assistant/tests/test_researchc_probe.py (383L), tools/researchc_probe.py (947L), assistant/core/research_c.py (652L), assistant/tests/test_researchc.py (637L), assistant/tests/test_researchc_statistics_extended.py (287L), tools/researchc_report.py (859L), docs/RESEARCHC_THEORY_LEDGER.md (250L).\nThe directory figures are aggregates, never per-file counts. The recent list is partial. It states a listed file's line count but does not state an unlisted file's line count or nonexistence.",
+  "system_prompt_sha256": "0b26ab99eb2c60064a824af07b137dd164b9b49cff9132f01d6775b8b6f4ada2"
+}

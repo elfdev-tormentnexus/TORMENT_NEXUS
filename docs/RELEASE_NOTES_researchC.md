@@ -43,12 +43,38 @@ The completed paired probes are preserved under
 - Agreement with a nonexistent class and false authorship occurred equally in
   grounded and ungrounded conditions (6/6 each). Those are base-model biases,
   not evidence that the manifest caused them.
-- Equal-length gzip separated one prompt family and failed to generalize.
+- Equal-length gzip tracks assertive-versus-hedged **register**, not truth. It
+  separated one prompt family (7/7, exact p = 0.0156) and died on the next
+  (5/14, p = 0.42); pooled non-tied 12/21, p = 0.66. It is not a detector, and
+  it stays offline and exploratory.
 - A two-request reverse-order screen changed compliance but did not establish
   quantum contextuality or a law-of-total-probability violation.
 - Top-two candidate data was the measured compromise: about 0.057 seconds
   paired median overhead and roughly 13× response payload in the local
-  benchmark. Top-ten offered no release benefit for its larger payload.
+  benchmark. Top-ten offered no release benefit for its larger payload. Note
+  that top-two is right for the shipped sidecars, which only record what they
+  observe, and **wrong for a research read** that needs a specific token's
+  probability — see the coherence entry below.
+- The 120-call controlled-index experiment is **measured**, not in progress.
+  Its low-rate "code" result is output-format compliance — every discordance
+  was `YES.` against strict `YES`, and accepting one terminal period makes the
+  raw p = 1. Its explicit high-rate effect is real but narrow: supplying line
+  facts chosen to match the questions improved greedy transcription. That is a
+  tailored channel code, not an allocation result, and no code-by-rate
+  interaction was preregistered or tested. **No encoding passed the absolute
+  omission-honesty and referent-binding guards, so there is no shipping
+  candidate.**
+- The 98-call response-coherence collector was **stopped at call 1 and not
+  rerun**, because the diagnosis refuted the design rather than the
+  instrument. Forced to answer `Yes` or `No` about eight files whose line
+  counts the controlled context does not contain, the director answered `No`
+  to all sixteen propositions — including the eight that are **true** — at
+  `q(Yes)` between 5.0e-09 and 1.1e-07. Its own informativeness gate fails 8/8.
+  A forced binary cannot distinguish a belief from a decline: `No` is the
+  token the model declines with, and the format was presenting that as a
+  confident denial. Offered a hedge token instead, it flagged uncertainty on
+  **16 of 16**. This is the probability-level confirmation of the manifest
+  finding above, and it places the cause in the output format.
 
 ## Boundaries and unfinished validation
 
@@ -57,6 +83,23 @@ small-to-large routing, a compression truth score, density-matrix memory, or a
 contextuality claim. The required labelled fit/holdout data does not exist.
 All deterministic write, capability, regression, and memory rules remain in
 force.
+
+Several mathematical proposals raised during Research C are recorded as
+rejected in `docs/RESEARCHC_THEORY_LEDGER.md` and are not implemented:
+
+- **Density-matrix memory migration** is rejected as stated. A pure-state
+  trace overlap squares the cosine and loses its sign, discarding information
+  the current representation keeps.
+- **Dequantized length-squared retrieval** has no value at this scale.
+- **Extreme-value theory, Rasch/item-response, Weitzman/Pandora routing,
+  CUSUM/Page–Hinkley, and Doob belief paths** lack their stated prerequisites
+  — respectively enough stationary tail exceedances, a crossed
+  respondent-by-item matrix, known inspection costs with verified utilities,
+  a stationary calibrated margin series, and one fixed terminal event under
+  an unchanged generation law.
+- No result in this release is evidence of quantum behaviour, contextuality,
+  a sheaf obstruction, or a calibrated shared belief state. The one
+  simultaneous-order screen that bears on it returned an exact null.
 
 Audio recovery has automated endpoint simulations and regression coverage, but
 the physical Windows matrix—sleep/wake, lock/unlock, output switching, and

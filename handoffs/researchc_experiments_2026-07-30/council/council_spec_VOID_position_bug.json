@@ -1,0 +1,76 @@
+{
+  "authority": "offline descriptive research only; no production gate",
+  "call_count": 48,
+  "created_utc": "2026-07-31T04:28:18.862013+00:00",
+  "experiment": "researchc_council_hedge_calibration",
+  "hedge_grammar": "root ::= (\"Sure\" | \"Maybe\") \" \" (\"Yes\" | \"No\")",
+  "member_count": 3,
+  "members": [
+    {
+      "bytes": 4645051328,
+      "context": 2048,
+      "family": "Qwen3",
+      "model": "Qwen3-4B-abliterated-bf16_q8_0.gguf",
+      "role": "director",
+      "sha256": "947656a42e73bda324c527f06953596b77e4d91bc590476955205b5f64d4e974"
+    },
+    {
+      "bytes": 8098525056,
+      "context": 2048,
+      "family": "Qwen2.5-Coder",
+      "model": "Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf",
+      "role": "autonomous-coder",
+      "sha256": "fbb484a986646e20a2c1a83cb00973b2384436b81e3ac4c6400b9b3dffb9c6d0"
+    },
+    {
+      "bytes": 8988111200,
+      "context": 2048,
+      "family": "Qwen2.5-Coder",
+      "model": "Qwen2.5-Coder-14B-Instruct-abliterated-Q4_K_M.gguf",
+      "role": "full-maintenance",
+      "sha256": "e89a7ae4e2b456bf33c75cff35664751df20ff273e551d7cf7640aa9e84d3b79"
+    }
+  ],
+  "predeclared_criteria": {
+    "disagreement_map": "Every proposition where members differ in guess or in hedge is recorded as a map of positions, following core/provenance.py disagree(). No vote is taken and no winner is selected.",
+    "guess_resolution": "For each member, best-guess accuracy against the constant-answer baseline. The 16 propositions are 8 true and 8 false by construction, so any constant responder scores exactly 8/16. An exact two-sided sign test is reported; nothing is claimed as resolution unless it beats that baseline.",
+    "hedge_convergence": "For each member, the count of the 16 propositions with P(Maybe) > 0.5. Convergence means every member hedges on every proposition."
+  },
+  "preregistered_interpretation_limits": [
+    "The three members are Qwen checkpoints and two are the same Coder family at different sizes. They are NOT independently trained. Agreement is partly guaranteed by shared pretraining and architecture, so convergence here is materially weaker evidence than convergence across independent models. No result may be called independent corroboration.",
+    "Sixteen propositions over eight files is not a general calibration claim about any model.",
+    "q values are the raw sampler distribution restricted to the tokens of interest and renormalized. They are not grammar-conditioned; llama.cpp reports unmasked candidates.",
+    "A hedge rate of 1.0 shows the model uses the channel when the context cannot settle the question. It does not show the model would hedge when it should be confident, which this design never tests because every proposition is unanswerable from the controlled context.",
+    "No result from this probe gates any production behaviour. The trusted source resolver remains the product answer.",
+    "Nothing here is a quantum, contextuality, or sheaf result."
+  ],
+  "probe_sha256": "6bbd94960946bcb3f8e7b660c778f9fae5ac5f67018d3a42b052bf340726a358",
+  "proposition_count": 16,
+  "propositions_sha256": "d3ab6dedd3ca3d384b4018b0156643495d24054c697e4613a020a592a28c56b4",
+  "question": "Is the director's unanimous hedge a property of the question or a habit of one checkpoint?",
+  "sampler": {
+    "cache_prompt": true,
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    },
+    "grammar": "root ::= (\"Sure\" | \"Maybe\") \" \" (\"Yes\" | \"No\")",
+    "logprobs": true,
+    "max_tokens": 6,
+    "min_p": 0.0,
+    "post_sampling_probs": true,
+    "repeat_penalty": 1.0,
+    "samplers": [
+      "temperature"
+    ],
+    "seed": 20260731,
+    "stream": false,
+    "temperature": 1.0,
+    "top_k": 0,
+    "top_logprobs": 64,
+    "top_p": 1.0
+  },
+  "schema": 1,
+  "source_coherence_spec_sha256": "ad6ad28c5ffddea8eef1910597b49a43e07da5a58c137ec5b6b00d34ea8a2749",
+  "spec_sha256": "63dc8c0a03f5d4c68c0b13556951bcd296b7029c8d4a659a6f5f0d963d52ce7d",
+  "system_prompt_sha256": "0b26ab99eb2c60064a824af07b137dd164b9b49cff9132f01d6775b8b6f4ada2"
+}
