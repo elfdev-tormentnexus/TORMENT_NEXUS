@@ -66,6 +66,7 @@ select the release titled `researchC`, expand **Assets**, and download:
 
 ```text
 FETCH_SABLERESEARCHC.bat
+FETCH_SABLERESEARCHC_WITH_14B.bat
 machinesoul.py
 DECOMPILE_SABLE_researchC.bat
 SABLERESEARCHC-MANIFEST.png
@@ -77,8 +78,11 @@ SABLERESEARCHC-WINDOWS.partNN.png
 
 `FETCH_SABLERESEARCHC.bat` is the small, readable download helper. Double-click
 it to fetch every required asset, resume interrupted transfers, and verify
-each file against the SHA-256 recorded at the cut. It deliberately does **not**
-download the optional 14B companion. Interrupted bytes remain in a visibly
+each file against the SHA-256 recorded at the cut, then continue straight into
+reconstruction and setup: one double-click carries you from download to a
+working installation. It deliberately does **not** download the optional 14B
+companion; `FETCH_SABLERESEARCHC_WITH_14B.bat` is the same one-click path with
+that companion included. Interrupted bytes remain in a visibly
 named `.partial` file so the next run can resume them; that temporary name is
 promoted to the real asset name only after SHA-256 verification. If you use
 it, wait for its verification message and continue at Step 2. If you download

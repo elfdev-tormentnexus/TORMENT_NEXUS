@@ -157,9 +157,10 @@ file and code seams used by the cut logic.
    - refuse a partial optional set.
 
    The normal fetcher downloads only the required Windows set. The optional
-   14B companion remains a deliberate separate download; generate the clearly
-   named `FETCH_SABLERESEARCHC_WITH_14B.bat` only if that broader path is
-   intentionally offered and separately tested.
+   14B companion is offered as the clearly named
+   `FETCH_SABLERESEARCHC_WITH_14B.bat`, generated and separately tested
+   beside it, so both paths run one click from download to a working
+   installation.
 
 9. Create GitHub tag/title `researchC` as a draft and upload only:
 
@@ -168,6 +169,7 @@ file and code seams used by the cut logic.
    - `SABLERESEARCHC-MANIFEST.png`;
    - `SABLERESEARCHC-REASSEMBLER.png`;
    - `FETCH_SABLERESEARCHC.bat`;
+   - `FETCH_SABLERESEARCHC_WITH_14B.bat`;
    - `machinesoul.py`;
    - `DECOMPILE_SABLE_researchC.bat`.
 

@@ -23,7 +23,13 @@ class ResearchCFetcherTests(unittest.TestCase):
         self.folder = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.folder, True)
         self._write("machinesoul.py")
-        self._write("DECOMPILE_SABLE_researchC.bat")
+        # The fetcher's success path now calls this file, so every test that
+        # runs the generated batch to completion executes it. A stub holding
+        # its own filename would be run as a command and fail the batch.
+        self._write(
+            "DECOMPILE_SABLE_researchC.bat",
+            b"@echo off\r\nexit /b 0\r\n",
+        )
         self._write("SABLERESEARCHC-MANIFEST.png")
         self._write("SABLERESEARCHC-REASSEMBLER.png")
         self._write("SABLERESEARCHC-WINDOWS.part01.png")
@@ -64,6 +70,72 @@ class ResearchCFetcherTests(unittest.TestCase):
         self.assertEqual(output.name, "FETCH_SABLERESEARCHC_WITH_14B.bat")
         self.assertIn("SABLERESEARCHC-14B.part01.png", text)
         self.assertIn("explicitly includes the optional 14B", text)
+
+    def test_the_success_path_chains_into_the_decompiler(self):
+        text = fetcher.build(self.folder).read_text(encoding="ascii")
+
+        self.assertIn('call "%NEXT%"', text)
+        self.assertIn(":handoff_missing", text)
+        self.assertIn(":handoff_failed", text)
+        # The previous wording ended the run and asked the user to go and
+        # start the decompiler themselves, which is a second action.
+        self.assertNotIn("Next: double-click", text)
+
+    def _run_chained(self, decompiler_body: bytes):
+        """Build the fetcher against local files and actually execute it."""
+        # Replacing the stub before building binds the new bytes into the
+        # embedded SHA-256, so the chained call runs a verified file.
+        self._write("DECOMPILE_SABLE_researchC.bat", decompiler_body)
+        output = fetcher.build(self.folder)
+        destination = self.folder.parent / (self.folder.name + " chained")
+        destination.mkdir()
+        self.addCleanup(shutil.rmtree, destination, True)
+
+        github_base = (
+            f"https://github.com/{fetcher.REPOSITORY}/releases/download/"
+            f"{fetcher.RELEASE_VERSION}"
+        )
+        batch = destination / output.name
+        batch.write_text(
+            output.read_text(encoding="ascii").replace(
+                github_base, self.folder.as_uri()
+            ),
+            encoding="ascii",
+            newline="",
+        )
+        return subprocess.run(
+            ["cmd.exe", "/d", "/c", str(batch)],
+            cwd=destination,
+            input=b"\r\n\r\n",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            timeout=60,
+            check=False,
+        )
+
+    @unittest.skipUnless(os.name == "nt", "executes the generated Windows batch")
+    def test_one_click_reaches_the_decompiler_after_verifying(self):
+        if not shutil.which("curl.exe") or not shutil.which("certutil.exe"):
+            self.skipTest("Windows curl.exe and certutil.exe are required")
+
+        result = self._run_chained(
+            b"@echo off\r\necho CHAINED_DECOMPILER_RAN\r\nexit /b 0\r\n"
+        )
+        transcript = result.stdout.decode("utf-8", errors="replace")
+
+        self.assertIn("CHAINED_DECOMPILER_RAN", transcript, transcript[-900:])
+        self.assertEqual(result.returncode, 0, transcript[-900:])
+
+    @unittest.skipUnless(os.name == "nt", "executes the generated Windows batch")
+    def test_a_failing_decompiler_does_not_report_success(self):
+        if not shutil.which("curl.exe") or not shutil.which("certutil.exe"):
+            self.skipTest("Windows curl.exe and certutil.exe are required")
+
+        result = self._run_chained(b"@echo off\r\nexit /b 7\r\n")
+        transcript = result.stdout.decode("utf-8", errors="replace")
+
+        self.assertEqual(result.returncode, 7, transcript[-900:])
+        self.assertIn("did not finish", transcript)
 
     def test_gapped_or_malformed_primary_parts_are_refused(self):
         (self.folder / "SABLERESEARCHC-WINDOWS.part02.png").unlink()

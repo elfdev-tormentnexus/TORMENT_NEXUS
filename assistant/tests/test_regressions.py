@@ -8286,6 +8286,7 @@ class DocumentationTests(unittest.TestCase):
         # to reassemble. The placeholder cannot go stale.
         required = {
             "FETCH_SABLERESEARCHC.bat",
+            "FETCH_SABLERESEARCHC_WITH_14B.bat",
             "machinesoul.py",
             "DECOMPILE_SABLE_researchC.bat",
             "SABLERESEARCHC-MANIFEST.png",

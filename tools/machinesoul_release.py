@@ -1035,6 +1035,55 @@ def _validate_manifest(manifest: dict) -> None:
             raise ReleaseError(f"invalid file record: {path}")
 
 
+def _validate_components(components: dict) -> None:
+    """Refuse a combined manifest whose two components were swapped or repeated.
+
+    combine_manifests() decides which component is which from argument order
+    alone, so supplying them the wrong way round, or supplying the same
+    manifest twice, previously produced a well-formed manifest describing the
+    wrong release. The generated installer then trusts that ordering.
+
+    The checks are structural rather than name-based. This tool is
+    release-agnostic on purpose -- the prefix is operator-supplied and the
+    combined format string is a stable format discriminator, not a release
+    name -- so hardcoding one release's prefixes here would only move the
+    problem to the next cut.
+    """
+    windows = components["windows"]
+    optional = components["optional_14b"]
+
+    windows_prefix = windows.get("prefix")
+    optional_prefix = optional.get("prefix")
+    if not windows_prefix or not optional_prefix:
+        raise ReleaseError("each component manifest must carry its prefix")
+    if windows_prefix == optional_prefix:
+        raise ReleaseError(
+            f"both components carry the prefix {windows_prefix!r}; "
+            "the same manifest was supplied twice"
+        )
+
+    windows_paths = {
+        _safe_relative(record["path"]) for record in windows.get("files", [])
+    }
+    optional_paths = {
+        _safe_relative(record["path"]) for record in optional.get("files", [])
+    }
+
+    if not windows_paths:
+        raise ReleaseError("the windows component contains no files")
+    if not optional_paths:
+        raise ReleaseError("the optional component contains no files")
+
+    stray = sorted(path for path in optional_paths if not path.startswith("models/"))
+    if stray:
+        shown = ", ".join(stray[:5])
+        if len(stray) > 5:
+            shown += f", and {len(stray) - 5} more"
+        raise ReleaseError(
+            f"optional component paths must live under models/: {shown}"
+        )
+
+
 def combine_manifests(
     windows_path: str,
     optional_14b_path: str,
@@ -1050,6 +1099,8 @@ def combine_manifests(
             manifest = json.load(handle)
         _validate_manifest(manifest)
         components[name] = manifest
+
+    _validate_components(components)
 
     combined = {
         "format": COMBINED_FORMAT,

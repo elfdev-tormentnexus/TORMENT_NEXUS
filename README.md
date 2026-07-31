@@ -240,8 +240,11 @@ decompilation, the reconstructed installation contains:
    select `researchC`, expand **Assets**, and read its warning, checksums,
    model provenance, and known issues. The small plaintext
    `FETCH_SABLERESEARCHC.bat` is the easiest path: double-click it to resume
-   and SHA-256-verify every required bootstrap and Windows capsule. It does
-   not fetch the optional 14B companion. An interrupted download remains as a
+   and SHA-256-verify every required bootstrap and Windows capsule, then
+   continue straight into reconstruction and setup, so one click carries you
+   from download to a working installation. It does not fetch the optional
+   14B companion; `FETCH_SABLERESEARCHC_WITH_14B.bat` is the same one-click
+   path with that companion included. An interrupted download remains as a
    plainly named `.partial` file; rerunning the fetcher resumes it, and the
    final capsule name appears only after its checksum passes. If you prefer to
    download manually, take `machinesoul.py`, `DECOMPILE_SABLE_researchC.bat`,
