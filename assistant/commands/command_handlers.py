@@ -1,8 +1,12 @@
 import os
 import json
+import ipaddress
 import re
 import time
 import sys
+from urllib.parse import urlsplit
+
+import requests
 
 from memory import memory_store as mem
 from memory import semantic_index
@@ -18,6 +22,8 @@ from core.config import (
     MODEL_ROLE_DIRECTOR,
     MODEL_ROLE_FULL_MAINTENANCE,
     MODEL_ROLE_SUPER_DEV,
+    MODEL_REQUEST_HEADERS,
+    SERVER_URL,
     SUPER_DEV_SESSION_MAX_SECONDS,
 )
 from project import project_mapper
@@ -31,10 +37,17 @@ from editing import autonomous_engine
 from editing import super_dev_engine
 from web import search_engine
 from voice import offline_voice
+from voice import freestyle_song
+from voice import local_song_loader
 from voice import session as voice_session
 from hardware import tdeck
 from core import escalation
 from knowledge import library as knowledge_library
+
+
+_FREESTYLE_HTTP = requests.Session()
+# A loopback URL routed through an environment proxy is no longer local.
+_FREESTYLE_HTTP.trust_env = False
 
 
 # ============================================================
@@ -1008,6 +1021,231 @@ def handle_sing_daisy_bell(user_input):
     )
 
 
+@command(
+    "sing come josephine",
+    "Perform Come Josephine and an original answering verse offline",
+    dev_only=False,
+    group="session",
+)
+def handle_sing_come_josephine(user_input):
+    if not _match_exact(user_input, "sing come josephine"):
+        return False
+
+    ready, report = _run_with_activity(
+        "Checking singing voice",
+        offline_voice.setup_report,
+    )
+
+    if not ready:
+        return report
+
+    voice_session.request_song("come_josephine")
+    voice_session.request_start()
+    return (
+        "Preparing the machine-voice performance of Come Josephine. It "
+        "states the 1910 tune first, sings the public-domain chorus, then "
+        "answers it with an original verse. The performance stays offline "
+        "and is cached locally after the first build."
+    )
+
+
+_LOCAL_SONG_COMMAND_ISSUES = []
+
+
+def _local_song_handler(entry):
+    """Build one ordinary command handler around a validated private Song."""
+    def handle(user_input):
+        if not _match_exact(user_input, entry.command):
+            return False
+
+        ready, report = _run_with_activity(
+            "Checking singing voice",
+            offline_voice.setup_report,
+        )
+
+        if not ready:
+            return report
+
+        voice_session.request_song(entry.song)
+        voice_session.request_start()
+        return voice_session.silent_reply(
+            f"Preparing the private local performance of {entry.song.name}. "
+            "Its score and cache remain on this computer."
+        )
+
+    return handle
+
+
+def _register_local_song_commands(directory=None):
+    """Register strict LocalAppData song definitions, if the operator has any."""
+    result = local_song_loader.load_local_songs(
+        offline_voice.Song,
+        directory=directory,
+    )
+    existing = {entry["name"] for entry in COMMANDS}
+    _LOCAL_SONG_COMMAND_ISSUES.extend(result.issues)
+
+    for entry in result.entries:
+        if entry.command in existing:
+            _LOCAL_SONG_COMMAND_ISSUES.append(local_song_loader.LocalSongIssue(
+                entry.source_name,
+                "command collides with a built-in command",
+            ))
+            continue
+
+        command(
+            entry.command,
+            f"Perform {entry.song.name} from a private local score",
+            dev_only=False,
+            group="session",
+        )(_local_song_handler(entry))
+        existing.add(entry.command)
+
+    return result
+
+
+_LOCAL_SONG_LOAD_RESULT = _register_local_song_commands()
+
+
+def _freestyle_model_endpoint():
+    """Return the director endpoint only when it is unambiguously loopback."""
+    try:
+        parsed = urlsplit(SERVER_URL)
+        port = parsed.port
+    except (TypeError, ValueError):
+        raise RuntimeError("the local model endpoint is malformed")
+
+    host = (parsed.hostname or "").rstrip(".").lower()
+
+    try:
+        loopback = ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        loopback = host == "localhost"
+
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not loopback
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.query
+        or parsed.fragment
+        or parsed.path not in {"", "/"}
+        or port is None
+    ):
+        raise RuntimeError(
+            "sing what you want requires a loopback-only local model endpoint"
+        )
+
+    return SERVER_URL.rstrip("/") + "/v1/chat/completions"
+
+
+def _freestyle_song_transport(request_text):
+    """One bounded local-model call; validation remains in trusted Python."""
+    tune_counts = offline_voice.freestyle_slot_counts()
+    response = _FREESTYLE_HTTP.post(
+        _freestyle_model_endpoint(),
+        headers=MODEL_REQUEST_HEADERS,
+        json={
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        "You write original lyric syllables for a local "
+                        "offline music tool. Follow the supplied JSON "
+                        "contract exactly. Every word must have exactly one "
+                        "contiguous vowel group. Never emit notes or "
+                        "instructions."
+                    ),
+                },
+                {"role": "user", "content": request_text},
+            ],
+            "temperature": 0.65,
+            "max_tokens": 1_600,
+            "stream": False,
+            "chat_template_kwargs": {"enable_thinking": False},
+            # The vendored llama.cpp runtime converts this into a grammar, so
+            # malformed JSON and wrong-length arrays cannot be sampled. The
+            # pure Python parser/validator still checks the reply afterward.
+            "json_schema": freestyle_song.build_json_schema(tune_counts),
+        },
+        timeout=120,
+        allow_redirects=False,
+    )
+
+    if 300 <= response.status_code < 400:
+        raise RuntimeError("the local model attempted a redirect")
+
+    response.raise_for_status()
+    payload = response.json()
+    choices = payload.get("choices") or []
+
+    if not choices:
+        raise RuntimeError("the local model returned no lyric choice")
+
+    content = choices[0].get("message", {}).get("content")
+
+    if not isinstance(content, str) or not content.strip():
+        raise RuntimeError("the local model returned an empty lyric choice")
+
+    return content
+
+
+@command(
+    "sing what you want",
+    "Write syllables locally and fit them to one fixed trusted tune",
+    usage="sing what you want [about <subject>]",
+    dev_only=False,
+    group="session",
+)
+def handle_sing_what_you_want(user_input):
+    stripped = " ".join((user_input or "").strip().split())
+    lowered = stripped.lower()
+
+    if lowered == "sing what you want":
+        subject = ""
+    elif lowered.startswith("sing what you want about "):
+        subject = stripped[len("sing what you want about "):].strip()
+
+        if not subject:
+            return "Usage: sing what you want [about <subject>]"
+    else:
+        return False
+
+    ready, report = _run_with_activity(
+        "Checking singing voice",
+        offline_voice.setup_report,
+    )
+
+    if not ready:
+        return report
+
+    try:
+        draft = _run_with_activity(
+            "Writing bounded lyric syllables",
+            lambda: freestyle_song.generate(
+                subject,
+                offline_voice.freestyle_slot_counts(),
+                transport=_freestyle_song_transport,
+            ),
+        )
+        song = offline_voice.freestyle_song_from_draft(draft)
+    except freestyle_song.FreestyleSongError as error:
+        return (
+            "I could not produce a structurally valid song, so nothing was "
+            f"queued: {error}"
+        )
+    except ValueError as error:
+        return f"The generated song failed its fixed-score check: {error}"
+
+    voice_session.request_song(song)
+    voice_session.request_start()
+    return voice_session.silent_reply(
+        f"I chose {draft.tune_key.replace('_', ' ')} and wrote "
+        f"'{draft.title}'. The notes and timing remain fixed; only the "
+        "validated syllables are new."
+    )
+
+
 # ============================================================
 # HARDWARE
 # ============================================================
@@ -1237,7 +1475,8 @@ def handle_tdeck_power_saving_on(user_input):
     "Search and manage the private offline manual library",
     usage=(
         "library [status|sources|search <terms>|add <path>|"
-        "remove <name>|rebuild]"
+        "remove <name>|rebuild|semantic [status|on|off|quarantine|"
+        "clear <chunk-id>|clear all]]"
     ),
     dev_only=False,
     group="knowledge",
@@ -1246,16 +1485,28 @@ def handle_library(user_input):
     raw = str(user_input or "").strip()
     lowered = raw.lower()
 
-    if lowered not in {"library", "library status", "library sources"} and not (
+    if lowered not in {
+        "library",
+        "library status",
+        "library sources",
+        "library semantic",
+        "library semantic status",
+        "library semantic on",
+        "library semantic off",
+        "library semantic quarantine",
+        "library semantic clear all",
+    } and not (
         lowered.startswith("library search ")
         or lowered.startswith("library add ")
         or lowered.startswith("library remove ")
+        or lowered.startswith("library semantic clear ")
         or lowered == "library rebuild"
     ):
         return False
 
     if lowered in {"library", "library status"}:
         state = knowledge_library.status()
+        librarian = knowledge_library.librarian_status()
         if not state.get("enabled"):
             return "The offline reference library is disabled by configuration."
         if not state.get("ready"):
@@ -1270,8 +1521,53 @@ def handle_library(user_input):
                 "Semantic vectors: "
                 f"{state.get('embedded', 0)}/{state.get('chunks', 0)}"
             ),
+            (
+                "Trust reviews pending: "
+                f"{state.get('trust_pending', 0)}"
+            ),
+            (
+                "LLM librarian observer: "
+                + (
+                    (
+                        "shadow running "
+                        f"({librarian.get('recorded', 0)} recorded)"
+                    )
+                    if librarian.get("running")
+                    else (
+                        "configured, waiting"
+                        if librarian.get("configured")
+                        else "off (" + librarian.get(
+                            "configuration", "disabled"
+                        ) + ")"
+                    )
+                )
+            ),
             f"Import folder: {state.get('user_library', '')}",
         ]
+        embedding = state.get("embedding") or {}
+        lines.extend([
+            (
+                "Semantic backfill: "
+                + ("enabled" if embedding.get("enabled") else "off (opt-in)")
+            ),
+            (
+                "Semantic target: "
+                f"{embedding.get('embedded', 0)}/"
+                f"{embedding.get('target', 0)} excerpts across "
+                f"{embedding.get('embedded_sources', 0)}/"
+                f"{embedding.get('target_sources', 0)} sources"
+            ),
+            (
+                "Semantic queue: "
+                f"{embedding.get('due', 0)} due, "
+                f"{embedding.get('backoff', 0)} waiting, "
+                f"{embedding.get('quarantined', 0)} quarantined"
+            ),
+        ])
+        if embedding.get("stall_reason"):
+            lines.append(
+                "Semantic state: " + embedding["stall_reason"]
+            )
         if state.get("errors"):
             lines.append(
                 f"Import warnings: {state['errors']} "
@@ -1286,6 +1582,88 @@ def handle_library(user_input):
             "library.",
         ])
         return "\n".join(lines)
+
+    if lowered in {"library semantic", "library semantic status"}:
+        state = knowledge_library.status()
+        embedding = state.get("embedding") or {}
+        return "\n".join([
+            "LIBRARY SEMANTIC BACKFILL",
+            "=" * 58,
+            "Enabled: " + ("yes" if embedding.get("enabled") else "no"),
+            f"Eligible excerpts: {embedding.get('eligible', 0)}",
+            f"Eligible sources: {embedding.get('eligible_sources', 0)}",
+            f"Fair target excerpts: {embedding.get('target', 0)}",
+            f"Fair target sources: {embedding.get('target_sources', 0)}",
+            f"Embedded target: {embedding.get('embedded', 0)}",
+            f"Covered target sources: {embedding.get('embedded_sources', 0)}",
+            f"Pending: {embedding.get('pending', 0)}",
+            f"Due now: {embedding.get('due', 0)}",
+            f"Waiting for retry: {embedding.get('backoff', 0)}",
+            f"Quarantined: {embedding.get('quarantined', 0)}",
+            f"Out-of-target stored vectors: {embedding.get('out_of_target', 0)}",
+            f"Coverage: {embedding.get('coverage', 0.0) * 100:.1f}%",
+            f"State: {embedding.get('stall_reason') or 'active'}",
+            "",
+            "Backfill is off by default. Developer mode is required to "
+            "enable it or clear quarantined failures.",
+        ])
+
+    if lowered == "library semantic quarantine":
+        report = knowledge_library.embed_quarantine()
+        lines = [
+            "LIBRARY EMBEDDING QUARANTINE",
+            "=" * 58,
+            f"Quarantined: {report.get('quarantined', 0)}",
+        ]
+
+        for row in report.get("rows") or []:
+            detail = (
+                f"{row['chunk_id']}: {row.get('source', '')}"
+                + (f" - {row['heading']}" if row.get("heading") else "")
+                + f" ({row.get('attempts', 0)} attempts)"
+            )
+            lines.append(detail)
+            if row.get("last_error"):
+                lines.append("  " + row["last_error"][:240])
+
+        return "\n".join(lines)
+
+    if lowered in {"library semantic on", "library semantic off"}:
+        if not DEV_MODE:
+            return (
+                "Changing semantic backfill requires developer mode. "
+                "Type 'dev mode' first."
+            )
+
+        enabled = lowered.endswith(" on")
+        knowledge_library.set_embedding_enabled(enabled)
+        return (
+            "Semantic backfill enabled. It will fill only the deterministic "
+            "fair target and stop when complete."
+            if enabled
+            else "Semantic backfill disabled. Lexical library search remains active."
+        )
+
+    if lowered == "library semantic clear all" or lowered.startswith(
+        "library semantic clear "
+    ):
+        if not DEV_MODE:
+            return (
+                "Clearing semantic quarantine requires developer mode. "
+                "Type 'dev mode' first."
+            )
+
+        argument = raw[len("library semantic clear "):].strip()
+
+        if argument.lower() == "all":
+            chunk_id = None
+        elif argument.isdigit() and int(argument) > 0:
+            chunk_id = int(argument)
+        else:
+            return "Use: library semantic clear <chunk-id>|all"
+
+        cleared = knowledge_library.clear_embed_quarantine(chunk_id)
+        return f"Cleared {cleared} quarantined embedding failure(s)."
 
     if lowered == "library sources":
         records = knowledge_library.sources()
@@ -1339,9 +1717,18 @@ def handle_library(user_input):
                 label += " — " + result["heading"]
             if result["stale"]:
                 label += " [review date passed]"
+            elif result.get("review_status") == "unknown":
+                label += " [review date unknown]"
             lines.extend([
                 "",
                 f"{index}. {label} [{result['retrieval']}]",
+                (
+                    "Evidence labels: "
+                    f"integrity={result['metadata'].get('integrity', 'unknown')}; "
+                    f"instruction-risk="
+                    f"{result['metadata'].get('instruction_risk', 'unknown')}; "
+                    f"trust={result['metadata'].get('trust', 'unverified')}"
+                ),
                 result["text"][:700],
             ])
             source_url = result["metadata"].get("source_url")
@@ -1440,12 +1827,24 @@ def handle_read_source(user_input):
             "configuration is: read assistant/core/config.py"
         )
 
+    # Defense in depth for path shapes that intentionally fail the registry's
+    # ordinary-English arg_pattern. A long private suffix must not bypass the
+    # central developer gate merely because it is not a normal source suffix.
+    # A phrase containing spaces remains ordinary conversation (for example,
+    # "read file this book later") and must not be refused as a command.
+    _expire_dev_mode()
+    if not DEV_MODE and re.fullmatch(r"[\w\-./\\]+", argument):
+        return (
+            "Developer mode is required for: read <path>\n\n"
+            "Type 'dev mode' first."
+        )
+
     try:
         text = source_awareness.read_source(argument)
     except source_awareness.SourceError as error:
         return str(error)
 
-    return f"{argument} ({text.count(chr(10)) + 1} lines)\n\n{text}"
+    return f"{argument} ({source_awareness.line_count(text)} lines)\n\n{text}"
 
 
 @command("show memories", "List every stored memory",
@@ -4027,19 +4426,10 @@ _CONVERSATIONAL_WORDS = frozenset(
 
 MAX_NEAR_MISS_WORDS = 4
 
-# Features the operator has asked for that do not exist yet. Without an
-# entry here each one reaches the director, which performs it in prose:
-# "sing what you want" produced a description of the system humming a
-# melody of purpose. Naming the gap is the honest answer, and a wrong
-# "yes" from a singing engine that was never built is the failure this
-# exists to prevent.
-_UNBUILT_REQUESTS = {
-    "sing what you want": (
-        "I have no command for that yet. Choosing what to sing is not "
-        "built -- only 'sing daisy bell', which performs one fixed "
-        "arrangement."
-    ),
-}
+# Known narrative traps can be named here until their real command exists.
+# Singing is no longer one of them: both fixed songs and the bounded
+# lyric-only generator are registered above.
+_UNBUILT_REQUESTS = {}
 
 # Ordinary phrasings for real commands that the near-miss shapes below
 # cannot reach, because their extra words are the same ordinary words that

@@ -70,7 +70,7 @@ class ModelPackTests(unittest.TestCase):
             os.path.basename(output),
             f"TORMENT_NEXUS-{package_model_pack.RELEASE_VERSION}-test-pack",
         )
-        self.assertEqual(manifest["release_version"], "researchB")
+        self.assertEqual(manifest["release_version"], "researchC")
         self.assertEqual(manifest["model"]["sha256"], self.spec.sha256)
         self.assertEqual(
             manifest["provenance"]["artifact_revision"],
@@ -255,7 +255,7 @@ class ProductionModelPackContractTests(unittest.TestCase):
     def test_beta6_full_maintenance_identity_is_pinned(self):
         spec = package_model_pack.FULL_MAINTENANCE_14B
 
-        self.assertEqual(package_model_pack.RELEASE_VERSION, "researchB")
+        self.assertEqual(package_model_pack.RELEASE_VERSION, "researchC")
         self.assertEqual(spec.size_bytes, 8_988_111_200)
         self.assertEqual(
             spec.sha256,

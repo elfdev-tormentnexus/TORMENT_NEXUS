@@ -18,7 +18,8 @@ echo  The read-only agent interface will listen on loopback.
 echo  A connected agent can read state, search memory and the
 echo  knowledge library, and ask the director questions.
 echo.
-echo  Nothing on that interface writes, edits, or restarts.
+echo  No route edits files/config, runs commands, or restarts.
+echo  Calls append audit metadata and may warm local indexes.
 echo  The bearer token is written to:
 echo    assistant\.agent_token
 echo.

@@ -322,6 +322,24 @@ def _deterministic(text, dev_mode):
             lambda m: "sing daisy bell",
         ),
         (
+            r"^(?:please\s+)?(?:sing|perform|play)\s+(?:the\s+)?"
+            r"(?:song\s+)?(?:come\s+)?josephine"
+            r"(?:\s+in\s+(?:my\s+)?flying\s+machine)?\b",
+            lambda m: "sing come josephine",
+        ),
+        (
+            r"^(?:please\s+)?(?:sing|perform)\s+what\s+you\s+want"
+            r"(?:\s+about\s+(.+))?$",
+            lambda m: (
+                "sing what you want"
+                + (
+                    f" about {m.group(1).strip().rstrip('?!.,')}"
+                    if m.group(1)
+                    else ""
+                )
+            ),
+        ),
+        (
             r"^(?:please\s+)?(?:undo|revert|roll\s*back)\s+"
             r"(?:the\s+)?(?:last|most recent)\s+(?:edit|change)\b",
             lambda m: "rollback",

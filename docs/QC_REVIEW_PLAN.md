@@ -65,6 +65,10 @@ room. These are yours. Each is written to be run in a few minutes.
    inside sentences, endings falling rather than rising?
 4. Ask it to sing Daisy Bell. Does the intro play before the singing, and do
    held notes articulate rather than smear?
+   Then run `sing come josephine`: does the 1910 chorus stay aligned with the
+   accompaniment, and does the original answering verse remain intelligible?
+   Finally run `sing what you want about the night sky`: does it either perform
+   a coherent fixed-tune song or fail visibly without queueing partial audio?
 5. `text mode` silences replies; `audio mode` restores them.
 
 ### Music and visualizer

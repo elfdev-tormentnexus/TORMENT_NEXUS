@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "registered_utc": "2026-07-31T08:00:09.8480354Z",
+  "status": "registered_not_run",
+  "purpose": "Test whether the already shipped 4B Q8 director weights satisfy the unchanged shadow-librarian engineering gate when isolated in a dedicated service.",
+  "model": {
+    "file": "Qwen3-4B-abliterated-bf16_q8_0.gguf",
+    "bytes": 4645051328,
+    "sha256": "947656a42e73bda324c527f06953596b77e4d91bc590476955205b5f64d4e974",
+    "redistribution_role": "already_selected_researchC_director_weights",
+    "librarian_process_role": "dedicated_shadow_only"
+  },
+  "server_bundle_sha256": "623aa9e45e1d6a6170d3f677c84576f087ab489433665ac336a705e89436fc2a",
+  "canonical_cases_sha256": "6d671b6ef97084fa17292b16258eb618ccef08e93f9764a0f86148060c5b2261",
+  "presentation": [
+    "forward",
+    "reversed"
+  ],
+  "sampler": {
+    "temperature": 0,
+    "top_p": 1,
+    "seed": 0,
+    "max_tokens": 256,
+    "stream": true,
+    "cache_prompt": false,
+    "no_think": true
+  },
+  "engineering_gate": {
+    "parse_validity": 1.0,
+    "task_accuracy": 1.0,
+    "order_agreement": 1.0
+  },
+  "immutability": [
+    "Do not change cases, expected sources, candidate limits, prompt contract, scoring, or gate after observing the result.",
+    "The librarian return remains disconnected from retrieval and answers regardless of score.",
+    "Any promotion remains a separate reviewed implementation change."
+  ],
+  "resource_boundary": {
+    "use_dedicated_gpu_service": true,
+    "do_not_restart_or_reconfigure_running_sable": true,
+    "do_not_attempt_7b_or_14b_while_sable_is_open": true
+  }
+}

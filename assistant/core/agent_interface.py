@@ -9,10 +9,11 @@ gap, and it is deliberately the least capable version that does.
 
 WHAT IT IS NOT
 --------------
-There is no endpoint here that changes anything. No edit, no goal, no
-config, no restart, no shutdown. Every handler is a GET that reads. The
-plan this comes from says anything that writes goes through dev_auth --
-that remains true and unbuilt, because a write surface deserves its own
+There is no endpoint here that edits project files or configuration, runs a
+command, sets a goal, restarts, or shuts down the application. Every handler
+is a GET. Calls do append bounded audit metadata, and a provider may warm or
+migrate a local index before answering; those maintenance writes confer no
+new project authority. A write-capability surface still deserves its own
 review rather than arriving attached to a diagnostic one.
 
 WHY IT IS OFF BY DEFAULT
@@ -252,6 +253,8 @@ class _Handler(BaseHTTPRequestHandler):
         # Nothing here should be reachable from a page's fetch().
         self.send_header("Access-Control-Allow-Origin", "null")
         self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
         self.end_headers()
         self.wfile.write(body)
 

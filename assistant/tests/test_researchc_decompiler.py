@@ -1,4 +1,4 @@
-"""Tests for the manifest-driven Research B one-click decompiler."""
+"""Tests for the manifest-driven Research C one-click decompiler."""
 
 import importlib.util
 import json
@@ -18,14 +18,14 @@ if str(TOOLS) not in sys.path:
 machinesoul = importlib.import_module("machinesoul")
 release = importlib.import_module("machinesoul_release")
 SPEC = importlib.util.spec_from_file_location(
-    "researchb_decompiler_under_test",
-    ROOT / "tools" / "build_researchb_decompiler.py",
+    "researchc_decompiler_under_test",
+    ROOT / "tools" / "build_researchc_decompiler.py",
 )
 builder = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(builder)
 
 
-class ResearchBDecompilerTests(unittest.TestCase):
+class ResearchCDecompilerTests(unittest.TestCase):
     def setUp(self):
         self.folder = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.folder, True)
@@ -34,12 +34,12 @@ class ResearchBDecompilerTests(unittest.TestCase):
             "format": builder.COMBINED_FORMAT,
             "components": {
                 "windows": self._component(
-                    "SABLERESEARCHB-WINDOWS",
+                    "SABLERESEARCHC-WINDOWS",
                     ["setup.bat", "assistant/main.py"],
                     2,
                 ),
                 "optional_14b": self._component(
-                    "SABLERESEARCHB-14B",
+                    "SABLERESEARCHC-14B",
                     ["models/companion.gguf"],
                     1,
                 ),
@@ -48,11 +48,11 @@ class ResearchBDecompilerTests(unittest.TestCase):
         self._write_manifest()
         for name in (
             "machinesoul.py",
-            "SABLERESEARCHB-MANIFEST.png",
-            "SABLERESEARCHB-REASSEMBLER.png",
-            "SABLERESEARCHB-WINDOWS.part01.png",
-            "SABLERESEARCHB-WINDOWS.part02.png",
-            "SABLERESEARCHB-14B.part01.png",
+            "SABLERESEARCHC-MANIFEST.png",
+            "SABLERESEARCHC-REASSEMBLER.png",
+            "SABLERESEARCHC-WINDOWS.part01.png",
+            "SABLERESEARCHC-WINDOWS.part02.png",
+            "SABLERESEARCHC-14B.part01.png",
         ):
             (self.folder / name).write_bytes(name.encode("ascii"))
 
@@ -79,11 +79,11 @@ class ResearchBDecompilerTests(unittest.TestCase):
         raw = output.read_bytes()
         text = raw.decode("ascii")
 
-        self.assertEqual(output.name, "DECOMPILE_SABLE_researchB.bat")
+        self.assertEqual(output.name, "DECOMPILE_SABLE_researchC.bat")
         self.assertIn(b"\r\n", raw)
         self.assertIn("DisableDelayedExpansion", text)
-        self.assertIn("SABLERESEARCHB-WINDOWS.part02.png", text)
-        self.assertIn("SABLERESEARCHB-WINDOWS.part02.msv", text)
+        self.assertIn("SABLERESEARCHC-WINDOWS.part02.png", text)
+        self.assertIn("SABLERESEARCHC-WINDOWS.part02.msv", text)
         self.assertIn("--component windows", text)
         self.assertIn("--component optional_14b", text)
         self.assertIn("models\\companion.gguf", text)
@@ -117,12 +117,12 @@ class ResearchBDecompilerTests(unittest.TestCase):
                     builder.inspect_manifest(self.manifest_path)
 
     def test_missing_or_gapped_capsules_are_refused(self):
-        (self.folder / "SABLERESEARCHB-WINDOWS.part02.png").unlink()
+        (self.folder / "SABLERESEARCHC-WINDOWS.part02.png").unlink()
         with self.assertRaisesRegex(builder.DecompilerError, "part02"):
             builder.build(self.folder, self.manifest_path)
 
         component = self.manifest["components"]["windows"]
-        component["capsules"][1]["name"] = "SABLERESEARCHB-WINDOWS.part03.png"
+        component["capsules"][1]["name"] = "SABLERESEARCHC-WINDOWS.part03.png"
         self._write_manifest()
         with self.assertRaisesRegex(builder.DecompilerError, "not consecutive"):
             builder.inspect_manifest(self.manifest_path)
@@ -148,7 +148,7 @@ class ResearchBDecompilerTests(unittest.TestCase):
 
 
 @unittest.skipUnless(os.name == "nt", "executes the generated Windows batch")
-class ResearchBDecompilerRuntimeTests(unittest.TestCase):
+class ResearchCDecompilerRuntimeTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.root, True)
@@ -174,7 +174,7 @@ class ResearchBDecompilerRuntimeTests(unittest.TestCase):
         (windows / "assistant").mkdir(parents=True)
         (windows / "setup.bat").write_bytes(b"@echo off\r\nexit /b 0\r\n")
         (windows / "assistant" / "proof.txt").write_text(
-            "exact researchB payload", encoding="utf-8"
+            "exact researchC payload", encoding="utf-8"
         )
         optional = self.root / "optional"
         (optional / "models").mkdir(parents=True)
@@ -182,13 +182,13 @@ class ResearchBDecompilerRuntimeTests(unittest.TestCase):
 
         windows_manifest = self._cut(
             windows,
-            "SABLERESEARCHB-WINDOWS",
+            "SABLERESEARCHC-WINDOWS",
             "windows-plan.json",
             "windows-manifest.json",
         )
         optional_manifest = self._cut(
             optional,
-            "SABLERESEARCHB-14B",
+            "SABLERESEARCHC-14B",
             "optional-plan.json",
             "optional-manifest.json",
             payload_limit=128,
@@ -199,11 +199,11 @@ class ResearchBDecompilerRuntimeTests(unittest.TestCase):
         )
         machinesoul.build_stream(
             str(combined),
-            str(self.release_dir / "SABLERESEARCHB-MANIFEST.png"),
+            str(self.release_dir / "SABLERESEARCHC-MANIFEST.png"),
         )
         machinesoul.build_stream(
             str(TOOLS / "machinesoul_release.py"),
-            str(self.release_dir / "SABLERESEARCHB-REASSEMBLER.png"),
+            str(self.release_dir / "SABLERESEARCHC-REASSEMBLER.png"),
         )
         shutil.copy2(TOOLS / "machinesoul.py", self.release_dir / "machinesoul.py")
         launcher = builder.build(self.release_dir, combined)
@@ -219,24 +219,24 @@ class ResearchBDecompilerRuntimeTests(unittest.TestCase):
         )
         transcript = result.stdout.decode("utf-8", errors="replace")
         self.assertEqual(result.returncode, 0, transcript)
-        installed = self.release_dir / "TORMENT_NEXUS-researchB"
+        installed = self.release_dir / "TORMENT_NEXUS-researchC"
         self.assertEqual(
             (installed / "assistant" / "proof.txt").read_text(encoding="utf-8"),
-            "exact researchB payload",
+            "exact researchC payload",
         )
         self.assertEqual(
             (installed / "models" / "companion.gguf").read_bytes(),
             bytes(range(251)),
         )
         self.assertFalse(
-            (self.release_dir / ".SABLERESEARCHB-decompile-work").exists()
+            (self.release_dir / ".SABLERESEARCHC-decompile-work").exists()
         )
 
         # The optional set has multiple parts. One missing part must refuse
         # before reconstructing a target; no optional parts must cleanly take
         # the ordinary-install path promised by the public guide.
         optional_capsules = sorted(
-            self.release_dir.glob("SABLERESEARCHB-14B.part*.png")
+            self.release_dir.glob("SABLERESEARCHC-14B.part*.png")
         )
         self.assertGreater(len(optional_capsules), 1)
         shutil.rmtree(installed)

@@ -9,7 +9,7 @@ import os
 import unittest
 from unittest import mock
 
-from core import provenance
+from core import provenance, research_c
 
 
 class TrustClassificationTests(unittest.TestCase):
@@ -49,6 +49,15 @@ class TrustClassificationTests(unittest.TestCase):
 
 
 class ReceiptTests(unittest.TestCase):
+    def setUp(self):
+        patch = mock.patch.object(
+            research_c,
+            "_audit_hmac_key_cache",
+            b"receipt-test-key".ljust(32, b"!"),
+        )
+        patch.start()
+        self.addCleanup(patch.stop)
+
     def test_claim_kinds_are_closed(self):
         receipt = provenance.Receipt("q")
         with self.assertRaises(ValueError):
@@ -80,6 +89,19 @@ class ReceiptTests(unittest.TestCase):
         for text in (rendered, blob):
             self.assertNotIn(secret, text)
             self.assertNotIn("medical", text)
+
+    def test_question_pseudonym_changes_with_the_installation_key(self):
+        question = "could an attacker guess this short question"
+        first = provenance.Receipt(question).question_digest
+        with mock.patch.object(
+            research_c,
+            "_audit_hmac_key_cache",
+            b"different-receipt-key".ljust(32, b"!"),
+        ):
+            second = provenance.Receipt(question).question_digest
+
+        self.assertNotEqual(first, second)
+        self.assertEqual(len(first), 64)
 
     def test_the_digest_is_reproducible_and_content_sensitive(self):
         def build(claim_text):
@@ -142,6 +164,34 @@ class ReceiptTests(unittest.TestCase):
         receipt.cite(_os.path.join(root, "docs", "SAFETY.md"))
         self.assertEqual(receipt.sources[0]["path"], "docs/SAFETY.md")
 
+    def test_an_external_absolute_path_is_replaced_by_an_opaque_id(self):
+        import os as _os
+        import tempfile as _tempfile
+
+        external = _os.path.join(
+            _tempfile.gettempdir(),
+            "private-folder",
+            "manual.md",
+        )
+        receipt = provenance.Receipt("q")
+        receipt.cite(external)
+
+        shown = receipt.sources[0]["path"]
+        self.assertRegex(shown, r"^external/source-[0-9a-f]{16}$")
+        self.assertNotIn("private-folder", shown)
+        self.assertNotIn(_tempfile.gettempdir(), shown)
+
+    def test_receipt_binds_a_citation_to_the_source_digest(self):
+        digest = "a" * 64
+        receipt = provenance.Receipt("q")
+        receipt.cite(
+            "knowledge/builtin/card.md",
+            source_sha256=digest,
+        )
+
+        self.assertEqual(receipt.sources[0]["sha256"], digest)
+        self.assertIn("sha256:" + digest[:12], receipt.render())
+
     def test_an_empty_receipt_still_renders_and_still_identifies_itself(self):
         rendered = provenance.Receipt().render()
         self.assertIn("RECEIPT", rendered)
@@ -152,7 +202,7 @@ class ReceiptTests(unittest.TestCase):
 class LibraryIngestTrustTests(unittest.TestCase):
     """Nothing reaches the shelf without a trust state decided at ingest."""
 
-    def _classify(self, path, body):
+    def _classify(self, path, body, origin=None):
         import tempfile, pathlib
         from knowledge import library
         root = pathlib.Path(tempfile.mkdtemp())
@@ -160,13 +210,27 @@ class LibraryIngestTrustTests(unittest.TestCase):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(body, encoding="utf-8")
         text = library.extract_text(str(target))
-        metadata, _ = library._metadata(text, str(target))
+        metadata, _ = library._metadata(
+            text,
+            str(target),
+            origin=origin,
+        )
         return metadata
 
     def test_a_shipped_card_is_clean(self):
-        meta = self._classify("knowledge/builtin/card.md",
-                              "# Water\nStore 4 L per person per day.")
+        meta = self._classify(
+            "knowledge/builtin/card.md",
+            "# Water\nStore 4 L per person per day.",
+            origin=provenance.CLEAN,
+        )
         self.assertEqual(meta["trust"], provenance.CLEAN)
+
+    def test_a_builtin_shaped_path_does_not_confer_clean_origin(self):
+        meta = self._classify(
+            "knowledge/builtin/card.md",
+            "# Water\nStore 4 L per person per day.",
+        )
+        self.assertEqual(meta["trust"], provenance.UNVERIFIED)
 
     def test_an_imported_document_is_unverified_not_clean(self):
         # Parsing is not trust. The default for anything the operator
@@ -210,6 +274,13 @@ class AnswerPathReceiptTests(unittest.TestCase):
         import main
 
         self.main = main
+        key_patch = mock.patch.object(
+            research_c,
+            "_audit_hmac_key_cache",
+            b"answer-path-test-key".ljust(32, b"!"),
+        )
+        key_patch.start()
+        self.addCleanup(key_patch.stop)
 
         # _record_conversation_turn() is the real answer path, so it also
         # appends to the operator's conversation history and queues that
@@ -225,6 +296,12 @@ class AnswerPathReceiptTests(unittest.TestCase):
         for patch in patches:
             patch.start()
             self.addCleanup(patch.stop)
+        librarian_patch = mock.patch.object(
+            main.knowledge_library,
+            "submit_librarian",
+        )
+        self.librarian_submit = librarian_patch.start()
+        self.addCleanup(librarian_patch.stop)
 
         from core.config import HISTORY_FILE
 
@@ -242,6 +319,7 @@ class AnswerPathReceiptTests(unittest.TestCase):
 
         self.addCleanup(setattr, main, "_last_receipt", None)
         self.addCleanup(main._hold_citations, [])
+        self.addCleanup(main._hold_librarian_snapshot, None, [])
 
     def _turn(self, question, answer, citations=None):
         self.main._hold_citations(
@@ -275,6 +353,62 @@ class AnswerPathReceiptTests(unittest.TestCase):
         self.assertEqual(len(receipt.sources), 2)
         self.assertIn("director", receipt.identities)
         self.assertTrue(receipt.verification)
+
+    def test_librarian_is_submitted_only_after_redaction_and_receipt(self):
+        secret = "31415926"
+        self._turn(
+            f"find a radio manual and remember {secret}",
+            "I found a reference.",
+        )
+
+        self.librarian_submit.assert_called_once()
+        submitted = self.librarian_submit.call_args.args[0]
+        self.assertNotIn(secret, submitted)
+        self.assertIsNone(self.librarian_submit.call_args.args[1])
+        self.assertIsNotNone(self.main.last_receipt())
+
+    def test_librarian_submission_keeps_the_answer_time_baseline(self):
+        from core import librarian_shadow
+
+        candidate = {
+            "chunk_id": 7,
+            "source_id": 3,
+            "source_sha256": "a" * 64,
+            "title": "Radio card",
+            "heading": "Outage",
+            "text": "Use the local radio plan.",
+            "scope": "built-in",
+            "review_status": "current",
+            "baseline_eligible": True,
+            "metadata": {
+                "trust": "clean",
+                "integrity": "manifest-matched",
+            },
+        }
+        fingerprint = librarian_shadow.candidate_fingerprint(candidate)
+        citation = {
+            "path": "assistant/knowledge/builtin/radio.md",
+            "title": "Radio card",
+            "locator": "Outage",
+            "trust": provenance.CLEAN,
+            "source_sha256": "a" * 64,
+            "librarian_fingerprint": fingerprint,
+        }
+        self.main._hold_citations([citation])
+        self.main._hold_librarian_snapshot([candidate], [citation])
+
+        self.main._record_conversation_turn(
+            "find the radio plan",
+            "Use the local plan.",
+            allow_memory=False,
+        )
+
+        snapshot = self.librarian_submit.call_args.args[1]
+        self.assertEqual(
+            snapshot["baseline_fingerprints"],
+            [fingerprint],
+        )
+        self.assertEqual(snapshot["candidates"][0]["title"], "Radio card")
 
     def test_the_question_is_digested_and_never_published(self):
         # The rule the whole design rests on: a receipt may be shown or

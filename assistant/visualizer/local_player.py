@@ -26,6 +26,7 @@ from difflib import SequenceMatcher
 import os
 import queue
 import threading
+import time
 import unicodedata
 
 
@@ -45,6 +46,7 @@ QUEUE_BLOCKS = 8
 # The margin keeps two similarly named mixes from being guessed silently.
 FUZZY_MATCH_MINIMUM = 0.80
 FUZZY_MATCH_MARGIN = 0.08
+OUTPUT_RECOVERY_BACKOFF_SECONDS = (0.25, 0.5, 1.0, 2.0, 4.0)
 
 
 class LocalPlaybackError(Exception):
@@ -196,7 +198,12 @@ class LocalPlayer:
         # track and the two never have to be reasoned about together.
         self._track_gain = 1.0
         self._finished = threading.Event()
+        self._natural_end = threading.Event()
+        self._output_status = None
         self._generation = 0
+        # Manual transport actions move this epoch. Recovery retries do not,
+        # so Stop or Play cancels an old endpoint-recovery loop immediately.
+        self._transport_epoch = 0
         self._repeat_library = True
         self._track_change_callback = None
 
@@ -265,9 +272,10 @@ class LocalPlayer:
     def play(self, name, path):
         """Load and start a file, replacing whatever was playing."""
         with self._transport_lock:
+            self._transport_epoch += 1
             return self._play_locked(name, path)
 
-    def _play_locked(self, name, path):
+    def _play_locked(self, name, path, start_frame=0, recovering=False):
         """Start one file while the caller owns the transport lock."""
         try:
             import sounddevice as sd
@@ -278,13 +286,24 @@ class LocalPlayer:
                 f"(sounddevice, soundfile): {error}"
             ) from error
 
-        self.stop()
+        self._stop_locked()
 
         try:
             with _muted_stderr():
                 handle = sf.SoundFile(path)
         except Exception as error:
             raise LocalPlaybackError(f"Could not open {name}: {error}") from error
+
+        try:
+            start_frame = max(0, min(int(start_frame), int(handle.frames)))
+            if start_frame:
+                handle.seek(start_frame)
+        except Exception as error:
+            with contextlib.suppress(Exception):
+                handle.close()
+            raise LocalPlaybackError(
+                f"Could not resume {name} at the saved position: {error}"
+            ) from error
 
         # Measured before the stream opens so the first callback already
         # has the right level; cached after the first play of each file, so
@@ -303,18 +322,22 @@ class LocalPlayer:
             self._path = os.path.abspath(path)
             self._track_gain = track_gain
             self._paused = False
-            self._frames_played = 0
+            self._frames_played = start_frame
             self._total_frames = handle.frames
             self._samplerate = handle.samplerate
             self._blocks = queue.Queue(maxsize=QUEUE_BLOCKS)
             self._stop_reading = threading.Event()
             self._finished = threading.Event()
+            self._natural_end = threading.Event()
+            self._output_status = None
             self._generation += 1
 
             channels = handle.channels
             samplerate = handle.samplerate
             finished = self._finished
+            natural_end = self._natural_end
             generation = self._generation
+            transport_epoch = self._transport_epoch
 
         self._reader = threading.Thread(
             target=self._read_ahead,
@@ -333,7 +356,7 @@ class LocalPlayer:
             )
             stream.start()
         except Exception as error:
-            self.stop()
+            self._stop_locked()
             raise LocalPlaybackError(
                 f"Could not open an audio output for {name}: {error}"
             ) from error
@@ -343,7 +366,13 @@ class LocalPlayer:
 
         threading.Thread(
             target=self._advance_after_finish,
-            args=(generation, finished),
+            args=(
+                generation,
+                finished,
+                natural_end,
+                stream,
+                transport_epoch,
+            ),
             name="local-music-auto-advance",
             daemon=True,
         ).start()
@@ -420,9 +449,61 @@ class LocalPlayer:
         split = (current_index + 1) % len(tracks)
         return list(tracks[split:] + tracks[:split])
 
-    def _advance_after_finish(self, generation, finished):
-        """Advance once a track ends naturally; manual stop invalidates it."""
-        finished.wait()
+    def _advance_after_finish(
+        self,
+        generation,
+        finished,
+        natural_end=None,
+        stream=None,
+        transport_epoch=None,
+    ):
+        """Advance at EOF, or reopen the same output after endpoint loss."""
+        while not finished.wait(timeout=0.25):
+            with self._lock:
+                if generation != self._generation:
+                    return
+            if stream is None:
+                continue
+            try:
+                active = bool(stream.active)
+            except Exception as error:
+                with self._lock:
+                    self._output_status = str(error)
+                active = False
+            if not active:
+                finished.set()
+                break
+
+        with self._lock:
+            if (
+                generation != self._generation
+                or self._paused
+                or self._stream is None
+            ):
+                return
+            current_path = self._path
+            current_name = self._name
+            frame = self._frames_played
+            output_status = self._output_status
+            epoch = (
+                self._transport_epoch
+                if transport_epoch is None
+                else transport_epoch
+            )
+
+        # Existing direct tests call this helper with no natural_end event;
+        # that call shape means a natural finish. Live streams always supply
+        # the event and set it only when the callback consumes the EOF marker.
+        ended_naturally = natural_end is None or natural_end.is_set()
+        if not ended_naturally:
+            reason = output_status or "the audio endpoint stopped responding"
+            error = LocalPlaybackError(
+                f"Audio output interrupted ({reason}); reconnecting from "
+                f"{frame} frames."
+            )
+            self._notify_track_change(None, error)
+            self._recover_output(current_name, current_path, frame, epoch)
+            return
 
         with self._transport_lock:
             with self._lock:
@@ -433,8 +514,6 @@ class LocalPlayer:
                     or self._stream is None
                 ):
                     return
-                current_path = self._path
-                current_name = self._name
 
             tracks = available_tracks()
             if not tracks:
@@ -456,6 +535,36 @@ class LocalPlayer:
                 return
 
             self._notify_track_change(None, last_error)
+
+    def _recover_output(self, name, path, frame, transport_epoch):
+        """Retry the current default output with a capped delay until cancelled."""
+        if not name or not path:
+            return
+
+        attempt = 0
+        while True:
+            with self._transport_lock:
+                with self._lock:
+                    if transport_epoch != self._transport_epoch:
+                        return
+                try:
+                    self._play_locked(
+                        name,
+                        path,
+                        start_frame=frame,
+                        recovering=True,
+                    )
+                except LocalPlaybackError:
+                    pass
+                else:
+                    self._notify_track_change(name, None)
+                    return
+
+            delay = OUTPUT_RECOVERY_BACKOFF_SECONDS[
+                min(attempt, len(OUTPUT_RECOVERY_BACKOFF_SECONDS) - 1)
+            ]
+            attempt += 1
+            time.sleep(delay)
 
     def _notify_track_change(self, name, error):
         with self._lock:
@@ -488,43 +597,48 @@ class LocalPlayer:
     def stop(self):
         """Tear everything down. Safe to call when nothing is playing."""
         with self._transport_lock:
-            with self._lock:
-                stream, handle = self._stream, self._handle
-                reader, stopper = self._reader, self._stop_reading
-                blocks = self._blocks
-                finished = self._finished
-                self._generation += 1
-                self._stream = self._handle = self._reader = None
-                self._blocks = self._stop_reading = None
-                self._name = None
-                self._path = None
-                self._paused = False
-                self._frames_played = self._total_frames = self._samplerate = 0
+            self._transport_epoch += 1
+            return self._stop_locked()
 
-            finished.set()
+    def _stop_locked(self):
+        """Internal teardown; caller owns transport lock and epoch policy."""
+        with self._lock:
+            stream, handle = self._stream, self._handle
+            reader, stopper = self._reader, self._stop_reading
+            blocks = self._blocks
+            finished = self._finished
+            self._generation += 1
+            self._stream = self._handle = self._reader = None
+            self._blocks = self._stop_reading = None
+            self._name = None
+            self._path = None
+            self._paused = False
+            self._frames_played = self._total_frames = self._samplerate = 0
 
-            if stopper is not None:
-                stopper.set()
+        finished.set()
 
-            # Unblock a reader parked on a full queue so it can see the stop.
-            if blocks is not None:
-                try:
-                    blocks.get_nowait()
-                except queue.Empty:
-                    pass
+        if stopper is not None:
+            stopper.set()
 
-            if reader is not None and reader is not threading.current_thread():
-                reader.join(timeout=1.0)
+        # Unblock a reader parked on a full queue so it can see the stop.
+        if blocks is not None:
+            try:
+                blocks.get_nowait()
+            except queue.Empty:
+                pass
 
-            for closer in (stream, handle):
-                if closer is None:
-                    continue
-                try:
-                    closer.close()
-                except Exception:
-                    pass
+        if reader is not None and reader is not threading.current_thread():
+            reader.join(timeout=1.0)
 
-            return stream is not None
+        for closer in (stream, handle):
+            if closer is None:
+                continue
+            try:
+                closer.close()
+            except Exception:
+                pass
+
+        return stream is not None
 
     # -- internals --------------------------------------------------
 
@@ -569,6 +683,9 @@ class LocalPlayer:
             paused = self._paused
             blocks = self._blocks
             volume = self._volume * self._track_gain
+            natural_end = self._natural_end
+            if status:
+                self._output_status = str(status)
 
         if paused or blocks is None:
             outdata[:] = 0
@@ -584,6 +701,7 @@ class LocalPlayer:
 
         if data is None:
             outdata[:] = 0
+            natural_end.set()
             raise sd.CallbackStop
 
         count = min(len(data), frames)

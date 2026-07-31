@@ -5,7 +5,9 @@ tool such as Codex can inspect a running session. It is experimental, off by
 default, and intended for one trusted operator on the same computer.
 
 It is not a general automation API. There are no edit, command, restart,
-shutdown, goal, or configuration routes.
+shutdown, goal, or configuration routes. “Read-only” describes route
+authority: each call appends bounded audit metadata, and startup may prepare
+or migrate a local search index before the listener opens.
 
 ## Safety and privacy boundary
 
@@ -16,6 +18,7 @@ excerpts, runtime state, or model output. The interface therefore:
 - requires a bearer token on every request;
 - rejects non-local `Host` headers;
 - accepts only HTTP `GET`;
+- sends `Cache-Control: no-store` and `Pragma: no-cache` on every response;
 - records route, time, outcome, and peer metadata in
   `assistant\logs\agent_api.jsonl`;
 - gives the human operator priority over `/ask`.
@@ -77,7 +80,7 @@ them.
 | Route | What it returns |
 | --- | --- |
 | `/health` | Current validation blockers and advisory warnings. |
-| `/state` | A bounded runtime snapshot exposed by the application. |
+| `/state` | A bounded runtime snapshot, including offline-library and shadow-librarian status but no endpoint, key, query, or excerpt. |
 | `/entropy` | Up to 64 recent director-token entropy observations used by the visual panel. |
 | `/files/editable` | Human-reviewed and unattended file allowlists; it does not edit them. |
 | `/memory/search?q=...` | Explicit personal-memory candidates. |
@@ -101,8 +104,11 @@ strings are candidates, not verified facts.
 
 This searches the independent offline manual library. A result includes its
 title, heading, excerpt, source URL when available, review metadata, staleness
-flag, similarity, and retrieval label. A semantic-only result is marked as a
-candidate rather than silently inserted as fact.
+flag, `current_conditions` limitation, similarity, and retrieval label. A
+semantic-only result is possible only where current target vectors exist and
+is marked as a candidate rather than silently inserted as fact. Persistent
+library-vector population starts off and is controlled locally through the
+developer-only library commands, not through this read interface.
 
 Imported documents and their extracted text are private. An authenticated
 caller can receive excerpts, so review [Privacy](../PRIVACY.md) before

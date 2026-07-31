@@ -1,10 +1,10 @@
-# Installing TORMENT_NEXUS researchB on Windows
+# Installing TORMENT_NEXUS researchC on Windows
 
 This is the ready-to-run path for a person who does not want to assemble a
 llama.cpp development environment.
 
 > [!CAUTION]
-> **The researchB capsules carry the complete model-bearing Windows package.**
+> **The researchC capsules carry the complete model-bearing Windows package.**
 >
 > It includes community-modified “abliterated” Qwen models with weakened
 > learned refusal behavior. The models can produce false, harmful, illegal,
@@ -15,16 +15,16 @@ llama.cpp development environment.
 > and [Rights](../RIGHTS.md) before downloading. Do not run the application as
 > Administrator or use it as a high-stakes authority.
 
-## Why researchB arrives as images
+## Why researchC arrives as images
 
-researchB deliberately puts machinesoul in the installation path. The large
+researchC deliberately puts machinesoul in the installation path. The large
 package is split below GitHub's per-asset ceiling, and every numbered part is
 carried as an ordered vector field in a lossless PNG/APNG capsule:
 
 ```text
-SABLERESEARCHB-WINDOWS.part01.png
+SABLERESEARCHC-WINDOWS.part01.png
 ...every consecutive field...
-SABLERESEARCHB-WINDOWS.partNN.png
+SABLERESEARCHC-WINDOWS.partNN.png
 ```
 
 These are not screenshots or decorative previews. The ordered pixel vectors
@@ -51,31 +51,31 @@ ordered pixel vectors and break the inverse.
   vector segments, and directly reconstructed installation coexist.
 - Internet access for the initial multi-gigabyte download.
 - A standard Python 3 installation for the published machinesoul decompiler.
-- A microphone only if you later choose `audio mode`; researchB begins in
+- A microphone only if you later choose `audio mode`; researchC begins in
   text mode.
 
 The decoded package contains its own private Python runtime for TORMENT_NEXUS.
 The separately installed Python is only the bootstrap needed to run
 `machinesoul.py` before that private runtime is accessible.
 
-## Step 1: Download the researchB assets
+## Step 1: Download the researchC assets
 
 Open the
 [GitHub Releases page](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases),
-select the release titled `researchB`, expand **Assets**, and download:
+select the release titled `researchC`, expand **Assets**, and download:
 
 ```text
-FETCH_SABLERESEARCHB.bat
+FETCH_SABLERESEARCHC.bat
 machinesoul.py
-DECOMPILE_SABLE_researchB.bat
-SABLERESEARCHB-MANIFEST.png
-SABLERESEARCHB-REASSEMBLER.png
-SABLERESEARCHB-WINDOWS.part01.png
+DECOMPILE_SABLE_researchC.bat
+SABLERESEARCHC-MANIFEST.png
+SABLERESEARCHC-REASSEMBLER.png
+SABLERESEARCHC-WINDOWS.part01.png
 ...every consecutive field...
-SABLERESEARCHB-WINDOWS.partNN.png
+SABLERESEARCHC-WINDOWS.partNN.png
 ```
 
-`FETCH_SABLERESEARCHB.bat` is the small, readable download helper. Double-click
+`FETCH_SABLERESEARCHC.bat` is the small, readable download helper. Double-click
 it to fetch every required asset, resume interrupted transfers, and verify
 each file against the SHA-256 recorded at the cut. It deliberately does **not**
 download the optional 14B companion. Interrupted bytes remain in a visibly
@@ -96,31 +96,21 @@ Rosetta Stone, anchor material, tests, and the primary research documents live
 in the directly preserved install tree rather than in a ZIP, tar, or separate
 research encoder.
 
-Research A's calibration-clarity correction is already built into the main
-Research B tree. Research B does have a different, required self-read patch,
-published as these three additional assets:
-
-```text
-INSTALL_SABLERESEARCHB_SELFREAD_PATCH.bat
-SABLERESEARCHB-SELFREAD-PATCH.part01.png
-SABLERESEARCHB-SELFREAD-PATCH-MANIFEST.png
-```
-
-Keep those files beside `machinesoul.py` and
-`SABLERESEARCHB-REASSEMBLER.png`. They are small and are not part of the
-optional 14B set.
+Research A's calibration-clarity correction and Research C source-awareness
+work are already built into the main Research C fields. No post-install
+self-read patch is required.
 
 For the optional 14B full-maintenance companion, also download every
 consecutive:
 
 ```text
-SABLERESEARCHB-14B.part01.png
+SABLERESEARCHC-14B.part01.png
 ...every consecutive field...
-SABLERESEARCHB-14B.partNN.png
+SABLERESEARCHC-14B.partNN.png
 ```
 
 Those extra capsules are only for deliberately requested long self-heal and
-extended editing sessions. They are current researchB companion assets, not
+extended editing sessions. They are current researchC companion assets, not
 old Beta 6 clutter. The 55 GB temporary-space estimate above includes the
 14B reconstruction path; the installed companion adds about 8.4 GB.
 
@@ -133,7 +123,7 @@ snapshots; they do not contain the models or complete Windows runtime.
 Double-click:
 
 ```text
-DECOMPILE_SABLE_researchB.bat
+DECOMPILE_SABLE_researchC.bat
 ```
 
 This is the only installation action after downloading. The helper uses the
@@ -150,8 +140,8 @@ standard `python` command to bootstrap machinesoul. It:
 The internal vector segments appear only during that local process:
 
 ```text
-SABLERESEARCHB-WINDOWS.part01.msv
-SABLERESEARCHB-WINDOWS.part02.msv
+SABLERESEARCHC-WINDOWS.part01.msv
+SABLERESEARCHC-WINDOWS.part02.msv
 ...
 ```
 
@@ -193,22 +183,10 @@ setup.bat
 Setup verifies the bundle, prepares the private runtime, and creates a desktop
 shortcut. It does not replace system Python or add TORMENT_NEXUS to PATH.
 
-Before first launch, double-click:
-
-```text
-INSTALL_SABLERESEARCHB_SELFREAD_PATCH.bat
-```
-
-The patch decompiles its manifest and payload through machinesoul, verifies
-that the installed files are the exact Research B base (or already patched),
-backs up every replacement, adds the two new files, and updates the installed
-release ledger. Unknown or damaged installations are refused. A second run is
-safe and reports that the patch is already applied.
-
-The ask guard, near-miss command guard, interface mode, machinespirit work,
-and calibration corrections are already inside the main Research B fields.
-Apply only the Research B self-read patch named above; do not apply separate
-Beta 6 or Research A patch assets to this package.
+The source-awareness resolver, ask guard, near-miss command guard, interface
+mode, machinespirit work, and calibration corrections are already inside the
+main Research C fields. Do not apply Beta 6, Research A, or Research B patch
+assets to this package.
 
 ## Read the first-launch notice
 
@@ -216,7 +194,7 @@ Launch the desktop shortcut or run `start_assistant.bat` from the extracted
 folder.
 
 Before the model loads and before any microphone, activity sampler, listener,
-or network-capable subsystem starts, researchB displays its safety and privacy
+or network-capable subsystem starts, researchC displays its safety and privacy
 notice. To proceed, type exactly:
 
 ```text
@@ -231,7 +209,7 @@ experimental sensing off.
 ## Updating and uninstalling
 
 Install a later research build into a new folder rather than extracting it
-over researchB. Keep the old folder until the new build passes
+over researchC. Keep the old folder until the new build passes
 `health check`. Do not casually copy the whole `assistant` directory because
 it can contain private memory, history, credentials, acknowledgements,
 consent state, imported documents, indexes, logs, and music.

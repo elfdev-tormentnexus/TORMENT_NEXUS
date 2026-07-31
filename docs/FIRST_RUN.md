@@ -1,4 +1,4 @@
-# Your first TORMENT_NEXUS researchB session
+# Your first TORMENT_NEXUS researchC session
 
 This guide assumes you installed the complete Windows archive. You do not need
 to memorize commands; `help` shows the current command list.
@@ -22,9 +22,9 @@ It confirms that you saw the model, authority, privacy, high-stakes, and
 personification limits. Review [Safety](../SAFETY.md) and
 [Privacy](../PRIVACY.md) whenever you enable an advanced feature.
 
-## 2. researchB starts quiet
+## 2. researchC starts quiet
 
-A fresh researchB installation starts with:
+A fresh researchC installation starts with:
 
 - text mode on;
 - microphone listening and spoken replies off;
@@ -32,10 +32,13 @@ A fresh researchB installation starts with:
 - cloud escalation off;
 - local agent API off;
 - autonomous startup editing off;
+- persistent offline-library vector population off;
 - experimental sensing off.
 
 Local conversation, memory, clock context, the offline practical-reference
-library, and the bundled embedding model remain available.
+library's full-text search, and semantic memory remain available. The bundled
+embedding service is present, but library population requires a separate
+developer opt-in.
 
 The model load can take several seconds. The first generated answer can be
 slower than later answers because files and prompt caches are still warming.
@@ -64,6 +67,7 @@ show memories
 memory count
 library sources
 library search <words>
+library semantic status
 ```
 
 ## 4. Conversation and the abliterated model
@@ -86,7 +90,7 @@ See [Models](../MODELS.md) and
 
 ## 5. Use the offline reference library
 
-researchB ships with a small set of practical preparedness cards. Try:
+researchC ships with a small set of practical preparedness cards. Try:
 
 ```text
 library sources
@@ -96,8 +100,11 @@ library search carbon monoxide alarm
 
 Ordinary conversation can automatically receive a short offline excerpt only
 when the question shares meaningful words with an indexed passage.
-Embeddings may rerank those lexical matches but cannot add an unrelated
-manual automatically.
+When current vectors exist for a complete comparable set, embeddings may
+rerank those lexical matches but cannot add an unrelated manual automatically.
+Persistent library-vector population starts off; a developer can inspect or
+enable its bounded fair target with `library semantic status` and `library
+semantic on`.
 
 An explicit `library search` is wider. It may label an item
 `semantic-candidate`; that means the vector was similar, not that the passage
@@ -133,12 +140,15 @@ encrypted storage. See [Privacy](../PRIVACY.md).
 
 ## 7. Opt in to voice only if wanted
 
-researchB does not initialize the microphone on a fresh start.
+researchC does not initialize the microphone on a fresh start.
 
 ```text
 audio mode        enable offline spoken replies and microphone listening
 text mode         return to typed, silent operation
 voice status      inspect speech and device readiness
+sing daisy bell   perform the fixed 1892 machine song
+sing come josephine
+sing what you want [about <subject>]
 ```
 
 You can type while audio mode is active. Press **Escape** to cancel listening
@@ -146,6 +156,9 @@ or speech.
 
 Speech recognition and synthesis run locally in the complete archive. A
 microphone is optional; text mode remains the simplest privacy boundary.
+The two fixed songs use public-domain melodies. Freestyle asks only the
+loopback director for bounded original syllables over those fixed notes and
+queues nothing when its one repair attempt fails.
 
 ## 8. Opt in to activity awareness only if wanted
 

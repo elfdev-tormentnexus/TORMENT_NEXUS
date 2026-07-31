@@ -1,4 +1,8 @@
-# Research roadmap — install plan for Codex
+# Research roadmap — historical pre-Research-C install plan
+
+> Historical document. Several implementation states and test counts below are
+> superseded. The document describing current post-Research-C priorities
+> and evidence gates is not part of this release.
 
 Written by Claude, 2026-07-28, at the operator's request: the
 Windows-feasible research features, specified rather than implemented

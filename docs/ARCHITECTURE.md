@@ -1,4 +1,4 @@
-# TORMENT_NEXUS researchB architecture
+# TORMENT_NEXUS researchC architecture
 
 This is a technical reference for developers and reviewers. New users should
 start with [Installing on Windows](INSTALL_WINDOWS.md),
@@ -43,9 +43,10 @@ operator input
             +-- trusted clock
             +-- opted-in activity/radio summaries
             +-- selected durable memories
-            +-- explicit, high-confidence older-history recall
-            +-- lexical offline-reference excerpts
-            +-- optional untrusted web evidence
+            +-- final user-data envelope:
+            |       +-- explicit, high-confidence older-history recall
+            |       +-- lexical offline-reference excerpts
+            |       `-- optional untrusted web evidence
             |
             `-- authenticated local Qwen3 director --> streamed reply
 ```
@@ -59,10 +60,11 @@ operator input
 | `assistant/core/` | Configuration, persona, clock/activity context, model and embedding server ownership, authentication, escalation, tutorial, and health checks. |
 | `assistant/core/machinespirit.py` | Per-token trajectories read against a fixed anchor dictionary (`anchors_v2.json` by default; v1 remains loadable and keeps its digests). Requires **both** embedding servers — the unpooled one supplies the path, the pooled one embeds the dictionary — and `diagnose()` reports which is missing rather than blaming one for the other. Does not participate in retrieval. Also carries the density matrix of a trajectory (`spread`): purity, participation ratio, and von Neumann entropy, read off the `n × n` Gram matrix rather than the `384 × 384` second moment since the two share every nonzero eigenvalue. Permutation-invariant by construction — it reports how much ground a text covered, never in what order. |
 | `assistant/core/provenance.py` | Produces an answer's reasoning receipt. It keeps retrieved evidence distinct from the model's inferred reply and records only citations that actually reached the prompt. |
+| `assistant/core/librarian_shadow.py` | Optional dedicated local LLM observer for offline retrieval. It receives an immutable safe candidate snapshot after the answer exists, proposes a closed JSON rank/abstention decision, and writes privacy-preserving research evidence. It cannot change retrieval or an answer. |
 | `assistant/core/consume.py` | Identifies what a URL points at, fetches the content rather than the surrounding page, and hands documents to the offline library. Refuses non-loopback-safe addresses, media URLs, and bodies that exceed the library's own ceiling mid-download. |
 | `tools/machinesoul.py` | Sable's data-preservation logic language: maps ordered four-coordinate vectors to PNG/APNG pixels and reverses them 1:1. `MACHINESOUL1` is SHA-256 gated and refuses rather than returning a partial reconstruction. |
-| `tools/build_researchb_decompiler.py` | Generates the one-click plaintext bootstrap from the exact combined cut manifest. Capsule counts, decoded segment names, optional-model paths, and component selection are outputs of the manifest rather than a hand-maintained release list. |
-| `tools/build_researchb_fetcher.py` | Generates the small Windows downloader from the actual final assets and their SHA-256s. Incomplete transfers retain a `.partial` name and are promoted only after verification. |
+| `tools/build_researchc_decompiler.py` | Generates the one-click plaintext bootstrap from the exact combined cut manifest. Capsule counts, decoded segment names, optional-model paths, and component selection are outputs of the manifest rather than a hand-maintained release list. |
+| `tools/build_researchc_fetcher.py` | Generates the small Windows downloader from the actual final assets and their SHA-256s. Incomplete transfers retain a `.partial` name and are promoted only after verification. |
 | `tools/machinespirit_codec.py` | Measures the lossy half as a codec — encode to anchor coordinates, decode by least squares, report cosine and whether the reconstruction still retrieves its own chunk. |
 | `tools/rosetta_stone.py` | Builds one model-bound half of a `SABLEROSETTA1` anchor bridge. Two halves are comparable only when their shared anchor digest matches; model identity, quantization, and pooling still matter. |
 | `tools/vector_beam.py` | Measures and renders the unpooled token trajectory, and can read it through a compatible Rosetta Stone anchor space. |
@@ -70,7 +72,7 @@ operator input
 | `assistant/core/session_rhythm.py` | Session duration, exchange counts, pause lengths, and rank against previous sessions. Timings only. A turn is counted at the one seam both the typed and spoken loops pass through; the summary is written once at shutdown, and only for a session that held at least one exchange. From three recorded sessions on, the median pause supplies the measured pace `tools/vector_beam.py` animates at. The current session's shape enters the runtime prompt as counted facts, so a claim like "the longest session I have a record of" can be checked against the file. |
 | `assistant/core/tutorial.py` | Three walkthroughs, one per launcher: the ordinary tour, **TORMENT_NEXUS_HAZARD** (eight sections on traces, trails, spread, and what does not come back), and **TORMENT_NEXUS_INTERLINKED** (five on what is listening and what it can see). Mode is detected from the same facts the features use -- an unpooled embedder configured, an agent interface enabled -- and progress is stored per mode, so finishing one tour never marks another as seen. Lessons name commands; descriptions come from the live registry so they cannot drift. |
 | `assistant/ui/` | Animated terminal, input, pagination, retrieval display, voice state, and visualizer controls. |
-| `assistant/voice/` | Offline Moonshine recognition, Silero VAD, Piper synthesis, playback, and cancellation. |
+| `assistant/voice/` | Offline Moonshine recognition, Silero VAD, Piper synthesis, playback/cancellation, a generic fixed-song registry, and a pure gate that accepts bounded lyric syllables but never model-written music. |
 | `assistant/commands/` | Explicit command registry and cautious natural-language routing. |
 | `assistant/memory/` | Durable facts, bounded conversation history, conservative selection, embedding cache, and older-history recall. |
 | `assistant/knowledge/` | Built-in cards, private user documents, ingestion-time trust classification, extraction, chunking, SQLite FTS, separate vectors, and library commands. Imported content is data, not executable instruction. |
@@ -82,13 +84,18 @@ operator input
 
 ## Model roles
 
-The complete researchB Windows package has three separate model jobs:
+The complete researchC Windows package has three separate model jobs:
 
 | Artifact | Role |
 | --- | --- |
 | Qwen3 4B abliterated Q8 | Ordinary director: conversation, persona, and planning through trusted capabilities. |
 | Qwen2.5-Coder 7B abliterated Q8 | On-demand maintenance coder. |
 | BGE small English v1.5 Q8 | Non-generative embedding vectors for retrieval and display. |
+
+An operator may start a fourth, dedicated local model for the librarian
+shadow experiment. It is not a researchC package dependency and cannot reuse
+an existing project model endpoint. Its exact GGUF and llama-server
+digests are required measurement metadata.
 
 Model alignment is never an authority control. The director and coder can
 produce unsafe text; Python permissions remain the relevant action boundary.
@@ -117,6 +124,11 @@ after restart, recent persisted exchanges are eligible again.
 Long exchanges retain both the request beginning and concluding answer around
 an explicit clipping marker.
 
+Recalled exchanges are placed only in the final user-data envelope. They are
+evidence that something was said or decided earlier, not evidence that a
+factual claim inside an earlier model answer was true. This prevents a
+library-influenced answer from later acquiring system-message authority.
+
 ### Offline knowledge
 
 The manual library is independent of personal-memory storage:
@@ -125,10 +137,20 @@ The manual library is independent of personal-memory storage:
   `assistant/knowledge/library.sqlite3`;
 - user imports are copied into `assistant/knowledge/user_library`;
 - SQLite FTS5 provides lexical retrieval;
-- ordinary chat requires lexical evidence and uses embeddings only to rerank;
+- ordinary chat requires lexical evidence and uses embeddings only to rerank
+  a complete comparable candidate set;
+- persistent library-vector population is off on a fresh installation and
+  targets built-ins first, then imported sources fairly, up to 120 excerpts
+  per source and 15,000 total;
 - explicit `library search` and `/knowledge/search` may widen to labeled
-  semantic candidates;
+  semantic candidates only where current target vectors exist;
 - its document vectors do not enter the personal-memory embedding cache.
+
+An optional librarian model observes this boundary in shadow mode. Candidate
+bytes and the exact selected citation fingerprints are captured while the
+answer prompt is assembled; a later shelf rebuild cannot move the baseline.
+The observer's ranking is discarded by the live path. Promotion requires a
+separate held-out evaluation and reviewed code change.
 
 ### Embedding service
 
@@ -152,6 +174,7 @@ retrieval instead of failing.
 | Embedding llama.cpp | `127.0.0.1:8082` | Same local authentication model. |
 | Agent API | Off; `127.0.0.1:8099` when enabled | Separate bearer token and Host check. |
 | SearXNG | Optional `127.0.0.1:8081` default URL | Search service can contact upstream engines. |
+| Librarian shadow | Off; explicit distinct loopback port (for example `8083`) | Separate key, alias, model/server digests, proxy-free and no redirects; observation only. |
 
 Loopback is not a boundary against another process running as the same
 Windows user. Tokens are plaintext local secrets.

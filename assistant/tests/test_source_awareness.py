@@ -27,7 +27,9 @@ import os
 import struct
 import tempfile
 import unittest
+from unittest import mock
 
+from commands import command_handlers
 from core import source_awareness
 from editing import edit_guard
 
@@ -145,6 +147,44 @@ class ExclusionTests(unittest.TestCase):
             with self.subTest(path=path):
                 with self.assertRaises(source_awareness.SourceError):
                     source_awareness.resolve_for_read(path)
+
+    def test_every_private_runtime_credential_basename_is_refused(self):
+        for name in source_awareness.PRIVATE_RUNTIME_CREDENTIAL_BASENAMES:
+            with self.subTest(name=name):
+                for path in (f"assistant/{name}", f"relocated/{name.upper()}"):
+                    with self.assertRaises(source_awareness.SourceError):
+                        source_awareness.resolve_for_read(path)
+
+    def test_non_developer_dispatcher_cannot_bypass_read_gate_with_suffix(self):
+        sentinel = "NEVER DISPLAY THIS PRIVATE VALUE"
+        with (
+            mock.patch.object(command_handlers, "DEV_MODE", False),
+            mock.patch.object(
+                command_handlers.source_awareness,
+                "read_source",
+                return_value=sentinel,
+            ) as read_source,
+        ):
+            reply = command_handlers.try_handle_command(
+                "read assistant/.agent_token"
+            )
+
+        self.assertIn("Developer mode is required", reply)
+        self.assertNotIn(sentinel, reply)
+        read_source.assert_not_called()
+
+    def test_developer_dispatcher_still_cannot_read_private_runtime_files(self):
+        with (
+            mock.patch.object(command_handlers, "DEV_MODE", True),
+            mock.patch.object(command_handlers, "DEV_MODE_EXPIRES_AT", 0.0),
+        ):
+            for name in source_awareness.PRIVATE_RUNTIME_CREDENTIAL_BASENAMES:
+                with self.subTest(name=name):
+                    reply = command_handlers.try_handle_command(
+                        f"read assistant/{name}"
+                    )
+                    self.assertIn("credential", reply)
+                    self.assertIn("not readable", reply)
 
     def test_weight_files_are_refused_and_say_why(self):
         # Refused as a read path, not as knowledge: the header is reported

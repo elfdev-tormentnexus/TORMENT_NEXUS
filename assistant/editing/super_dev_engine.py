@@ -49,11 +49,14 @@ from urllib.parse import urlparse
 import requests
 
 from core import file_utils
+from core import research_c
+from core import source_awareness
 from core.config import (
     MODEL_ROLE,
     MODEL_ROLE_SUPER_DEV,
     SUPER_DEV_SESSION_MAX_SECONDS,
     SUPER_DEV_WORKER_HEADERS,
+    SUPER_DEV_WORKER_MODEL_PATH,
     SUPER_DEV_WORKER_URL,
 )
 from editing import edit_generator
@@ -102,10 +105,53 @@ DRAFTING = "drafting"
 MAX_DRAFT_ATTEMPTS = 2
 
 
+def _record_decision(suggestion, timing=None, **outcomes):
+    research_c.record(
+        "super_dev",
+        "deterministic_gate",
+        artifact_digest=research_c.digest(
+            suggestion.get("file"), suggestion.get("change")
+        ),
+        prompt_sha256="",
+        sampler={},
+        measurements={},
+        outcomes=outcomes,
+        timing=timing,
+        binding=research_c.model_binding(
+            SUPER_DEV_WORKER_MODEL_PATH,
+            role="worker",
+        ),
+    )
+
+
+def _one_line(value):
+    """Display-only model prose can never mint another physical log row."""
+    return " ".join(str(value or "").split()) or "(no detail)"
+
+
 def _log(message):
     file_utils.ensure_file(LOG_FILE)
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    file_utils.append_file(LOG_FILE, f"[{stamp}] {message}\n")
+    file_utils.append_file(LOG_FILE, f"[{stamp}] {_one_line(message)}\n")
+
+
+def _log_retained_edit(target, added, removed):
+    """Append the writer-owned record consumed by source authorship checks."""
+    file_utils.ensure_file(LOG_FILE)
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        record = source_awareness.retained_edit_record(
+            target,
+            "super_dev",
+            added,
+            removed,
+            stamp,
+        )
+    except source_awareness.SourceError as error:
+        _log(f"RETAINED RECORD FAILED {target}: {error}")
+        return False
+    file_utils.append_file(LOG_FILE, f"[{stamp}] {record}\n")
+    return True
 
 
 def _is_loopback_worker():
@@ -206,10 +252,20 @@ def recover_incomplete_session():
 
 
 def _try_patch(suggestion):
+    candidate_timer = research_c.Timer()
+
+    def record_decision(**outcomes):
+        _record_decision(
+            suggestion,
+            timing={"candidate_wall_seconds": candidate_timer.elapsed()},
+            **outcomes,
+        )
+
     try:
         target = edit_guard.locate(suggestion["file"])
         original = edit_guard.read(target)
     except (KeyError, edit_guard.GuardError) as error:
+        record_decision(valid_target=False, retained=False)
         return False, f"planner selected an invalid target ({error})", JUDGMENT
 
     ui.set_status(f"7B worker drafting patch for {target}")
@@ -221,24 +277,50 @@ def _try_patch(suggestion):
         headers=SUPER_DEV_WORKER_HEADERS,
     )
     if error:
+        record_decision(
+            valid_target=True,
+            draft_parseable=False,
+            retained=False,
+        )
         return False, f"7B worker declined {target}: {error}", DRAFTING
 
     updated, apply_error = patch_engine.apply_edit(
         original, edit["find"], edit["replace"]
     )
     if apply_error:
+        record_decision(
+            draft_parseable=True,
+            patch_applied_to_snapshot=False,
+            retained=False,
+        )
         return False, f"7B patch would not apply to {target}: {apply_error}", DRAFTING
 
     syntax_problem = edit_guard.check_syntax(updated, os.path.basename(target))
     if syntax_problem:
+        record_decision(
+            draft_parseable=True,
+            syntax_valid=False,
+            retained=False,
+        )
         return False, f"7B patch failed syntax validation: {syntax_problem}", DRAFTING
 
     added, removed = patch_engine.diff_stats(original, updated)
     if added + removed > MAX_CHANGED_LINES:
+        record_decision(
+            syntax_valid=True,
+            within_line_cap=False,
+            retained=False,
+        )
         return False, f"7B patch is too large ({added + removed} lines; limit {MAX_CHANGED_LINES})", JUDGMENT
 
     safety_problem = edit_guard.autonomous_change_problem(target, original, updated)
     if safety_problem:
+        record_decision(
+            syntax_valid=True,
+            within_line_cap=True,
+            capability_guard=False,
+            retained=False,
+        )
         return False, f"7B patch crossed the autonomous boundary: {safety_problem}", JUDGMENT
 
     ui.set_status(f"Backing up supervised patch for {target}")
@@ -251,6 +333,11 @@ def _try_patch(suggestion):
     except Exception as error:
         restore_error = _restore(record) if record else None
         suffix = f" Rollback failed: {restore_error}" if restore_error else ""
+        record_decision(
+            capability_guard=True,
+            staged=False,
+            retained=False,
+        )
         return False, f"could not stage the transactional patch: {error}.{suffix}", JUDGMENT
 
     ui.set_status("Running fixed regression gate")
@@ -258,6 +345,12 @@ def _try_patch(suggestion):
     if not healthy:
         restore_error = _restore(record)
         suffix = f" Rollback failed: {restore_error}" if restore_error else " The backup was restored."
+        record_decision(
+            capability_guard=True,
+            staged=True,
+            regression_gate=False,
+            retained=False,
+        )
         return (False,
                 f"fixed regression gate rejected the patch.{suffix}\n"
                 f"{str(diagnostic)[-1200:]}",
@@ -266,11 +359,15 @@ def _try_patch(suggestion):
     _clear_state()
     global _patches_written
     _patches_written += 1
-    summary = edit.get("explanation", "small guarded patch")
-    _log(
-        f"APPLIED {target}: 14B planned; 7B drafted; +{added} -{removed}; "
-        f"backup={backup}; summary={summary}"
+    record_decision(
+        capability_guard=True,
+        staged=True,
+        regression_gate=True,
+        retained=True,
+        changed_lines=added + removed,
     )
+    summary = _one_line(edit.get("explanation", "small guarded patch"))
+    _log_retained_edit(target, added, removed)
     return True, f"{target}: {summary} (+{added} -{removed})", None
 
 

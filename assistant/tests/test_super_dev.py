@@ -300,6 +300,7 @@ class SuperDevSessionLoopTests(unittest.TestCase):
             mock.patch.object(super_dev_engine, "worker_status",
                               return_value=(True, "ready")),
             mock.patch.object(super_dev_engine, "_log"),
+            mock.patch.object(super_dev_engine.research_c, "record"),
             mock.patch.object(super_dev_engine.ui, "set_status"),
         ]
         for item in self.patches:

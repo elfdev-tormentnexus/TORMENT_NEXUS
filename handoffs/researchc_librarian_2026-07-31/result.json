@@ -1,0 +1,125 @@
+{
+  "schema": 1,
+  "completed_utc": "2026-07-31T07:36:48.0356126Z",
+  "disposition": "shadow_only_not_promoted",
+  "base_git_commit": "948a8c661bae27de83a6b4b2945dac3fe4e72154",
+  "identity": {
+    "model_file": "Qwen3-4B-Instruct-2507-Q5_K_M.gguf",
+    "model_sha256": "1e4544dfa0a5f4477c03aa8e2ce42e96f217946b7f9cd130392c3fffbc1449fd",
+    "server_bundle_sha256": "623aa9e45e1d6a6170d3f677c84576f087ab489433665ac336a705e89436fc2a",
+    "experiment_sha256": "93af0c40526dd34a584c933b44a01d22aed07e6b909a7268fc62246e32341d51",
+    "canonical_cases_sha256": "6d671b6ef97084fa17292b16258eb618ccef08e93f9764a0f86148060c5b2261",
+    "probe_time_worktree_file_sha256": {
+      "assistant/core/librarian_shadow.py": "75a5e9855d49d47e1e5dd422ff8402303f45a9c927fc856f42a629efced1c5f4",
+      "assistant/knowledge/library.py": "6fa8b366dd8ef0293d6d898697cefa5c4766e074154a390c777a429d4ec025d2",
+      "tools/researchc_library_cases.json": "097c60ad3910fe53561ad9f2c1652d9f639f258958c1824276f3d988f9e146de",
+      "tools/researchc_library_probe.py": "9bde0a40e289d50ab8f109bfdad42380aaadaea53879f968e19b9398bb917d7e",
+      "tools/run_librarian_probe.ps1": "384e03ad3665477470c412b31b97723eb6c10b1be7b92f309a9205c340c6e6ae"
+    }
+  },
+  "sampler": {
+    "temperature": 0,
+    "top_p": 1,
+    "seed": 0,
+    "max_tokens": 256,
+    "stream": true,
+    "cache_prompt": false,
+    "no_think": false
+  },
+  "server_launch": {
+    "context_tokens": 4096,
+    "parallel_slots": 1,
+    "gpu_layers": 99
+  },
+  "deterministic": {
+    "builtins": {
+      "release_gate_passed": true,
+      "positive_cases": 18,
+      "candidate_recall_at_8": 1.0,
+      "selected_recall_at_1": 1.0,
+      "selected_recall_at_3": 1.0,
+      "known_unknown_cases": 10,
+      "known_unknown_abstention_accuracy": 1.0,
+      "specialist_intrusion_rate": 0.0,
+      "citation_bijection_accuracy": 1.0
+    },
+    "specialist_bait": {
+      "release_gate_passed": false,
+      "positive_cases": 18,
+      "candidate_recall_at_8": 1.0,
+      "selected_recall_at_1": 1.0,
+      "selected_recall_at_3": 1.0,
+      "known_unknown_cases": 10,
+      "known_unknown_abstention_accuracy": 0.5,
+      "specialist_intrusion_rate": 0.1111111111111111,
+      "citation_bijection_accuracy": 1.0
+    }
+  },
+  "librarian": {
+    "attempts": 16,
+    "cases": 8,
+    "parse_validity": 0.6875,
+    "task_accuracy": 0.5625,
+    "order_agreement": 0.125,
+    "mean_prompt_bytes": 4568.125,
+    "mean_wall_seconds": 2.1461742312567367,
+    "case_outcomes": [
+      {
+        "id": "navigation",
+        "forward": "valid_correct",
+        "reverse": "valid_correct",
+        "order_agreement": false
+      },
+      {
+        "id": "limits",
+        "forward": "valid_correct",
+        "reverse": "valid_incorrect",
+        "order_agreement": false
+      },
+      {
+        "id": "cooking",
+        "forward": "valid_correct",
+        "reverse": "invalid_abstention",
+        "order_agreement": false
+      },
+      {
+        "id": "insulin",
+        "forward": "valid_correct",
+        "reverse": "valid_correct",
+        "order_agreement": true
+      },
+      {
+        "id": "finance",
+        "forward": "invalid_abstention",
+        "reverse": "invalid_abstention",
+        "order_agreement": false
+      },
+      {
+        "id": "plumbing",
+        "forward": "valid_correct",
+        "reverse": "invalid_abstention",
+        "order_agreement": false
+      },
+      {
+        "id": "history",
+        "forward": "valid_correct",
+        "reverse": "invalid_abstention",
+        "order_agreement": false
+      },
+      {
+        "id": "commit",
+        "forward": "valid_correct",
+        "reverse": "valid_incorrect",
+        "order_agreement": false
+      }
+    ]
+  },
+  "privacy": {
+    "contains_raw_query": false,
+    "contains_reference_excerpt": false,
+    "contains_local_path": false,
+    "contains_url": false,
+    "contains_raw_model_output": false,
+    "contains_bearer_key": false
+  }
+}

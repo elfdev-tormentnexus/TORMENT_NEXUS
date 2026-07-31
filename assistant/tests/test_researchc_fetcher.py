@@ -1,4 +1,4 @@
-"""Tests for the post-cut, generated researchB capsule fetcher."""
+"""Tests for the post-cut, generated researchC capsule fetcher."""
 
 import hashlib
 import importlib.util
@@ -12,23 +12,23 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location(
-    "researchb_fetcher_under_test", ROOT / "tools" / "build_researchb_fetcher.py"
+    "researchc_fetcher_under_test", ROOT / "tools" / "build_researchc_fetcher.py"
 )
 fetcher = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(fetcher)
 
 
-class ResearchBFetcherTests(unittest.TestCase):
+class ResearchCFetcherTests(unittest.TestCase):
     def setUp(self):
         self.folder = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.folder, True)
         self._write("machinesoul.py")
-        self._write("DECOMPILE_SABLE_researchB.bat")
-        self._write("SABLERESEARCHB-MANIFEST.png")
-        self._write("SABLERESEARCHB-REASSEMBLER.png")
-        self._write("SABLERESEARCHB-WINDOWS.part01.png")
-        self._write("SABLERESEARCHB-WINDOWS.part02.png")
-        self._write("SABLERESEARCHB-14B.part01.png")
+        self._write("DECOMPILE_SABLE_researchC.bat")
+        self._write("SABLERESEARCHC-MANIFEST.png")
+        self._write("SABLERESEARCHC-REASSEMBLER.png")
+        self._write("SABLERESEARCHC-WINDOWS.part01.png")
+        self._write("SABLERESEARCHC-WINDOWS.part02.png")
+        self._write("SABLERESEARCHC-14B.part01.png")
 
     def _write(self, name: str, content: bytes | None = None) -> Path:
         path = self.folder / name
@@ -40,7 +40,7 @@ class ResearchBFetcherTests(unittest.TestCase):
         raw = output.read_bytes()
         text = raw.decode("ascii")
 
-        self.assertEqual(output.name, "FETCH_SABLERESEARCHB.bat")
+        self.assertEqual(output.name, "FETCH_SABLERESEARCHC.bat")
         self.assertIn(b"\r\n", raw)
         self.assertNotIn(b"\n", raw.replace(b"\r\n", b""))
         self.assertIn("curl.exe --fail -L -C -", text)
@@ -48,12 +48,12 @@ class ResearchBFetcherTests(unittest.TestCase):
         self.assertIn("DisableDelayedExpansion", text)
         self.assertIn("%NAME%.partial", text)
         self.assertIn("keeping the partial file for resume", text)
-        self.assertIn("DECOMPILE_SABLE_researchB.bat", text)
-        self.assertIn("SABLERESEARCHB-WINDOWS.part01.png", text)
-        self.assertIn("SABLERESEARCHB-WINDOWS.part02.png", text)
-        self.assertNotIn("SABLERESEARCHB-14B.part01.png", text)
+        self.assertIn("DECOMPILE_SABLE_researchC.bat", text)
+        self.assertIn("SABLERESEARCHC-WINDOWS.part01.png", text)
+        self.assertIn("SABLERESEARCHC-WINDOWS.part02.png", text)
+        self.assertNotIn("SABLERESEARCHC-14B.part01.png", text)
         self.assertIn(
-            hashlib.sha256(b"SABLERESEARCHB-WINDOWS.part01.png").hexdigest().upper(),
+            hashlib.sha256(b"SABLERESEARCHC-WINDOWS.part01.png").hexdigest().upper(),
             text,
         )
 
@@ -61,18 +61,18 @@ class ResearchBFetcherTests(unittest.TestCase):
         output = fetcher.build(self.folder, include_optional_14b=True)
         text = output.read_text(encoding="ascii")
 
-        self.assertEqual(output.name, "FETCH_SABLERESEARCHB_WITH_14B.bat")
-        self.assertIn("SABLERESEARCHB-14B.part01.png", text)
+        self.assertEqual(output.name, "FETCH_SABLERESEARCHC_WITH_14B.bat")
+        self.assertIn("SABLERESEARCHC-14B.part01.png", text)
         self.assertIn("explicitly includes the optional 14B", text)
 
     def test_gapped_or_malformed_primary_parts_are_refused(self):
-        (self.folder / "SABLERESEARCHB-WINDOWS.part02.png").unlink()
-        self._write("SABLERESEARCHB-WINDOWS.part03.png")
+        (self.folder / "SABLERESEARCHC-WINDOWS.part02.png").unlink()
+        self._write("SABLERESEARCHC-WINDOWS.part03.png")
         with self.assertRaisesRegex(fetcher.FetcherError, "not consecutive"):
             fetcher.build(self.folder)
 
-        (self.folder / "SABLERESEARCHB-WINDOWS.part03.png").unlink()
-        self._write("SABLERESEARCHB-WINDOWS.preview.png")
+        (self.folder / "SABLERESEARCHC-WINDOWS.part03.png").unlink()
+        self._write("SABLERESEARCHC-WINDOWS.preview.png")
         with self.assertRaisesRegex(fetcher.FetcherError, "unexpected"):
             fetcher.build(self.folder)
 
@@ -84,11 +84,11 @@ class ResearchBFetcherTests(unittest.TestCase):
 
         self._write("machinesoul.py")
         with self.assertRaisesRegex(fetcher.FetcherError, "unsafe GitHub release tag"):
-            fetcher.build(self.folder, tag="researchB/unsafe")
+            fetcher.build(self.folder, tag="researchC/unsafe")
         self.assertFalse((self.folder / fetcher.DEFAULT_FETCHER_NAME).exists())
 
     def test_output_cannot_be_redirected_away_from_the_verified_assets(self):
-        elsewhere = self.folder.parent / "FETCH_SABLERESEARCHB.bat"
+        elsewhere = self.folder.parent / "FETCH_SABLERESEARCHC.bat"
         with self.assertRaisesRegex(fetcher.FetcherError, "beside the release assets"):
             fetcher.build(self.folder, out_path=elsewhere)
 
@@ -117,11 +117,11 @@ class ResearchBFetcherTests(unittest.TestCase):
         asset = self.folder / "machinesoul.py"
         partial = destination / "machinesoul.py.partial"
         partial.write_bytes(asset.read_bytes()[:5])
-        complete_but_wrong = destination / "DECOMPILE_SABLE_researchB.bat.partial"
+        complete_but_wrong = destination / "DECOMPILE_SABLE_researchC.bat.partial"
         complete_but_wrong.write_bytes(
-            b"X" * (self.folder / "DECOMPILE_SABLE_researchB.bat").stat().st_size
+            b"X" * (self.folder / "DECOMPILE_SABLE_researchC.bat").stat().st_size
         )
-        damaged_target = destination / "SABLERESEARCHB-MANIFEST.png"
+        damaged_target = destination / "SABLERESEARCHC-MANIFEST.png"
         damaged_target.write_bytes(b"damaged")
 
         result = subprocess.run(

@@ -167,6 +167,13 @@ MODEL_REQUEST_HEADERS = {
 SUPER_DEV_WORKER_URL = os.environ.get(
     "TORMENT_NEXUS_SUPER_DEV_WORKER_URL", ""
 ).strip().rstrip("/")
+SUPER_DEV_WORKER_MODEL_PATH = os.environ.get(
+    "TORMENT_NEXUS_SUPER_DEV_WORKER_MODEL_PATH", ""
+).strip() or os.path.join(
+    PROJECT_HOME,
+    "models",
+    "Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf",
+)
 SUPER_DEV_WORKER_API_KEY = os.environ.get(
     "TORMENT_NEXUS_SUPER_DEV_WORKER_KEY", ""
 ).strip()
@@ -915,6 +922,54 @@ VOICE_DAISY_CACHE = os.path.join(
     f"mix{int(round(VOICE_DAISY_ACCOMPANIMENT_GAIN * 100))}_"
     f"{_DAISY_VOICE_KEY}.wav",
 )
+
+# Come Josephine uses the same installed Piper voice, but its independently
+# timed score and mix must never collide with Daisy Bell's minutes-long cache.
+# _DAISY_VOICE_KEY predates the second song; retaining the name avoids a
+# release-time cache migration while preserving the correct voice identity.
+# The printed melody reaches E5, an octave above the register used by Daisy and
+# Sable's ordinary carrier. Keep the score and accompaniment in their original
+# register, but state the same vocal pitch classes one octave lower so the
+# singer remains recognisably the standard voice.
+VOICE_JOSEPHINE_VOCAL_SEMITONES = -12.0
+
+try:
+    VOICE_JOSEPHINE_ACCOMPANIMENT_GAIN = max(
+        0.10,
+        min(
+            1.20,
+            float(
+                os.environ.get(
+                    "TORMENT_NEXUS_JOSEPHINE_ACCOMPANIMENT_GAIN",
+                    "1.05",
+                )
+            ),
+        ),
+    )
+except ValueError:
+    VOICE_JOSEPHINE_ACCOMPANIMENT_GAIN = 1.05
+
+VOICE_JOSEPHINE_CACHE = os.path.join(
+    VOICE_MODEL_ROOT,
+    "cache",
+    "come_josephine_machine_v2_vocal-minus12_"
+    f"mix{int(round(VOICE_JOSEPHINE_ACCOMPANIMENT_GAIN * 100))}_"
+    f"{_DAISY_VOICE_KEY}.wav",
+)
+
+# Freestyle performances are content-addressed so an identical song can reuse
+# its render. Keep only a small rolling set: generated WAVs are disposable
+# caches, and an unbounded title/lyric namespace would otherwise grow forever.
+try:
+    VOICE_FREESTYLE_CACHE_LIMIT = max(
+        1,
+        min(
+            32,
+            int(os.environ.get("TORMENT_NEXUS_FREESTYLE_CACHE_LIMIT", "8")),
+        ),
+    )
+except ValueError:
+    VOICE_FREESTYLE_CACHE_LIMIT = 8
 
 VOICE_SAMPLE_RATE = 16_000
 

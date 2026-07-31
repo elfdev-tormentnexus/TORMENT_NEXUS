@@ -3,12 +3,14 @@ import sys
 import time
 import random
 import math
+import re
 import shutil
 import textwrap
 import threading
 
 from core import chosen_name
 from core import dev_auth
+from core import power_guard
 from ui import vector_panel
 
 if os.name == "nt":
@@ -38,6 +40,20 @@ _VISUALIZER_OUTPUT_LOG = os.path.join(
     "logs",
     "visualizer_output.log",
 )
+_TERMINAL_CONTROL = re.compile(
+    r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]"
+)
+_TERMINAL_BIDI = re.compile(
+    r"[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]"
+)
+
+
+def _terminal_safe_text(text):
+    """Neutralize terminal control/bidi sequences at the final UI seam."""
+    value = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    value = value.replace("\t", "    ")
+    value = _TERMINAL_CONTROL.sub("\ufffd", value)
+    return _TERMINAL_BIDI.sub("\ufffd", value)
 
 
 class _VisualizerOutputGuard:
@@ -2522,33 +2538,40 @@ class LayeredDisplayEngine:
             )
 
     def _loop(self):
-        while self.running:
-            try:
-                self.render_frame()
-            except Exception as error:
-                # A renderer failure should not kill input handling, but it
-                # must not vanish without evidence either. Log each distinct
-                # failure once so a broken animation remains diagnosable.
-                message = f"{type(error).__name__}: {error}"
+        # HDMI/DisplayPort audio disappears when Windows powers down its
+        # display. Keep the session and display awake for exactly the lifetime
+        # of this renderer thread, then restore the operator's normal policy.
+        power_guard.prevent_idle_sleep()
+        try:
+            while self.running:
+                try:
+                    self.render_frame()
+                except Exception as error:
+                    # A renderer failure should not kill input handling, but it
+                    # must not vanish without evidence either. Log each distinct
+                    # failure once so a broken animation remains diagnosable.
+                    message = f"{type(error).__name__}: {error}"
 
-                if message != self._last_render_error:
-                    self._last_render_error = message
+                    if message != self._last_render_error:
+                        self._last_render_error = message
 
-                    try:
-                        os.makedirs(os.path.dirname(_UI_ERROR_LOG), exist_ok=True)
+                        try:
+                            os.makedirs(os.path.dirname(_UI_ERROR_LOG), exist_ok=True)
 
-                        with open(_UI_ERROR_LOG, "a", encoding="utf-8") as log:
-                            stamp = time.strftime("%Y-%m-%d %H:%M:%S")
-                            log.write(f"[{stamp}] {message}\n")
-                    except OSError:
-                        pass
+                            with open(_UI_ERROR_LOG, "a", encoding="utf-8") as log:
+                                stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+                                log.write(f"[{stamp}] {message}\n")
+                        except OSError:
+                            pass
 
-            # A 25 FPS redraw is the practical terminal equivalent of the
-            # tight response from a classic desktop music player, without
-            # making normal chat redraw more often than necessary.
-            time.sleep(
-                MUSIC_FRAME_SECONDS if self.music_mode else CHAT_FRAME_SECONDS
-            )
+                # A 25 FPS redraw is the practical terminal equivalent of the
+                # tight response from a classic desktop music player, without
+                # making normal chat redraw more often than necessary.
+                time.sleep(
+                    MUSIC_FRAME_SECONDS if self.music_mode else CHAT_FRAME_SECONDS
+                )
+        finally:
+            power_guard.allow_idle_sleep()
 
     def start(self):
         self.running = True
@@ -2703,6 +2726,7 @@ def print_framed(text="", color="", expires_in=None):
     expire: a conversation that quietly edits itself is worse than a
     cluttered one.
     """
+    text = _terminal_safe_text(text)
     expires_at = (
         time.monotonic() + float(expires_in)
         if expires_in

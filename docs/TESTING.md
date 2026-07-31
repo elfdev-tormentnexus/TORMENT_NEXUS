@@ -1,4 +1,4 @@
-# Testing researchB
+# Testing researchC
 
 Testing is part of the safety boundary, but it is not a safety certification.
 Passing tests can show that an application rule behaves as coded; it cannot
@@ -61,6 +61,10 @@ Test both positive and negative cases:
   mixing recency or confidence;
 - earlier-conversation recall runs only for clear recall intent, returns at
   most one item, and requires cosine `>= 0.60` plus a `>= 0.06` margin;
+- recalled exchanges and web results appear only in the final untrusted
+  user-data envelope, never in a system-role message;
+- recalled assistant text is evidence of what was said, not evidence that
+  its underlying factual claim is true;
 - a long persisted exchange preserves both its beginning and end around the
   visible clipping marker;
 - stopping the embedding server leaves lexical behavior working.
@@ -74,34 +78,128 @@ thresholds. See [Semantic retrieval](SEMANTIC_AND_AGENT_BRIDGES.md).
 
 In a disposable library:
 
-1. Check that the eight built-in practical-reference cards are present.
-2. Import representative `.txt`, `.md`, `.rst`, `.html`, `.json`, `.csv`,
-   text PDF, `.epub`, and `.docx` files.
+1. Check that the eighteen built-in practical-reference cards exactly match
+   `assistant\knowledge\builtin_manifest.json`.
+2. Import representative `.txt`, `.md`, `.rst`, `.yml`, `.yaml`, `.yar`,
+   `.yara`, `.py`, `.html`, `.json`, `.csv`, text PDF, `.epub`, and `.docx`
+   files.
 3. Confirm imports are copied to the private shelf and indexed locally.
 4. Verify automatic context requires a lexical match.
-5. Verify embeddings only rerank those automatic lexical hits.
-6. Verify explicit `library search` can return a semantic-only result and
+5. Confirm persistent vector population begins off, enable it explicitly in
+   developer mode, and inspect the 15,000-total/120-per-source fair target with
+   `library semantic status`.
+6. Verify embeddings only rerank a complete comparable set of automatic
+   lexical hits.
+7. Verify explicit `library search` can return a semantic-only result and
    labels it `semantic-candidate`.
-7. Verify an unrelated query returns no confident answer.
-8. Import an image-only PDF and confirm the documentation accurately warns
+8. Verify an unrelated query returns no confident answer.
+9. Import an image-only PDF and confirm the documentation accurately warns
    that OCR is required.
-9. Remove and rebuild sources in developer mode; verify no stale extracted
+10. Remove and rebuild sources in developer mode; verify no stale extracted
    text remains.
 
 Use synthetic documents. Imported files, the SQLite index, extracted text,
 and vectors are private runtime data and must not enter a release.
+
+Run the fixed deterministic coverage suite from the repository root:
+
+```powershell
+python -B tools\researchc_library_probe.py `
+  --output assistant\logs\researchc_library_probe.json
+```
+
+The default run uses disposable indexes, the shipped cards, and synthetic
+specialist bait. It makes no model, embedding, or network request. Review
+positive candidate/top-1/top-3 recall, known-unknown abstention, specialist
+intrusion, prompt bytes, citation bijection, review labels, and trust
+exclusion. The built-in-only suite must pass. A failing specialist-bait gate
+is a measured retrieval limitation, not permission to edit the expected
+answer after seeing a result.
+
+The optional `--with-librarian` run requires the separately configured
+dedicated loopback service described in
+[Offline knowledge](OFFLINE_KNOWLEDGE.md). For every predeclared boundary
+case, run both normal and reversed candidate order. Before promotion, the
+librarian must improve known-unknown abstention without losing positive
+top-three recall, reject malformed or decorated JSON, and show no material
+order effect. The current fixed set is an engineering gate rather than a
+population estimate; use a larger held-out set and Bernoulli intervals for a
+research claim.
+
+The first corrected run of this gate is preserved in
+`handoffs/researchc_librarian_2026-07-31/`. The tested Qwen3 4B Instruct
+Q5_K_M candidate reached 11/16 strict parse validity, 9/16 task accuracy, and
+1/8 forward/reverse agreement. It failed the promotion gate and remains an
+observer. Invalid decisions must never count as correct or as order agreement,
+even when their empty selection resembles an expected abstention.
+
+Adversarial librarian tests must also verify:
+
+- proxy environment variables are ignored and redirects are refused;
+- the endpoint cannot equal another project model service;
+- model and server digests plus an explicit alias are required;
+- malformed JSON types cannot kill the worker;
+- a stopped but still-live request cannot be duplicated on restart;
+- answer-time candidates and actual citations form the logged baseline;
+- log-write failures cannot be counted as valid evidence;
+- private text and unkeyed query hashes never enter the evidence log;
+- foreground work cancels or postpones the observer; and
+- only the research harness can consume a returned librarian decision.
 
 ## Voice, media, and interface
 
 - Start in text mode and verify `audio mode`, `text mode`, and `voice status`.
 - Verify speech recognition, cancellation, and spoken replies on an ordinary
   Windows account.
+- Run `tests.test_freestyle_song` and `tests.test_singing_easter_egg`. Confirm
+  the lyric transport refuses non-loopback endpoints and redirects, invalid or
+  duplicate-key JSON queues nothing, audio-boundary revalidation cannot be
+  bypassed, and fixed notes/timing survive substitution.
+- On an uncached first render, listen through Daisy Bell, Come Josephine, and
+  one generated song. Record intelligibility, chord alignment, output level,
+  Escape cancellation, and whether a repeated generated song reuses its cache.
+  Structural tests are not a substitute for this listening check.
 - Play local MP3, WAV, FLAC, and OGG files and verify the visualizer remains
   responsive.
 - Confirm local-song startup does not produce an unwanted spoken
   confirmation.
 - Exercise long-output pagination and cancellation.
 - Confirm no feature silently enables activity sampling or networking.
+
+### Research C endpoint-recovery matrix
+
+Automated tests simulate endpoint loss, cleanup `S_FALSE`, default-device
+re-enumeration, same-frame playback recovery, recovery cancellation, and power
+guard release. Before publishing the hardware claim, run all four cases on a
+non-Administrator Windows account:
+
+1. automatic display sleep and wake;
+2. manual lock and unlock;
+3. switch the default output while a local track is playing; and
+4. disconnect and reconnect the active HDMI/DisplayPort audio device.
+
+For every case, record whether playback resumes at the same position, whether
+the visualizer resumes, the visible explanation, and capture/reader/player
+thread counts before and after. A manual Stop or Play must cancel the old
+recovery loop.
+
+## Research C measurement acceptance
+
+- Run repair and memory calls with top-two measurement and with
+  `TORMENT_NEXUS_RESEARCHC_LOGPROBS=off`; existing decisions must be identical.
+- Confirm `assistant/logs/research_c.jsonl` contains no prompt, reply, source,
+  memory, API key, or arbitrary outcome/timing text.
+- Bind director and worker rows to separate exact model SHA-256 values and
+  record the llama-server revision.
+- Fit and holdout files must be different. The report must refuse unbound rows
+  unless an operator explicitly selects exploratory `--allow-unbound`.
+- Report false refusals beside compute avoided. Do not install a threshold from
+  the release-candidate probe transcripts; they are grounding probes, not the
+  labelled repair/memory dataset.
+- Use paired McNemar for grounded/ungrounded binary outcomes. Use a
+  predeclared SPRT only within one fixed Bernoulli stratum; do not pool prompts
+  with different success probabilities as though they were independent
+  repeats.
 
 ## Agent-interface tests
 
@@ -136,7 +234,7 @@ Network and hardware tests require explicit consent and separate test data.
 
 ## Release-package acceptance
 
-Before publishing any researchB asset:
+Before publishing any researchC asset:
 
 - build from the intended clean commit and record it in the manifest;
 - render the machinesoul APNG cut maps and record the exact plans the owner
@@ -153,6 +251,10 @@ Before publishing any researchB asset:
   activity-consent state, conversation history, memories, embedding cache,
   imported library, SQLite knowledge index, activity log, personal music,
   logs, recovery material, or local paths;
+- build the eight-file llama-server runtime closure from a path-mapped,
+  release-only directory rather than recursively packaging the CMake output;
+  package verification must report that staged `.exe`, `.dll`, and `.pyd`
+  files contain neither the checkout root nor the maintainer profile path;
 - decompile and reconstruct on a clean Windows account, run setup, and repeat
   the clean-state first-launch test;
 - inspect [Third-party notices](../THIRD_PARTY_NOTICES.md) and

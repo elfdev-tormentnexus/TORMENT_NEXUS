@@ -33,7 +33,7 @@ from datetime import datetime, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIST_ROOT = os.path.join(ROOT, "dist", "modelpacks")
-RELEASE_VERSION = "researchB"
+RELEASE_VERSION = "researchC"
 MANIFEST_FORMAT = 1
 
 # GitHub rejects release assets over 2 GiB. Keep the same conservative margin

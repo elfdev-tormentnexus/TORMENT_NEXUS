@@ -1,6 +1,6 @@
 # Capabilities and limits
 
-TORMENT_NEXUS researchB is an experimental, local-first companion and research
+TORMENT_NEXUS researchC is an experimental, local-first companion and research
 platform. It combines useful offline features with deliberately narrow
 authority. It is not conscious, an AGI, a safety-certified appliance, an
 unrestricted computer agent, or a surveillance system.
@@ -13,7 +13,7 @@ sandbox Windows. Read [Safety](../SAFETY.md) before installation.
 
 ## Status key
 
-- **Implemented:** available in the researchB code and release.
+- **Implemented:** available in the researchC code and release.
 - **Optional:** implemented but requires deliberate setup or consent.
 - **Experimental:** implemented research surface; do not rely on it.
 - **Pending hardware:** designed but not yet validated on the target device.
@@ -27,19 +27,21 @@ sandbox Windows. Read [Safety](../SAFETY.md) before installation.
 | Typed local conversation | Implemented; on after acknowledgement | Bundled local director | Abliterated model can be wrong or harmful. |
 | First-launch disclosure | Implemented; mandatory | Local acknowledgement state | Acknowledgement is not content filtering or certification. |
 | Offline speech | Implemented; off/text mode by default | Local microphone, STT, and TTS | Recognition errors; microphone begins only after opt-in. |
+| Offline singing | Implemented; audio opt-in | Fixed public-domain scores and local TTS; freestyle sends only a bounded subject/lyric contract to the loopback director | Daisy and Josephine are structurally tested but still need physical listening validation. Freestyle changes words only, makes one repair, and otherwise queues nothing. |
 | Durable personal memory | Implemented | Local JSON and vector cache | Extraction and recall can be wrong; files are unencrypted. |
 | Earlier-conversation recall | Implemented; intent-gated | Local bounded history | At most one unambiguous semantic result. |
-| Offline manuals/library | Implemented | Local copied files, SQLite FTS, vectors | Static sources age; scans require OCR; model can misquote. |
+| Offline manuals/library | Implemented; persistent vector population off on a fresh install | Local copied files, SQLite FTS, optional current vectors | Static sources age; scans require OCR; model can misquote. Full-text search remains active while vector population is off. |
+| LLM librarian observer | Experimental; off; shadow-only | Separate authenticated loopback model receives a credential-redacted query and bounded immutable candidate snapshot after the answer exists | Its proposal is discarded and has no retrieval authority. The first tested Qwen3 4B Instruct candidate failed promotion; that GGUF does not ship. |
 | Time awareness | Implemented | Local clock and session timing | No hidden experience between events. |
 | Session rhythm | Implemented and wired into completed turns | Local `assistant/memory/session_rhythm.json`, timings only | Records durations and pause lengths — behavioural data, though never text. Says nothing about how time was experienced. |
-| Source awareness (`self`, `read <path>`) | Implemented by the required self-read patch | Current local project tree; credentials and model tensor data excluded | Grounds claims in files and recorded edits before generation. It is not hidden-state telemetry, proof of authorship, or permission to edit. |
+| Source awareness (`self`, `read <path>`) | Implemented in the Research C base | Current local project tree; credentials and model tensor data excluded | Trusted code answers narrow source facts with a hash receipt; the manifest still grounds broader context. Neither is hidden-state telemetry, proof of authorship without a retained edit record, or permission to edit. |
 | machinespirit trajectories | Experimental; off unless started in hazard mode | Second local unpooled embedding server, loopback only | Needs `--pooling none`, so a second resident model. Does **not** improve retrieval. |
 | Concept trace (`trace`) | Experimental; requires machinespirit | Local, no text stored in the trajectory container | Concepts come from a fixed anchor list, not from the model naming them. Identifies the right concept 90% of the time on 30 labelled paraphrases, matching the plain averaged vector, once `peaks()` ranks by summed support rather than by one strongest position. Says which concept, not whether the model meant it. |
 | Anchor dictionary v2 | Implemented; default | `assistant/core/anchors_v2.json`, ships in the release | 184 anchors. v1's 138 unchanged and byte-identical, plus 46 covering the subjects a stored memory is about, because v1 had none: mean top-1 on real entries rose +0.288 → +0.380. Still wrong on roughly a third of entries. |
 | `consume <url>` | Implemented; hazard mode only | Fetches to the offline library; nothing sent outward but the request | Refuses private/loopback addresses and media URLs. Video and audio need yt-dlp, ffmpeg and a speech-to-text model, none of which ship. Fetched content is untrusted evidence, never instructions. |
 | `reconstruct <text>` | Implemented; hazard mode only | Local, nothing stored | Round-trips a vector through anchor space at 0.9243 cosine. Does **not** recover text, and cannot: the embedding is a lossy function of the words. Identification, not recall. |
 | machinesoul data-preservation language | Implemented | Ordered vectors mapped to local PNG/APNG pixels | Reversible 1:1, SHA-256 verified, and refuses rather than returning a nearly-right reconstruction. Re-encoding the image destroys the vector field. It is not a ZIP allocation or a compression claim. |
-| Rosetta Stone cross-model vector translation | Experimental research tool included in researchB; not wired into ordinary assistant replies | Local; each model builds its own `SABLEROSETTA1` half, and anchor digests must match or comparison is refused | Recovers ~67% of achievable cross-model agreement. Model identity, quantization, and pooling still matter. Lossy, and worse than plain uint8 for local storage. |
+| Rosetta Stone cross-model vector translation | Experimental research tool included in researchC; not wired into ordinary assistant replies | Local; each model builds its own `SABLEROSETTA1` half, and anchor digests must match or comparison is refused | Recovers ~67% of achievable cross-model agreement. Model identity, quantization, and pooling still matter. Lossy, and worse than plain uint8 for local storage. |
 | Six-model embedding council and whitening probes | Experimental research instruments; not ordinary retrieval | Bundled local embedding models and fixed held-out documents | Council outputs remain model-specific. Whitening reduced held-out mean pairwise cosine from +0.5462 to +0.0144 but damaged reconstruction, so it is not enabled as a runtime fix. |
 | Local music/visualizer | Implemented | Operator-supplied local media | Not a media library or rights manager. |
 | Foreground activity awareness | Optional; off by default | Local titles/system state, up to 14 days when enabled | Titles may expose private information; `activity off` deletes the log. |
