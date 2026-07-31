@@ -120,7 +120,14 @@ SAMPLER = {
     "min_keep": 2,
     "grammar": 'root ::= "Yes" | "No"',
     "logprobs": True,
-    "top_logprobs": 2,
+    # Not 2. llama.cpp reports the raw sampler candidates, not the
+    # grammar-masked ones, so the two answer tokens are not guaranteed to be
+    # the top two -- or anywhere near it. Measured against this frozen prompt,
+    # `Yes` sits at rank 2 to 5 at probabilities from 5.0e-09 to 1.1e-07,
+    # while rank 1 was a token the grammar forbids. Six would have sufficed on
+    # the day; the rank is a property of the model's state rather than of the
+    # protocol, so the window is generous.
+    "top_logprobs": 64,
     "post_sampling_probs": True,
     "cache_prompt": True,
     "stream": False,
@@ -665,7 +672,16 @@ def _binary_candidate_id(candidate):
 
 
 def parse_binary_response(answer, logprobs, token_ids=None):
-    """Extract a grammar-conditioned Yes probability from llama.cpp output.
+    """Renormalize the raw Yes/No probabilities from llama.cpp output.
+
+    These are **not** grammar-conditioned, whatever the grammar field implies.
+    llama.cpp applies the grammar as a resampling check, so when the first
+    sample already satisfies it the reported candidate array never receives
+    the grammar mask.  A live call against this protocol returned ``The`` --
+    illegal under ``root ::= "Yes" | "No"`` -- as the runner-up.  What is
+    computed here is the raw sampler distribution restricted to the two
+    answer tokens and renormalized, which is a defensible quantity but has to
+    be named honestly.
 
     When ``token_ids`` is supplied -- the frozen one-token ``Yes``/``No`` ids
     from the spec -- each candidate is matched on its tokenizer id as well as
@@ -735,9 +751,15 @@ def parse_binary_response(answer, logprobs, token_ids=None):
     if set(values) != {"Yes", "No"}:
         raise ProbeError("binary candidates are missing or duplicated")
     total = values["Yes"] + values["No"]
-    if abs(total - 1.0) > PROBABILITY_SUM_TOLERANCE:
+    # The old check demanded this sum to 1, which only holds if the grammar
+    # really had restricted the distribution to two tokens. It had not. What
+    # matters instead is how much probability mass the two answer tokens
+    # actually carry: renormalizing over a pair that holds 3% of the mass is
+    # a very different measurement from one that holds 99.9%, and the
+    # analysis cannot tell the difference unless the figure is recorded.
+    if not 0.0 < total <= 1.0 + PROBABILITY_SUM_TOLERANCE:
         raise ProbeError(
-            f"grammar-conditioned binary probabilities sum to {total}, not 1"
+            f"Yes/No probability mass {total} is outside (0, 1]"
         )
     q = values["Yes"] / total
     if not 0.0 < q < 1.0:
@@ -747,6 +769,8 @@ def parse_binary_response(answer, logprobs, token_ids=None):
         "yes_probability": values["Yes"],
         "no_probability": values["No"],
         "binary_probability_sum": total,
+        "answer_token_probability_mass": total,
+        "off_answer_probability_mass": max(0.0, 1.0 - total),
         "q_yes": q,
         "probability_entry": chosen,
     }
@@ -1414,6 +1438,21 @@ def prepare(output_dir):
                 "Balanced bit-price is algebraically the same signed "
                 "log-odds contrast as the monotonic coherence edge; it is not "
                 "independent evidence and needs known truth."
+            ),
+            (
+                "q_yes is the raw sampler distribution restricted to the two "
+                "answer tokens and renormalized. It is not grammar-"
+                "conditioned: llama.cpp applies the grammar as a resampling "
+                "check, so the reported candidates can and do include tokens "
+                "the grammar forbids. Read answer_token_probability_mass "
+                "before trusting any q_yes; a small mass means the model was "
+                "mostly trying to say something else."
+            ),
+            (
+                "A forced binary cannot distinguish a belief from a decline. "
+                "Where the controlled context does not settle a proposition, "
+                "a low q_yes may mean only that No is the token this model "
+                "declines with, and must not be read as disbelief."
             ),
             (
                 "Two wordings are repeated measurements within a file, not "

@@ -558,6 +558,45 @@ class CoherenceProbeTests(unittest.TestCase):
         self.assertIs(rate.sha256_file, before)
         self.assertEqual(rate.sha256_file(rate.MODEL_PATH), "a" * 64)
 
+    def test_candidate_window_is_wide_enough_for_a_non_top_two_answer(self):
+        """The live run died here: Yes was rank 4, outside a top-2 window."""
+        self.assertGreaterEqual(probe.SAMPLER["top_logprobs"], 8)
+
+        # The exact shape that failed: the grammar-illegal runner-up proves
+        # the reported candidates are raw, not grammar-masked.
+        narrow = {
+            "content": [{
+                "id": 2753, "token": "No", "prob": 0.9999973773956299,
+                "top_probs": [
+                    {"id": 2753, "token": "No", "prob": 0.9999973773956299},
+                    {"id": 785, "token": "The", "prob": 2.5760191419976763e-06},
+                ],
+            }],
+        }
+        with self.assertRaises(probe.ProbeError) as caught:
+            probe.parse_binary_response("No", narrow, {"Yes": 9454, "No": 2753})
+        self.assertIn("did not contain both", str(caught.exception))
+
+        wide = {
+            "content": [{
+                "id": 2753, "token": "No", "prob": 0.9999973773956299,
+                "top_probs": [
+                    {"id": 2753, "token": "No", "prob": 0.9999973773956299},
+                    {"id": 785, "token": "The", "prob": 2.576e-06},
+                    {"id": 1096, "token": "Based", "prob": 4.1e-08},
+                    {"id": 9454, "token": "Yes", "prob": 8.292828646006e-09},
+                ],
+            }],
+        }
+        parsed = probe.parse_binary_response(
+            "No", wide, {"Yes": 9454, "No": 2753}
+        )
+        self.assertAlmostEqual(parsed["q_yes"], 8.2928e-09, places=12)
+        # Mass outside the two answer tokens must be visible, not silently
+        # renormalized away.
+        self.assertLess(parsed["answer_token_probability_mass"], 1.0)
+        self.assertGreater(parsed["off_answer_probability_mass"], 0.0)
+
     def test_persistence_barrier_rejects_unsanitized_private_fields(self):
         local_user = Path.home().name
         unsafe = {

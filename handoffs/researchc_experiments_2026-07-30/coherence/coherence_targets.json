@@ -1,0 +1,94 @@
+{
+  "rows": [
+    {
+      "area": "assistant/core",
+      "bytes": 34020,
+      "high": 1195,
+      "id": "T01",
+      "lines": 956,
+      "low": 764,
+      "named_in_frozen_prompt": false,
+      "path": "assistant/core/chosen_name.py",
+      "sha256": "0e417a6dd1f76176b3d599ea6047bb9387407dfcc271d6aea52a12e9f44225be"
+    },
+    {
+      "area": "assistant/memory",
+      "bytes": 13316,
+      "high": 550,
+      "id": "T02",
+      "lines": 440,
+      "low": 352,
+      "named_in_frozen_prompt": false,
+      "path": "assistant/memory/memory_logic.py",
+      "sha256": "10aa50d6f3e6767b440742e89816ebeb98d97420ebe6c9669f83eb6643409115"
+    },
+    {
+      "area": "assistant/commands",
+      "bytes": 17686,
+      "high": 649,
+      "id": "T03",
+      "lines": 519,
+      "low": 415,
+      "named_in_frozen_prompt": false,
+      "path": "assistant/commands/natural_command.py",
+      "sha256": "85f9c463024a001ec8ba939457ff4cca476768796ceeb8d36487ec2c925b961f"
+    },
+    {
+      "area": "assistant/ui",
+      "bytes": 25188,
+      "high": 859,
+      "id": "T04",
+      "lines": 687,
+      "low": 549,
+      "named_in_frozen_prompt": false,
+      "path": "assistant/ui/vector_panel.py",
+      "sha256": "7f929cd479093ff66e2cf725ffe45250ed316ae4126b604ec13e8fb2ca95e136"
+    },
+    {
+      "area": "assistant/voice",
+      "bytes": 4663,
+      "high": 209,
+      "id": "T05",
+      "lines": 167,
+      "low": 133,
+      "named_in_frozen_prompt": false,
+      "path": "assistant/voice/setup_voice.py",
+      "sha256": "81a1f3b6144cccaf226339e49afb0e5fb9f1bd9dbad8e4d40fe29ce102940147"
+    },
+    {
+      "area": "assistant/project",
+      "bytes": 12019,
+      "high": 528,
+      "id": "T06",
+      "lines": 422,
+      "low": 337,
+      "named_in_frozen_prompt": false,
+      "path": "assistant/project/project_builder.py",
+      "sha256": "5b0c9d87cc8cd1243eccf4997648007237df1c0ad4f0da430828bf0ecaf56892"
+    },
+    {
+      "area": "assistant/web",
+      "bytes": 3164,
+      "high": 154,
+      "id": "T07",
+      "lines": 123,
+      "low": 98,
+      "named_in_frozen_prompt": false,
+      "path": "assistant/web/search_engine.py",
+      "sha256": "4d98e1039df431fe55c9c0cfc55b28a2fc61adb90e936988d3ec8e34cbc4cd04"
+    },
+    {
+      "area": "assistant/hardware",
+      "bytes": 3793,
+      "high": 173,
+      "id": "T08",
+      "lines": 138,
+      "low": 110,
+      "named_in_frozen_prompt": false,
+      "path": "assistant/hardware/setup_hardware.py",
+      "sha256": "1f612ffd8f8c8eac050612a6ad1caeb157bcae795704b4ca9522ec63ce4fc7be"
+    }
+  ],
+  "schema": 1,
+  "sha256": "ebde711723188fbe44a0a78639a178cf83b87d6af86261ac1d8632bb91b513eb"
+}
