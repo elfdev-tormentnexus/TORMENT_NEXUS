@@ -141,6 +141,52 @@ class CutAndReassembleTests(unittest.TestCase):
             )
         self.assertFalse(self.out.exists())
 
+    def test_a_file_added_after_planning_is_refused(self):
+        # Rehashing only the planned files proves nothing about a file that
+        # did not exist when the plan was reviewed. Such a file was never in
+        # the Markdown table, never rendered into an APNG frame, and is not
+        # covered by the approved plan hash, yet it would have been cut in.
+        _plan, digest = self._plan()
+        Path(self.source, "smuggled.py").write_text(
+            "def smuggled():\n    return 'never reviewed'\n",
+            encoding="utf-8",
+        )
+
+        with self.assertRaises(release.ReleaseError) as caught:
+            release.cut(
+                str(self.plan_path),
+                digest,
+                str(self.out),
+                str(self.manifest),
+            )
+
+        self.assertIn("gained files after review", str(caught.exception))
+        self.assertIn("smuggled.py", str(caught.exception))
+        self.assertFalse(self.out.exists())
+        self.assertFalse(self.manifest.exists())
+
+    def test_a_planned_file_removed_after_planning_is_still_refused(self):
+        _plan, digest = self._plan()
+        Path(self.source, "alpha.py").unlink()
+
+        with self.assertRaises(release.ReleaseError) as caught:
+            release.cut(
+                str(self.plan_path),
+                digest,
+                str(self.out),
+                str(self.manifest),
+            )
+
+        self.assertIn("alpha.py", str(caught.exception))
+        self.assertFalse(self.out.exists())
+
+    def test_an_untouched_source_still_cuts(self):
+        # The reinventory must not make the ordinary path stricter.
+        _plan, manifest = self._cut()
+
+        self.assertTrue(self.out.exists())
+        self.assertTrue(manifest["capsules"])
+
     def test_cut_review_renders_as_a_plan_bound_apng(self):
         plan, digest = self._plan()
         image = Path(self.folder, "CUT_REVIEW.png")

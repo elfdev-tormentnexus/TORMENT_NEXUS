@@ -865,20 +865,39 @@ def render_plan_apng(plan_path: str, out_path: str) -> dict:
 
 
 def _validate_source(plan: dict) -> dict[str, SourceFile]:
-    root = plan["source_root"]
+    # Rehashing only the planned files would prove that nothing reviewed had
+    # changed while saying nothing about anything new. A file created after the
+    # plan was approved would have been cut in without ever being reviewed,
+    # rendered into an APNG frame, or covered by the approved plan hash. So the
+    # directory is reinventoried here and the whole inventory must match.
+    #
+    # inventory() is the planner's own walk, reused deliberately: it applies the
+    # same link/reparse refusal, the same _safe_relative normalisation and the
+    # same ordering, so validation cannot drift from planning. It also hashes
+    # each file exactly once, which matters when the stage holds several GiB of
+    # model weights.
+    root = os.path.realpath(plan["source_root"])
+    actual = {found.path: found for found in inventory(root)}
+
     by_path = {}
     for record in plan["files"]:
         relative = _safe_relative(record["path"])
         full = os.path.realpath(os.path.join(root, relative.replace("/", os.sep)))
         if full != root and not full.startswith(root + os.sep):
             raise ReleaseError(f"source path escapes root: {relative}")
-        if os.path.islink(full) or _is_reparse(full) or not os.path.isfile(full):
+        found = actual.get(relative)
+        if found is None:
             raise ReleaseError(f"planned source is missing or unsafe: {relative}")
-        size = os.path.getsize(full)
-        digest = _sha256_file(full)
-        if size != record["size"] or digest != record["sha256"]:
+        if found.size != record["size"] or found.sha256 != record["sha256"]:
             raise ReleaseError(f"planned source changed after review: {relative}")
-        by_path[relative] = SourceFile(relative, full, size, digest)
+        by_path[relative] = found
+
+    added = sorted(set(actual) - set(by_path))
+    if added:
+        shown = ", ".join(added[:5])
+        if len(added) > 5:
+            shown += f", and {len(added) - 5} more"
+        raise ReleaseError(f"source gained files after review: {shown}")
     return by_path
 
 
