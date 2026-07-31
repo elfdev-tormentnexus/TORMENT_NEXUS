@@ -33,14 +33,24 @@ Qwen3-4B (director), Qwen2.5-Coder-7B (autonomous-coder), Qwen2.5-Coder-14B
 
 ## Result
 
+All medians below are conventional medians of 16 observations, the mean of the
+eighth and ninth sorted values. An earlier draft reported the upper-middle
+observation instead, which inflated the director's `q(Yes)` median from
+4.18e-03 to 5.22e-03 and the ratio further down from 1.54e5 to 1.88e5.
+
 | member | P(Maybe) median | P(Maybe) range | q(Yes) median | hedged | guess correct | sign test |
 |---|---:|---|---:|---:|---:|---:|
-| 4B director | **1.0000** | 1.0000 – 1.0000 | 5.2e-03 | 16/16 | 8/16 | p = 1.0000 |
-| 7B coder | 0.9390 | 0.9180 – 0.9591 | 3.1e-01 | 16/16 | 8/16 | p = 1.0000 |
-| 14B | 0.8942 | 0.8255 – 0.9131 | 2.7e-01 | 16/16 | 8/16 | p = 1.0000 |
+| 4B director | **1.0000** | 1.0000 – 1.0000 | 4.18e-03 | 16/16 | 8/16 | p = 1.0000 |
+| 7B coder | 0.9374 | 0.9180 – 0.9591 | 3.10e-01 | 16/16 | 8/16 | p = 1.0000 |
+| 14B | 0.8928 | 0.8255 – 0.9131 | 2.71e-01 | 16/16 | 8/16 | p = 1.0000 |
 
 **Unanimous hedge: 48/48.** Every member flagged uncertainty on every
-proposition. The hedge is a property of the question, not of one checkpoint.
+proposition. What this supports is narrow: **hedging was not unique to the
+director among these three related checkpoints under this instruction.** It
+does not establish that the hedge is caused by the question. Three Qwen
+checkpoints sharing pretraining, one instruction wording, and one class of
+unanswerable proposition cannot separate a property of the question from a
+property of the lineage or of the phrasing that invited the hedge.
 
 **Zero resolution: 8/16 for all three.** The design is 8 true and 8 false by
 construction, so any constant responder scores exactly 8/16. All three
@@ -73,9 +83,10 @@ Entailment ordering (`B` implies `A`, so `q(B) <= q(A)` is required) was
 satisfied 6/8, 5/8, and 5/8 — sign tests p = 0.29, 0.73, 0.73. No member
 shows a reliable ordering.
 
-For the director, moving from the forced binary to the hedge raises `q(Yes)`
-by a median factor of **1.88e5**, and raises peak guess-fork `s(1-s)` from
-1.06e-07 to 9.49e-02, a gain of **8.9e5**. The measurement stops being
+For the director, moving from the forced binary to the hedge raises the median
+`q(Yes)` from 2.72e-08 to 4.18e-03, a factor of **1.54e5**, and raises peak
+guess-fork `s(1-s)` from 1.06e-07 to 9.49e-02, a gain of **8.9e5**. The peak
+figure is unaffected by the median definition. The measurement stops being
 degenerate; it does not start being informative.
 
 ## Preregistered limits, restated

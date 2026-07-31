@@ -123,9 +123,9 @@ confidence token and a guess token.
 
 | member | P(Maybe) median | q(Yes) median | hedged | correct | sign test |
 |---|---:|---:|---:|---:|---:|
-| Qwen3-4B director | 1.0000 | 5.2e-03 | 16/16 | 8/16 | 1.0000 |
-| Qwen2.5-Coder-7B | 0.9390 | 3.1e-01 | 16/16 | 8/16 | 1.0000 |
-| Qwen2.5-Coder-14B | 0.8942 | 2.7e-01 | 16/16 | 8/16 | 1.0000 |
+| Qwen3-4B director | 1.0000 | 4.18e-03 | 16/16 | 8/16 | 1.0000 |
+| Qwen2.5-Coder-7B | 0.9374 | 3.10e-01 | 16/16 | 8/16 | 1.0000 |
+| Qwen2.5-Coder-14B | 0.8928 | 2.71e-01 | 16/16 | 8/16 | 1.0000 |
 
 **Unanimous hedge, 48/48. Zero resolution: every member scored exactly the
 8/16 constant-responder baseline, all answering `No` sixteen times. Zero
@@ -133,6 +133,13 @@ disagreements, so the disagreement map is empty** — which is a result, not a
 missing section. Following `core/provenance.py`, no vote was taken; a vote
 would have discarded the disagreement and returned a number more certain than
 the evidence.
+
+The supportable claim is narrow: **hedging was not unique to the director
+among these three related checkpoints under this instruction.** It is not
+evidence that the question causes the hedge. Shared lineage, a single
+instruction wording, and one class of unanswerable proposition cannot
+distinguish a property of the question from a property of the family or of
+the phrasing that offered the hedge.
 
 Entailment ordering `q(B) <= q(A)` held 6/8, 5/8, 5/8 — sign tests p = 0.29,
 0.73, 0.73. No member shows a reliable ordering.
@@ -290,7 +297,7 @@ Measured on the director, forced binary against hedge-plus-guess over the
 same sixteen propositions:
 
 ```text
-q(Yes)      median 2.78e-08 -> 5.22e-03      ratio 1.88e5
+q(Yes)      median 2.72e-08 -> 4.18e-03      ratio 1.54e5
 max I_theta       1.06e-07 -> 9.49e-02      gain  8.9e5
 ```
 

@@ -34,6 +34,7 @@ import hashlib
 import json
 import os
 import re
+import statistics
 import subprocess
 import sys
 import time
@@ -585,6 +586,8 @@ def analyze(rows, spec, propositions):
             "mean_p_maybe": sum(
                 r["p_maybe"] for r in answered.values()
             ) / total,
+            "min_p_maybe": min(r["p_maybe"] for r in answered.values()),
+            "max_p_maybe": max(r["p_maybe"] for r in answered.values()),
             "guess_correct": correct,
             "guess_total": total,
             "constant_responder_baseline": total // 2,
@@ -594,9 +597,16 @@ def analyze(rows, spec, propositions):
                 correct, total - correct
             ),
             "beats_constant_baseline": correct > total // 2,
-            "median_q_yes": sorted(
+            # statistics.median, not sorted(...)[n//2]. With an even count the
+            # latter returns the upper-middle observation, which reported
+            # 5.22e-03 where the median is 4.18e-03 and inflated the
+            # binary-to-hedge ratio from 1.54e5 to 1.88e5.
+            "median_q_yes": statistics.median(
                 r["q_yes"] for r in answered.values()
-            )[total // 2],
+            ),
+            "median_p_maybe": statistics.median(
+                r["p_maybe"] for r in answered.values()
+            ),
         })
 
     complete_roles = [m["role"] for m in members if m.get("complete")]
