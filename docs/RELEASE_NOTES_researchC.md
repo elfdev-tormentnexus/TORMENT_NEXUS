@@ -76,6 +76,38 @@ The completed paired probes are preserved under
   **16 of 16**. This is the probability-level confirmation of the manifest
   finding above, and it places the cause in the output format.
 
+## The bundled llama.cpp runtime
+
+The eight-file CPU server closure shipped here — `llama-server.exe`,
+`llama-server-impl.dll`, `llama-common.dll`, `mtmd.dll`, `llama.dll`,
+`ggml.dll`, `ggml-base.dll`, `ggml-cpu.dll` — was built from llama.cpp
+`555881ebc8b0fc0402b30e09258a32a7bfd13c52` specifically for redistribution,
+and differs from the maintainer's working build in two ways that matter.
+
+**It is path-neutral.** The maintainer's own build directory is not
+publishable: seven of its eight files embed the checkout and profile path, 212
+occurrences in total. MSVC's `/pathmap` does not fix this on its own — it is
+silently ignored unless `/experimental:deterministic` is also set, and says so
+only as a `D9007` warning, so a build that looks configured for neutrality can
+still ship the path. The release runtime is therefore built from a neutral
+source root instead, which needs no rewriting. All eight shipped files were
+scanned for both ASCII and UTF-16LE forms of the checkout, profile, and
+account name: zero occurrences.
+
+**It is built with `GGML_NATIVE=OFF`.** The maintainer's build uses
+`GGML_NATIVE=ON`, which targets the exact host CPU and can emit instructions
+that fault on a narrower machine. The shipped runtime targets the baseline
+x86-64 feature set with an AVX2 CPU variant instead, so it runs on hardware
+the maintainer's build would crash on. This is a **deliberate divergence from
+the build configuration frozen in the research bindings**, and any attempt to
+reproduce an experiment's `server_bundle_sha256` must use the maintainer
+configuration rather than this one. Expect somewhat lower throughput than a
+native build on any specific machine.
+
+The build fetches its embedded web UI assets from Hugging Face at compile
+time. That is an upstream llama.cpp behaviour, not a runtime network call, but
+it does mean the build is not fully offline-reproducible.
+
 ## Boundaries and unfinished validation
 
 Research C does not enable an uncertainty refusal threshold, automatic
