@@ -107,9 +107,19 @@ Upgrading from researchB? This is what changed. Thirteen commits, 105 files,
 | **Optional 14B** | place six files manually beside the others | its own one-click fetcher |
 | **GPU** | processor only | optional Vulkan offload, with automatic fallback |
 | **Singing** | — | two public-domain songs, performed by the machine, plus a freestyle mode |
-| **Offline shelf** | smaller built-in set | 18 cards / 39 chunks, seven of them new hazard cards |
+| **Offline shelf** | smaller built-in set | 18 cards / 39 chunks: seven new hazard cards, plus three that patch measured blindspots in the model itself |
 | **Librarian** | — | measured against a preregistered gate, failed it, ships switched off |
 | **Audio recovery** | — | automatic recovery from device loss, with capped backoff |
+
+**Retrieval as a blindspot patch.** Three of the new cards are not reference
+material, they are corrections for specific misdiagnoses. Asked why a large
+download stalls, why a numeric script hangs silently, or why small allocations
+start failing after long uptime, a general model answers confidently and blames
+the wrong thing: your code, the script logic, a corrupted model file. Each card
+is titled by the misleading *symptom* so retrieval fires on what a person
+actually types. Encoding these as retrieval rather than a weight update keeps
+them inspectable and dated — every card carries a review date and an expiry, and
+all 18 are SHA-256 bound in a manifest.
 
 The first two rows are one story. researchB needed a patch applied by hand
 because its self-read capability arrived after the cut. researchC folds it in
