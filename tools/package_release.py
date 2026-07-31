@@ -311,6 +311,18 @@ INCLUDE_FILES = [
     "models/Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf",
     "models/embedding/bge-small-en-v1.5-q8_0.gguf",
     "models/voice/silero_vad.onnx",
+    # The machine's own performances of two public-domain songs. Synthesising
+    # one takes minutes, so shipping the cache makes a recipient's first
+    # `sing daisy bell` or `sing come josephine` immediate instead of a long
+    # silent wait. The filename embeds the voice key and the accompaniment
+    # gain, so anyone who changes either simply misses the cache and rebuilds:
+    # the shipped file is never wrong, only unused.
+    #
+    # Earlier versions and the content-addressed freestyle takes are left
+    # behind on purpose. A freestyle cache is keyed by a hash of its generated
+    # lyrics, so it can only ever hit for the machine that produced it.
+    "models/voice/cache/daisy_bell_machine_v11_mix110_en_US-hfc_female-medium.wav",
+    "models/voice/cache/come_josephine_machine_v2_vocal-minus12_mix105_en_US-hfc_female-medium.wav",
     *LLAMA_RUNTIME_RELEASE_FILES,
 ]
 

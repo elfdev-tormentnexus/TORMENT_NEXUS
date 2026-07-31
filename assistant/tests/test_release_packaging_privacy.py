@@ -23,6 +23,41 @@ package_release = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(package_release)
 
 
+class ShippedSongCacheTests(unittest.TestCase):
+    """A shipped performance nothing asks for is dead weight in the download."""
+
+    def _shipped(self):
+        return [
+            path for path in package_release.INCLUDE_FILES
+            if path.startswith("models/voice/cache/")
+        ]
+
+    def test_the_shipped_cache_is_what_the_assistant_will_look_for(self):
+        # The cache filename embeds the song version, the voice key and the
+        # accompaniment gain. Bumping any of those in config without updating
+        # the package would ship minutes of audio that never gets read, and
+        # the recipient would still wait through a full synthesis.
+        from core import config
+
+        self.assertEqual(
+            {os.path.basename(path) for path in self._shipped()},
+            {
+                os.path.basename(config.VOICE_DAISY_CACHE),
+                os.path.basename(config.VOICE_JOSEPHINE_CACHE),
+            },
+        )
+
+    def test_no_superseded_or_freestyle_performance_is_shipped(self):
+        shipped = self._shipped()
+
+        self.assertEqual(len(shipped), 2, shipped)
+        for path in shipped:
+            with self.subTest(path=path):
+                # Freestyle caches are keyed by a hash of generated lyrics, so
+                # they can only ever hit for the machine that produced them.
+                self.assertNotIn("freestyle", path)
+
+
 class SanitizedResearchHandoffPackagingTests(unittest.TestCase):
     def test_only_the_reviewed_librarian_derivative_is_whitelisted(self):
         expected = {
