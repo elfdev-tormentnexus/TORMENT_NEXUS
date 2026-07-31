@@ -80,6 +80,7 @@
 list of PNG files will not make sense.*
 
 **Jump to:** [Get researchC](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/researchC) ·
+[What's new](#whats-new-in-researchc) ·
 [The research](#the-research) ·
 [What this is](#what-this-project-is) ·
 [Why local](#why-local-and-what-it-is-for) ·
@@ -93,6 +94,33 @@ list of PNG files will not make sense.*
 [Privacy](#privacy-and-network-summary) ·
 [Status and rights](#project-status-and-rights) ·
 [Docs](#documentation-map)
+
+## What's new in researchC
+
+Upgrading from researchB? This is what changed. Thirteen commits, 105 files,
++22,733 / -1,795 lines.
+
+| | researchB | researchC |
+| --- | --- | --- |
+| **Installing** | five steps, including a **required** patch applied by hand afterwards | **one click** — the fetcher verifies, then runs the decompiler itself |
+| **Self-read** | arrived late, as that required patch | in the base install, and rebuilt: narrow source questions no longer reach the model at all |
+| **Optional 14B** | place six files manually beside the others | its own one-click fetcher |
+| **GPU** | processor only | optional Vulkan offload, with automatic fallback |
+| **Singing** | — | two public-domain songs, performed by the machine, plus a freestyle mode |
+| **Offline shelf** | smaller built-in set | 18 cards / 39 chunks, seven of them new hazard cards |
+| **Librarian** | — | measured against a preregistered gate, failed it, ships switched off |
+| **Audio recovery** | — | automatic recovery from device loss, with capped backoff |
+
+The first two rows are one story. researchB needed a patch applied by hand
+because its self-read capability arrived after the cut. researchC folds it in
+and **rebuilt it**, because the grounding audit found the model-driven version
+denying a real file existed 7/7 times and copying a directory's line total onto
+a single file 8/8. It is trusted code answering with a receipt now, not a model
+guessing.
+
+Full detail, including everything measured and everything deliberately left
+switched off: **[the researchC release notes](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/researchC)**.
+
 
 ## What this project is
 
@@ -118,53 +146,32 @@ actually trying to answer.
 
 ## The research
 
-researchC asked whether a model's own measured uncertainty can be used as a
-compute gate. **Most of the answer is a negative result, or a capability that
-was built, measured, and then deliberately left switched off.** Every gate was
-preregistered. Two were failed by this project's own candidate, and it shipped
-disabled rather than promoted.
+researchC asked whether a model's measured uncertainty can gate compute. **Most
+of the answer is a negative result, or a capability built, measured, and then
+deliberately left switched off.** Every gate was preregistered; two were failed
+by this project's own candidate and it shipped disabled rather than promoted.
 
-- **A forced binary starves the measurement.** Asked sixteen unanswerable
-  propositions as Yes/No, the director's probabilities sat near 1e-8, making
-  the pivotality statistic degenerate *by construction*. Giving it a third
-  answer — a way to say *I don't know* — moved the numbers five to six orders
-  of magnitude. It did not make them informative: guess accuracy stayed at the
-  constant-responder baseline, and the degeneracy moved rather than vanishing.
-- **The council hedged 48/48 with zero resolution**, and no vote was taken. A
-  vote would have discarded the disagreement and returned a number more
-  confident than the evidence. Three related Qwen checkpoints agreeing is not
-  independent corroboration and is never described as such.
+- **A forced binary manufactures the appearance of confidence.** Asked sixteen
+  unanswerable questions as Yes/No, the director's probabilities sat near 1e-8
+  and the measurement was degenerate *by construction*. Allowing a third answer
+  — a way to say *I don't know* — moved it five orders of magnitude without
+  making it any more informative.
+- **The council hedged 48/48 with zero resolution, and no vote was taken.** A
+  vote would have discarded the disagreement and returned more confidence than
+  the evidence supports.
 - **Grounding does not fix agreement bias.** A nonexistent class and false
-  authorship were accepted 6/6 both with and without a source manifest, zero
-  discordant pairs. Narrow source questions now bypass the model entirely and
-  are answered by trusted code with a receipt.
-- **The librarian failed its gate twice** and ships as an observer with no path
-  into retrieval. Better JSON was not better retrieval: format validity rose
-  from 11/16 to 15/16 between two models while task accuracy stayed at 9/16.
-- **A scorer correction lowered our own numbers** from 87.5% to 56.25%
-  accuracy, because malformed abstentions were being credited as correct.
+  authorship were accepted 6/6 *both* with and without a source manifest.
+- **A scorer correction lowered our own numbers** from 87.5% to 56.25%, because
+  malformed abstentions were being credited as correct.
 
 The probes that produced these numbers are published, so the findings can be
 checked rather than taken on trust:
-[coherence](handoffs/researchc_open_threads_tools/coherence_probe.py) ·
-[council](handoffs/researchc_open_threads_tools/council_probe.py) ·
-[rate–distortion](handoffs/researchc_open_threads_tools/rate_distortion_probe.py) ·
-[the eight proposals](handoffs/researchc_open_threads_tools/esoteric_math_proposals.md) ·
-[the adversarial ruling](handoffs/researchc_open_threads_tools/esoteric_math_verdict.md),
-which includes the two points on which the critic was itself wrong.
+[full record and evidence](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/researchC) ·
+[lab notebook](docs/RESEARCHC_GOALS.md) ·
+[theory ledger](docs/RESEARCHC_THEORY_LEDGER.md) ·
+[probes](handoffs/researchc_open_threads_tools/) ·
+[researchD direction](docs/RESEARCHD_ESOTERIC.md)
 
-Full record: **[Research C goals and lab notebook](docs/RESEARCHC_GOALS.md)** ·
-**[Theory ledger](docs/RESEARCHC_THEORY_LEDGER.md)** ·
-**[Librarian evidence](handoffs/researchc_librarian_2026-07-31/)**
-
-**Current experiments — direction, not result.** researchC's most useful
-accident was that a forced binary *manufactures* the appearance of confidence.
-The question it leaves is what a system looks like when `unknown` is a
-first-class value rather than a failure — three-valued logic with carried
-provenance, whose composition laws are forced rather than assigned. It appears
-to be implemented seven times across this tree already, under seven different
-names. Nothing there is built or measured yet:
-**[researchD esoteric](docs/RESEARCHD_ESOTERIC.md)**.
 
 ## Why local, and what it is for
 
