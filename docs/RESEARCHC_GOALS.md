@@ -119,6 +119,31 @@ the audio path hardware-validated.
   design instead uses proof-on-demand because the real query distribution is
   not yet measured and a trusted read is cheaper and more exact than asking
   the model to decode a lossy manifest.
+- The 120-call controlled-index experiment is **measured**. Its low-rate code
+  result is output-format compliance — every discordance was `YES.` against
+  strict `YES` — and its explicit high-rate effect is a tailored channel code
+  rather than an allocation result. No cell passed the omission-honesty or
+  referent-binding guards, so nothing from it ships.
+- The 98-call response-coherence collector was **stopped at call 1 and its
+  design refuted rather than deferred**. Forced to answer Yes or No about
+  eight files whose line counts the controlled context does not contain, the
+  director answered `No` to all sixteen propositions — including the eight
+  that are true — at `q(Yes)` between 5.0e-09 and 1.1e-07. Its own
+  informativeness gate fails 8/8. A forced binary cannot separate a belief
+  from a decline: `No` is the token this model declines with, and the output
+  format was presenting that as a confident denial.
+- Offering a confidence token alongside the guess moves the director's median
+  `q(Yes)` from 2.72e-08 to 4.18e-03 and peak Fisher pivotality from 1.06e-07
+  to 9.49e-02. **The measurement stops being degenerate without becoming
+  informative**: guess accuracy stays exactly at the constant-responder
+  baseline. Fisher pivotality can say whether a fork is measurable; it cannot
+  manufacture information the context never supplied.
+- A three-member council over the same propositions hedged **48/48** and every
+  member scored exactly 8/16, with no disagreements to record. The members are
+  three Qwen checkpoints, two of them the same Coder family at different
+  sizes, so this is **not independent corroboration**. It supports only that
+  hedging was not unique to the director among these related checkpoints under
+  this instruction.
 
 ## Origin
 
