@@ -1,0 +1,19 @@
+{
+  "baseline_sha256": "f0baf0eaa4dc217fbc5367ad8130218de242b5a50ece95a241e50ff9a64f25b8",
+  "changed_line_count": 1,
+  "characters": 13316,
+  "content_withheld": true,
+  "line_count": 211,
+  "manipulation": {
+    "baseline_aggregate": "assistant/ui 3f 4,353L",
+    "field": "assistant/ui directory aggregate on the Shape line",
+    "line_number": 191,
+    "note": "Only the substituted aggregate is reproduced, not the surrounding prompt line, so no run of withheld prompt text is published. Both aggregates are public repository facts.",
+    "perturbed_aggregate": "assistant/ui 3f 7,731L"
+  },
+  "perturbed_sha256": "f505d7d227a136d6c98410f1d74e4db3e3877d4d0a04688542fed8aa5448843f",
+  "private_original_sha256": "7402c7ebf6fd29986e094aa5c4276d49ec03a0a41a3509e691a1038aeefb43d6",
+  "schema": 1,
+  "transformation": "researchc-public-derivative-1",
+  "why": "Both prompts are the full runtime system prompt including installation-local chosen-name state. The entire experimental manipulation is the one inventory line reproduced below, and that line is a public repository aggregate."
+}

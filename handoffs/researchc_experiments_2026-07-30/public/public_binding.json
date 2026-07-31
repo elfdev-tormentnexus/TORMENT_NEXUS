@@ -1,0 +1,78 @@
+{
+  "assistant_mode": {
+    "collection_route": "The collector bypasses the assistant process and binds the director directly; UI mode does not enter the messages.",
+    "scope": "The operator reported the visible Sable UI mode. The process, hash, and port checks recorded here verify topology only. They do not establish which UI mode was selected. The original artifact's assistant_mode.independently_verified=true wording overstated this and is corrected here.",
+    "source": "operator_reported",
+    "topology_independently_verified": true,
+    "ui_mode_independently_verified": false,
+    "value": "hazard"
+  },
+  "console_pulse": {
+    "helper_sha256": "152f60528101339a782ccddf30d29784ea20650554548552e18af1e286bcc4a3",
+    "interval_seconds": 45
+  },
+  "loopback": {
+    "agent_interface_8099_listener": null,
+    "director_url": "http://127.0.0.1:8080",
+    "machinespirit_helper_port": 8084
+  },
+  "model": {
+    "alias_note": "llama.cpp defaults model_alias to the model path, so the original alias field was an absolute host path and is dropped rather than shown.",
+    "alias_was_absolute": true,
+    "basename": "Qwen3-4B-abliterated-bf16_q8_0.gguf",
+    "bytes": 4645051328,
+    "ftype": "Q8_0",
+    "sha256": "947656a42e73bda324c527f06953596b77e4d91bc590476955205b5f64d4e974"
+  },
+  "original_live_server_identity_sha256": "623e2a1e411ac923f41fb1639ffa11e351df5031eff389946b03af019326a314",
+  "processes": [
+    {
+      "command_line_sha256": "4c0d39a6cada79e94fd4a1d0216ff4c4e0f0080f4248d8c84662d493ba37b853",
+      "executable_basename": "python.exe",
+      "executable_sha256": "03168c01b7b7491423350e82c26fee71f35b43694d1319d3c668bda6903a0c38",
+      "main_py_argument_present": true,
+      "parent_pid": 212568,
+      "pid": 254736,
+      "role": "sable_assistant_parent"
+    },
+    {
+      "cache_prompt_argument_present": true,
+      "command_line_sha256": "906f76d8a7896ce140709e68caa43142edddf619df5509f8fd90be0e7bc9b534",
+      "configured_model_argument_present": true,
+      "configured_port_argument_present": true,
+      "context_8192_argument_present": true,
+      "executable_basename": "llama-server.exe",
+      "executable_sha256": "a7f04c5090b3a81fe88592a4d535749ed056e78d0efd5958e3ceb7f6685b33b7",
+      "one_slot_argument_present": true,
+      "parent_pid": 254736,
+      "pid": 53408,
+      "role": "one_slot_director"
+    },
+    {
+      "alias_present": true,
+      "command_line_sha256": "3fe74c2256f7100a71d567af78a6ca786dfa339ebc11560d674912cf53d21318",
+      "executable_basename": "llama-server.exe",
+      "executable_sha256": "a7f04c5090b3a81fe88592a4d535749ed056e78d0efd5958e3ceb7f6685b33b7",
+      "parent_pid": 212568,
+      "pid": 173648,
+      "port_8084_present": true,
+      "role": "machinespirit_helper",
+      "unpooled_present": true
+    }
+  ],
+  "server": {
+    "basename": "llama-server.exe",
+    "build_info": "b10121-555881ebc",
+    "bundle_caveat": "This collector-era bundle digest omitted mtmd.dll. The launcher, main implementation libraries, model, repository, prompt, and sampler were still bound, but this value is not a complete CPU dependency-closure digest.",
+    "bundle_sha256": "2cfd58b8b4a2e9a1081cab1168877dfa6598f0c430c6970afbd41a37f08f96ab",
+    "chat_format": "Content-only",
+    "chat_template_sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5",
+    "executable_sha256": "a7f04c5090b3a81fe88592a4d535749ed056e78d0efd5958e3ceb7f6685b33b7",
+    "n_ctx": 8192,
+    "reasoning_format": "none",
+    "revision": "555881ebc8b0fc0402b30e09258a32a7bfd13c52",
+    "total_slots": 1
+  },
+  "sha256": "620a794ea51e0f94e92e0f723538e90a6499a6ffe8153188f6228c8f2e646378",
+  "transformation": "researchc-public-derivative-1"
+}

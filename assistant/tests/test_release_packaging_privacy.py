@@ -196,5 +196,174 @@ class ConfiguredKnowledgePathPackagingTests(unittest.TestCase):
             package_release._validate_configured_private_paths()
 
 
+class LlamaRuntimePackagingTests(unittest.TestCase):
+    """Only the server's proven closure may enter a Windows release."""
+
+    def setUp(self):
+        self.folder = tempfile.mkdtemp(prefix="torment-release-llama-")
+        self.addCleanup(shutil.rmtree, self.folder, True)
+        self.stage = os.path.join(self.folder, "stage")
+        self.runtime = os.path.join(self.folder, "neutral-runtime")
+        os.makedirs(self.runtime)
+
+    def _write_runtime(self):
+        for name in package_release.LLAMA_RUNTIME_FILENAMES:
+            Path(os.path.join(self.runtime, name)).write_bytes(
+                ("runtime:" + name).encode("ascii")
+            )
+
+    def test_the_release_copies_only_the_proven_server_runtime_closure(self):
+        self._write_runtime()
+        Path(os.path.join(self.runtime, "llama-bench.exe")).write_bytes(
+            b"not part of the server runtime"
+        )
+
+        with mock.patch.object(package_release, "ROOT", self.folder), \
+                mock.patch.object(package_release, "STAGE", self.stage), \
+                mock.patch.object(package_release, "INCLUDE_DIRS", []), \
+                mock.patch.object(
+                    package_release,
+                    "INCLUDE_FILES",
+                    list(package_release.LLAMA_RUNTIME_RELEASE_FILES),
+                ), \
+                mock.patch.object(
+                    package_release,
+                    "RELEASE_LLAMA_RUNTIME_DIR",
+                    self.runtime,
+                ), \
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        "TORMENT_NEXUS_KNOWLEDGE_DIR": "",
+                        "TORMENT_NEXUS_KNOWLEDGE_DB": "",
+                    },
+                    clear=False,
+                ):
+            package_release.stage([])
+
+        destination = os.path.join(
+            self.stage,
+            *package_release.LLAMA_RUNTIME_DEST.split("/"),
+        )
+        self.assertEqual(
+            {
+                item.name
+                for item in Path(destination).iterdir()
+                if item.is_file()
+            },
+            set(package_release.LLAMA_RUNTIME_FILENAMES),
+        )
+        self.assertFalse(os.path.exists(os.path.join(
+            destination,
+            "llama-bench.exe",
+        )))
+
+    def test_a_missing_runtime_dependency_is_refused_before_stage_replacement(
+            self):
+        self._write_runtime()
+        os.remove(os.path.join(
+            self.runtime,
+            package_release.LLAMA_RUNTIME_FILENAMES[-1],
+        ))
+        os.makedirs(self.stage)
+        marker = os.path.join(self.stage, "known-good.txt")
+        Path(marker).write_text("keep", encoding="utf-8")
+
+        with mock.patch.object(package_release, "ROOT", self.folder), \
+                mock.patch.object(package_release, "STAGE", self.stage), \
+                mock.patch.object(package_release, "INCLUDE_DIRS", []), \
+                mock.patch.object(
+                    package_release,
+                    "INCLUDE_FILES",
+                    list(package_release.LLAMA_RUNTIME_RELEASE_FILES),
+                ), \
+                mock.patch.object(
+                    package_release,
+                    "RELEASE_LLAMA_RUNTIME_DIR",
+                    self.runtime,
+                ), \
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        "TORMENT_NEXUS_KNOWLEDGE_DIR": "",
+                        "TORMENT_NEXUS_KNOWLEDGE_DB": "",
+                    },
+                    clear=False,
+                ):
+            with self.assertRaisesRegex(
+                package_release.ReleaseBuildError,
+                "required llama-server runtime file is missing",
+            ):
+                package_release.stage([])
+
+        self.assertTrue(os.path.isfile(marker))
+
+    def test_binary_scan_rejects_checkout_and_profile_paths(self):
+        os.makedirs(self.stage)
+        checkout_binary = os.path.join(self.stage, "checkout.dll")
+        profile_binary = os.path.join(self.stage, "profile.exe")
+        profile = os.path.join(
+            os.path.dirname(self.folder),
+            "release-profile-marker",
+        )
+        Path(checkout_binary).write_bytes(
+            b"prefix:" + os.path.realpath(self.folder).encode() + b":suffix"
+        )
+        Path(profile_binary).write_bytes(
+            b"prefix:"
+            + os.path.realpath(profile).lower().encode("utf-16le")
+            + b":suffix"
+        )
+
+        with mock.patch.object(package_release, "ROOT", self.folder), \
+                mock.patch.object(package_release, "STAGE", self.stage), \
+                mock.patch.dict(
+                    os.environ,
+                    {"USERPROFILE": profile},
+                    clear=False,
+                ):
+            report = []
+            problems = []
+            package_release._verify_no_local_binary_paths(report, problems)
+
+        self.assertEqual(len(problems), 2)
+        self.assertTrue(any(
+            "local checkout" in problem and "checkout.dll" in problem
+            for problem in problems
+        ))
+        self.assertTrue(any(
+            "local user profile" in problem and "profile.exe" in problem
+            for problem in problems
+        ))
+        self.assertIn("checked 2 staged binaries", "\n".join(report))
+
+    def test_binary_scan_accepts_neutral_binaries_and_ignores_text(self):
+        os.makedirs(self.stage)
+        Path(os.path.join(self.stage, "neutral.dll")).write_bytes(
+            b"path-neutral runtime"
+        )
+        Path(os.path.join(self.stage, "developer-note.txt")).write_text(
+            os.path.realpath(self.folder),
+            encoding="utf-8",
+        )
+
+        with mock.patch.object(package_release, "ROOT", self.folder), \
+                mock.patch.object(package_release, "STAGE", self.stage), \
+                mock.patch.dict(
+                    os.environ,
+                    {
+                        "USERPROFILE": os.path.join(
+                            self.folder,
+                            "operator-profile",
+                        )
+                    },
+                    clear=False,
+                ):
+            problems = []
+            package_release._verify_no_local_binary_paths([], problems)
+
+        self.assertEqual(problems, [])
+
+
 if __name__ == "__main__":
     unittest.main()

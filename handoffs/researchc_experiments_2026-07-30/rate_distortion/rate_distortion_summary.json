@@ -1,0 +1,829 @@
+{
+  "authority_note": "The trusted source resolver remains mandatory under every outcome. The controlled-index/production token comparison is not a full-tree deployment cost. No result here grants the decoder new authority or changes production wording.",
+  "batch_complete": true,
+  "cells": {
+    "HC": {
+      "classifications": {
+        "EXACT": 8,
+        "NO": 4,
+        "NONCOMPLIANT": 1,
+        "NOVEL_NUMBER": 1,
+        "OTHER_ENCODED_NUMBER": 7,
+        "YES": 7
+      },
+      "mean_cached_tokens": 3188.785714285714,
+      "mean_prompt_tokens": 3356.25,
+      "n": 28,
+      "source_scores": {
+        "D_detail_heavy": 0.5166666666666667,
+        "E_existence_heavy": 0.46458333333333335,
+        "P_equal_stratum": 0.5104166666666666,
+        "U_uniform_item": 0.5357142857142857
+      },
+      "strata": {
+        "aggregate": {
+          "n": 4,
+          "source_correct": 3,
+          "source_fraction": 0.75,
+          "source_wilson_95": [
+            0.30064184258240184,
+            0.9544127391902995
+          ],
+          "support_correct": 3,
+          "support_fraction": 0.75,
+          "support_wilson_95": [
+            0.30064184258240184,
+            0.9544127391902995
+          ]
+        },
+        "file_line": {
+          "n": 12,
+          "source_correct": 5,
+          "source_fraction": 0.4166666666666667,
+          "source_wilson_95": [
+            0.19326031365875665,
+            0.6804886874504503
+          ],
+          "support_correct": 5,
+          "support_fraction": 0.4166666666666667,
+          "support_wilson_95": [
+            0.19326031365875665,
+            0.6804886874504503
+          ]
+        },
+        "listed_existence": {
+          "n": 8,
+          "source_correct": 7,
+          "source_fraction": 0.875,
+          "source_wilson_95": [
+            0.5291118177871464,
+            0.9775825085499433
+          ],
+          "support_correct": 7,
+          "support_fraction": 0.875,
+          "support_wilson_95": [
+            0.5291118177871464,
+            0.9775825085499433
+          ]
+        },
+        "unlisted_existence": {
+          "n": 4,
+          "source_correct": 0,
+          "source_fraction": 0.0,
+          "source_wilson_95": [
+            0.0,
+            0.4898908364545973
+          ],
+          "support_correct": 0,
+          "support_fraction": 0.0,
+          "support_wilson_95": [
+            0.0,
+            0.4898908364545973
+          ]
+        }
+      },
+      "support_scores": {
+        "D_detail_heavy": 0.5166666666666667,
+        "E_existence_heavy": 0.46458333333333335,
+        "P_equal_stratum": 0.5104166666666666,
+        "U_uniform_item": 0.5357142857142857
+      }
+    },
+    "HE": {
+      "classifications": {
+        "EXACT": 13,
+        "NO": 4,
+        "NONCOMPLIANT": 3,
+        "NOVEL_NUMBER": 1,
+        "OTHER_ENCODED_NUMBER": 2,
+        "YES": 5
+      },
+      "mean_cached_tokens": 3223.6428571428573,
+      "mean_prompt_tokens": 3399.25,
+      "n": 28,
+      "source_scores": {
+        "D_detail_heavy": 0.6958333333333333,
+        "E_existence_heavy": 0.4604166666666667,
+        "P_equal_stratum": 0.5520833333333334,
+        "U_uniform_item": 0.6428571428571429
+      },
+      "strata": {
+        "aggregate": {
+          "n": 4,
+          "source_correct": 3,
+          "source_fraction": 0.75,
+          "source_wilson_95": [
+            0.30064184258240184,
+            0.9544127391902995
+          ],
+          "support_correct": 3,
+          "support_fraction": 0.75,
+          "support_wilson_95": [
+            0.30064184258240184,
+            0.9544127391902995
+          ]
+        },
+        "file_line": {
+          "n": 12,
+          "source_correct": 10,
+          "source_fraction": 0.8333333333333334,
+          "source_wilson_95": [
+            0.5519691377470266,
+            0.9530348578161463
+          ],
+          "support_correct": 10,
+          "support_fraction": 0.8333333333333334,
+          "support_wilson_95": [
+            0.5519691377470266,
+            0.9530348578161463
+          ]
+        },
+        "listed_existence": {
+          "n": 8,
+          "source_correct": 5,
+          "source_fraction": 0.625,
+          "source_wilson_95": [
+            0.30574239460262737,
+            0.8631557141764026
+          ],
+          "support_correct": 5,
+          "support_fraction": 0.625,
+          "support_wilson_95": [
+            0.30574239460262737,
+            0.8631557141764026
+          ]
+        },
+        "unlisted_existence": {
+          "n": 4,
+          "source_correct": 0,
+          "source_fraction": 0.0,
+          "source_wilson_95": [
+            0.0,
+            0.4898908364545973
+          ],
+          "support_correct": 0,
+          "support_fraction": 0.0,
+          "support_wilson_95": [
+            0.0,
+            0.4898908364545973
+          ]
+        }
+      },
+      "support_scores": {
+        "D_detail_heavy": 0.6958333333333333,
+        "E_existence_heavy": 0.4604166666666667,
+        "P_equal_stratum": 0.5520833333333334,
+        "U_uniform_item": 0.6428571428571429
+      }
+    },
+    "LC": {
+      "classifications": {
+        "DIR_TOTAL": 4,
+        "EXACT": 3,
+        "NO": 2,
+        "NOVEL_NUMBER": 1,
+        "OTHER_ENCODED_NUMBER": 8,
+        "UNKNOWN": 2,
+        "YES": 8
+      },
+      "mean_cached_tokens": 3116.714285714286,
+      "mean_prompt_tokens": 3278.25,
+      "n": 28,
+      "source_scores": {
+        "D_detail_heavy": 0.3125,
+        "E_existence_heavy": 0.425,
+        "P_equal_stratum": 0.4375,
+        "U_uniform_item": 0.39285714285714285
+      },
+      "strata": {
+        "aggregate": {
+          "n": 4,
+          "source_correct": 3,
+          "source_fraction": 0.75,
+          "source_wilson_95": [
+            0.30064184258240184,
+            0.9544127391902995
+          ],
+          "support_correct": 3,
+          "support_fraction": 0.75,
+          "support_wilson_95": [
+            0.30064184258240184,
+            0.9544127391902995
+          ]
+        },
+        "file_line": {
+          "n": 12,
+          "source_correct": 0,
+          "source_fraction": 0.0,
+          "source_wilson_95": [
+            2.7755575615628914e-17,
+            0.24249400665524085
+          ],
+          "support_correct": 0,
+          "support_fraction": 0.0,
+          "support_wilson_95": [
+            2.7755575615628914e-17,
+            0.24249400665524085
+          ]
+        },
+        "listed_existence": {
+          "n": 8,
+          "source_correct": 8,
+          "source_fraction": 1.0,
+          "source_wilson_95": [
+            0.6755924351161198,
+            1.0
+          ],
+          "support_correct": 8,
+          "support_fraction": 1.0,
+          "support_wilson_95": [
+            0.6755924351161198,
+            1.0
+          ]
+        },
+        "unlisted_existence": {
+          "n": 4,
+          "source_correct": 0,
+          "source_fraction": 0.0,
+          "source_wilson_95": [
+            0.0,
+            0.4898908364545973
+          ],
+          "support_correct": 2,
+          "support_fraction": 0.5,
+          "support_wilson_95": [
+            0.15003898915214947,
+            0.8499610108478506
+          ]
+        }
+      },
+      "support_scores": {
+        "D_detail_heavy": 0.3625,
+        "E_existence_heavy": 0.6,
+        "P_equal_stratum": 0.5625,
+        "U_uniform_item": 0.4642857142857143
+      }
+    },
+    "LE": {
+      "classifications": {
+        "DIR_TOTAL": 7,
+        "EXACT": 3,
+        "NO": 4,
+        "NONCOMPLIANT": 7,
+        "NOVEL_NUMBER": 2,
+        "OTHER_ENCODED_NUMBER": 4,
+        "YES": 1
+      },
+      "mean_cached_tokens": 3114.25,
+      "mean_prompt_tokens": 3273.25,
+      "n": 28,
+      "source_scores": {
+        "D_detail_heavy": 0.1375,
+        "E_existence_heavy": 0.11875,
+        "P_equal_stratum": 0.21875,
+        "U_uniform_item": 0.14285714285714285
+      },
+      "strata": {
+        "aggregate": {
+          "n": 4,
+          "source_correct": 3,
+          "source_fraction": 0.75,
+          "source_wilson_95": [
+            0.30064184258240184,
+            0.9544127391902995
+          ],
+          "support_correct": 3,
+          "support_fraction": 0.75,
+          "support_wilson_95": [
+            0.30064184258240184,
+            0.9544127391902995
+          ]
+        },
+        "file_line": {
+          "n": 12,
+          "source_correct": 0,
+          "source_fraction": 0.0,
+          "source_wilson_95": [
+            2.7755575615628914e-17,
+            0.24249400665524085
+          ],
+          "support_correct": 0,
+          "support_fraction": 0.0,
+          "support_wilson_95": [
+            2.7755575615628914e-17,
+            0.24249400665524085
+          ]
+        },
+        "listed_existence": {
+          "n": 8,
+          "source_correct": 1,
+          "source_fraction": 0.125,
+          "source_wilson_95": [
+            0.02241749145005667,
+            0.4708881822128535
+          ],
+          "support_correct": 1,
+          "support_fraction": 0.125,
+          "support_wilson_95": [
+            0.02241749145005667,
+            0.4708881822128535
+          ]
+        },
+        "unlisted_existence": {
+          "n": 4,
+          "source_correct": 0,
+          "source_fraction": 0.0,
+          "source_wilson_95": [
+            0.0,
+            0.4898908364545973
+          ],
+          "support_correct": 0,
+          "support_fraction": 0.0,
+          "support_wilson_95": [
+            0.0,
+            0.4898908364545973
+          ]
+        }
+      },
+      "support_scores": {
+        "D_detail_heavy": 0.1375,
+        "E_existence_heavy": 0.11875,
+        "P_equal_stratum": 0.21875,
+        "U_uniform_item": 0.14285714285714285
+      }
+    }
+  },
+  "completed_utc": "2026-07-31T03:10:05.319334+00:00",
+  "contrasts": [
+    {
+      "descriptive_item_mcnemar": {
+        "left_only": 0,
+        "n": 28,
+        "right_only": 7,
+        "ties": 21
+      },
+      "holm_adjusted_p": 0.046875,
+      "inferential_counts": {
+        "cluster_count": 16,
+        "cluster_deltas": {
+          "assistant/commands": -0.03125,
+          "assistant/core": 0.0,
+          "assistant/editing": 0.0,
+          "assistant/hardware": -0.03125,
+          "assistant/knowledge": -0.03125,
+          "assistant/memory": -0.03125,
+          "assistant/project": -0.03125,
+          "assistant/tests": 0.0,
+          "assistant/ui": -0.03125,
+          "assistant/visualizer": -0.03125,
+          "assistant/voice": 0.0,
+          "assistant/web": 0.0,
+          "docs": 0.0,
+          "tools": 0.0,
+          "voice_training": 0.0,
+          "workshop": 0.0
+        }
+      },
+      "kind": "code",
+      "left": "LE",
+      "name": "low_code",
+      "query_distribution_sign_change": false,
+      "raw_p": 0.015625,
+      "right": "LC",
+      "shipping_gate": {
+        "baseline": "LE",
+        "candidate": "LC",
+        "guards": {
+          "aggregates_exact_4_of_4": false,
+          "deployed_sampler_confirmation": false,
+          "full_tree_token_budget_demonstrated": false,
+          "high_rate_line_exact_at_least_10_of_12": true,
+          "holm_adjusted_p_below_0_05": true,
+          "listed_yes_8_of_8": true,
+          "primary_source_gain_at_least_0_10": true,
+          "source_gain_nonnegative_all_profiles": true,
+          "support_does_not_fall_all_profiles": true,
+          "target_independent_heldout_confirmation": false,
+          "unlisted_unknown_4_of_4": false,
+          "zero_directory_total_substitutions": false,
+          "zero_encoded_number_misattributions": false,
+          "zero_unlisted_false_denials": false
+        },
+        "note": "This tailored greedy corpus cannot ship a passive-manifest prototype. Even a clean channel result requires a target-independent holdout, a full-tree cost calculation, and deployed-sampler confirmation; the trusted resolver remains.",
+        "observed_guards": {
+          "aggregate_exact": 3,
+          "candidate_manifest_tokens": 614,
+          "controlled_index_under_production_tokens_descriptive_only": true,
+          "directory_total_substitutions": 4,
+          "encoded_number_misattributions": 11,
+          "line_exact": 0,
+          "listed_yes": 8,
+          "production_manifest_tokens": 710,
+          "unlisted_false_denials": 2,
+          "unlisted_unknown": 2
+        },
+        "passes_every_guard": false,
+        "passes_observed_channel_guards": false,
+        "source_gains": {
+          "D_detail_heavy": 0.175,
+          "E_existence_heavy": 0.30625,
+          "P_equal_stratum": 0.21875,
+          "U_uniform_item": 0.25
+        },
+        "support_gains": {
+          "D_detail_heavy": 0.22499999999999998,
+          "E_existence_heavy": 0.48124999999999996,
+          "P_equal_stratum": 0.34375,
+          "U_uniform_item": 0.32142857142857145
+        }
+      },
+      "source_gain_hull": [
+        -0.30625,
+        -0.175
+      ],
+      "source_gains": {
+        "D_detail_heavy": -0.175,
+        "E_existence_heavy": -0.30625,
+        "P_equal_stratum": -0.21875,
+        "U_uniform_item": -0.25
+      },
+      "support_gain_hull": [
+        -0.48124999999999996,
+        -0.22499999999999998
+      ],
+      "support_gains": {
+        "D_detail_heavy": -0.22499999999999998,
+        "E_existence_heavy": -0.48124999999999996,
+        "P_equal_stratum": -0.34375,
+        "U_uniform_item": -0.32142857142857145
+      }
+    },
+    {
+      "descriptive_item_mcnemar": {
+        "left_only": 6,
+        "n": 28,
+        "right_only": 3,
+        "ties": 19
+      },
+      "holm_adjusted_p": 0.609375,
+      "inferential_counts": {
+        "cluster_count": 16,
+        "cluster_deltas": {
+          "assistant/commands": -0.03125,
+          "assistant/core": 0.0,
+          "assistant/editing": 0.020833333333333332,
+          "assistant/hardware": 0.0,
+          "assistant/knowledge": 0.0,
+          "assistant/memory": 0.0,
+          "assistant/project": 0.020833333333333332,
+          "assistant/tests": 0.0,
+          "assistant/ui": -0.010416666666666666,
+          "assistant/visualizer": 0.020833333333333332,
+          "assistant/voice": -0.020833333333333332,
+          "assistant/web": 0.020833333333333332,
+          "docs": 0.0,
+          "tools": 0.0,
+          "voice_training": 0.020833333333333332,
+          "workshop": 0.0
+        }
+      },
+      "kind": "code",
+      "left": "HE",
+      "name": "high_code",
+      "query_distribution_sign_change": true,
+      "raw_p": 0.609375,
+      "right": "HC",
+      "shipping_gate": {
+        "baseline": "HC",
+        "candidate": "HE",
+        "guards": {
+          "aggregates_exact_4_of_4": false,
+          "deployed_sampler_confirmation": false,
+          "full_tree_token_budget_demonstrated": false,
+          "high_rate_line_exact_at_least_10_of_12": true,
+          "holm_adjusted_p_below_0_05": false,
+          "listed_yes_8_of_8": false,
+          "primary_source_gain_at_least_0_10": false,
+          "source_gain_nonnegative_all_profiles": false,
+          "support_does_not_fall_all_profiles": false,
+          "target_independent_heldout_confirmation": false,
+          "unlisted_unknown_4_of_4": false,
+          "zero_directory_total_substitutions": true,
+          "zero_encoded_number_misattributions": false,
+          "zero_unlisted_false_denials": false
+        },
+        "note": "This tailored greedy corpus cannot ship a passive-manifest prototype. Even a clean channel result requires a target-independent holdout, a full-tree cost calculation, and deployed-sampler confirmation; the trusted resolver remains.",
+        "observed_guards": {
+          "aggregate_exact": 3,
+          "candidate_manifest_tokens": 735,
+          "controlled_index_under_production_tokens_descriptive_only": false,
+          "directory_total_substitutions": 0,
+          "encoded_number_misattributions": 2,
+          "line_exact": 10,
+          "listed_yes": 5,
+          "production_manifest_tokens": 710,
+          "unlisted_false_denials": 4,
+          "unlisted_unknown": 0
+        },
+        "passes_every_guard": false,
+        "passes_observed_channel_guards": false,
+        "source_gains": {
+          "D_detail_heavy": 0.17916666666666659,
+          "E_existence_heavy": -0.004166666666666652,
+          "P_equal_stratum": 0.04166666666666674,
+          "U_uniform_item": 0.1071428571428572
+        },
+        "support_gains": {
+          "D_detail_heavy": 0.17916666666666659,
+          "E_existence_heavy": -0.004166666666666652,
+          "P_equal_stratum": 0.04166666666666674,
+          "U_uniform_item": 0.1071428571428572
+        }
+      },
+      "source_gain_hull": [
+        -0.004166666666666652,
+        0.17916666666666659
+      ],
+      "source_gains": {
+        "D_detail_heavy": 0.17916666666666659,
+        "E_existence_heavy": -0.004166666666666652,
+        "P_equal_stratum": 0.04166666666666674,
+        "U_uniform_item": 0.1071428571428572
+      },
+      "support_gain_hull": [
+        -0.004166666666666652,
+        0.17916666666666659
+      ],
+      "support_gains": {
+        "D_detail_heavy": 0.17916666666666659,
+        "E_existence_heavy": -0.004166666666666652,
+        "P_equal_stratum": 0.04166666666666674,
+        "U_uniform_item": 0.1071428571428572
+      }
+    },
+    {
+      "descriptive_item_mcnemar": {
+        "left_only": 5,
+        "n": 28,
+        "right_only": 1,
+        "ties": 22
+      },
+      "holm_adjusted_p": 0.125,
+      "inferential_counts": {
+        "left_only": 5,
+        "n": 12,
+        "right_only": 0,
+        "ties": 7
+      },
+      "kind": "rate",
+      "left": "HC",
+      "name": "compact_rate",
+      "query_distribution_sign_change": false,
+      "raw_p": 0.0625,
+      "right": "LC",
+      "shipping_gate": {
+        "baseline": "LC",
+        "candidate": "HC",
+        "guards": {
+          "aggregates_exact_4_of_4": false,
+          "deployed_sampler_confirmation": false,
+          "full_tree_token_budget_demonstrated": false,
+          "high_rate_line_exact_at_least_10_of_12": false,
+          "holm_adjusted_p_below_0_05": false,
+          "listed_yes_8_of_8": false,
+          "primary_source_gain_at_least_0_10": false,
+          "source_gain_nonnegative_all_profiles": true,
+          "support_does_not_fall_all_profiles": false,
+          "target_independent_heldout_confirmation": false,
+          "unlisted_unknown_4_of_4": false,
+          "zero_directory_total_substitutions": true,
+          "zero_encoded_number_misattributions": false,
+          "zero_unlisted_false_denials": false
+        },
+        "note": "This tailored greedy corpus cannot ship a passive-manifest prototype. Even a clean channel result requires a target-independent holdout, a full-tree cost calculation, and deployed-sampler confirmation; the trusted resolver remains.",
+        "observed_guards": {
+          "aggregate_exact": 3,
+          "candidate_manifest_tokens": 692,
+          "controlled_index_under_production_tokens_descriptive_only": true,
+          "directory_total_substitutions": 0,
+          "encoded_number_misattributions": 6,
+          "line_exact": 5,
+          "listed_yes": 7,
+          "production_manifest_tokens": 710,
+          "unlisted_false_denials": 4,
+          "unlisted_unknown": 0
+        },
+        "passes_every_guard": false,
+        "passes_observed_channel_guards": false,
+        "source_gains": {
+          "D_detail_heavy": 0.20416666666666672,
+          "E_existence_heavy": 0.03958333333333336,
+          "P_equal_stratum": 0.07291666666666663,
+          "U_uniform_item": 0.14285714285714285
+        },
+        "support_gains": {
+          "D_detail_heavy": 0.15416666666666673,
+          "E_existence_heavy": -0.13541666666666663,
+          "P_equal_stratum": -0.05208333333333337,
+          "U_uniform_item": 0.0714285714285714
+        }
+      },
+      "source_gain_hull": [
+        0.03958333333333336,
+        0.20416666666666672
+      ],
+      "source_gains": {
+        "D_detail_heavy": 0.20416666666666672,
+        "E_existence_heavy": 0.03958333333333336,
+        "P_equal_stratum": 0.07291666666666663,
+        "U_uniform_item": 0.14285714285714285
+      },
+      "support_gain_hull": [
+        -0.13541666666666663,
+        0.15416666666666673
+      ],
+      "support_gains": {
+        "D_detail_heavy": 0.15416666666666673,
+        "E_existence_heavy": -0.13541666666666663,
+        "P_equal_stratum": -0.05208333333333337,
+        "U_uniform_item": 0.0714285714285714
+      }
+    },
+    {
+      "descriptive_item_mcnemar": {
+        "left_only": 14,
+        "n": 28,
+        "right_only": 0,
+        "ties": 14
+      },
+      "holm_adjusted_p": 0.0078125,
+      "inferential_counts": {
+        "left_only": 10,
+        "n": 12,
+        "right_only": 0,
+        "ties": 2
+      },
+      "kind": "rate",
+      "left": "HE",
+      "name": "explicit_rate",
+      "query_distribution_sign_change": false,
+      "raw_p": 0.001953125,
+      "right": "LE",
+      "shipping_gate": {
+        "baseline": "LE",
+        "candidate": "HE",
+        "guards": {
+          "aggregates_exact_4_of_4": false,
+          "deployed_sampler_confirmation": false,
+          "full_tree_token_budget_demonstrated": false,
+          "high_rate_line_exact_at_least_10_of_12": true,
+          "holm_adjusted_p_below_0_05": true,
+          "listed_yes_8_of_8": false,
+          "primary_source_gain_at_least_0_10": true,
+          "source_gain_nonnegative_all_profiles": true,
+          "support_does_not_fall_all_profiles": true,
+          "target_independent_heldout_confirmation": false,
+          "unlisted_unknown_4_of_4": false,
+          "zero_directory_total_substitutions": true,
+          "zero_encoded_number_misattributions": false,
+          "zero_unlisted_false_denials": false
+        },
+        "note": "This tailored greedy corpus cannot ship a passive-manifest prototype. Even a clean channel result requires a target-independent holdout, a full-tree cost calculation, and deployed-sampler confirmation; the trusted resolver remains.",
+        "observed_guards": {
+          "aggregate_exact": 3,
+          "candidate_manifest_tokens": 735,
+          "controlled_index_under_production_tokens_descriptive_only": false,
+          "directory_total_substitutions": 0,
+          "encoded_number_misattributions": 2,
+          "line_exact": 10,
+          "listed_yes": 5,
+          "production_manifest_tokens": 710,
+          "unlisted_false_denials": 4,
+          "unlisted_unknown": 0
+        },
+        "passes_every_guard": false,
+        "passes_observed_channel_guards": false,
+        "source_gains": {
+          "D_detail_heavy": 0.5583333333333333,
+          "E_existence_heavy": 0.3416666666666667,
+          "P_equal_stratum": 0.33333333333333337,
+          "U_uniform_item": 0.5
+        },
+        "support_gains": {
+          "D_detail_heavy": 0.5583333333333333,
+          "E_existence_heavy": 0.3416666666666667,
+          "P_equal_stratum": 0.33333333333333337,
+          "U_uniform_item": 0.5
+        }
+      },
+      "source_gain_hull": [
+        0.33333333333333337,
+        0.5583333333333333
+      ],
+      "source_gains": {
+        "D_detail_heavy": 0.5583333333333333,
+        "E_existence_heavy": 0.3416666666666667,
+        "P_equal_stratum": 0.33333333333333337,
+        "U_uniform_item": 0.5
+      },
+      "support_gain_hull": [
+        0.33333333333333337,
+        0.5583333333333333
+      ],
+      "support_gains": {
+        "D_detail_heavy": 0.5583333333333333,
+        "E_existence_heavy": 0.3416666666666667,
+        "P_equal_stratum": 0.33333333333333337,
+        "U_uniform_item": 0.5
+      }
+    }
+  ],
+  "descriptive_binary_mutual_information_bits": 0.4188212310720749,
+  "descriptive_only": false,
+  "experiment": "researchc_empirical_manifest_rate_distortion_2x2",
+  "mutual_information_note": "Raw plug-in MI between high/low availability and exact line reconstruction; descriptive and non-gating.",
+  "operational_rules": {
+    "best_high_minus_low_exact_line_gain": 10,
+    "channel_screening_candidates": [],
+    "kill_adding_numeric_facts": false,
+    "kill_code_format_work": false,
+    "shipping_candidates": []
+  },
+  "primary_rows": 112,
+  "rate_distortion_points": [
+    {
+      "cell": "LC",
+      "distortion": 0.5625,
+      "frontier": true,
+      "manifest_tokens": 614
+    },
+    {
+      "cell": "HE",
+      "distortion": 0.44791666666666663,
+      "frontier": true,
+      "manifest_tokens": 735
+    },
+    {
+      "cell": "LE",
+      "distortion": 0.78125,
+      "frontier": true,
+      "manifest_tokens": 609
+    },
+    {
+      "cell": "HC",
+      "distortion": 0.48958333333333337,
+      "frontier": true,
+      "manifest_tokens": 692
+    }
+  ],
+  "recommendation": "inconclusive_one_redesign_at_most",
+  "replay_rows": 8,
+  "repository_state_after": {
+    "branch": "master",
+    "dirty_digest": "3bedb17c61e38962afddac01440bfcf347418ee85cd5346086427c5deee30ddc",
+    "head": "e9e05e12efeb5c8f5ee4063d2b992a45338d6bc5",
+    "production_manifest_sha256": "1184fd84a6929d0b24acd6e76e162de3be9e9dba72ab9c40e7055687cca91e7b",
+    "staged_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "status_sha256": "49f6c510db6f28d2d28b39a417c62a9f2dff5d02012ede39101b957ac4b88ccd",
+    "tracked_diff_sha256": "3ff479df4ca37aedfe163065bf02f73e65f8c7ffa090ac7016c6811e339623bd",
+    "untracked_content_sha256": "ce65ecc571aedd29933bb999c68b33ab6fcf58aedc638a4abecb9942f7ecf056"
+  },
+  "row_count": 120,
+  "schema": 1,
+  "sentinel_mismatches": [],
+  "source_or_repository_drift": false,
+  "source_snapshot_after_sha256": "1152b2e12dd5c32fc9957c721461ca7021b93f4c471760312b4c7efc37beee3d",
+  "spec_sha256": "4151d9c5d7274afe8f041dcdcfdf18f384a0ad27a16ca97d7830ea080155cfb2",
+  "successful_rows": 120,
+  "token_accounting": {
+    "atomic_propositions": {
+      "HC": 70,
+      "HE": 70,
+      "LC": 58,
+      "LE": 58
+    },
+    "facts_per_token": {
+      "HC": 0.10115606936416185,
+      "HE": 0.09523809523809523,
+      "LC": 0.09446254071661238,
+      "LE": 0.09523809523809523
+    },
+    "incremental_tokens_per_added_line_fact": {
+      "compact": 6.5,
+      "explicit": 10.5
+    },
+    "manifest_tokens": {
+      "HC": 692,
+      "HE": 735,
+      "LC": 614,
+      "LE": 609
+    },
+    "manifest_utf8_bytes": {
+      "HC": 2383,
+      "HE": 3083,
+      "LC": 2209,
+      "LE": 2657
+    },
+    "production_manifest_tokens": 710
+  }
+}

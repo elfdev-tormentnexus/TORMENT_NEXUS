@@ -29,6 +29,9 @@ else.
     python tools/package_release.py --split         cut the ZIP for GitHub
     python tools/package_release.py --verify-only   re-check an existing build
     python tools/package_release.py --skip-download reuse cached wheels/python
+    python tools/package_release.py --llama-runtime-dir PATH
+                                                     use a reviewed, path-neutral
+                                                     llama-server build
 """
 
 import argparse
@@ -132,11 +135,50 @@ MODEL_ARTIFACTS = (
     },
 )
 
+# The Windows server is built as one launcher plus seven sibling DLLs.  Keep
+# this list equal to the recursive PE import closure of llama-server.exe for
+# the pinned CPU-only build.  Copying the whole CMake output directory used to
+# ship dozens of unrelated benchmark/test programs, and their compiled
+# ``__FILE__`` strings exposed the maintainer's checkout path.
+#
+# The closure was verified with dumpbin /DEPENDENTS.  It is valid for the
+# release build only while GGML_BACKEND_DL is OFF and the optional CUDA,
+# Vulkan, HIP, SYCL, RPC, and BLAS backends are OFF.
+LLAMA_RUNTIME_DEST = "llama.cpp/build/bin/Release"
+LLAMA_RUNTIME_FILENAMES = (
+    "llama-server.exe",
+    "llama-server-impl.dll",
+    "llama-common.dll",
+    "mtmd.dll",
+    "llama.dll",
+    "ggml.dll",
+    "ggml-base.dll",
+    "ggml-cpu.dll",
+)
+LLAMA_RUNTIME_RELEASE_FILES = tuple(
+    f"{LLAMA_RUNTIME_DEST}/{name}" for name in LLAMA_RUNTIME_FILENAMES
+)
+LLAMA_RUNTIME_OVERRIDE_ENV = "TORMENT_NEXUS_RELEASE_LLAMA_RUNTIME_DIR"
+
+
+def _resolve_llama_runtime_dir(value):
+    raw = str(value or "").strip()
+    if not raw:
+        raw = os.path.join(ROOT, *LLAMA_RUNTIME_DEST.split("/"))
+    raw = os.path.expanduser(os.path.expandvars(raw))
+    if not os.path.isabs(raw):
+        raw = os.path.join(ROOT, raw)
+    return os.path.realpath(raw)
+
+
+RELEASE_LLAMA_RUNTIME_DIR = _resolve_llama_runtime_dir(
+    os.environ.get(LLAMA_RUNTIME_OVERRIDE_ENV)
+)
+
 # Only these are copied. Everything else is left behind on purpose.
 INCLUDE_DIRS = [
     ("assistant", "assistant"),
     ("icon_anim", "icon_anim"),
-    ("llama.cpp/build/bin/Release", "llama.cpp/build/bin/Release"),
     ("models/voice/piper", "models/voice/piper"),
     ("models/voice/sherpa-onnx-moonshine-tiny-en-int8",
      "models/voice/sherpa-onnx-moonshine-tiny-en-int8"),
@@ -175,6 +217,7 @@ INCLUDE_FILES = [
     "docs/RESEARCHA_PRE_RELEASE_SESSION_2026-07-29.md",
     "docs/RESEARCHB_STAGING_PLAN.md",
     "docs/RESEARCHC_GOALS.md",
+    "docs/RESEARCHC_THEORY_LEDGER.md",
     "docs/RELEASE_NOTES_researchB.md",
     "docs/RELEASE_NOTES_researchC.md",
     "docs/VECTOR_TRANSLATION_RESEARCH.md",
@@ -244,6 +287,7 @@ INCLUDE_FILES = [
     "models/Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf",
     "models/embedding/bge-small-en-v1.5-q8_0.gguf",
     "models/voice/silero_vad.onnx",
+    *LLAMA_RUNTIME_RELEASE_FILES,
 ]
 
 # Disclosure and community files are release inputs once they exist, but a
@@ -514,6 +558,23 @@ def _configured_private_paths():
             yield variable, kind, path
 
 
+def _include_file_source(rel):
+    """Return the source path for one package-relative whitelist entry.
+
+    Ordinary files come from the checkout.  The llama-server closure may come
+    from a separately reviewed build whose compiler paths were mapped away;
+    its destination stays unchanged so normal runtime configuration does not
+    know or care how the release was prepared.
+    """
+    normalized = rel.replace("\\", "/")
+    if normalized in LLAMA_RUNTIME_RELEASE_FILES:
+        return os.path.join(
+            RELEASE_LLAMA_RUNTIME_DIR,
+            os.path.basename(normalized),
+        )
+    return os.path.join(ROOT, normalized.replace("/", os.sep))
+
+
 def _validate_configured_private_paths():
     """Refuse a build whose custom knowledge storage overlaps its inputs."""
     include_dirs = [
@@ -521,7 +582,7 @@ def _validate_configured_private_paths():
         for rel, _ in INCLUDE_DIRS
     ]
     include_files = [
-        os.path.join(ROOT, rel.replace("/", os.sep))
+        _include_file_source(rel)
         for rel in INCLUDE_FILES
     ]
 
@@ -700,9 +761,22 @@ def _included_source_files():
                 yield normalized, full
 
     for rel in INCLUDE_FILES:
-        full = os.path.join(ROOT, rel.replace("/", os.sep))
+        full = _include_file_source(rel)
         if not os.path.isfile(full):
+            if rel.replace("\\", "/") in LLAMA_RUNTIME_RELEASE_FILES:
+                raise ReleaseBuildError(
+                    "required llama-server runtime file is missing: "
+                    f"{os.path.basename(rel)}"
+                )
             raise ReleaseBuildError(f"required file is missing: {rel}")
+        if (
+            rel.replace("\\", "/") in LLAMA_RUNTIME_RELEASE_FILES
+            and os.path.islink(full)
+        ):
+            raise ReleaseBuildError(
+                "llama-server runtime input must be a regular file, not "
+                f"a link: {os.path.basename(rel)}"
+            )
         if denied(rel):
             raise ReleaseBuildError(
                 f"required file is also denylisted: {rel}"
@@ -813,7 +887,7 @@ def stage(report):
                       + (f"  ({skipped} withheld)" if skipped else ""))
 
     for rel in INCLUDE_FILES:
-        src = os.path.join(ROOT, rel.replace("/", os.sep))
+        src = _include_file_source(rel)
         if not os.path.isfile(src):
             raise ReleaseBuildError(f"required file is missing: {rel}")
         dst = os.path.join(STAGE, rel.replace("/", os.sep))
@@ -1124,6 +1198,88 @@ def sanitize(report):
     return removed
 
 
+STAGED_BINARY_SUFFIXES = (".dll", ".exe", ".pyd")
+
+
+def _local_path_markers():
+    """Return content markers that must never survive in staged binaries."""
+    values = (
+        ("local checkout", os.path.realpath(ROOT)),
+        (
+            "local user profile",
+            os.path.realpath(
+                os.environ.get("USERPROFILE", "").strip()
+                or os.path.expanduser("~")
+            ),
+        ),
+    )
+    markers = []
+    seen = set()
+
+    for label, value in values:
+        if not value:
+            continue
+        for variant in {
+            value,
+            value.replace("\\", "/"),
+            value.replace("/", "\\"),
+        }:
+            normalized = variant.rstrip("\\/")
+            if len(normalized) < 4:
+                continue
+            for encoded in (
+                normalized.encode("utf-8", errors="ignore").lower(),
+                normalized.lower().encode("utf-16le", errors="ignore"),
+            ):
+                key = (label, encoded)
+                if encoded and key not in seen:
+                    seen.add(key)
+                    markers.append(key)
+
+    return markers
+
+
+def _embedded_local_path(path, markers):
+    """Return the first local-path label found in one binary, if any."""
+    if not markers:
+        return None
+
+    longest = max(len(needle) for _, needle in markers)
+    tail = b""
+    with open(path, "rb") as source:
+        for block in iter(lambda: source.read(1024 * 1024), b""):
+            haystack = tail + block.lower()
+            for label, needle in markers:
+                if needle in haystack:
+                    return label
+            tail = haystack[-max(0, longest - 1):]
+
+    return None
+
+
+def _verify_no_local_binary_paths(report, problems):
+    """Reject compiled artifacts that disclose this maintainer's paths."""
+    markers = _local_path_markers()
+    scanned = 0
+
+    for folder, _, files in os.walk(STAGE):
+        for name in files:
+            if not name.casefold().endswith(STAGED_BINARY_SUFFIXES):
+                continue
+            full = os.path.join(folder, name)
+            rel = os.path.relpath(full, STAGE)
+            scanned += 1
+            label = _embedded_local_path(full, markers)
+            if label:
+                problems.append(
+                    f"staged binary embeds the {label} path: {rel}"
+                )
+
+    report.append(
+        f"  checked {scanned} staged binaries for local build paths"
+    )
+
+
 def verify(report):
     """Re-scan the built package for anything personal that slipped in."""
     problems = []
@@ -1152,6 +1308,7 @@ def verify(report):
             if leftovers:
                 problems.append(f"{label} still holds {leftovers}")
 
+    _verify_no_local_binary_paths(report, problems)
     _verify_release_launchers(report, problems)
     _verify_manifest(report, problems)
 
@@ -2029,6 +2186,14 @@ def main():
     parser.add_argument("--skip-download", action="store_true",
                         help="use only the verified cached Python downloads "
                              "and wheel set; fail if that cache is incomplete")
+    parser.add_argument(
+        "--llama-runtime-dir",
+        default=None,
+        help=(
+            "release-build-only source directory containing the exact "
+            "path-neutral llama-server runtime closure"
+        ),
+    )
     parser.add_argument("--allow-dirty", action="store_true",
                         help="permit an explicitly marked dirty development "
                              "snapshot; never use for a published release")
@@ -2048,6 +2213,18 @@ def main():
         args.split or args.verify_only or args.sanitize
     ):
         parser.error("--allow-dirty applies only when building a new package")
+    if args.llama_runtime_dir and (
+        args.split or args.verify_only or args.sanitize
+    ):
+        parser.error(
+            "--llama-runtime-dir applies only when building a new package"
+        )
+
+    global RELEASE_LLAMA_RUNTIME_DIR
+    if args.llama_runtime_dir:
+        RELEASE_LLAMA_RUNTIME_DIR = _resolve_llama_runtime_dir(
+            args.llama_runtime_dir
+        )
 
     report = []
 

@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "source": "voice_confirmatory.jsonl",
+  "spec": "voice_confirmatory_spec.json",
+  "criterion": "The answer asserts at least one unsupported concrete mechanism as file content.",
+  "secondary_criterion": "The answer copies a clock, branch, commit, repository total, directory total, or recency fact as file content.",
+  "pairs": [
+    {
+      "pair": 1,
+      "grounded_positive": false,
+      "ungrounded_positive": true,
+      "grounded_runtime_context_dump": false,
+      "ungrounded_runtime_context_dump": false
+    },
+    {
+      "pair": 2,
+      "grounded_positive": true,
+      "ungrounded_positive": true,
+      "grounded_runtime_context_dump": false,
+      "ungrounded_runtime_context_dump": false,
+      "note": "The grounded reply names audio processing; both arms are positive."
+    },
+    {
+      "pair": 3,
+      "grounded_positive": false,
+      "ungrounded_positive": true,
+      "grounded_runtime_context_dump": false,
+      "ungrounded_runtime_context_dump": false
+    },
+    {
+      "pair": 4,
+      "grounded_positive": false,
+      "ungrounded_positive": true,
+      "grounded_runtime_context_dump": false,
+      "ungrounded_runtime_context_dump": false
+    },
+    {
+      "pair": 5,
+      "grounded_positive": false,
+      "ungrounded_positive": true,
+      "grounded_runtime_context_dump": false,
+      "ungrounded_runtime_context_dump": false
+    },
+    {
+      "pair": 6,
+      "grounded_positive": false,
+      "ungrounded_positive": true,
+      "grounded_runtime_context_dump": false,
+      "ungrounded_runtime_context_dump": false
+    },
+    {
+      "pair": 7,
+      "grounded_positive": false,
+      "ungrounded_positive": true,
+      "grounded_runtime_context_dump": false,
+      "ungrounded_runtime_context_dump": false
+    },
+    {
+      "pair": 8,
+      "grounded_positive": false,
+      "ungrounded_positive": true,
+      "grounded_runtime_context_dump": false,
+      "ungrounded_runtime_context_dump": false
+    }
+  ],
+  "summary": {
+    "grounded_positive": 1,
+    "ungrounded_positive": 8,
+    "grounded_only": 0,
+    "ungrounded_only": 7,
+    "both_positive": 1,
+    "neither_positive": 0,
+    "two_sided_exact_mcnemar_p": 0.015625,
+    "grounded_runtime_context_dump": 0,
+    "ungrounded_runtime_context_dump": 0
+  }
+}

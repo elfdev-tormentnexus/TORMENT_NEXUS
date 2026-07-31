@@ -1,6 +1,7 @@
 """Acceptance tests for Research C measurement and recovery boundaries."""
 
 import importlib.util
+import hashlib
 import json
 import math
 import os
@@ -148,6 +149,52 @@ class PromptCacheOrderTests(unittest.TestCase):
 
         self.assertLess(prompt.index("STATIC"), prompt.index("CLOCK"))
 
+    def test_live_clock_follows_every_other_runtime_field(self):
+        patches = (
+            mock.patch.object(assistant_main.mem, "active_memories", return_value=[]),
+            mock.patch.object(
+                assistant_main.semantic_index, "query_vector", return_value=None
+            ),
+            mock.patch.object(assistant_main.semantic_index, "note_texts"),
+            mock.patch.object(assistant_main.machinespirit_shadow, "observe"),
+            mock.patch.object(
+                assistant_main, "_update_retrieval_panel", return_value=False
+            ),
+            mock.patch.object(assistant_main, "_update_hazard_trajectory"),
+            mock.patch.object(
+                assistant_main.knowledge_library, "prompt_context", return_value=""
+            ),
+            mock.patch.object(
+                assistant_main, "_self_knowledge_context", return_value="STATIC"
+            ),
+            mock.patch.object(
+                assistant_main._time_awareness, "context", return_value="CLOCK"
+            ),
+            mock.patch.object(
+                assistant_main, "_session_rhythm_context", return_value="RHYTHM"
+            ),
+            mock.patch.object(
+                assistant_main, "_ambient_context", return_value="AMBIENT"
+            ),
+            mock.patch.object(
+                assistant_main, "_room_sensing_context", return_value="ROOM"
+            ),
+        )
+        for patch in patches:
+            patch.start()
+        try:
+            prompt = assistant_main._runtime_context_prompt(
+                "hello",
+                search_context="SEARCH",
+            )
+        finally:
+            for patch in reversed(patches):
+                patch.stop()
+
+        for marker in ("STATIC", "RHYTHM", "AMBIENT", "ROOM", "SEARCH"):
+            self.assertLess(prompt.index(marker), prompt.index("CLOCK"))
+        self.assertTrue(prompt.rstrip().endswith("CLOCK"))
+
 
 class UncertaintySidecarTests(unittest.TestCase):
     @staticmethod
@@ -237,7 +284,37 @@ class UncertaintySidecarTests(unittest.TestCase):
         self.assertNotIn(secret, raw)
         self.assertEqual(event["outcomes"]["reason"], "unknown")
         self.assertEqual(event["outcomes"]["query_kind"], "existence")
-        self.assertIsNone(event["timing"]["bad"])
+        self.assertNotIn("bad", event["timing"])
+        self.assertIn(None, event["timing"].values())
+
+    def test_record_validates_digests_and_never_copies_unknown_identifiers(self):
+        secret = "private operator sentence"
+        with tempfile.TemporaryDirectory() as folder, mock.patch.dict(
+            os.environ, {"TORMENT_NEXUS_RESEARCHC_LOGPROBS": "top2"}
+        ):
+            path = os.path.join(folder, "research.jsonl")
+            research_c.record(
+                secret,
+                secret,
+                artifact_digest=secret,
+                prompt_sha256=secret,
+                sampler={secret: 1},
+                measurements={secret: 2},
+                outcomes={secret: False},
+                timing={secret: 3},
+                path=path,
+            )
+            raw = Path(path).read_text(encoding="utf-8")
+            event = json.loads(raw)
+
+        self.assertNotIn(secret, raw)
+        self.assertEqual(event["workflow"], "unknown")
+        self.assertEqual(event["stage"], "unknown")
+        self.assertIsNone(event["artifact_digest"])
+        self.assertIsNone(event["prompt_sha256"])
+        for section in ("sampler", "measurements", "outcomes", "timing"):
+            self.assertEqual(len(event[section]), 1)
+            self.assertTrue(next(iter(event[section])).startswith("unknown_"))
 
     def test_director_and_worker_use_separate_digest_bindings(self):
         director = "a" * 64
@@ -256,8 +333,103 @@ class UncertaintySidecarTests(unittest.TestCase):
         self.assertEqual(worker_binding["model_sha256"], worker)
         self.assertEqual(worker_binding["role"], "worker")
 
+    def test_server_bundle_binds_implementation_libraries_not_only_launcher(self):
+        with tempfile.TemporaryDirectory() as folder:
+            launcher = Path(folder) / "llama-server.exe"
+            implementation = Path(folder) / "llama-server-impl.dll"
+            common = Path(folder) / "llama-common.dll"
+            launcher.write_bytes(b"launcher")
+            implementation.write_bytes(b"implementation-one")
+            common.write_bytes(b"common")
+
+            first = research_c.server_bundle_digest(str(launcher))
+            launcher_only = hashlib.sha256(b"launcher").hexdigest()
+
+            implementation.write_bytes(b"implementation-two")
+            second = research_c.server_bundle_digest(str(launcher))
+
+        self.assertEqual(len(first), 64)
+        self.assertNotEqual(first, launcher_only)
+        self.assertNotEqual(first, second)
+
+    def test_server_bundle_includes_mtmd_and_does_not_trust_file_timestamps(self):
+        with tempfile.TemporaryDirectory() as folder:
+            launcher = Path(folder) / "llama-server.exe"
+            implementation = Path(folder) / "llama-server-impl.dll"
+            mtmd = Path(folder) / "mtmd.dll"
+            launcher.write_bytes(b"launcher")
+            implementation.write_bytes(b"implementation")
+            mtmd.write_bytes(b"mtmd-one")
+
+            first = research_c.server_bundle_digest(str(launcher))
+            original = mtmd.stat()
+            mtmd.write_bytes(b"mtmd-two")
+            os.utime(
+                mtmd,
+                ns=(original.st_atime_ns, original.st_mtime_ns),
+            )
+            second = research_c.server_bundle_digest(str(launcher))
+
+        self.assertEqual(len(first), 64)
+        self.assertNotEqual(first, second)
+
+    def test_record_retains_server_bundle_digest(self):
+        bundle = "c" * 64
+        with tempfile.TemporaryDirectory() as folder, mock.patch.dict(
+            os.environ, {"TORMENT_NEXUS_RESEARCHC_LOGPROBS": "top2"}
+        ):
+            path = os.path.join(folder, "research.jsonl")
+            research_c.record(
+                "test",
+                "binding",
+                artifact_digest=research_c.digest("artifact"),
+                prompt_sha256=research_c.digest("prompt"),
+                sampler={"temperature": 0.0},
+                measurements={},
+                outcomes={},
+                binding={
+                    "role": "director",
+                    "model_sha256": "b" * 64,
+                    "server_bundle_sha256": bundle,
+                },
+                path=path,
+            )
+            event = json.loads(Path(path).read_text(encoding="utf-8"))
+
+        self.assertEqual(event["binding"]["server_bundle_sha256"], bundle)
+
 
 class ResearchStatisticsTests(unittest.TestCase):
+    def test_corrected_voice_grading_preserves_condition_direction(self):
+        # Compact, sanitized fixture for the frozen 8-pair grading. The
+        # release package intentionally excludes the raw handoff evidence.
+        pairs = [
+            {
+                "grounded_positive": index == 0,
+                "ungrounded_positive": True,
+            }
+            for index in range(8)
+        ]
+        grounded = sum(item["grounded_positive"] for item in pairs)
+        ungrounded = sum(item["ungrounded_positive"] for item in pairs)
+        grounded_only = sum(
+            item["grounded_positive"] and not item["ungrounded_positive"]
+            for item in pairs
+        )
+        ungrounded_only = sum(
+            item["ungrounded_positive"] and not item["grounded_positive"]
+            for item in pairs
+        )
+
+        self.assertEqual((grounded, ungrounded), (1, 8))
+        self.assertEqual((grounded_only, ungrounded_only), (0, 7))
+        self.assertEqual(
+            researchc_report.exact_mcnemar(
+                grounded_only, ungrounded_only
+            ),
+            0.015625,
+        )
+
     def test_exact_mcnemar_uses_only_discordant_pairs(self):
         self.assertEqual(researchc_report.exact_mcnemar(0, 0), 1.0)
         self.assertAlmostEqual(

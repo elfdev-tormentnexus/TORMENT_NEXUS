@@ -8260,6 +8260,7 @@ class DocumentationTests(unittest.TestCase):
             "docs/VECTOR_PIXEL_RESEARCH.md",
             "docs/VECTOR_TRANSLATION_RESEARCH.md",
             "docs/RESEARCHC_GOALS.md",
+            "docs/RESEARCHC_THEORY_LEDGER.md",
             "docs/RELEASE_NOTES_researchB.md",
             "docs/RELEASE_NOTES_researchC.md",
         }
@@ -8641,6 +8642,35 @@ class ReleaseModelContractTests(unittest.TestCase):
             "models/embedding/bge-small-en-v1.5-q8_0.gguf",
         })
 
+    def test_package_ships_only_the_llama_server_runtime_closure(self):
+        expected = {
+            (
+                package_release.LLAMA_RUNTIME_DEST
+                + "/"
+                + name
+            )
+            for name in package_release.LLAMA_RUNTIME_FILENAMES
+        }
+        packaged = {
+            path for path in package_release.INCLUDE_FILES
+            if path.startswith(
+                package_release.LLAMA_RUNTIME_DEST + "/"
+            )
+        }
+
+        self.assertEqual(packaged, expected)
+        self.assertNotIn(
+            (
+                package_release.LLAMA_RUNTIME_DEST,
+                package_release.LLAMA_RUNTIME_DEST,
+            ),
+            package_release.INCLUDE_DIRS,
+        )
+        self.assertNotIn(
+            package_release.LLAMA_RUNTIME_DEST + "/llama-bench.exe",
+            packaged,
+        )
+
     def test_model_inventory_names_every_shipped_role(self):
         inventory = {
             item["role"]: item["path"]
@@ -8665,6 +8695,7 @@ class ReleaseModelContractTests(unittest.TestCase):
             "docs/MACHINESOUL_RELEASE_CUT_METHOD.md",
             "docs/RESEARCH_GOALS.md",
             "docs/RESEARCH_ROADMAP.md",
+            "docs/RESEARCHC_THEORY_LEDGER.md",
             "docs/SEMANTIC_AND_AGENT_BRIDGES.md",
             "docs/SENSING_MODULE.md",
             "docs/TDECK_CUSTOM_FIRMWARE.md",
@@ -8694,7 +8725,7 @@ class ReleaseModelContractTests(unittest.TestCase):
         root = self._root()
         missing = [
             rel for rel in package_release.INCLUDE_FILES
-            if not rel.startswith("models/")
+            if not rel.startswith(("models/", "llama.cpp/"))
             and not os.path.isfile(
                 os.path.join(root, rel.replace("/", os.sep))
             )

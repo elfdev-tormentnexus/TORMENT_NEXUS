@@ -1,0 +1,25 @@
+{
+  "completed_rows": 6,
+  "completed_utc": "2026-07-31T02:18:44.175165+00:00",
+  "control_moved": false,
+  "experiment": "researchc_aggregate_substitution_preflight",
+  "file_pair_results": {
+    "q1": true,
+    "q2": false
+  },
+  "file_pairs_moved": 1,
+  "note": "Six calls are a manipulation check, not a powered significance test; two unanimous file moves have two-sided sign p = 0.5.",
+  "repository_state_after": {
+    "branch": "master",
+    "head": "e9e05e12efeb5c8f5ee4063d2b992a45338d6bc5",
+    "manifest_sha256": "afd0864462bacff04067c920ffaaae102d416e094736f5c3f536a0091bd60356",
+    "source_inventory_sha256": "d36ccce66fd40e1089e6a87f1cb4acf75fe3f11348e929bd605317a52dfb3ba3",
+    "staged_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "status": " M assistant/core/research_c.py\n M assistant/main.py\n M assistant/tests/test_researchc.py\n M docs/RELEASE_NOTES_researchC.md\n M docs/RESEARCHC_GOALS.md\n M handoffs/researchc_evidence_2026-07-30/README.md\n M tools/researchc_report.py\n?? assistant/tests/test_researchc_probe.py\n?? assistant/tests/test_researchc_statistics_extended.py\n?? docs/RESEARCHC_THEORY_LEDGER.md\n?? handoffs/2026-07-30_researchc_open_threads.md\n?? handoffs/researchc_evidence_2026-07-30/voice_confirmatory_grading.json\n?? handoffs/researchc_open_threads_tools/compression_reanalysis.py\n?? handoffs/researchc_open_threads_tools/compression_v2.py\n?? handoffs/researchc_open_threads_tools/esoteric_math_proposals.md\n?? handoffs/researchc_open_threads_tools/esoteric_math_verdict.md\n?? handoffs/researchc_open_threads_tools/qq_batch.jsonl\n?? handoffs/researchc_open_threads_tools/qq_compliance.jsonl\n?? handoffs/researchc_open_threads_tools/qq_probe.py\n?? tools/researchc_probe.py",
+    "status_sha256": "b1e998b6da332d745ec3bb347a9c80446d32c424f308acfc15403743d1dc6d06",
+    "tracked_diff_sha256": "3ff479df4ca37aedfe163065bf02f73e65f8c7ffa090ac7016c6811e339623bd"
+  },
+  "schema": 1,
+  "truth_digest": "305a8f106d0cd1694d7acca026651d9a1116004a4788471b0eeaba2680415b08",
+  "verdict": "void"
+}

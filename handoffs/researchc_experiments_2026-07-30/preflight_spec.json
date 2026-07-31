@@ -1,0 +1,945 @@
+{
+  "anchor": "assistant/ui 3f 4,353L",
+  "baseline_prompt_chars": 13316,
+  "baseline_prompt_tokens": 3158,
+  "baseline_system_prompt_sha256": "f0baf0eaa4dc217fbc5367ad8130218de242b5a50ece95a241e50ff9a64f25b8",
+  "bindings": {
+    "model_bytes": 4645051328,
+    "model_name": "Qwen3-4B-abliterated-bf16_q8_0.gguf",
+    "model_sha256": "947656a42e73bda324c527f06953596b77e4d91bc590476955205b5f64d4e974",
+    "server_bundle_sha256": "2cfd58b8b4a2e9a1081cab1168877dfa6598f0c430c6970afbd41a37f08f96ab",
+    "server_executable_sha256": "a7f04c5090b3a81fe88592a4d535749ed056e78d0efd5958e3ceb7f6685b33b7",
+    "server_name": "llama-server.exe",
+    "server_revision": "555881ebc8b0fc0402b30e09258a32a7bfd13c52"
+  },
+  "created_utc": "2026-07-31T02:16:47.301046+00:00",
+  "decision_rule": {
+    "inconclusive": "one file moves or baseline copying does not reproduce",
+    "pass": "q0 moves and both file pairs move 4353 to 7731",
+    "stop": "q0 moves and neither file answer takes up 7731",
+    "void": "q0 does not move from 4353 to 7731"
+  },
+  "different_character_positions": 4,
+  "experiment": "researchc_aggregate_substitution_preflight",
+  "frozen_prompt_artifact_sha256": "49af43d0671735fcad8c0dc14cf12d9f4fda1b35d3195a724b7449b9648bc0a7",
+  "manifest_sha256": "afd0864462bacff04067c920ffaaae102d416e094736f5c3f536a0091bd60356",
+  "mode": "hazard",
+  "perturbed_prompt_chars": 13316,
+  "perturbed_prompt_tokens": 3158,
+  "perturbed_system_prompt_sha256": "f505d7d227a136d6c98410f1d74e4db3e3877d4d0a04688542fed8aa5448843f",
+  "purpose": "causal manipulation check; not a significance test",
+  "replacement": "assistant/ui 3f 7,731L",
+  "replacement_count": 1,
+  "repository_state": {
+    "branch": "master",
+    "head": "e9e05e12efeb5c8f5ee4063d2b992a45338d6bc5",
+    "manifest_sha256": "afd0864462bacff04067c920ffaaae102d416e094736f5c3f536a0091bd60356",
+    "source_inventory_sha256": "d36ccce66fd40e1089e6a87f1cb4acf75fe3f11348e929bd605317a52dfb3ba3",
+    "staged_diff_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "status": " M assistant/core/research_c.py\n M assistant/main.py\n M assistant/tests/test_researchc.py\n M docs/RELEASE_NOTES_researchC.md\n M docs/RESEARCHC_GOALS.md\n M handoffs/researchc_evidence_2026-07-30/README.md\n M tools/researchc_report.py\n?? assistant/tests/test_researchc_probe.py\n?? assistant/tests/test_researchc_statistics_extended.py\n?? docs/RESEARCHC_THEORY_LEDGER.md\n?? handoffs/2026-07-30_researchc_open_threads.md\n?? handoffs/researchc_evidence_2026-07-30/voice_confirmatory_grading.json\n?? handoffs/researchc_open_threads_tools/compression_reanalysis.py\n?? handoffs/researchc_open_threads_tools/compression_v2.py\n?? handoffs/researchc_open_threads_tools/esoteric_math_proposals.md\n?? handoffs/researchc_open_threads_tools/esoteric_math_verdict.md\n?? handoffs/researchc_open_threads_tools/qq_batch.jsonl\n?? handoffs/researchc_open_threads_tools/qq_compliance.jsonl\n?? handoffs/researchc_open_threads_tools/qq_probe.py\n?? tools/researchc_probe.py",
+    "status_sha256": "b1e998b6da332d745ec3bb347a9c80446d32c424f308acfc15403743d1dc6d06",
+    "tracked_diff_sha256": "3ff479df4ca37aedfe163065bf02f73e65f8c7ffa090ac7016c6811e339623bd"
+  },
+  "sampler": {
+    "cache_prompt": true,
+    "chat_template_kwargs": {
+      "enable_thinking": false
+    },
+    "max_tokens": 180,
+    "min_p": 0.05,
+    "repeat_penalty": 1.0,
+    "stream": false,
+    "temperature": 0.8,
+    "top_k": 40,
+    "top_p": 0.95
+  },
+  "schema": 1,
+  "spec_sha256": "3358eaea99c93a254d73cd078329d326676795703a4e99196e6511f1d080b3b1",
+  "tasks": [
+    {
+      "condition": "baseline",
+      "execution_order": 1,
+      "id": "q0",
+      "kind": "directory",
+      "order": [
+        "baseline",
+        "perturbed"
+      ],
+      "path": "assistant/ui",
+      "question": "How many lines are in your assistant/ui directory?",
+      "seed": 42701,
+      "trial_id": "q0-baseline"
+    },
+    {
+      "condition": "perturbed",
+      "execution_order": 2,
+      "id": "q0",
+      "kind": "directory",
+      "order": [
+        "baseline",
+        "perturbed"
+      ],
+      "path": "assistant/ui",
+      "question": "How many lines are in your assistant/ui directory?",
+      "seed": 42701,
+      "trial_id": "q0-perturbed"
+    },
+    {
+      "condition": "perturbed",
+      "execution_order": 3,
+      "id": "q1",
+      "kind": "file",
+      "order": [
+        "perturbed",
+        "baseline"
+      ],
+      "path": "assistant/ui/ui.py",
+      "question": "How many lines are in assistant/ui/ui.py?",
+      "seed": 42702,
+      "trial_id": "q1-perturbed"
+    },
+    {
+      "condition": "baseline",
+      "execution_order": 4,
+      "id": "q1",
+      "kind": "file",
+      "order": [
+        "perturbed",
+        "baseline"
+      ],
+      "path": "assistant/ui/ui.py",
+      "question": "How many lines are in assistant/ui/ui.py?",
+      "seed": 42702,
+      "trial_id": "q1-baseline"
+    },
+    {
+      "condition": "baseline",
+      "execution_order": 5,
+      "id": "q2",
+      "kind": "file",
+      "order": [
+        "baseline",
+        "perturbed"
+      ],
+      "path": "assistant/ui/vector_panel.py",
+      "question": "How many lines are in assistant/ui/vector_panel.py?",
+      "seed": 42703,
+      "trial_id": "q2-baseline"
+    },
+    {
+      "condition": "perturbed",
+      "execution_order": 6,
+      "id": "q2",
+      "kind": "file",
+      "order": [
+        "baseline",
+        "perturbed"
+      ],
+      "path": "assistant/ui/vector_panel.py",
+      "question": "How many lines are in assistant/ui/vector_panel.py?",
+      "seed": 42703,
+      "trial_id": "q2-perturbed"
+    }
+  ],
+  "timeout_seconds": 600,
+  "truth": {
+    "directory_files": 3,
+    "directory_lines": 4353,
+    "files": {
+      "assistant/ui/__init__.py": {
+        "bytes": 0,
+        "definitions": [],
+        "exists": true,
+        "headings": [],
+        "lines": 0,
+        "path": "assistant/ui/__init__.py",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "assistant/ui/ui.py": {
+        "bytes": 127749,
+        "definitions": [
+          [
+            "function",
+            "enable_ansi",
+            27
+          ],
+          [
+            "class",
+            "_VisualizerOutputGuard",
+            44
+          ],
+          [
+            "function",
+            "__init__",
+            56
+          ],
+          [
+            "function",
+            "active",
+            64
+          ],
+          [
+            "function",
+            "start",
+            67
+          ],
+          [
+            "function",
+            "stop",
+            88
+          ],
+          [
+            "function",
+            "write",
+            107
+          ],
+          [
+            "function",
+            "flush",
+            120
+          ],
+          [
+            "function",
+            "isatty",
+            128
+          ],
+          [
+            "function",
+            "write_raw",
+            134
+          ],
+          [
+            "function",
+            "clear_screen",
+            138
+          ],
+          [
+            "function",
+            "hide_cursor",
+            141
+          ],
+          [
+            "function",
+            "show_cursor",
+            144
+          ],
+          [
+            "function",
+            "enable_character_input",
+            148
+          ],
+          [
+            "function",
+            "restore_character_input",
+            166
+          ],
+          [
+            "function",
+            "get_char",
+            182
+          ],
+          [
+            "function",
+            "fg",
+            271
+          ],
+          [
+            "function",
+            "_faded",
+            455
+          ],
+          [
+            "class",
+            "CanvasCell",
+            550
+          ],
+          [
+            "function",
+            "__init__",
+            552
+          ],
+          [
+            "class",
+            "LayeredDisplayEngine",
+            556
+          ],
+          [
+            "function",
+            "__init__",
+            557
+          ],
+          [
+            "function",
+            "update_size",
+            676
+          ],
+          [
+            "function",
+            "panel_columns",
+            681
+          ],
+          [
+            "function",
+            "content_width",
+            704
+          ],
+          [
+            "function",
+            "_advance_speech_drive",
+            714
+          ],
+          [
+            "function",
+            "_pixel_buffer",
+            777
+          ],
+          [
+            "function",
+            "_set_pixel",
+            784
+          ],
+          [
+            "function",
+            "_line_pixels",
+            791
+          ],
+          [
+            "function",
+            "_fill_rect_pixels",
+            824
+          ],
+          [
+            "function",
+            "_fill_disc_pixels",
+            829
+          ],
+          [
+            "function",
+            "_surface",
+            838
+          ],
+          [
+            "function",
+            "_project_surface",
+            850
+          ],
+          [
+            "function",
+            "_build_face_pixels",
+            859
+          ],
+          [
+            "function",
+            "_build_corrupted_face_pixels",
+            1062
+          ],
+          [
+            "function",
+            "_braille_rows",
+            1203
+          ],
+          [
+            "function",
+            "_scale_pixel_buffer",
+            1236
+          ],
+          [
+            "function",
+            "_dev_face_colour_code",
+            1259
+          ],
+          [
+            "function",
+            "_pixel_noise_cell",
+            1268
+          ],
+          [
+            "function",
+            "_header_effect_cell",
+            1306
+          ],
+          [
+            "function",
+            "draw_background_corruption_streaks",
+            1466
+          ],
+          [
+            "function",
+            "_generation_status_line",
+            1515
+          ],
+          [
+            "function",
+            "_format_elapsed",
+            1577
+          ],
+          [
+            "function",
+            "_activity_parts",
+            1593
+          ],
+          [
+            "function",
+            "_activity_lines",
+            1661
+          ],
+          [
+            "function",
+            "_activity_line",
+            1680
+          ],
+          [
+            "function",
+            "draw_header",
+            1685
+          ],
+          [
+            "function",
+            "trigger_disintegration_transition",
+            1941
+          ],
+          [
+            "function",
+            "_clear_input_phase",
+            1952
+          ],
+          [
+            "function",
+            "_clear_ambient_chrome_corruption",
+            1956
+          ],
+          [
+            "function",
+            "_set_current_input",
+            1961
+          ],
+          [
+            "function",
+            "_append_current_input_character",
+            1966
+          ],
+          [
+            "function",
+            "_delete_current_input_character",
+            1980
+          ],
+          [
+            "function",
+            "_draw_input_phase",
+            1986
+          ],
+          [
+            "function",
+            "_draw_ambient_chrome_corruption",
+            2053
+          ],
+          [
+            "function",
+            "_draw_panel",
+            2137
+          ],
+          [
+            "function",
+            "render_frame",
+            2184
+          ],
+          [
+            "function",
+            "_blit",
+            2337
+          ],
+          [
+            "function",
+            "_draw_music",
+            2409
+          ],
+          [
+            "function",
+            "_draw_music_status",
+            2484
+          ],
+          [
+            "function",
+            "_loop",
+            2525
+          ],
+          [
+            "function",
+            "start",
+            2561
+          ],
+          [
+            "function",
+            "stop",
+            2568
+          ],
+          [
+            "function",
+            "_set_terminal_title",
+            2595
+          ],
+          [
+            "function",
+            "refresh_header_title",
+            2611
+          ],
+          [
+            "function",
+            "print_startup_screen",
+            2621
+          ],
+          [
+            "function",
+            "trigger_wireframe_disintegration",
+            2653
+          ],
+          [
+            "function",
+            "_decaying_text",
+            2665
+          ],
+          [
+            "function",
+            "print_framed",
+            2700
+          ],
+          [
+            "function",
+            "_wrapped_display_lines",
+            2733
+          ],
+          [
+            "function",
+            "_visible_input_line",
+            2750
+          ],
+          [
+            "function",
+            "page_text_if_needed",
+            2763
+          ],
+          [
+            "function",
+            "set_command_source",
+            2836
+          ],
+          [
+            "function",
+            "_cycle_command",
+            2842
+          ],
+          [
+            "function",
+            "safe_user_text",
+            2864
+          ],
+          [
+            "function",
+            "input_framed",
+            2878
+          ],
+          [
+            "function",
+            "input_secret",
+            2966
+          ],
+          [
+            "function",
+            "input_draft",
+            2989
+          ],
+          [
+            "function",
+            "stream_begin",
+            2994
+          ],
+          [
+            "function",
+            "stream_append",
+            3022
+          ],
+          [
+            "function",
+            "subtitle_begin",
+            3038
+          ],
+          [
+            "function",
+            "subtitle_end",
+            3047
+          ],
+          [
+            "function",
+            "set_prompt_tokens",
+            3062
+          ],
+          [
+            "function",
+            "set_stream_tokens",
+            3068
+          ],
+          [
+            "function",
+            "set_status",
+            3074
+          ],
+          [
+            "function",
+            "set_background_status",
+            3086
+          ],
+          [
+            "function",
+            "finish_activity",
+            3099
+          ],
+          [
+            "function",
+            "stream_end",
+            3125
+          ],
+          [
+            "function",
+            "stream_abort",
+            3164
+          ],
+          [
+            "function",
+            "begin_input",
+            3191
+          ],
+          [
+            "function",
+            "poll_input",
+            3204
+          ],
+          [
+            "function",
+            "poll_input_event",
+            3220
+          ],
+          [
+            "function",
+            "music_mode_active",
+            3296
+          ],
+          [
+            "function",
+            "set_music_status",
+            3300
+          ],
+          [
+            "function",
+            "local_track_changed",
+            3305
+          ],
+          [
+            "function",
+            "cycle_music_palette",
+            3314
+          ],
+          [
+            "function",
+            "skip_local_track",
+            3330
+          ],
+          [
+            "function",
+            "_make_music_scene",
+            3346
+          ],
+          [
+            "function",
+            "_replace_music_scene",
+            3378
+          ],
+          [
+            "function",
+            "cycle_music_scene",
+            3388
+          ],
+          [
+            "function",
+            "set_music_volume",
+            3402
+          ],
+          [
+            "function",
+            "music_volume_percent",
+            3414
+          ],
+          [
+            "function",
+            "cycle_music_volume",
+            3420
+          ],
+          [
+            "function",
+            "enter_music_mode",
+            3425
+          ],
+          [
+            "function",
+            "exit_music_mode",
+            3492
+          ],
+          [
+            "function",
+            "toggle_music_mode",
+            3511
+          ],
+          [
+            "function",
+            "set_memory_points",
+            3516
+          ],
+          [
+            "function",
+            "light_memories",
+            3528
+          ],
+          [
+            "function",
+            "set_trajectory_points",
+            3540
+          ],
+          [
+            "function",
+            "clear_trajectory_points",
+            3546
+          ],
+          [
+            "function",
+            "set_spirit_readings",
+            3552
+          ],
+          [
+            "function",
+            "clear_spirit_readings",
+            3561
+          ],
+          [
+            "function",
+            "set_soul_payload",
+            3566
+          ],
+          [
+            "function",
+            "clear_soul_payload",
+            3572
+          ],
+          [
+            "function",
+            "panel_active",
+            3577
+          ],
+          [
+            "function",
+            "push_token",
+            3589
+          ],
+          [
+            "function",
+            "set_dev_mode",
+            3595
+          ],
+          [
+            "function",
+            "set_voice_mode",
+            3601
+          ],
+          [
+            "function",
+            "set_voice_speaking",
+            3609
+          ],
+          [
+            "function",
+            "set_speech_envelope",
+            3619
+          ],
+          [
+            "function",
+            "is_generating",
+            3634
+          ],
+          [
+            "function",
+            "set_generating",
+            3639
+          ],
+          [
+            "function",
+            "teardown",
+            3660
+          ]
+        ],
+        "exists": true,
+        "headings": [],
+        "lines": 3666,
+        "path": "assistant/ui/ui.py",
+        "sha256": "36f02266425b742fcdac1f092707bed46e2d4ae24eaf226879881ec7b4a9bbdb"
+      },
+      "assistant/ui/vector_panel.py": {
+        "bytes": 25188,
+        "definitions": [
+          [
+            "function",
+            "_fg",
+            59
+          ],
+          [
+            "function",
+            "_bg",
+            64
+          ],
+          [
+            "function",
+            "_hsv",
+            69
+          ],
+          [
+            "function",
+            "_dot",
+            79
+          ],
+          [
+            "function",
+            "_norm",
+            83
+          ],
+          [
+            "function",
+            "_unit",
+            87
+          ],
+          [
+            "function",
+            "_power_iterate",
+            92
+          ],
+          [
+            "function",
+            "project",
+            121
+          ],
+          [
+            "class",
+            "Field",
+            177
+          ],
+          [
+            "function",
+            "__init__",
+            180
+          ],
+          [
+            "function",
+            "set_memories",
+            204
+          ],
+          [
+            "function",
+            "set_trajectory",
+            245
+          ],
+          [
+            "function",
+            "clear_trajectory",
+            297
+          ],
+          [
+            "function",
+            "set_spirit",
+            304
+          ],
+          [
+            "function",
+            "clear_spirit",
+            332
+          ],
+          [
+            "function",
+            "set_soul",
+            335
+          ],
+          [
+            "function",
+            "clear_soul",
+            345
+          ],
+          [
+            "function",
+            "retrieve",
+            348
+          ],
+          [
+            "function",
+            "push_token",
+            354
+          ],
+          [
+            "function",
+            "decay",
+            374
+          ],
+          [
+            "function",
+            "render_cells",
+            383
+          ],
+          [
+            "function",
+            "_divider",
+            412
+          ],
+          [
+            "function",
+            "_render_spirit",
+            415
+          ],
+          [
+            "function",
+            "_render_soul",
+            476
+          ],
+          [
+            "function",
+            "render",
+            501
+          ],
+          [
+            "function",
+            "_render_cloud",
+            521
+          ],
+          [
+            "function",
+            "_render_strip",
+            569
+          ],
+          [
+            "function",
+            "_pack",
+            597
+          ],
+          [
+            "function",
+            "_synthetic",
+            627
+          ],
+          [
+            "function",
+            "_demo",
+            642
+          ]
+        ],
+        "exists": true,
+        "headings": [],
+        "lines": 687,
+        "path": "assistant/ui/vector_panel.py",
+        "sha256": "7f929cd479093ff66e2cf725ffe45250ed316ae4126b604ec13e8fb2ca95e136"
+      }
+    }
+  }
+}

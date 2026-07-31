@@ -1,0 +1,2 @@
+{"trial": 1, "order": "AB", "seed": 90000, "status": "ok", "answer": "A=no\nB=yes", "A": "no", "B": "yes", "compliant": true, "seconds": 25.94, "cached_tokens": 2338, "prompt_tokens": 3272, "prompt_ms": 25190.327}
+{"trial": 2, "order": "BA", "seed": 90000, "status": "ok", "answer": "B=yes\nA=no", "A": "no", "B": "yes", "compliant": true, "seconds": 3.46, "cached_tokens": 3219, "prompt_tokens": 3272, "prompt_ms": 2723.15}

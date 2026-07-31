@@ -57,8 +57,12 @@ saving.
 The serial paired run is frozen under
 `handoffs/researchc_evidence_2026-07-30/`. Its principal results:
 
-- `voice/session.py`: unsupported voice/session machinery in 8/8 grounded
-  answers versus 1/8 ungrounded; exact paired McNemar p = 0.015625;
+- `voice/session.py`: unsupported concrete voice/session mechanisms in 1/8
+  grounded answers versus 8/8 ungrounded. Seven pairs were positive only when
+  ungrounded and one was positive in both; exact paired two-sided McNemar
+  p = 0.015625. For this prompt, the manifest-present condition reduced
+  pathname-driven content confabulation; neither condition copied runtime
+  context facts;
 - `ui.py` line count: the grounded model copied a directory aggregate onto
   the file in 8/8 while the ungrounded model refused 8/8; p = 0.0078125;
 - real unnamed `machinespirit_shadow.py`: false grounded denial in 7/7 and
@@ -99,8 +103,9 @@ the audio path hardware-validated.
 
 ### New theoretical ideas — measured disposition
 
-- Equal-length gzip was promising for the voice prompt (8/8) but mixed on the
-  validation and boundary sets. It remains an offline AIT feature, not a truth
+- Equal-length gzip separated the voice conditions: the ungrounded reply was
+  smaller in 8/8 pairs. One pair was outcome-positive in both arms and the
+  effect did not generalize. It remains an offline AIT feature, not a truth
   detector.
 - Reversing the two propositions changed compliance and formatting in two
   replies. That is an order-effect candidate, not evidence of a
@@ -689,12 +694,15 @@ than confirmations, which is a reason to keep the default-to-refuted protocol.
 in the sidecar beside `mean_surprisal`, never concatenated onto an embedding,
 for the reasons in the representation boundary below.
 
-**The assumption to watch.** Bernoulli requires fixed `p` and independent trials.
-Repeated calls on a byte-identical prompt at one temperature fit well. Across
-different prompts `p` varies, so pooling them is a mixture and yields falsely
-tight intervals. The honest upgrade is Beta-Binomial — a Beta prior on `p` —
-which handles the mixture and gives usable intervals at small `n` instead of the
-degenerate ones a raw fraction produces.
+**The assumption to watch.** A simple binomial interval requires independent,
+exchangeable trials with one target `p`. Seeded repeats of one byte-identical
+prompt can still be highly correlated, while distinct prompts can have
+different success probabilities. Heterogeneous independent Bernoulli trials
+are Poisson-binomial; a Beta-Binomial is appropriate only when repeats share a
+latent prompt- or cluster-level probability, not merely because prompts
+differ. Predeclare the query distribution, keep prompt identity, and use
+prompt-clustered resampling or a hierarchical model when there are repeats per
+prompt. At small `n`, hierarchical intervals remain prior-sensitive.
 
 ## Experimental controls
 
@@ -703,7 +711,9 @@ degenerate ones a raw fraction produces.
   serialization, transfer, and storage are not free.
 - Fit thresholds on one set and report them on a separate held-out set.
 - Bind every result to model file digest, quantization, prompt digest,
-  temperature, top-p, and relevant llama-server revision.
+  temperature, top-p, and either a pinned llama.cpp revision or the combined
+  digest of the launcher and inference libraries. Hashing only the tiny
+  `llama-server` launcher does not bind the serving implementation.
 - Report false refusals alongside compute saved. Saving compute by silently
   throwing away good work is not an efficiency result.
 - Log measurements and decisions, never private prompt or memory text.

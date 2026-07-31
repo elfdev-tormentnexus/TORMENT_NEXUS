@@ -23,9 +23,9 @@ ones.
 - The source manifest now uses real displayed-line counts, labels directory
   aggregates and recency honestly, reads the edit logs that the editing
   engines actually write, and excludes audit handoffs from product recency.
-- Stable self-knowledge moves before the live clock in the runtime prompt, so
-  the largest reusable prefix is no longer invalidated before the static
-  source block.
+- The live clock is the last runtime-context field. Stable self-knowledge and
+  any unchanged retrieved context can therefore remain in the reusable prompt
+  prefix instead of being invalidated by the next clock tick.
 - Windows sessions ask the OS to keep the display/audio path awake. If an
   endpoint still disappears, visualizer capture re-enumerates the default
   output and local playback retries the same track from the saved frame.
@@ -36,9 +36,10 @@ ones.
 The completed paired probes are preserved under
 `handoffs/researchc_evidence_2026-07-30/`.
 
-- Grounding caused reliable prompt-context/pathname misattribution on selected
-  per-file questions, including 8/8 copied directory totals versus 8/8
-  ungrounded refusals.
+- The grounding block had question-dependent effects: it reduced unsupported
+  concrete-mechanism assertions on `voice/session.py` from 8/8 ungrounded to
+  1/8 grounded, yet caused 8/8 copied directory totals on the `ui.py`
+  question versus 8/8 ungrounded refusals.
 - Agreement with a nonexistent class and false authorship occurred equally in
   grounded and ungrounded conditions (6/6 each). Those are base-model biases,
   not evidence that the manifest caused them.

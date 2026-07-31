@@ -188,6 +188,10 @@ Before publishing any researchC asset:
   activity-consent state, conversation history, memories, embedding cache,
   imported library, SQLite knowledge index, activity log, personal music,
   logs, recovery material, or local paths;
+- build the eight-file llama-server runtime closure from a path-mapped,
+  release-only directory rather than recursively packaging the CMake output;
+  package verification must report that staged `.exe`, `.dll`, and `.pyd`
+  files contain neither the checkout root nor the maintainer profile path;
 - decompile and reconstruct on a clean Windows account, run setup, and repeat
   the clean-state first-launch test;
 - inspect [Third-party notices](../THIRD_PARTY_NOTICES.md) and

@@ -27,6 +27,86 @@ _DEFAULT_MODE = "top2"
 _MODEL_DIGEST_ENV = "TORMENT_NEXUS_RESEARCHC_MODEL_SHA256"
 _WORKER_MODEL_DIGEST_ENV = "TORMENT_NEXUS_RESEARCHC_WORKER_SHA256"
 _SERVER_REVISION_ENV = "TORMENT_NEXUS_LLAMA_REVISION"
+_SAFE_WORKFLOWS = {
+    "durable_memory",
+    "edit",
+    "source_grounding",
+    "super_dev",
+    "test",
+}
+_SAFE_STAGES = {
+    "binding",
+    "deterministic_gate",
+    "extraction",
+    "measurement",
+    "patch",
+    "plan",
+    "privacy",
+    "trusted_answer",
+}
+_SAFE_METADATA_KEYS = {
+    # Sampler controls.
+    "cache_prompt",
+    "max_tokens",
+    "min_p",
+    "repeat_penalty",
+    "seed",
+    "temperature",
+    "top_k",
+    "top_p",
+    # Span uncertainty.
+    "margin_token_count",
+    "mean_surprisal",
+    "mean_top1_top2_margin",
+    "minimum_top1_top2_margin",
+    "peak_surprisal",
+    "token_count",
+    "worst_decile_surprisal",
+    # Deterministic outcomes.
+    "below_confidence_floor",
+    "capability_guard",
+    "category",
+    "changed_lines",
+    "declined",
+    "deterministic_rejection",
+    "draft_parseable",
+    "emitted_memory",
+    "empty_find",
+    "exists",
+    "kept",
+    "no_op",
+    "occurrences",
+    "parseable",
+    "patch_applied_to_snapshot",
+    "query_kind",
+    "reason",
+    "regression_gate",
+    "retained",
+    "self_reported_confidence",
+    "staged",
+    "syntax_valid",
+    "unique_patch",
+    "valid_item",
+    "valid_target",
+    "valid_types",
+    "validated_target",
+    "within_line_cap",
+    # Local and llama.cpp timing fields.
+    "cache_n",
+    "candidate_wall_seconds",
+    "draft_n",
+    "draft_n_accepted",
+    "predicted_ms",
+    "predicted_n",
+    "predicted_per_second",
+    "predicted_per_token_ms",
+    "prompt_ms",
+    "prompt_n",
+    "prompt_per_second",
+    "prompt_per_token_ms",
+    "server",
+    "wall_seconds",
+}
 _SAFE_OUTCOME_LABELS = {
     "authorship",
     "byte_count",
@@ -238,7 +318,7 @@ def _manifest_model_digest(model_path):
 
 
 def _manifest_server_digest():
-    """Bind packaged serving behavior to the shipped llama-server binary."""
+    """The packaged launcher digest, retained for schema compatibility."""
     candidates = (
         os.path.join(PROJECT_ROOT, "RELEASE_MANIFEST.json"),
         os.path.join(PROJECT_ROOT, "release_manifest.json"),
@@ -261,7 +341,119 @@ def _manifest_server_digest():
     return None
 
 
-def model_binding(model_path=None, *, role="director"):
+def _server_runtime_component(name):
+    """Whether a sibling binary participates in llama-server inference."""
+    name = os.path.basename(str(name or "")).casefold()
+    if name in {"llama-server", "llama-server.exe"}:
+        return True
+    if name.startswith(("llama-server-impl.", "libllama-server-impl.")):
+        return True
+    if name.startswith(("llama-common.", "libllama-common.")):
+        return True
+    if name.startswith(("mtmd.", "libmtmd.")):
+        return name.endswith((".dll", ".so", ".dylib"))
+    if name.startswith(("ggml", "libggml")):
+        return name.endswith((".dll", ".so", ".dylib"))
+    if name.startswith(("llama.", "libllama.")):
+        return name.endswith((".dll", ".so", ".dylib"))
+    return False
+
+
+def _bundle_digest(records):
+    """Digest component names and content hashes as one serving bundle."""
+    components = []
+    for record in records or ():
+        name = os.path.basename(str(
+            record.get("path") or record.get("name") or ""
+        )).casefold()
+        value = str(record.get("sha256") or "").casefold()
+        if (
+            _server_runtime_component(name)
+            and len(value) == 64
+            and all(character in "0123456789abcdef" for character in value)
+        ):
+            components.append((name, value))
+
+    if not components:
+        return None
+
+    canonical = json.dumps(
+        sorted(set(components)),
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(canonical.encode("ascii")).hexdigest()
+
+
+def _manifest_server_bundle_digest():
+    """Bind every packaged library that implements llama-server inference."""
+    candidates = (
+        os.path.join(PROJECT_ROOT, "RELEASE_MANIFEST.json"),
+        os.path.join(PROJECT_ROOT, "release_manifest.json"),
+    )
+    for path in candidates:
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+        except (OSError, ValueError):
+            continue
+
+        bundled = _bundle_digest(payload.get("files") or ())
+        if bundled:
+            return bundled
+    return None
+
+
+def _sha256_file(path):
+    value = hashlib.sha256()
+    with open(path, "rb") as handle:
+        while True:
+            block = handle.read(1 << 20)
+            if not block:
+                break
+            value.update(block)
+    return value.hexdigest()
+
+
+def server_bundle_digest(server_path=None):
+    """Exact local serving-bundle digest, or a packaged digest if available."""
+    if not server_path:
+        try:
+            from core.config import LLAMA_SERVER
+            server_path = LLAMA_SERVER
+        except Exception:
+            server_path = None
+    if not server_path or not os.path.isfile(server_path):
+        return _manifest_server_bundle_digest()
+
+    directory = os.path.dirname(os.path.abspath(server_path))
+    paths = []
+    try:
+        names = os.listdir(directory)
+    except OSError:
+        return _manifest_server_bundle_digest()
+
+    for name in names:
+        if not _server_runtime_component(name):
+            continue
+        path = os.path.join(directory, name)
+        if not os.path.isfile(path):
+            continue
+        paths.append(path)
+
+    records = []
+    for path in paths:
+        try:
+            records.append({
+                "name": os.path.basename(path),
+                "sha256": _sha256_file(path),
+            })
+        except OSError:
+            return None
+    return _bundle_digest(records)
+
+
+def model_binding(model_path=None, *, role="director", server_path=None):
     """Model identity with an exact content digest when one is available."""
     digest_env = (
         _WORKER_MODEL_DIGEST_ENV
@@ -289,7 +481,33 @@ def model_binding(model_path=None, *, role="director"):
             _SERVER_REVISION_ENV, ""
         ).strip() or None,
         "server_sha256": _manifest_server_digest(),
+        "server_bundle_sha256": server_bundle_digest(server_path),
     }
+
+
+def _safe_metadata_key(value):
+    """Keep registered schema keys and digest-alias every unknown key."""
+    key = str(value)
+    if key in _SAFE_METADATA_KEYS:
+        return key
+    return "unknown_" + hashlib.sha256(
+        key.encode("utf-8", errors="replace")
+    ).hexdigest()[:16]
+
+
+def _safe_event_identifier(value, allowed):
+    value = str(value or "").strip().casefold()
+    return value if value in allowed else "unknown"
+
+
+def _hex_digest(value):
+    value = str(value or "").strip().casefold()
+    if (
+        len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    ):
+        return value
+    return None
 
 
 def _numeric_metadata(value):
@@ -302,7 +520,7 @@ def _numeric_metadata(value):
         return value if math.isfinite(value) else None
     if isinstance(value, dict):
         return {
-            str(key)[:64]: _numeric_metadata(item)
+            _safe_metadata_key(key): _numeric_metadata(item)
             for key, item in value.items()
         }
     if isinstance(value, (list, tuple)):
@@ -330,6 +548,9 @@ def _binding_metadata(binding):
     sha256 = str(binding.get("model_sha256") or "").casefold()
     revision = str(binding.get("server_revision") or "").strip()
     server_sha256 = str(binding.get("server_sha256") or "").casefold()
+    server_bundle_sha256 = str(
+        binding.get("server_bundle_sha256") or ""
+    ).casefold()
     role = str(binding.get("role") or "").casefold()
     return {
         "role": role if role in {"director", "worker"} else None,
@@ -361,6 +582,15 @@ def _binding_metadata(binding):
             )
             else None
         ),
+        "server_bundle_sha256": (
+            server_bundle_sha256
+            if len(server_bundle_sha256) == 64
+            and all(
+                character in "0123456789abcdef"
+                for character in server_bundle_sha256
+            )
+            else None
+        ),
     }
 
 
@@ -387,14 +617,14 @@ def record(
     event = {
         "schema": SCHEMA,
         "recorded_utc": datetime.now(timezone.utc).isoformat(),
-        "workflow": str(workflow)[:64],
-        "stage": str(stage)[:64],
-        "artifact_digest": str(artifact_digest)[:64],
-        "prompt_sha256": str(prompt_sha256)[:64],
+        "workflow": _safe_event_identifier(workflow, _SAFE_WORKFLOWS),
+        "stage": _safe_event_identifier(stage, _SAFE_STAGES),
+        "artifact_digest": _hex_digest(artifact_digest),
+        "prompt_sha256": _hex_digest(prompt_sha256),
         "sampler": _numeric_metadata(dict(sampler or {})),
         "measurements": _numeric_metadata(dict(measurements or {})),
         "outcomes": {
-            str(key)[:64]: _outcome_metadata(value)
+            _safe_metadata_key(key): _outcome_metadata(value)
             for key, value in dict(outcomes or {}).items()
         },
         "timing": _numeric_metadata(dict(timing or {})),

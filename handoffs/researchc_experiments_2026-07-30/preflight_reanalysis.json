@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "analysis_revision": 2,
+  "experiment": "researchc_aggregate_substitution_preflight",
+  "spec_file_sha256": "3ead2c4652042f6bc09bfa33fed32941a9692e7613f0801a2da048d03ae34a1b",
+  "rows_file_sha256": "b11bea66c2d8d36400f64362698003a4cc821afb605d02360f4f64d3da588e19",
+  "reason_for_reanalysis": "The initial summary required the aggregate control to have a single-number classification. Both control replies also asserted a file count, but the requested line total still moved exactly from 4,353 to 7,731. The predeclared gate concerns movement of the requested total, not absence of every other integer.",
+  "completed_rows": 6,
+  "control_moved": true,
+  "control_observation": {
+    "baseline_integers": [
+      4,
+      4353
+    ],
+    "perturbed_integers": [
+      7,
+      7731
+    ],
+    "baseline_requested_total_present": true,
+    "perturbed_requested_total_present": true
+  },
+  "file_pairs_moved": 1,
+  "file_pair_results": {
+    "q1_ui_py": {
+      "moved": true,
+      "baseline_integers": [
+        4353
+      ],
+      "perturbed_integers": [
+        7731
+      ]
+    },
+    "q2_vector_panel_py": {
+      "moved": false,
+      "baseline_integers": [
+        1366
+      ],
+      "perturbed_integers": [
+        6423
+      ],
+      "note": "6,423 is the visible assistant/visualizer directory aggregate in both frozen prompts."
+    }
+  },
+  "verdict": "inconclusive",
+  "interpretation": "The manifest number causally controls the ui.py answer under this prompt and seed, but aggregate-to-file copying is not universal across files. The aggregate control also changed its asserted file count from four to seven while the prompt's 3f token was unchanged, suggesting broader numeric binding.",
+  "inference_boundary": "Six calls are a manipulation check, not a powered significance test. Two unanimous file moves would have two-sided sign p = 0.5.",
+  "truth_digest": "305a8f106d0cd1694d7acca026651d9a1116004a4788471b0eeaba2680415b08"
+}

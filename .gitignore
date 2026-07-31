@@ -193,5 +193,29 @@ workshop/*
 Thumbs.db
 desktop.ini
 
+# ---------------------------------------------------------------
+# Raw research-evidence artifacts
+#
+# The Research C collectors freeze two kinds of file. Most of what they
+# write is already privacy-safe by construction and is meant to be
+# published -- READMEs, reanalyses, gradings, manifests, summaries, the
+# independent audit. These four are not.
+#
+# preflight_prompts.json and *_stable_messages.json hold the *exact*
+# runtime system prompt as it was sent, which carries installation-local
+# chosen-name state; the rate spec and rows carry absolute host paths in
+# their binding records. A sanitized public derivative of each is what
+# gets committed instead, alongside a SHA-256 commitment to the original
+# so the private file stays verifiable without being published.
+#
+# Listed as exact paths rather than a glob over the experiment folders,
+# because the default for evidence is to publish it and a broad rule here
+# would quietly swallow the parts that should be shared.
+# ---------------------------------------------------------------
+handoffs/researchc_experiments_2026-07-30/preflight_prompts.json
+handoffs/researchc_experiments_2026-07-30/rate_distortion/rate_distortion_stable_messages.json
+handoffs/researchc_experiments_2026-07-30/rate_distortion/rate_distortion_spec.json
+handoffs/researchc_experiments_2026-07-30/rate_distortion/rate_distortion_rows.jsonl
+
 # Release staging, rebuilt by tools; never committed.
 SABLERESEARCHA/

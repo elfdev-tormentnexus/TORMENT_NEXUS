@@ -14,12 +14,24 @@ file and code seams used by the cut logic.
    .\setup\test_assistant.bat
    ```
 
-2. Build the intended clean commit into the staged directory and verify it:
+2. Build the intended clean commit into the staged directory and verify it.
+   Supply a separately reviewed llama.cpp `Release` directory compiled with
+   checkout paths mapped out (for MSVC, use `/pathmap`). The directory must
+   contain exactly the runtime closure used by the CPU server:
+   `llama-server.exe`, `llama-server-impl.dll`, `llama-common.dll`, `mtmd.dll`,
+   `llama.dll`, `ggml.dll`, `ggml-base.dll`, and `ggml-cpu.dll`.
 
    ```powershell
-   python tools\package_release.py --skip-download
+   python tools\package_release.py --skip-download `
+     --llama-runtime-dir C:\path\to\path-neutral\Release
    python tools\package_release.py --verify-only
    ```
+
+   The override is release-build-only; the staged destination and Sable's
+   normal runtime configuration do not change. The builder copies no benchmark,
+   conversion, quantization, or test executables from the CMake output tree.
+   Verification refuses any staged `.exe`, `.dll`, or `.pyd` that still embeds
+   this checkout root or the maintainer's user-profile path.
 
 3. Prepare—but do not execute—the vector-aware cut:
 

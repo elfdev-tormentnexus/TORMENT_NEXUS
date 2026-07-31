@@ -1,0 +1,109 @@
+{
+  "content_withheld": true,
+  "message_count": 14,
+  "messages": [
+    {
+      "characters": 10896,
+      "content_sha256": "15cf58ef65f3d79aa37b4c89c94aaa58737f61d62aa740aac6bd85e3268c41cf",
+      "index": 0,
+      "role": "system",
+      "utf8_bytes": 10896
+    },
+    {
+      "characters": 3,
+      "content_sha256": "fa690b82061edfd2852629aeba8a8977b57e40fcb77d1a7a28b26cba62591204",
+      "index": 1,
+      "role": "user",
+      "utf8_bytes": 3
+    },
+    {
+      "characters": 35,
+      "content_sha256": "e9d497cef6bbfc78f490ba34679114903562cfcead010a790484a6872501e583",
+      "index": 2,
+      "role": "assistant",
+      "utf8_bytes": 35
+    },
+    {
+      "characters": 59,
+      "content_sha256": "724e328f6dd8523ec2c3dd82a461583a63f18495dc4f853bc8454159dfba30ca",
+      "index": 3,
+      "role": "user",
+      "utf8_bytes": 59
+    },
+    {
+      "characters": 84,
+      "content_sha256": "5993a86b164dc780d86a8ac4558319d9634e9b594b49a618705f9082bebad344",
+      "index": 4,
+      "role": "assistant",
+      "utf8_bytes": 84
+    },
+    {
+      "characters": 26,
+      "content_sha256": "7b77ef2ab5af0e92f276dc19ab768401e907a63707c366e7ca294bf1bf644fcb",
+      "index": 5,
+      "role": "user",
+      "utf8_bytes": 26
+    },
+    {
+      "characters": 26,
+      "content_sha256": "bac5e0716622f09bd4ac4a0e4a7c3682c49bdaf67fc8262778608947834b54a4",
+      "index": 6,
+      "role": "assistant",
+      "utf8_bytes": 26
+    },
+    {
+      "characters": 51,
+      "content_sha256": "e9caa4a43237e5e8a3ed91e010a242082e22e62b99b6e98b921da9dccf740de1",
+      "index": 7,
+      "role": "user",
+      "utf8_bytes": 51
+    },
+    {
+      "characters": 35,
+      "content_sha256": "c865d3715a2c3b2f40ac27167953902157467a01c44f9e3e92c2acb35c6931e4",
+      "index": 8,
+      "role": "assistant",
+      "utf8_bytes": 35
+    },
+    {
+      "characters": 17,
+      "content_sha256": "3ffcb1378dcc6f4e8e19ae542124e17f854c76fdb99bfd1c5b80a83dcd03ce1e",
+      "index": 9,
+      "role": "user",
+      "utf8_bytes": 17
+    },
+    {
+      "characters": 67,
+      "content_sha256": "a8d0f73436adec5aea05f86ddd7659c1548c45a5159572e480f9bdfcae27fe89",
+      "index": 10,
+      "role": "assistant",
+      "utf8_bytes": 67
+    },
+    {
+      "characters": 41,
+      "content_sha256": "d1724c1ecd66a522ee0bf8c30ee8fccc5dfa22034480947fb9996219934209bb",
+      "index": 11,
+      "role": "user",
+      "utf8_bytes": 41
+    },
+    {
+      "characters": 90,
+      "content_sha256": "152fb23083126ef43c96786814096765851ed5ed33ffc6ed5f8cb59abe3ea662",
+      "index": 12,
+      "role": "assistant",
+      "utf8_bytes": 90
+    },
+    {
+      "characters": 255,
+      "content_sha256": "2aa043f87570b8303406dfa592f80d882f15e03a40e07638a6fb5e6b2def8aef",
+      "index": 13,
+      "role": "system",
+      "utf8_bytes": 255
+    }
+  ],
+  "private_original_sha256": "518e0eac026b7c84c82a6b9c9642dc129031af0bde04f043e7795062cf308be7",
+  "schema": 1,
+  "stable_system_sha256": "15cf58ef65f3d79aa37b4c89c94aaa58737f61d62aa740aac6bd85e3268c41cf",
+  "transformation": "researchc-public-derivative-1",
+  "why": "These messages are the stable production prefix: the runtime persona system prompt plus a fixed style demonstration. They carry installation-local chosen-name state and no experimental content -- the controlled source index and every question live in the per-call messages, which are published in full through rate_distortion_queries.json and the rows. Withholding the text costs no reproducibility of any reported number."
+}

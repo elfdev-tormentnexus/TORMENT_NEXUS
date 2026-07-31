@@ -1,0 +1,72 @@
+{
+  "corrections": [
+    "assistant_mode.independently_verified was true in the private originals. Hazard mode was operator-reported; only process topology was independently checked.",
+    "server_bundle_sha256 2cfd58b8b4a2e9a1081cab1168877dfa6598f0c430c6970afbd41a37f08f96ab omitted mtmd.dll and is not a complete dependency-closure digest."
+  ],
+  "not_revalidatable": "These files do not revalidate under the original collector digests. spec_sha256, stable_artifact_sha256, and the row bindings commit to the private originals, which are retained locally and gitignored.",
+  "private_originals": {
+    "preflight_prompts": {
+      "bytes": 27131,
+      "committed": false,
+      "reason": "runtime system prompt including chosen-name state",
+      "repository_path": "handoffs/researchc_experiments_2026-07-30/preflight_prompts.json",
+      "sha256": "7402c7ebf6fd29986e094aa5c4276d49ec03a0a41a3509e691a1038aeefb43d6"
+    },
+    "rate_distortion_rows": {
+      "bytes": 786277,
+      "committed": false,
+      "reason": "absolute host paths in per-call binding records",
+      "repository_path": "handoffs/researchc_experiments_2026-07-30/rate_distortion/rate_distortion_rows.jsonl",
+      "sha256": "8d8e59707ad58cc420282a8ed243513e7b560a1e6f2c475cbf7de2f62f188a51"
+    },
+    "rate_distortion_spec": {
+      "bytes": 92816,
+      "committed": false,
+      "reason": "absolute host paths in per-call binding records",
+      "repository_path": "handoffs/researchc_experiments_2026-07-30/rate_distortion/rate_distortion_spec.json",
+      "sha256": "50337f3051d5b3120c525e3a10ee22ec479da3217d2944402fc55c62d7b67cf2"
+    },
+    "rate_distortion_stable_messages": {
+      "bytes": 12726,
+      "committed": false,
+      "reason": "runtime system prompt including chosen-name state",
+      "repository_path": "handoffs/researchc_experiments_2026-07-30/rate_distortion/rate_distortion_stable_messages.json",
+      "sha256": "518e0eac026b7c84c82a6b9c9642dc129031af0bde04f043e7795062cf308be7"
+    }
+  },
+  "public_artifacts": {
+    "public_binding.json": {
+      "bytes": 3716,
+      "sha256": "708255e9835f5eadc7351fcb8f015b3bbc4bcf6008cd1c1c11cbb2060380f389"
+    },
+    "public_preflight_prompts.json": {
+      "bytes": 1090,
+      "sha256": "e52f706755e45b65d17f158c41b8d442d5dc57b585fe6ea9f2a05cf18c9f5310"
+    },
+    "public_rate_distortion_rows.jsonl": {
+      "bytes": 474757,
+      "sha256": "e203f12160fdc1ccfe2e1ae2c251341abb51f0d1927b4fb7bda6ab3a6e18e022"
+    },
+    "public_rate_distortion_spec.json": {
+      "bytes": 90184,
+      "sha256": "2315c04525c6cd116fbbe20cd5cd33adcb83a3daacf5f1bf32663b44f379b63b"
+    },
+    "public_rate_distortion_stable_messages.json": {
+      "bytes": 3500,
+      "sha256": "6bce04db5a24caaef30c400f3fe99bca6909922fa657fc92c7718f65941a7f97"
+    }
+  },
+  "purpose": "Publishable derivative of four private Research C collector artifacts. Every response, grading, statistical, task, and timing field is preserved unchanged. No measurement was recomputed, reordered, or rounded.",
+  "removed_field_paths": {
+    "$.baseline / $.perturbed (preflight_prompts.json)": "full runtime system prompt including chosen-name state; replaced by per-artifact digests and the single manipulated inventory line",
+    "$.bindings.hazard_runtime.assistant.executable_path": "absolute host path to the Python interpreter running Sable",
+    "$.bindings.hazard_runtime.machinespirit_helper.executable_path": "absolute host path to the unpooled helper binary",
+    "$.bindings.live_server.listener.executable_path": "absolute host path to the director binary",
+    "$.bindings.live_server.props.model_alias": "llama.cpp defaults the alias to the model path, so it repeats it",
+    "$.bindings.live_server.props.model_path": "absolute host path to the director model",
+    "$.messages[*].content (rate_distortion_stable_messages.json)": "full runtime system prompt and style demonstration; replaced by per-message role, length, and digest",
+    "$.rows[*].bindings": "the identical binding record repeated on all 120 rows; replaced by bindings_sha256 pointing at the one consolidated public record"
+  },
+  "schema": 1,
+  "transformation": "researchc-public-derivative-1"
+}

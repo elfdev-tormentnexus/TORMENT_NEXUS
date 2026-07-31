@@ -15,6 +15,9 @@ the experiment cannot move the manifest's recency list again.
 - Each JSONL row records the prompt digest, sampler, repository state,
   manifest presence/absence, response, timing, and status. It does not contain
   the full system prompt.
+- `voice_confirmatory_grading.json` preserves the corrected pair-level
+  application of the predeclared voice criterion so its direction cannot be
+  inferred from condition labels again.
 - The original frozen state was commit `9aa012e`. A delayed handoff commit
   changed `HEAD` to `8cb17dba` before the final boundary pair. The runner
   detected that change and stopped; the 30 completed boundary rows remain
@@ -25,7 +28,7 @@ the experiment cannot move the manifest's recency list again.
 
 | Probe | Rows | Result |
 | --- | ---: | --- |
-| `voice_confirmatory` | 16 | Grounded answers asserted unsupported voice/session machinery in 8/8; ungrounded did so in 1/8. Exact paired McNemar p = 0.015625. This supports prompt-context misattribution, not runtime context dumping. |
+| `voice_confirmatory` | 16 | Unsupported concrete voice/session mechanisms appeared in 1/8 grounded answers and 8/8 ungrounded. Seven pairs were positive only when ungrounded and one was positive in both; exact paired two-sided McNemar p = 0.015625. For this prompt, adding the grounding block suppressed pathname-driven concrete-mechanism confabulation; neither condition exhibited runtime-context dumping. |
 | `misattribution_validation` | 16 | `consume.py` and vector-panel controls behaved like pathname-semantic guesses, not indiscriminate copies of visible context. |
 | `boundary_calibration` | 16 | Calibrated aggregate versus per-file questions after re-deriving the live manifest. |
 | `boundary_confirmatory` | 31 | For `ui.py`, grounded answers copied the directory aggregate onto the file in 8/8 while ungrounded answers refused 8/8 (p = 0.0078125). For the real but unnamed `machinespirit_shadow.py`, grounded answers falsely denied it in 7/7 while ungrounded answers refused 7/7 (p = 0.015625). The eighth pair was not started after repository drift was detected. |
@@ -37,8 +40,11 @@ the experiment cannot move the manifest's recency list again.
 
 Equal-length gzip comparisons were prompt-dependent:
 
-- voice/session: the unsupported reply was smaller in 8/8 pairs, mean
-  difference -7.75 bytes;
+- voice/session: the ungrounded reply compressed smaller in 8/8 condition
+  pairs, mean ungrounded-minus-grounded difference -7.75 bytes. Restricting
+  the screen to the seven pairs that contrast the predeclared outcome gives
+  7/7, mean -7.43 bytes, exact two-sided sign p = 0.015625; pair 2 is excluded
+  because both replies are outcome-positive;
 - validation controls: smaller in 3/8, mean -2.5 bytes;
 - boundary probes: smaller in 8/12, mean -2.08 bytes.
 
