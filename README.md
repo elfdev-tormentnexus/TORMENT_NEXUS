@@ -53,16 +53,23 @@
 > [Rights and reuse](RIGHTS.md).
 
 <p align="center">
-  <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases">
-    <strong>Open GitHub Releases and select researchC</strong>
+  <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/researchC">
+    <strong>&#8594;&nbsp; Get researchC</strong>
   </a>
+</p>
+
+<p align="center">
+  <sub>Download <code>FETCH_SABLERESEARCHC.bat</code> and double-click it.
+  It verifies every asset and installs. One click.<br>
+  Read <a href="#the-two-languages">The two languages</a> first, or the list
+  of PNG files will not make sense.</sub>
 </p>
 
 ## At a glance
 
 | | |
 | --- | --- |
-| Current build | `researchC` — experimental research release, not a stable product |
+| Current build | [`researchC`](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/researchC) — **stable and experimental at once.** The build is finished, verified and reproducible; what it *does* is still research. Read the caution above. |
 | Platform | 64-bit Windows only. There is no macOS or Linux build. |
 | Download | About 12.4 GB for the main capsule set; the optional 14B companion adds about 8.8 GB. |
 | Free disk needed | About 55 GB during installation, because capsules, decoded segments, and the reconstructed tree coexist. |
@@ -72,7 +79,9 @@
 *Read [The two languages](#the-two-languages) before the release page, or the
 list of PNG files will not make sense.*
 
-**Jump to:** [What this is](#what-this-project-is) ·
+**Jump to:** [Get researchC](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/researchC) ·
+[The research](#the-research) ·
+[What this is](#what-this-project-is) ·
 [Why local](#why-local-and-what-it-is-for) ·
 [The two languages](#the-two-languages) ·
 [Choose your path](#choose-your-path) ·
@@ -106,6 +115,47 @@ unrestricted agent, not a surveillance product, and not a replacement for
 professionals or human relationships. Read the
 [research goals](docs/RESEARCH_GOALS.md) for the questions the project is
 actually trying to answer.
+
+## The research
+
+researchC asked whether a model's own measured uncertainty can be used as a
+compute gate. **Most of the answer is a negative result, or a capability that
+was built, measured, and then deliberately left switched off.** Every gate was
+preregistered. Two were failed by this project's own candidate, and it shipped
+disabled rather than promoted.
+
+- **A forced binary starves the measurement.** Asked sixteen unanswerable
+  propositions as Yes/No, the director's probabilities sat near 1e-8, making
+  the pivotality statistic degenerate *by construction*. Giving it a third
+  answer — a way to say *I don't know* — moved the numbers five to six orders
+  of magnitude. It did not make them informative: guess accuracy stayed at the
+  constant-responder baseline, and the degeneracy moved rather than vanishing.
+- **The council hedged 48/48 with zero resolution**, and no vote was taken. A
+  vote would have discarded the disagreement and returned a number more
+  confident than the evidence. Three related Qwen checkpoints agreeing is not
+  independent corroboration and is never described as such.
+- **Grounding does not fix agreement bias.** A nonexistent class and false
+  authorship were accepted 6/6 both with and without a source manifest, zero
+  discordant pairs. Narrow source questions now bypass the model entirely and
+  are answered by trusted code with a receipt.
+- **The librarian failed its gate twice** and ships as an observer with no path
+  into retrieval. Better JSON was not better retrieval: format validity rose
+  from 11/16 to 15/16 between two models while task accuracy stayed at 9/16.
+- **A scorer correction lowered our own numbers** from 87.5% to 56.25%
+  accuracy, because malformed abstentions were being credited as correct.
+
+The probes that produced these numbers are published, so the findings can be
+checked rather than taken on trust:
+[coherence](handoffs/researchc_open_threads_tools/coherence_probe.py) ·
+[council](handoffs/researchc_open_threads_tools/council_probe.py) ·
+[rate–distortion](handoffs/researchc_open_threads_tools/rate_distortion_probe.py) ·
+[the eight proposals](handoffs/researchc_open_threads_tools/esoteric_math_proposals.md) ·
+[the adversarial ruling](handoffs/researchc_open_threads_tools/esoteric_math_verdict.md),
+which includes the two points on which the critic was itself wrong.
+
+Full record: **[Research C goals and lab notebook](docs/RESEARCHC_GOALS.md)** ·
+**[Theory ledger](docs/RESEARCHC_THEORY_LEDGER.md)** ·
+**[Librarian evidence](handoffs/researchc_librarian_2026-07-31/)**
 
 ## Why local, and what it is for
 
