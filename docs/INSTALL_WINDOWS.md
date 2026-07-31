@@ -53,6 +53,27 @@ ordered pixel vectors and break the inverse.
 - A standard Python 3 installation for the published machinesoul decompiler.
 - A microphone only if you later choose `audio mode`; researchC begins in
   text mode.
+- A GPU is **optional**. The bundled runtime carries a Vulkan backend, so
+  a current NVIDIA, AMD or Intel driver can run the director on the
+  graphics card instead of the processor.
+
+### Optional: run the director on your GPU
+
+Nothing is offloaded unless you ask. Set the number of layers to move:
+
+```powershell
+setx TORMENT_NEXUS_LLAMA_GPU_LAYERS 99
+```
+
+`99` means "all of them" and suits the 4B director on a card with about
+8 GB of video memory. Larger models need a smaller number: only the layers
+that fit belong on the card, and the rest stay on the processor. If the
+model fails to load, lower the number.
+
+Leaving the variable unset keeps the processor-only behaviour. On a machine
+with no Vulkan driver the backend simply does not load and the install runs
+on the processor exactly as before; nothing needs to be uninstalled or
+reconfigured.
 
 The decoded package contains its own private Python runtime for TORMENT_NEXUS.
 The separately installed Python is only the bootstrap needed to run

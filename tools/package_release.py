@@ -143,11 +143,24 @@ MODEL_ARTIFACTS = (
 # ship dozens of unrelated benchmark/test programs, and their compiled
 # ``__FILE__`` strings exposed the maintainer's checkout path.
 #
-# The closure was verified with dumpbin /DEPENDENTS.  It is valid for the
-# release build only while GGML_BACKEND_DL is OFF and the optional CUDA,
-# Vulkan, HIP, SYCL, RPC, and BLAS backends are OFF.
+# The build now sets GGML_BACKEND_DL=ON and GGML_VULKAN=ON, which changes what
+# "the closure" means: backends are no longer linked in, they are LoadLibrary'd
+# at run time.  ggml-cpu.dll and ggml-vulkan.dll therefore do NOT appear in
+# llama-server.exe's import table, and a list derived from imports alone would
+# silently omit both -- shipping a server with no backend at all.  They are
+# named here explicitly for that reason.
+#
+# The import closure was reverified by reading the PE import directory rather
+# than with dumpbin, which produced no output without its toolchain
+# environment.  Seven files come from the closure; the two backends are added.
+#
+# ggml-vulkan.dll imports vulkan-1.dll, which is NOT shipped -- it is installed
+# by the GPU driver.  That is deliberate and is why dynamic loading matters: on
+# a machine with no Vulkan loader the backend's load fails, ggml skips it, and
+# the CPU backend still serves.  A statically linked Vulkan build would instead
+# refuse to start for every recipient without a GPU.
 LLAMA_RUNTIME_DEST = "llama.cpp/build/bin/Release"
-LLAMA_RUNTIME_FILENAMES = (
+LLAMA_RUNTIME_IMPORT_CLOSURE = (
     "llama-server.exe",
     "llama-server-impl.dll",
     "llama-common.dll",
@@ -155,7 +168,14 @@ LLAMA_RUNTIME_FILENAMES = (
     "llama.dll",
     "ggml.dll",
     "ggml-base.dll",
+)
+# Loaded by name at run time, so absent from the import closure above.
+LLAMA_RUNTIME_DYNAMIC_BACKENDS = (
     "ggml-cpu.dll",
+    "ggml-vulkan.dll",
+)
+LLAMA_RUNTIME_FILENAMES = (
+    LLAMA_RUNTIME_IMPORT_CLOSURE + LLAMA_RUNTIME_DYNAMIC_BACKENDS
 )
 LLAMA_RUNTIME_RELEASE_FILES = tuple(
     f"{LLAMA_RUNTIME_DEST}/{name}" for name in LLAMA_RUNTIME_FILENAMES

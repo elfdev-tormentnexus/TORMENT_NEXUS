@@ -229,6 +229,7 @@ decompilation, the reconstructed installation contains:
 | --- | --- |
 | 64-bit Windows | The ready-to-run installation targets Windows x64. |
 | At least 16 GB RAM | Required for the bundled director and on-demand coder; more leaves room for voice and other applications. |
+| A Vulkan-capable GPU (optional) | Not required. If present, `TORMENT_NEXUS_LLAMA_GPU_LAYERS` moves layers onto it, which is faster and frees the equivalent system RAM. Unset by default, so the install runs on CPU unless you ask otherwise. |
 | About 55 GB free during installation | Downloaded capsules, decoded vector segments, and the directly reconstructed installation temporarily coexist. |
 | Internet for the initial download | About 12.4 GB for the main capsule set, plus about 8.8 GB if you also take the 14B companion. Ordinary local conversation and the offline library work without it afterward. |
 | Python 3 | Required only to run the published machinesoul decompiler. |

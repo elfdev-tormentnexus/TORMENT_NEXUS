@@ -23,6 +23,39 @@ package_release = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(package_release)
 
 
+class LlamaRuntimeFileSetTests(unittest.TestCase):
+    """Backends load by name, so an import scan cannot discover them."""
+
+    def test_both_dynamic_backends_are_shipped(self):
+        # Deriving this list from llama-server.exe's imports alone would omit
+        # both and ship a server with no backend at all.
+        for name in ("ggml-cpu.dll", "ggml-vulkan.dll"):
+            with self.subTest(name=name):
+                self.assertIn(name, package_release.LLAMA_RUNTIME_FILENAMES)
+
+    def test_the_backends_are_not_claimed_to_be_imports(self):
+        for name in package_release.LLAMA_RUNTIME_DYNAMIC_BACKENDS:
+            with self.subTest(name=name):
+                self.assertNotIn(
+                    name, package_release.LLAMA_RUNTIME_IMPORT_CLOSURE
+                )
+
+    def test_every_runtime_file_is_an_explicit_release_input(self):
+        for name in package_release.LLAMA_RUNTIME_FILENAMES:
+            with self.subTest(name=name):
+                self.assertIn(
+                    f"{package_release.LLAMA_RUNTIME_DEST}/{name}",
+                    package_release.INCLUDE_FILES,
+                )
+
+    def test_the_vulkan_loader_is_never_shipped(self):
+        # vulkan-1.dll belongs to the GPU driver. Shipping one would shadow the
+        # recipient's own loader, and it is not ours to redistribute.
+        lowered = [n.lower() for n in package_release.LLAMA_RUNTIME_FILENAMES]
+
+        self.assertNotIn("vulkan-1.dll", lowered)
+
+
 class ShippedSongCacheTests(unittest.TestCase):
     """A shipped performance nothing asks for is dead weight in the download."""
 
