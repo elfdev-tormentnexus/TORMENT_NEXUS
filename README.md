@@ -157,6 +157,15 @@ Full record: **[Research C goals and lab notebook](docs/RESEARCHC_GOALS.md)** ·
 **[Theory ledger](docs/RESEARCHC_THEORY_LEDGER.md)** ·
 **[Librarian evidence](handoffs/researchc_librarian_2026-07-31/)**
 
+**Current experiments — direction, not result.** researchC's most useful
+accident was that a forced binary *manufactures* the appearance of confidence.
+The question it leaves is what a system looks like when `unknown` is a
+first-class value rather than a failure — three-valued logic with carried
+provenance, whose composition laws are forced rather than assigned. It appears
+to be implemented seven times across this tree already, under seven different
+names. Nothing there is built or measured yet:
+**[researchD esoteric](docs/RESEARCHD_ESOTERIC.md)**.
+
 ## Why local, and what it is for
 
 Two properties get bundled together as "runs offline." They are separate, and
