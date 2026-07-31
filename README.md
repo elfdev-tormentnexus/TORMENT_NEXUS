@@ -121,6 +121,16 @@ actually types. Encoding these as retrieval rather than a weight update keeps
 them inspectable and dated — every card carries a review date and an expiry, and
 all 18 are SHA-256 bound in a manifest.
 
+The larger version of that idea is that **you can give it what it still does not
+know.** The library ingests your own document collections locally, so a 4B model
+answers from material it was never trained on. The development instance holds
+several hundred megabytes this way — Linux kernel documentation, MITRE ATT&CK,
+SigmaHQ and YARA rules — none of which ships here, because it is private material
+rather than product. What ships is the machinery: `library add`, `library search`,
+and a semantic layer you switch on deliberately. Lexical indexing covers the whole
+shelf immediately; embedding is off until you enable it, and `library status`
+reports coverage and stalls rather than implying the shelf is fully indexed.
+
 The first two rows are one story. researchB needed a patch applied by hand
 because its self-read capability arrived after the cut. researchC folds it in
 and **rebuilt it**, because the grounding audit found the model-driven version
