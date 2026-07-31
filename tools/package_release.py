@@ -25,8 +25,10 @@ so a new stray folder cannot silently end up in a package sent to someone
 else.
 
     python tools/package_release.py                 build into dist/
-    python tools/package_release.py --archive       ... and zip it
-    python tools/package_release.py --split         cut the ZIP for GitHub
+    python tools/package_release.py --archive       LEGACY ZIP path; not
+                                                    used by machinesoul
+                                                    releases
+    python tools/package_release.py --split         LEGACY; splits that ZIP
     python tools/package_release.py --verify-only   re-check an existing build
     python tools/package_release.py --skip-download reuse cached wheels/python
     python tools/package_release.py --llama-runtime-dir PATH
@@ -1910,7 +1912,7 @@ cd /d "%~dp0"
 
 set "PY=%~dp0python\python.exe"
 if not exist "%PY%" (
-    echo   ERROR: bundled Python missing. Extract the whole archive first.
+    echo   ERROR: bundled Python missing. This folder is incomplete - run the decompiler again.
     pause
     exit /b 1
 )
@@ -2125,7 +2127,7 @@ WHAT THIS IS
 
 WHAT YOU NEED
     - 64-bit Windows
-    - About 13 GB for this extracted folder
+    - About 13 GB for this installed folder
     - At least 16 GB of RAM for the Q8 director and 7B coder
     - A microphone only if you want to speak; typed input works without one
 
