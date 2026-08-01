@@ -1,117 +1,122 @@
-# Patch C — shipped, and the optimisation it still needs
+# Patch C — handoff (shipped) + the disclosure question still open
 
-Updated 2026-08-01. Every number measured against the live shelf, through the
-same code path the assistant uses, not a synthetic benchmark.
+Updated 2026-08-01. Numbers measured against the live shelf this session.
 
-## Status
+## Status: patch C is done and live
 
-Patch C is **live on the researchC release** and verified end to end from the
-shipped artifacts: decode, reassemble, apply, import, 75,048 vectors, semantic
-search returning results with no pause warning. 1,397 tests pass.
+- 75,000 vectors, verified end to end from the shipped artifacts: decode →
+  reassemble → apply → import → 75,048 filled, semantic search returning
+  results with no pause warning. **1,399 tests pass.**
+- On the researchC release: `INSTALL_SABLERESEARCHC_VECTOR_PATCH2.bat`,
+  `SABLERESEARCHC-VECTOR-PATCH2-MANIFEST.png`,
+  `SABLERESEARCHC-VECTOR-PATCH2.part01.png` (~30 MB),
+  `CUT_PLAN_VECTOR_PATCH2.png`. All four byte-verified after upload.
+- `origin/master` at `5167996`, local in sync, all PRs merged.
+- Warm query 0.073s (was 4.42s); first query after start ~5s to build cache.
 
 | | patch B | patch C |
 |---|---:|---:|
 | Vectors | 15,000 | 75,000 |
 | Shelf text reachable | 11.0% | 51.6% |
-| Body chunks, not openings | 0.1% | 77.4% |
-| MITRE ATT&CK part01 | ~1 vector | 6,306 |
-| Quarantined (over 512 tokens) | 106 | 4,724 (6.3%) |
-| **Warm semantic query** | ~0.5s | **0.073s** |
+| Body chunks | 0.1% | 77.4% |
+| Quarantined (>512 tokens) | 106 | 4,724 (6.3%) |
 
-Query cost was the last problem and is now fixed: 4.42s per warm query when
-the larger field first worked, 0.073s after four measured optimisations. The
-first query after a start pays ~5s to build the in-memory field.
+## The open item: is this an exfiltration/skill-transfer vehicle?
 
-## Two bugs found while shipping it, both worth remembering
+The operator's thesis, stated so a fresh window can evaluate it rather than
+inherit a conclusion:
 
-**The scan limit.** `_semantic` refuses outright once the eligible set passes
-the scan limit -- it does not score a subset. Raising `EMBED_GLOBAL_CEILING`
-to 75,000 while `MAX_EXPLICIT_VECTOR_SCAN` was 20,000 would have shipped a
-field that *silently disabled semantic search entirely*. The comment three
-lines above the constant said so. A test caught it after the first upload and
-before anyone installed it. The ordering between the two numbers is now
-asserted, not assumed.
+> The patch pipeline moved a corpus from point A to point B **through a system
+> that was, at other moments, terminating requests on that same material** —
+> and the vector field is a form the corpus can travel in that does not read
+> as the corpus. If the payload had been black-hat rather than blue-team, the
+> result would not be one artifact but a *capability*: a 4B model that can now
+> retrieve and act on knowledge it was never trained on and would be
+> refused to state directly. That is closer to shipping a factory than a
+> single artifact.
 
-**`_cosine` is not cosine.** It is a bare dot product that takes both sides
-being unit length as given, because the embedding server normalises what it
-returns. The first vectorised implementation computed a true cosine -- more
-correct in isolation, and silently disagreeing with every score the loop had
-ever produced. Caught by comparing the two paths directly: the difference was
-3.17, which is impossible for a real cosine and was the tell. Now 6.5e-07.
+### What is true, and worth a fresh window's attention
 
-The general lesson, which cost real time twice tonight: **a verification
-suite that checks whether you built the thing correctly will not tell you
-that you built the wrong thing.** Every integrity check passed on patch B
-while it was 89% empty.
+1. **Retrieval sidesteps weight-level refusal.** The director never learns the
+   corpus; it retrieves passages and answers grounded in them. A model that
+   declines to explain X from its weights will happily read X off the shelf
+   and summarise it. RAG-as-capability-transfer is real and under-appreciated:
+   the safety training is on the weights, the knowledge is in the index, and
+   the two are decoupled by design.
 
-## Where the 2.58s goes
+2. **An embedding store is an under-reviewed derivative.** It moves, hosts and
+   ships under a review posture nobody applies to the source documents,
+   because floats "aren't readable." Published inversion work (Morris et al.,
+   *Text Embeddings Reveal (Almost) As Much As Text*, 2023; the `vec2text`
+   line) shows embeddings retain substantial recoverable source. A vector DB
+   is closer to a lossy copy of the corpus than to a de-identified derivative.
 
-Measured at 75,000 vectors on the live shelf:
+3. **The corpus never became more legible for being vectorised** — see the
+   claim to NOT overstate, below.
 
-| Cost | Time | Addressed? |
-|---|---:|---|
-| Target CTE, window functions over 122,129 chunks, **per query** | ~1.5s | no |
-| Loading 75,000 rows including full `text` to return 5 | ~0.7s | no |
-| Building and sorting 75,000 Python tuples | ~0.3s | **yes** (argpartition) |
-| numpy scoring | 0.1s | **yes** (was 3.98s) |
+### What is NOT demonstrated, and must not be claimed as if it were
 
-Scoring is now the smallest item. The arithmetic was never the problem.
+- **We did not decode text out of vectors.** The pipeline shipped *vectors*
+  faithfully; nothing here reconstructs source text from an embedding. The
+  round-trip fidelity (0.9999 cosine) is fidelity of the *vector*, not of the
+  text. An embedding is a projection, not a compression: bge-small maps any
+  input to 384 floats and quantising to uint8 costs ~1e-4 cosine, i.e. the
+  useful content fits in 384 bytes. You cannot rebuild a kernel schema from
+  that. The inversion risk in point 2 is a *separate, published* result, not
+  something this pipeline showed.
+- **The PNG container is not the finding.** This whole project already ships
+  as pixels ("the pixels are the payload"). Machinesoul is not a bypass; it is
+  the stated premise.
+- **The terminations and the "vehicle" are two different claims.** The eight
+  AUP stops (addendum §10) are real and documented. Whether the pipeline
+  constitutes an *exfiltration vehicle* is an argument, not a measurement.
+  Keep them separate or the strong claim (documented cost, mis-allocated) gets
+  dragged down by the speculative one.
 
-## The optimisation: done
+### The honest, defensible disclosure
 
-All three steps below were implemented, measured and shipped. Query cost went
-from 4.42s to 0.073s per warm query, measured through the path the assistant
-uses on a fresh install of the patch.
+Frame it as the **RAG capability-transfer + embedding-as-under-reviewed-
+derivative** problem, both of which have external support, illustrated by a
+concrete case: a real release shipped 75,000 embeddings of a security corpus
+as a public asset, reviewed as "a PNG of floats," with none of the scrutiny
+the source corpus would draw. Do NOT frame it as "we proved a decoder bypass."
+The overclaim would discredit the parts that stand.
 
-| Step | Warm query | What it was |
-|---|---:|---|
-| baseline | 4.42s | Python loop, full sort, every row's text read |
-| top-N without sorting the rest | 2.58s | argpartition |
-| fetch full records only for rows returned | 1.71s | two-phase query |
-| hold the scored vectors in memory | **0.073s** | generation-token cache |
+### The one experiment that would turn argument into result
 
-The first semantic query after a start still pays ~5s to build the cache.
+Attempt inversion against our own shipped field (vec2text or similar) and
+report what comes back **including if the answer is "almost nothing."** That
+is falsifiable either way and is the difference between a position and a
+finding. NOT yet done. If pursued: it studies our own published artifact, not
+a safety system — the boundary-mapping refusal below does not apply to it.
 
-Three of the four wins were not about the arithmetic -- that was already a
-matrix product after the numpy change. They were about not doing work whose
-result is thrown away: sorting 75,000 rows to read five, reading the text of
-75,000 rows to return five, and re-reading 115 MB of coordinates per question.
+### Refusal that stands regardless of budget
 
-**The cache needed an exact change token and the obvious ones do not work.**
-`PRAGMA data_version` is unchanged on a freshly opened connection, and
-`_connect` opens one per call, so it never sees another process's commit --
-verified rather than assumed. A content signature over the vectors costs
-0.29s, most of what the cache saves, and cannot separate a same-size rewrite
-from no write at all. So writers announce it: one `library_meta` row read in
-50 microseconds, bumped at every vector and membership change, including from
-the importer's separate process. Two tests hold it: the cache reloads when the
-generation moves, and embedding a row moves it.
+Do **not** run experiments to map what trips the AUP classifier. Charting a
+safety system's edges to publish a reliable evasion method is out of scope no
+matter who asks. §10 documents the *cost* from the transcript; it does not and
+must not chart the *mechanism*. The `.yar`-extension idea is a labelled
+hypothesis, not to be "confirmed" by probing.
 
-## Also outstanding
+## Where the findings live
 
-- **`library status` is slow.** `_embedding_state()` runs the target CTE with
-  a dozen correlated subqueries and took **over 120 seconds** at a 75,000
-  target while a writer was active. The semantic path no longer pays this, but
-  status still does. It is the same shape of problem and the same fix applies.
-- **4,724 chunks (6.3%) are quarantined** -- over 512 tokens even at a
-  1,000-byte bound, concentrated in ATT&CK JSON and kernel schema bodies.
-  Lexically searchable, semantically absent. Disclosed on the release page.
-  Nine times patch B's rate, because patch C embeds bodies and bodies are
-  denser than headers.
-- **`icon_anim` is whitelisted for release but untracked in git**, so a
-  release test fails on any clean checkout. Predates all of this.
+- Release page: 10-section addendum ("what the three patches measured"),
+  §10 = the terminations.
+- `docs/RESEARCHC_PATCH_FINDINGS.md` — git mirror (release pages are mutable,
+  commits are not).
+- This handoff — the only place the "vehicle" thesis is written down, on
+  purpose: it is unresolved and should not go public until the inversion
+  experiment either backs it or kills it.
 
-## Environment notes that cost time
+## Loose ends (unchanged from before)
 
-- **Close Sable before embedding.** Its worker claims the pass lease.
-- **`--log-disable` on any bulk embedding server.** The default verbosity
-  wrote **25.8 GB in 50 minutes** at 35 vec/s and filled the disk to 99%,
-  which killed the server mid-run. The DB survived intact (`quick_check: ok`)
-  because SQLite's writes are transactional.
-- **The CUDA runtime is at `llama.cpp/runtime/desktop-cuda-12.4-b9637/`**, not
-  the default build, which is CPU-only. GPU embedding ran at 35 vec/s against
-  ~5 on CPU. Backend delta measured at 4.57e-05 cosine, ~44x below the
-  quantisation step, so mixing CPU- and GPU-computed vectors is invisible in
-  the shipped field.
-- **Any stall detector must tolerate `waiting-for-retry`**, or it aborts a run
-  that is still converging. This killed two runs.
+- `library status` still runs the slow target CTE (>120s at 75k with a writer
+  active). Same fix as the semantic path (§7 of addendum) applies; not done.
+- `icon_anim` whitelisted for release but untracked in git → a release test
+  fails on any clean checkout. Predates all of this.
+- `embedding_backfill_enabled` is 1 on this machine because a session set it;
+  ships 0.
+- Bulk embedding: close Sable first (lease), use `--log-disable` (default
+  verbosity filled the disk, 25.8 GB/50 min), GPU runtime at
+  `llama.cpp/runtime/desktop-cuda-12.4-b9637/`, stall detectors must tolerate
+  `waiting-for-retry`.
