@@ -182,8 +182,21 @@ def _retry_delay(attempts):
 # the kernel documentation alone would fill the ceiling before a single user
 # manual was reached. Built-ins are exempt -- the curated shelf is small,
 # manifest-matched, and the material most likely to be asked for.
-EMBED_SOURCE_CAP = 120
-EMBED_GLOBAL_CEILING = 15_000
+EMBED_GLOBAL_CEILING = 75_000
+
+# A flat 120 was a fairness mechanism, and it was the wrong one twice over.
+# Fairness now lives in the target order below, which advances every source by
+# the same *fraction* of itself, so a corpus cannot out-vote another simply by
+# being stored in more files. What remains for a cap to do is bound the
+# pathological case that proportionality does not: one enormous import taking
+# a share of the field proportional to its size and dwarfing everything else.
+#
+# So the cap scales with the budget instead of being a constant, and bounds
+# any single source to a tenth of the field. Measured on the shipped shelf,
+# 46,941 chunks -- 38.4% of it, and nearly all of MITRE ATT&CK -- sat above
+# round 120 and were excluded by the old constant no matter how the order was
+# computed. That was a second, independent cause of the same blindness.
+EMBED_SOURCE_CAP = max(120, EMBED_GLOBAL_CEILING // 10)
 
 # Every semantic path uses this exact target relation.  The old backfill was
 # ordered by chunk id, so whichever source happened to be indexed first could
@@ -236,7 +249,8 @@ def _refresh_embed_target_order(connection):
                 ROW_NUMBER() OVER (
                     PARTITION BY c.source_id
                     ORDER BY c.ordinal, c.content_hash, c.id
-                ) AS source_round
+                ) AS source_round,
+                COUNT(*) OVER (PARTITION BY c.source_id) AS source_total
             FROM chunks c JOIN sources s ON s.id=c.source_id
         )
         SELECT
@@ -245,7 +259,21 @@ def _refresh_embed_target_order(connection):
             ROW_NUMBER() OVER (
                 ORDER BY
                     CASE WHEN scope='built-in' THEN 0 ELSE 1 END,
-                    CASE WHEN scope='built-in' THEN 0 ELSE source_round END,
+                    -- Tier 1: every source's opening chunk, exactly one each.
+                    -- A document's first chunk is the best routing signal it
+                    -- has, so it is kept on purpose -- but bounded, instead of
+                    -- consuming the whole budget the way it used to.
+                    CASE WHEN source_round = 1 THEN 0 ELSE 1 END,
+                    -- Tier 2: proportional depth. Ordering by the fraction of
+                    -- a source consumed, rather than by its round number,
+                    -- means every source has contributed the same share of
+                    -- itself at any cut point. The old key advanced all
+                    -- sources in lockstep, so with more sources than budget
+                    -- round one never finished and the field became nothing
+                    -- but openings: 14,979 of 15,000 shipped chunks were
+                    -- ordinal 0, and 87% of the shelf's text had no vector.
+                    CASE WHEN source_round = 1 THEN 0.0
+                         ELSE CAST(source_round AS REAL) / source_total END,
                     CASE WHEN scope='built-in' THEN path ELSE sha256 END,
                     path, ordinal, content_hash, id
             ) AS fair_rank

@@ -41,12 +41,12 @@ import machinesoul  # noqa: E402
 import machinesoul_release as release  # noqa: E402
 
 
-PATCH_ID = "researchC-vector-field.1"
+PATCH_ID = "researchC-vector-field.2"
 BASE_COMMIT = "a774140bdccce23aa39c0e562bb0685e7fab435e"
 BASE_PLAN_SHA256 = (
     "b9e6a4c8f8156bf74dac0cff4ac0e9c930a390f697901ed09fac9f6a7c0c0c2c"
 )
-PREFIX = "SABLERESEARCHC-VECTOR-PATCH"
+PREFIX = "SABLERESEARCHC-VECTOR-PATCH2"
 
 FIELD_DIR = "assistant/knowledge/vector_field"
 
@@ -60,15 +60,15 @@ PINNED_TOOLS = (
 WORK = ROOT.parent / "SABLERESEARCHC"
 STAGE_FIELD = WORK / "stage-vector-field"
 BASE_MANIFEST = WORK / "MANIFEST_WINDOWS.json"
-PATCH_STAGE = WORK / "VECTOR_PATCH_STAGE"
-OUT = WORK / "release-vector"
-PLAN = WORK / "CUT_PLAN_VECTOR_PATCH.json"
-REVIEW = WORK / "CUT_PLAN_VECTOR_PATCH.md"
-CUTMAP = WORK / "CUT_PLAN_VECTOR_PATCH.png"
-MANIFEST = WORK / "MANIFEST_VECTOR_PATCH.json"
+PATCH_STAGE = WORK / "VECTOR_PATCH2_STAGE"
+OUT = WORK / "release-vector2"
+PLAN = WORK / "CUT_PLAN_VECTOR_PATCH2.json"
+REVIEW = WORK / "CUT_PLAN_VECTOR_PATCH2.md"
+CUTMAP = WORK / "CUT_PLAN_VECTOR_PATCH2.png"
+MANIFEST = WORK / "MANIFEST_VECTOR_PATCH2.json"
 MANIFEST_CAPSULE = OUT / f"{PREFIX}-MANIFEST.png"
-INSTALLER = OUT / "INSTALL_SABLERESEARCHC_VECTOR_PATCH.bat"
-APPLIER_NAME = "APPLY_researchC_vector_patch.py"
+INSTALLER = OUT / "INSTALL_SABLERESEARCHC_VECTOR_PATCH2.bat"
+APPLIER_NAME = "APPLY_researchC_vector_patch2.py"
 
 # (installed path, action, source file)
 PATCH_FILES = (
@@ -95,40 +95,86 @@ PATCH_FILES = (
 )
 
 
-PATCH_README = """# researchC vector-field patch
+PATCH_README = """# researchC vector-field patch (patch C)
 
-This patch installs the semantic layer for the offline library: 15,000
-embeddings, already computed, plus the text policy they were built under.
+75,000 precomputed embeddings over the offline library, plus the selection
+plan and text policy they were built under. It supersedes the earlier
+vector-field patch, and it should be installed on a base researchC install
+rather than on top of that one.
+
+## What was wrong with the first attempt
+
+The first vector patch shipped 15,000 embeddings chosen by a flat per-source
+round robin under a global ceiling. The shelf has 17,320 sources and the
+ceiling was 15,000, so **round one never completed**: every source got its
+opening chunk and nothing got a second. 14,979 of the 15,000 vectors were a
+document's first chunk, and 87% of the shelf's text had no vector at all.
+A second mechanism did the same damage independently -- a flat cap of 120
+chunks per source excluded 46,941 chunks, nearly all of MITRE ATT&CK, no
+matter how the order was computed.
+
+Neither failure was visible. `library status` reported complete, 100%
+coverage, because it measures whether the target was filled and never
+whether the target was worth filling.
+
+## What this one does instead
+
+Selection is planned against the whole corpus before any compute is spent,
+the way the release cutter plans capsules. Every source still contributes its
+opening chunk, but bounded at one; everything after that is ordered by
+*proportional depth*, so each source contributes the same fraction of itself
+at any cut point rather than the same absolute count. The per-source cap
+scales with the budget instead of being a constant.
+
+Measured against the shipped shelf:
+
+| | first attempt | this patch |
+|---|---:|---:|
+| Vectors | 15,000 | 75,000 |
+| Shelf text reachable | 11.0% | **51.6%** |
+| Body chunks, not openings | 0.1% | **77.4%** |
+| MITRE ATT&CK part01 | ~1 vector | **6,306** |
+
+## What it still does not cover
+
+About half the shelf's text has no vector, deliberately: the budget is
+bounded because embedding all 122,129 chunks would produce roughly 190 MB of
+vectors. Lexical search continues to cover the whole shelf, including
+everything the semantic layer does not reach.
+
+**4,724 chunks were quarantined** -- 6.3% of the target. These exceed the
+embedder's 512-token window even after truncation, and they are concentrated
+in the densest material: ATT&CK JSON bodies and kernel schema definitions.
+They are lexically searchable and semantically absent. Each one that
+quarantined pulled a replacement in from below the ceiling, so the field is
+still exactly 75,000 vectors.
 
 ## Why it replaces library.py
 
-A vector is only comparable to another if the same text reached the same
-model. The base cut bounded embed text at 1,600 UTF-8 bytes and cut wherever
-that offset landed. Two things were wrong with that on the shipped shelf:
+Two reasons, and either alone would be sufficient.
 
-- 15.5% of the embed target exceeded the model's 512-token window, because
-  the shelf is mostly YAML schemas, detection rules and kernel docs rather
-  than prose. Those requests failed, and a failed row failed its whole batch.
-- The cut landed mid-word, so a truncated chunk ended in a fragment like
-  `configura`. The tokenizer turns that into subword pieces that mean
-  nothing, and mean pooling averages them into the vector.
+The text policy: a vector only means something beside the exact bound that
+produced it. The base cut bounded embed text at 1,600 UTF-8 bytes and cut
+wherever that offset fell, which left a mid-word fragment in every truncated
+chunk -- and a fragment like `configura` becomes subword tokens that mean
+nothing, which mean pooling then averages into the vector. This ships a
+1,000-byte bound that backs off to the last whitespace.
 
-So the bound is 1,000 bytes and the cut backs off to the last whitespace.
-That is a different text policy, which makes it a different vector identity,
-which is why the code and the field ship together and neither works alone.
+The ceiling: the field is 75,000 vectors and the base cut's ceiling is
+15,000. Importing this field into an installation that still had the old
+ceiling would work, and then the next background pass would retire every
+vector outside that smaller target -- silently deleting 60,000 of them.
 
-## What it installs
-
-- `assistant/knowledge/library.py` (replaced): the tightened policy.
-- `assistant/knowledge/vector_field/`: the field, its key sidecar, and the
-  importer.
+The importer recomputes the vector identity from the installed library.py and
+refuses if it disagrees, so the field cannot be applied to an install that
+did not take the code change.
 
 ## Order
 
 Install the offline library patch first and run `library rebuild`, so the
 chunks exist. Then this patch. The installer runs the import for you; it
-keys on content hashes, fills only empty vectors, and refuses outright if
-the installed policy does not match the one the field was built under.
+keys on content hashes, fills only empty vectors, never overwrites one, and
+is safe to run twice.
 """
 
 
@@ -136,18 +182,18 @@ INSTALLER_TEMPLATE = r"""@echo off
 setlocal EnableExtensions
 set "HERE=%~dp0"
 set "TARGET=%~1"
-set "WORK=%TEMP%\SABLERESEARCHC_vector_patch_%RANDOM%_%RANDOM%"
+set "WORK=%TEMP%\SABLERESEARCHC_vector_patch2_%RANDOM%_%RANDOM%"
 set "DECODER=%HERE%machinesoul.py"
 set "REASSEMBLER_IMAGE=%HERE%SABLERESEARCHC-REASSEMBLER.png"
-set "MANIFEST_IMAGE=%HERE%SABLERESEARCHC-VECTOR-PATCH-MANIFEST.png"
-set "PATCH_IMAGE=%HERE%SABLERESEARCHC-VECTOR-PATCH.part01.png"
+set "MANIFEST_IMAGE=%HERE%SABLERESEARCHC-VECTOR-PATCH2-MANIFEST.png"
+set "PATCH_IMAGE=%HERE%SABLERESEARCHC-VECTOR-PATCH2.part01.png"
 
 echo.
 echo   SABLE researchC - vector field patch
 echo   machinesoul decompile, exact reassembly, guarded install
 echo.
-echo   This installs 15,000 precomputed embeddings and the text policy
-echo   they were built under. Semantic search works without a local pass.
+echo   This installs 75,000 precomputed embeddings and the selection
+echo   plan they were chosen by. No local embedding pass is needed.
 echo.
 
 if not defined TARGET if exist "%HERE%TORMENT_NEXUS-researchC\RELEASE_MANIFEST.json" set "TARGET=%HERE%TORMENT_NEXUS-researchC"
@@ -176,7 +222,7 @@ copy /y "%DECODER%" "%WORK%\machinesoul.py" >nul
 if errorlevel 1 goto :failed
 
 echo   [3/6] Decompiling the patch payload...
-python "%DECODER%" extract "%PATCH_IMAGE%" --out "%WORK%\segments\SABLERESEARCHC-VECTOR-PATCH.part01.msv"
+python "%DECODER%" extract "%PATCH_IMAGE%" --out "%WORK%\segments\SABLERESEARCHC-VECTOR-PATCH2.part01.msv"
 if errorlevel 1 goto :failed
 
 echo   [4/6] Reassembling the payload exactly...
@@ -184,7 +230,7 @@ python "%WORK%\machinesoul_release.py" reassemble "%WORK%\manifest.json" "%WORK%
 if errorlevel 1 goto :failed
 
 echo   [5/6] Checking the installed release and applying...
-python "%WORK%\payload\APPLY_researchC_vector_patch.py" --target "%TARGET%" --payload-root "%WORK%\payload"
+python "%WORK%\payload\APPLY_researchC_vector_patch2.py" --target "%TARGET%" --payload-root "%WORK%\payload"
 if errorlevel 1 goto :failed
 
 echo   [6/6] Importing the vector field into the library...
@@ -403,7 +449,7 @@ def build() -> None:
             "bytes": path.stat().st_size,
             "sha256": sha256_file(path),
         })
-    write_json(WORK / "VECTOR_PATCH_BUILD_REPORT.json", report)
+    write_json(WORK / "VECTOR_PATCH2_BUILD_REPORT.json", report)
 
     print(f"patch source: {head}")
     print(f"plan sha256: {plan_sha}")
