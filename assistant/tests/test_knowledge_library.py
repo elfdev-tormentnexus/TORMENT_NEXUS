@@ -974,7 +974,12 @@ Keep the refrigerator door closed during a blackout.
                 "model_identity",
                 return_value="current",
             ),
-            mock.patch.object(library, "MAX_EXPLICIT_VECTOR_SCAN", 1),
+            # The cap now depends on whether the scan can be vectorised, so
+            # the effective limit is what has to be forced down here. The
+            # behaviour under test is unchanged: past the cap `_semantic`
+            # refuses outright rather than scoring the first N rows and
+            # presenting a partial sweep as a complete one.
+            mock.patch.object(library, "_vector_scan_limit", lambda: 1),
         ):
             self.assertEqual(self.library._semantic([1.0, 0.0], 5), [])
             self.assertIn(

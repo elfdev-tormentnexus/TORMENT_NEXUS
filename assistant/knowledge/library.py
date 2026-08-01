@@ -90,7 +90,32 @@ MAX_IMPORT_FILES = 1_000
 MAX_IMPORT_TOTAL_BYTES = 512 * 1024 * 1024
 MAX_CHUNK_CHARS = 1_400
 CHUNK_OVERLAP_CHARS = 160
+# Semantic retrieval is an exact scan, so the ceiling on how many vectors can
+# be held is really a ceiling on how fast one query can score them. Scored in
+# a Python loop that is 20,000: measured on the shipped shelf, 75,000 vectors
+# cost 3.98s per query and 20,000 cost 1.06s, and a multi-second pause on
+# every turn is not a retrieval feature.
+#
+# The same scan as one matrix product costs 0.0031s at 75,000 -- about 1,300
+# times faster, because the work was never the arithmetic, it was interpreting
+# 28.8 million multiplications one at a time. numpy ships in the release, so
+# the limit is raised when it is importable and left alone when it is not. An
+# install without it keeps exactly the old behaviour rather than silently
+# scoring a subset.
 MAX_EXPLICIT_VECTOR_SCAN = 20_000
+MAX_VECTORISED_VECTOR_SCAN = 200_000
+
+try:  # pragma: no cover - presence depends on the installation
+    import numpy as _numpy
+except Exception:
+    _numpy = None
+
+
+def _vector_scan_limit():
+    """How many current vectors a single query may score exactly."""
+    if _numpy is None:
+        return MAX_EXPLICIT_VECTOR_SCAN
+    return MAX_VECTORISED_VECTOR_SCAN
 EMBED_BATCH_SIZE = 24
 
 # The embedding server truncates nothing. A chunk longer than the model's
@@ -171,11 +196,21 @@ def _retry_delay(attempts):
     delay = EMBED_RETRY_BASE_SECONDS * (2 ** max(0, int(attempts) - 1))
     return min(delay, EMBED_RETRY_MAX_SECONDS)
 
-# Semantic retrieval is an exact cosine scan, and `_semantic` refuses rather
-# than half-covers once the eligible set passes MAX_EXPLICIT_VECTOR_SCAN
-# (20,000). Embedding the whole 122,129-chunk shelf would therefore *disable*
-# semantic search, not improve it, after hours of work and ~190 MB of vectors
-# nothing would ever read. The backfill is scoped instead of exhaustive.
+# Semantic retrieval is an exact scan, and `_semantic` refuses rather than
+# half-covers once the eligible set passes the scan limit. A backfill ceiling
+# above that limit does not degrade retrieval, it switches it off, so the two
+# numbers are bound together and a test asserts the ordering.
+#
+# The limit was 20,000 because the scan was a Python loop. It is now 200,000
+# where the scan can be vectorised, which is what makes this ceiling possible
+# at all -- an earlier attempt raised the ceiling to 75,000 while the limit
+# was still 20,000, and would have shipped a field that silently disabled the
+# feature it was built to provide.
+#
+# The ceiling stays well under even the raised limit, because the binding
+# constraint is no longer scan time but what a person downloads: the whole
+# 122,129-chunk shelf is roughly 190 MB of vectors, most of which nothing
+# would ever read. The backfill is scoped instead of exhaustive.
 #
 # The per-source cap is what stops one enormous import from spending the whole
 # budget: 74.6% of this shelf is Linux and ATT&CK material, and without a cap
@@ -2668,23 +2703,75 @@ class KnowledgeLibrary:
                 self._target_parameters(identity) + (identity,),
             ).fetchall()
             eligible = len(rows)
-            if eligible > MAX_EXPLICIT_VECTOR_SCAN:
+            scan_limit = _vector_scan_limit()
+            if eligible > scan_limit:
                 self._semantic_warning = (
                     "Semantic widening is paused because the library has "
                     f"{eligible:,} current vectors, above the exact-scan "
-                    f"limit of {MAX_EXPLICIT_VECTOR_SCAN:,}. Lexical search "
+                    f"limit of {scan_limit:,}. Lexical search "
                     "still covers the entire library."
                 )
                 return []
         self._semantic_warning = ""
-        scored = []
-        for row in rows:
-            vector = _unpack_vector(row["vector"])
-            if vector is None or len(vector) != len(query_vector):
-                continue
-            scored.append((_cosine(query_vector, vector), row))
+        scored = self._score_vectors(query_vector, rows)
         scored.sort(key=lambda item: item[0], reverse=True)
         return scored[:max(1, int(limit))]
+
+    def _score_vectors(self, query_vector, rows):
+        """Cosine of the query against every candidate row.
+
+        The vectorised path is an optimisation and nothing more: it must
+        agree with the loop below, so it computes the same quotient rather
+        than assuming the stored vectors are unit length. Rows whose blob is
+        not exactly one query-width vector are dropped here exactly as the
+        loop drops them, instead of being reshaped into a neighbour's
+        coordinates -- a wrong answer would be far worse than a slow one.
+        """
+        width = len(query_vector)
+        if _numpy is None or not rows:
+            scored = []
+            for row in rows:
+                vector = _unpack_vector(row["vector"])
+                if vector is None or len(vector) != width:
+                    continue
+                scored.append((_cosine(query_vector, vector), row))
+            return scored
+
+        usable = [row for row in rows if len(row["vector"]) == width * 4]
+        if not usable:
+            return []
+        try:
+            matrix = _numpy.frombuffer(
+                b"".join(row["vector"] for row in usable), dtype="<f4"
+            ).reshape(len(usable), width)
+            # _cosine is a bare dot product -- it takes both sides being unit
+            # length as given, because the embedding server normalises what it
+            # returns. Dividing by the norms here would be textbook cosine and
+            # would quietly disagree with every score the loop has ever
+            # produced, so the product is left exactly as it is.
+            query = _numpy.asarray(query_vector, dtype="<f4")
+            # _unpack_vector rejects a whole vector containing any non-finite
+            # value rather than scoring around it. Same rule, same rows.
+            finite = _numpy.isfinite(matrix).all(axis=1)
+            if not finite.all():
+                matrix = matrix[finite]
+                usable = [
+                    row for row, keep in zip(usable, finite.tolist()) if keep
+                ]
+                if not usable:
+                    return []
+            scores = matrix @ query
+        except Exception:
+            # Any surprise from the array path falls back rather than
+            # returning nothing; retrieval degrades in speed, not in truth.
+            scored = []
+            for row in usable:
+                vector = _unpack_vector(row["vector"])
+                if vector is None or len(vector) != width:
+                    continue
+                scored.append((_cosine(query_vector, vector), row))
+            return scored
+        return list(zip((float(value) for value in scores), usable))
 
     def search(self, query, query_vector=None, limit=5,
                semantic_rescue=False):

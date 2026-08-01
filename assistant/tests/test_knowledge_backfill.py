@@ -250,10 +250,69 @@ class ScopedBackfillTests(unittest.TestCase):
         self.assertEqual(commit.call_args[0][0], [])
 
     def test_scoped_ceiling_stays_under_the_exact_scan_limit(self):
-        """Embedding past the scan limit would disable semantic search."""
+        """Embedding past the scan limit would disable semantic search.
+
+        `_semantic` refuses outright rather than scoring a subset, so a
+        backfill ceiling above the scan limit does not degrade retrieval, it
+        switches it off. The limit depends on whether the scan can be
+        vectorised, so the ceiling is checked against the one that will
+        actually apply -- not against the pure-Python floor.
+        """
         self.assertLess(
-            library.EMBED_GLOBAL_CEILING, library.MAX_EXPLICIT_VECTOR_SCAN
+            library.EMBED_GLOBAL_CEILING, library._vector_scan_limit()
         )
+
+    def test_the_python_floor_still_bounds_an_install_without_numpy(self):
+        """Without numpy the old limit applies, and it is not raised."""
+        saved = library._numpy
+        library._numpy = None
+        try:
+            self.assertEqual(
+                library._vector_scan_limit(),
+                library.MAX_EXPLICIT_VECTOR_SCAN,
+            )
+        finally:
+            library._numpy = saved
+        self.assertEqual(library.MAX_EXPLICIT_VECTOR_SCAN, 20_000)
+
+    def test_vectorised_scoring_matches_the_loop_it_replaces(self):
+        """The fast path is an optimisation, so it must not change a score.
+
+        `_cosine` is a bare dot product that assumes both sides are unit
+        length. Computing a true cosine in the array path instead would be
+        more correct in isolation and would disagree with every score the
+        loop has produced, so the two are compared directly.
+        """
+        import math as _math
+        import struct as _struct
+
+        shelf = library.KnowledgeLibrary
+        rows = []
+        for index in range(64):
+            values = [
+                _math.sin(index + position) for position in range(8)
+            ]
+            rows.append({
+                "id": index,
+                "vector": _struct.pack("<8f", *values),
+            })
+        query = [_math.cos(position) for position in range(8)]
+
+        instance = shelf.__new__(shelf)
+        fast = instance._score_vectors(query, rows)
+        saved = library._numpy
+        library._numpy = None
+        try:
+            slow = instance._score_vectors(query, rows)
+        finally:
+            library._numpy = saved
+
+        self.assertEqual(len(fast), len(slow))
+        self.assertEqual(
+            [row["id"] for _, row in fast], [row["id"] for _, row in slow]
+        )
+        for (fast_score, _), (slow_score, _) in zip(fast, slow):
+            self.assertAlmostEqual(fast_score, slow_score, places=4)
 
     def test_good_poison_good_lifecycle_through_the_real_database(self):
         """The whole path: a poison row must not block the rows behind it.
