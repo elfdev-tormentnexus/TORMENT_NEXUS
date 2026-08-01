@@ -366,11 +366,14 @@ decompilation, the reconstructed installation contains:
    `SABLERESEARCHC-LIBRARY-PATCH-MANIFEST.png` and
    `SABLERESEARCHC-LIBRARY-PATCH.part01.png`, then run `library rebuild` once.
    For semantic search over that library, take
-   `INSTALL_SABLERESEARCHC_VECTOR_PATCH.bat`,
-   `SABLERESEARCHC-VECTOR-PATCH-MANIFEST.png` and
-   `SABLERESEARCHC-VECTOR-PATCH.part01.png` afterwards. Patch B carries 15,000
-   precomputed embeddings and is a supplement, not a replacement — the shelf
-   is fully searchable by keyword without it. See
+   `INSTALL_SABLERESEARCHC_VECTOR_PATCH2.bat`,
+   `SABLERESEARCHC-VECTOR-PATCH2-MANIFEST.png` and
+   `SABLERESEARCHC-VECTOR-PATCH2.part01.png` afterwards. Patch C carries
+   75,000 precomputed embeddings reaching 51.6% of the shelf's text, and is a
+   supplement, not a replacement — the shelf is fully searchable by keyword
+   without it. (An earlier patch B shipped 15,000 vectors that turned out to
+   be 99.9% document openings; it is superseded, and the release page records
+   why.) See
    [Install on Windows](docs/INSTALL_WINDOWS.md#the-optional-patches) and
    [the patch notes](docs/VECTOR_FIELD_PATCH.md).
 
