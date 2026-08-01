@@ -357,6 +357,22 @@ decompilation, the reconstructed installation contains:
    sampler, listener, or network-capable subsystem starts, the application
    displays its disclosure and requires the exact text `I UNDERSTAND`.
    Anything else closes the application without starting those components.
+5. Two optional patches were published after the cut, so the fetcher does not
+   take them. They are a pair: **patch A is the reference documents, patch B
+   is the neural layer over them.** Take them by hand and keep them beside
+   `machinesoul.py` and `SABLERESEARCHC-REASSEMBLER.png`, which both
+   installers reuse. For the offline library, take
+   `INSTALL_SABLERESEARCHC_LIBRARY_PATCH.bat`,
+   `SABLERESEARCHC-LIBRARY-PATCH-MANIFEST.png` and
+   `SABLERESEARCHC-LIBRARY-PATCH.part01.png`, then run `library rebuild` once.
+   For semantic search over that library, take
+   `INSTALL_SABLERESEARCHC_VECTOR_PATCH.bat`,
+   `SABLERESEARCHC-VECTOR-PATCH-MANIFEST.png` and
+   `SABLERESEARCHC-VECTOR-PATCH.part01.png` afterwards. Patch B carries 15,000
+   precomputed embeddings and is a supplement, not a replacement — the shelf
+   is fully searchable by keyword without it. See
+   [Install on Windows](docs/INSTALL_WINDOWS.md#the-optional-patches) and
+   [the patch notes](docs/VECTOR_FIELD_PATCH.md).
 
 ### The optional 14B companion
 
