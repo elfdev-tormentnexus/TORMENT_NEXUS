@@ -102,15 +102,37 @@ EMBED_BATCH_SIZE = 24
 # retrying every 20 seconds indefinitely.
 #
 # Bounding each text by UTF-8 bytes before the request makes every batch
-# serviceable. 1,600 bytes is comfortably inside 512 tokens for prose while
-# still carrying a chunk's opening, which is what a retrieval embedding needs.
-EMBED_TEXT_BYTE_LIMIT = 1600
+# serviceable, while still carrying a chunk's opening, which is what a
+# retrieval embedding needs.
+#
+# 1,600 bytes was chosen for prose and is wrong for this shelf. Tokenizing a
+# 400-row sample of the 15,000-row target against the live server: 15.5% of it
+# exceeded 512 tokens (p90 554, max 985), because the shelf is mostly YAML
+# schemas, Sigma/YARA rules and kernel documentation rather than prose. That
+# made the one-row-at-a-time fallback below the common path instead of the
+# exception -- every batch holding any one of those rows failed whole, so a
+# 24-row request cost 24 sequential requests. 1,000 bytes puts 98.8% of the
+# same sample inside the window and leaves the fallback for the genuine tail.
+EMBED_TEXT_BYTE_LIMIT = 1000
+
+# A byte offset lands wherever it lands, which is usually the middle of a
+# word: "...the configura", "...install.ba". That fragment is not free. The
+# tokenizer splits it into subword pieces that mean nothing on their own, and
+# mean pooling averages them into the vector beside the real content, so every
+# truncated chunk carries a little noise in its coordinates.
+#
+# So the cut backs off to the last whitespace and the text ends on a whole
+# word. It only backs off while that keeps most of what was clipped: a base64
+# blob or a minified line has no word boundary to find, and giving up 40% of
+# the window hunting for one loses more than the ragged edge costs. Those are
+# cut where the bound falls, as before.
+EMBED_TEXT_MIN_KEEP = 0.6
 
 # Part of the vector identity, not a detail. A vector built from a truncated
 # text is not interchangeable with one built from the whole text, so changing
-# the bound must invalidate the old vectors rather than silently mixing two
-# populations in the same cosine space.
-EMBED_TRUNCATION_POLICY = "utf8-1600"
+# the bound -- or where the cut is allowed to land -- must invalidate the old
+# vectors rather than silently mixing two populations in one cosine space.
+EMBED_TRUNCATION_POLICY = "utf8-1000-word"
 
 # A byte bound is necessary but not sufficient. Token count, not byte count,
 # is what the model's window measures, and dense punctuation inflates the
@@ -233,12 +255,20 @@ def _refresh_embed_target_order(connection):
 
 
 def _bounded_embed_text(*pieces):
-    """Join the pieces and cut to a whole number of UTF-8 characters."""
+    """Join the pieces and cut to a whole word inside the byte bound."""
     text = "\n".join(str(piece) for piece in pieces if piece)
     encoded = text.encode("utf-8")
     if len(encoded) <= EMBED_TEXT_BYTE_LIMIT:
         return text
-    return encoded[:EMBED_TEXT_BYTE_LIMIT].decode("utf-8", "ignore")
+    # "ignore" drops the partial UTF-8 sequence the byte cut may have split,
+    # which keeps the string decodable but still ends it mid-word.
+    clipped = encoded[:EMBED_TEXT_BYTE_LIMIT].decode("utf-8", "ignore")
+    boundary = max(
+        clipped.rfind("\n"), clipped.rfind(" "), clipped.rfind("\t")
+    )
+    if boundary >= len(clipped) * EMBED_TEXT_MIN_KEEP:
+        clipped = clipped[:boundary]
+    return clipped.rstrip()
 AUTO_RESULT_LIMIT = 3
 EXPLICIT_RESULT_LIMIT = 8
 MAX_PROMPT_CONTEXT_CHARS = 7_200
