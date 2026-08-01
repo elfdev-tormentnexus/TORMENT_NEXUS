@@ -14,6 +14,44 @@ file and code seams used by the cut logic.
    .\setup\test_assistant.bat
    ```
 
+   Run the focused singing gates and preserve their count:
+
+   ```powershell
+   Push-Location assistant
+   python -m unittest tests.test_freestyle_song tests.test_singing_easter_egg
+   Pop-Location
+   ```
+
+   Before calling the songs validated, listen to uncached Daisy Bell, Come
+   Josephine, and one generated song on the target Windows account. Record
+   intelligibility, chord alignment, output level, Escape cancellation, and
+   cache reuse. This is human evidence and cannot be replaced by the score
+   invariants.
+
+   Run the fixed offline-library probe separately and retain its JSON report:
+
+   ```powershell
+   python -B tools\researchc_library_probe.py `
+     --output assistant\logs\researchc_library_probe.json
+   ```
+
+   Confirm the built-in fixture indexes exactly 18 integrity-matched sources
+   and 39 chunks, achieves 18/18 candidate/top-1/top-3 recall and 10/10
+   known-unknown abstention, and preserves citation/source-digest pairing.
+   Preserve the declared specialist-bait negative result rather than changing
+   the cases: 18/18 positive recall, 5/10 known-unknown abstention, and 2/18
+   specialist intrusions.
+
+   The first live librarian experiment is evidence, not a release dependency:
+   the tested Qwen3 4B Instruct GGUF does not ship and failed promotion. Confirm
+   that every release-facing document keeps the observer off, shadow-only, and
+   unable to affect retrieval. Verify the sanitized result records 11/16
+   strictly valid decisions, 9/16 correct valid decisions, and 1/8
+   forward/reversed-order agreement, with model, server, cases, and experiment
+   digests bound to the run. Verify the separately sanitized preregistered
+   shipped-director result records 15/16 validity, the same 9/16 correctness,
+   5/8 order agreement, and a failed promotion gate.
+
 2. Build the intended clean commit into the staged directory and verify it.
    Supply a separately reviewed llama.cpp `Release` directory compiled with
    checkout paths mapped out (for MSVC, use `/pathmap`). The directory must
@@ -30,8 +68,17 @@ file and code seams used by the cut logic.
    The override is release-build-only; the staged destination and Sable's
    normal runtime configuration do not change. The builder copies no benchmark,
    conversion, quantization, or test executables from the CMake output tree.
-   Verification refuses any staged `.exe`, `.dll`, or `.pyd` that still embeds
-   this checkout root or the maintainer's user-profile path.
+   Verification refuses any staged `.exe`, `.dll`, or `.pyd`, and any staged
+   source/document/config text, that still embeds this checkout root or the
+   maintainer's user-profile path.
+
+   Inspect the staged tree, not only the checkout: confirm
+   `assistant\knowledge\builtin_manifest.json` contains exactly the 18 staged
+   cards and each digest matches, the fixed probe inputs and wrapper are
+   present, and any librarian evidence cited by staged documentation is itself
+   present and path-clean. The librarian probe helper must resolve the staged
+   bundled Python and staged llama-server runtime; an operator-supplied model
+   must remain an explicit, separately reviewed input.
 
 3. Prepare—but do not execute—the vector-aware cut:
 
@@ -110,9 +157,10 @@ file and code seams used by the cut logic.
    - refuse a partial optional set.
 
    The normal fetcher downloads only the required Windows set. The optional
-   14B companion remains a deliberate separate download; generate the clearly
-   named `FETCH_SABLERESEARCHC_WITH_14B.bat` only if that broader path is
-   intentionally offered and separately tested.
+   14B companion is offered as the clearly named
+   `FETCH_SABLERESEARCHC_WITH_14B.bat`, generated and separately tested
+   beside it, so both paths run one click from download to a working
+   installation.
 
 9. Create GitHub tag/title `researchC` as a draft and upload only:
 
@@ -121,6 +169,7 @@ file and code seams used by the cut logic.
    - `SABLERESEARCHC-MANIFEST.png`;
    - `SABLERESEARCHC-REASSEMBLER.png`;
    - `FETCH_SABLERESEARCHC.bat`;
+   - `FETCH_SABLERESEARCHC_WITH_14B.bat`;
    - `machinesoul.py`;
    - `DECOMPILE_SABLE_researchC.bat`.
 

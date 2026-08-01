@@ -1,6 +1,6 @@
 # Privacy
 
-Status: researchC data-handling disclosure, reviewed 2026-07-28.
+Status: researchC data-handling disclosure, reviewed 2026-07-31.
 
 TORMENT_NEXUS is local-first. That does not mean "nothing is stored" or
 "nothing can go online." Local conversation, speech, embeddings, memory, and
@@ -23,8 +23,9 @@ After acknowledgement:
 
 - interaction begins in text mode and the microphone is off;
 - foreground activity awareness is off;
-- local semantic retrieval and the offline library can start when their
-  bundled components are present;
+- semantic memory retrieval and full-text offline-library indexing can start
+  when their bundled components are present; persistent library-vector
+  population starts off and requires a developer opt-in;
 - cloud escalation, the agent API, experimental sensing, and autonomous
   startup maintenance remain off;
 - web search is used only through the configured backend when a request
@@ -47,26 +48,39 @@ Paths are relative to the project root.
 | `assistant/memory/memories.json` | Durable facts extracted from conversations. | Capped at 500 records. `forget <text>` removes matching records; close and delete the file to clear all. |
 | `assistant/cache/embeddings.json` | Numeric vectors derived from personal memory and history so semantic recall stays fast. | Capped at 4,000 entries. Deleting source text may not immediately remove its old vector; close the app and delete the cache when clearing private scope. |
 | In-memory embedding query cache | Reuses a bounded number of recent query vectors. | Not serialized; disappears when the process exits. |
+| `assistant/cache/prompt/` or the configured prompt-cache directory | Potentially large serialized llama.cpp slot/KV state derived from the stable model, persona, core-memory, and system prefix. Treat it as sensitive local state even though it is not a plain-text transcript. | A successful rebuild removes obsolete matching prefix caches, but an interrupted temporary file or unrelated cache can remain. Close the application and delete the directory for a full prompt-state reset; the next launch rebuilds it. Release tooling excludes prompt caches. |
+| `assistant/cache/track_loudness.json` | Per-track playback gain keyed by the local file's absolute path, size, and modification time. It can therefore reveal private media names and folder layout. | Entries are not age-pruned. Close the application and delete the file to clear them; tracks are measured again when played. Release tooling excludes this cache. |
 | `assistant/knowledge/user_library/` | Private copies of operator-imported manuals and references. | `library remove <name>` deletes the selected copy synchronously. Manual deletion should be done while stopped. |
 | `assistant/knowledge/library.sqlite3` | Extracted document text, metadata, SQLite FTS index, and knowledge vectors. | `library remove` synchronously deletes matching live rows and attempts a checkpoint/vacuum. This is not forensic erasure of backups, snapshots, or SSD-remapped blocks. Remove the database while stopped for a complete shelf-index reset. |
+| `assistant/logs/librarian_shadow.jsonl` | When the optional librarian observer is enabled: closed outcome labels, counts, coarse UTC hours, timings, experiment/model/server digests, and per-install HMAC pseudonyms. Questions, excerpts, titles, paths, URLs, and raw model output are not intentionally logged. | Capped to the latest 20,000 rows. Close the application and delete it to clear the retained observer evidence. Release tooling excludes runtime logs. |
 | `assistant/memory/activity_log.jsonl` | When opted in: foreground application/title, idle time, CPU/memory load, battery, and timestamps. | Samples about every 20 seconds, stores changes plus a slow heartbeat, and removes entries older than 14 days by default. `activity off` and `activity forget` delete it. |
 | `assistant/memory/session_rhythm.json` | Per-session timings so the assistant can say how long a session ran and how it compares to previous ones: start time, duration, exchange count, median and longest pause, and how many breaks over twenty minutes occurred. **Timings only — never message text, window titles, or what was discussed.** Pause length is still behavioural data about the operator. | Capped at the latest 200 sessions. Plain JSON the operator can read; close the app and delete the file to clear it. |
 | `assistant/memory/chosen_name.json` | A name the operator explicitly keeps for the assistant header. | Remains until `name forget` or manual deletion. |
 | `assistant/.tutorial_state.json` | Records whether the first-session invitation was shown. | Remains until manual deletion or uninstall. |
 | `assistant/.model_api_key` | Random bearer secret for the local llama.cpp service. | Retained across launches; delete only while stopped to rotate it. |
+| `assistant/.audit_hmac_key` | Per-install secret used to pseudonymize private prompt and question identifiers in Research C receipts and sidecars, and to authenticate the closed-field retained-edit records used by source-authorship answers. It is not sent to a model. | Retained across launches so local identifiers remain comparable and retained-edit evidence remains verifiable. Delete only while stopped to rotate it. Rotation intentionally breaks joins and makes earlier `APPLIED_RECORD` log entries unverifiable, so they will no longer support an authorship claim. An installation that cannot persist the key uses a process-local random fallback and cannot join those identifiers across launches. |
 | `assistant/.agent_token` | Bearer secret for the optional read-only agent API. | Created only when enabled; delete while stopped to rotate it. |
-| `assistant/.dev_passcode` | Developer-mode passcode material. | Retained until reset/deletion. It prevents accidental use; it is not encryption. |
+| `assistant/.dev_passcode`, `assistant/.super_dev_passcode` | Developer- and super-developer-mode passcode material. | Retained until reset/deletion. These prevent accidental use; they are not encryption. |
 | `assistant/.anthropic_api_key`, `assistant/.openai_api_key` | Optional cloud-escalation credentials. | Retained until the operator removes or rotates them; environment variables can be used instead. |
 | `assistant/.spotify_token` | Optional Spotify authorization data. | Retained until disconnected/removed or revoked at Spotify. |
 | `assistant/.tdeck_ble_pin` | Optional T-Deck pairing PIN. | Retained until removed or replaced. |
 | `assistant/logs/escalation.jsonl` | Provider, model, sizes, outcome, and time for escalation. | Question and answer content are not intentionally logged; no automatic retention period is documented. |
 | `assistant/logs/agent_api.jsonl` | Route, time, outcome, and peer metadata for the optional agent API. | Query/result content is not intentionally logged; no automatic retention period is documented. |
 | Other `assistant/logs/`, `dump/`, `workshop/`, recovery, invalid-data, and backup files | Diagnostics, generated work, edits, and recovery material. | May contain excerpts, filenames, or private state; inspect and remove manually. |
-| `models/voice/cache/` and local music folders | Generated audio cache and operator-supplied media. | Retained until manually removed. Release tooling is intended to exclude personal media and runtime data. |
+| `models/voice/cache/` and local music folders | Generated audio cache and operator-supplied media. Freestyle cache filenames contain a content digest, not plain lyrics. | Fixed-song renders remain until manually removed; generated freestyle renders retain only the newest eight by default (configurable up to 32). Release tooling is intended to exclude personal media and runtime data. |
 
 Git ignore rules and release deny lists reduce accidental publication. They
 do not stop another same-user process, backup client, cloud-sync tool, or
 malware from reading the files.
+
+Existing tracked handoff and audit history contains maintainer-local path and
+profile identifiers from earlier investigations, including old absolute
+workspace and temporary-file examples. The project records this rather than
+rewriting Git history. Release packaging excludes raw and private handoffs and
+private runtime data. It includes only an exact whitelist of sanitized
+aggregate librarian evidence, then path-scans fresh staged binaries, source,
+documentation, and configuration. Those controls do not scrub earlier commits;
+cloning or fetching the full repository history can reveal old identifiers.
 
 ## Activity awareness
 
@@ -104,6 +118,10 @@ server. researchC rejects a non-loopback `TORMENT_NEXUS_EMBED_SERVER_URL`, so
 personal memory, history, imported passages, and embedding queries are not
 sent to a remote embedding endpoint by this implementation. The local-first
 claim no longer applies to prompts sent through a remote director server.
+
+`sing what you want` is narrower than that general custom-server setting: it
+refuses a non-loopback director URL, proxy inheritance, and redirects before
+sending its bounded subject or the local bearer credential.
 
 ### machinespirit trajectories
 
@@ -179,14 +197,26 @@ becomes pixels.
 
 ### Offline knowledge
 
-Normal library import, extraction, indexing, full-text search, and bundled
-embedding run locally and do not require the internet. Source URLs stored as
-metadata are not automatically proof that the source remains current.
+Normal library import, extraction, indexing, and full-text search run locally
+and do not require the internet. The bundled embedding service is also local,
+but persistent library-vector population starts off and requires the persisted
+developer choice `library semantic on`. Source URLs stored as metadata are not
+automatically proof that the source remains current.
 
 Imported files are copied into the private shelf. The copied source,
 extracted text, metadata, and knowledge vectors are release-excluded runtime
 data but remain unencrypted locally. See
 [Offline knowledge](docs/OFFLINE_KNOWLEDGE.md).
+
+If the optional LLM librarian observer is explicitly configured, a
+credential-redacted completed-turn query and an immutable bounded candidate
+snapshot, including short excerpts, are sent after the answer exists to a
+distinct authenticated loopback model service. Proxy inheritance and
+redirects are refused, so this path is designed to remain on the machine, but
+loopback is not encryption or isolation from other processes running as the
+same user. The observer's proposal is discarded and cannot alter retrieval,
+the completed answer, or a future answer. Its first tested 4B model failed the
+promotion gate and remains shadow-only.
 
 ### Web search
 
@@ -261,12 +291,14 @@ conversation history.
 For a deliberate privacy reset:
 
 1. Close TORMENT_NEXUS and confirm its local model processes stopped.
-2. Delete conversation history, memories, personal embedding cache, activity
-   state/log, chosen-name state, tutorial state, safety acknowledgement,
-   imported library, knowledge database, logs, cached audio, and recovery
-   files that you no longer want.
-3. Remove bearer tokens, developer passcode, pairing data, and API keys.
-   Revoke cloud and Spotify credentials at their providers when appropriate.
+2. Delete conversation history, memories, personal embedding and prompt-state
+   caches, the track-loudness cache, activity state/log, chosen-name state,
+   tutorial state, safety acknowledgement, imported library, knowledge
+   database, logs, cached audio, and recovery files that you no longer want.
+3. Remove the audit HMAC key, bearer tokens, developer passcode, pairing data,
+   and API keys. Removing the audit key intentionally makes retained-edit
+   records from the old key unverifiable. Revoke cloud and Spotify credentials
+   at their providers when appropriate.
 4. Check backups, recycle bins, antivirus quarantine, Windows search indexes,
    Git history, screenshots, and synchronized copies separately.
 

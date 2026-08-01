@@ -148,10 +148,14 @@ LESSONS = [
             "'text mode' to return to text-only use. It pauses listening while\n"
             "it speaks so it does not mistake its own voice for yours. Idle\n"
             "check-ins appear on the screen but are not spoken by default, so\n"
-            "the app should not unexpectedly call out for your attention."
+            "the app should not unexpectedly call out for your attention. It\n"
+            "can perform two fixed public-domain machine songs, or ask the\n"
+            "local director for bounded lyric syllables over those same fixed\n"
+            "tunes with 'sing what you want'. Invalid lyrics queue nothing."
         ),
         "commands": ["audio mode", "voice status", "text mode", "exit audio",
-                     "sing daisy bell"],
+                     "sing daisy bell", "sing come josephine",
+                     "sing what you want"],
     },
     {
         "key": "music",
@@ -548,10 +552,11 @@ INTERLINKED_LESSONS = [
             "Try it:\n"
             "Ask 'what can the agent interface see' for the current list.\n\n"
             "Good to know:\n"
-            "Every route is read-only. Nothing on that interface writes a\n"
-            "file, edits code, saves a memory, or restarts anything. A question\n"
-            "asked through it spends model time but never joins your\n"
-            "conversation or your memory."
+            "No route edits project files or configuration, runs a command,\n"
+            "saves a memory, or restarts anything. Calls do append bounded\n"
+            "audit metadata and may warm a local index. A question asked\n"
+            "through it spends model time but never joins your conversation\n"
+            "or your memory."
         ),
         "commands": [],
     },
@@ -1028,6 +1033,12 @@ def introduction():
         "that path is synthesised here from files on this disk, which is",
         "why it sounds the way it does. That is deliberate.",
         "",
+        "'sing daisy bell' and 'sing come josephine' perform fixed, cached",
+        "public-domain tunes. 'sing what you want' asks the local director",
+        "for original one-syllable lyric tokens, then trusted code lays only",
+        "those words over one of the same two fixed tunes. It never accepts",
+        "model-written notes or timing, and one failed repair queues nothing.",
+        "",
         "",
         "MUSIC AND THE VISUALIZER",
         "-" * 58,
@@ -1063,6 +1074,12 @@ def introduction():
         "can add your own material to. Whichever one answers, what comes",
         "back is information I was handed rather than something I know, and",
         "I will tell you which of those two it is.",
+        "",
+        "The library's word index updates locally. Persistent library-vector",
+        "population is a separate developer opt-in and starts off on a fresh",
+        "installation; 'library semantic status' shows its bounded fair",
+        "target, and 'library semantic on' enables it. Memory embeddings are",
+        "a separate feature.",
         "",
         "",
         "THE PART THAT EDITS ITSELF",
@@ -1280,8 +1297,9 @@ def first_run_invitation(mode=None):
         return (
             "Welcome. You opened TORMENT_NEXUS_INTERLINKED, so a small "
             "read-only interface\nis listening on this machine and another "
-            "program can ask this assistant\nthings. Nothing on that "
-            "interface writes, edits, or restarts anything.\n\n"
+            "program can ask this assistant\nthings. No route edits files or "
+            "configuration, runs commands, or restarts;\ncalls append audit "
+            "metadata and may warm local indexes.\n\n"
             "Type 'tutorial' for the interlinked walkthrough -- five "
             "sections about what is\nlistening, what it can see, and how to "
             "close it. Everything else works exactly\nas it does under the "

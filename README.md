@@ -53,16 +53,23 @@
 > [Rights and reuse](RIGHTS.md).
 
 <p align="center">
-  <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases">
-    <strong>Open GitHub Releases and select researchC</strong>
+  <a href="https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/researchC">
+    <strong>&#8594;&nbsp; Get researchC</strong>
   </a>
+</p>
+
+<p align="center">
+  <sub>Download <code>FETCH_SABLERESEARCHC.bat</code> and double-click it.
+  It verifies every asset and installs. One click.<br>
+  Read <a href="#the-two-languages">The two languages</a> first, or the list
+  of PNG files will not make sense.</sub>
 </p>
 
 ## At a glance
 
 | | |
 | --- | --- |
-| Current build | `researchC` — experimental research release, not a stable product |
+| Current build | [`researchC`](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/researchC) — **stable and experimental at once.** The build is finished, verified and reproducible; what it *does* is still research. Read the caution above. |
 | Platform | 64-bit Windows only. There is no macOS or Linux build. |
 | Download | About 12.4 GB for the main capsule set; the optional 14B companion adds about 8.8 GB. |
 | Free disk needed | About 55 GB during installation, because capsules, decoded segments, and the reconstructed tree coexist. |
@@ -72,7 +79,10 @@
 *Read [The two languages](#the-two-languages) before the release page, or the
 list of PNG files will not make sense.*
 
-**Jump to:** [What this is](#what-this-project-is) ·
+**Jump to:** [Get researchC](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/researchC) ·
+[What's new](#whats-new-in-researchc) ·
+[The research](#the-research) ·
+[What this is](#what-this-project-is) ·
 [Why local](#why-local-and-what-it-is-for) ·
 [The two languages](#the-two-languages) ·
 [Choose your path](#choose-your-path) ·
@@ -84,6 +94,53 @@ list of PNG files will not make sense.*
 [Privacy](#privacy-and-network-summary) ·
 [Status and rights](#project-status-and-rights) ·
 [Docs](#documentation-map)
+
+## What's new in researchC
+
+Upgrading from researchB? This is what changed. Thirteen commits, 105 files,
++22,733 / -1,795 lines.
+
+| | researchB | researchC |
+| --- | --- | --- |
+| **Installing** | five steps, including a **required** patch applied by hand afterwards | **one click** — the fetcher verifies, then runs the decompiler itself |
+| **Self-read** | arrived late, as that required patch | in the base install, and rebuilt: narrow source questions no longer reach the model at all |
+| **Optional 14B** | place six files manually beside the others | its own one-click fetcher |
+| **GPU** | processor only | optional Vulkan offload, with automatic fallback |
+| **Singing** | — | two public-domain songs, performed by the machine, plus a freestyle mode |
+| **Offline shelf** | smaller built-in set | 18 cards / 39 chunks: seven new hazard cards, plus three that patch measured blindspots in the model itself |
+| **Librarian** | — | measured against a preregistered gate, failed it, ships switched off |
+| **Audio recovery** | — | automatic recovery from device loss, with capped backoff |
+
+**Retrieval as a blindspot patch.** Three of the new cards are not reference
+material, they are corrections for specific misdiagnoses. Asked why a large
+download stalls, why a numeric script hangs silently, or why small allocations
+start failing after long uptime, a general model answers confidently and blames
+the wrong thing: your code, the script logic, a corrupted model file. Each card
+is titled by the misleading *symptom* so retrieval fires on what a person
+actually types. Encoding these as retrieval rather than a weight update keeps
+them inspectable and dated — every card carries a review date and an expiry, and
+all 18 are SHA-256 bound in a manifest.
+
+The larger version of that idea is that **you can give it what it still does not
+know.** The library ingests your own document collections locally, so a 4B model
+answers from material it was never trained on. The development instance holds
+several hundred megabytes this way — Linux kernel documentation, MITRE ATT&CK,
+SigmaHQ and YARA rules — none of which ships here, because it is private material
+rather than product. What ships is the machinery: `library add`, `library search`,
+and a semantic layer you switch on deliberately. Lexical indexing covers the whole
+shelf immediately; embedding is off until you enable it, and `library status`
+reports coverage and stalls rather than implying the shelf is fully indexed.
+
+The first two rows are one story. researchB needed a patch applied by hand
+because its self-read capability arrived after the cut. researchC folds it in
+and **rebuilt it**, because the grounding audit found the model-driven version
+denying a real file existed 7/7 times and copying a directory's line total onto
+a single file 8/8. It is trusted code answering with a receipt now, not a model
+guessing.
+
+Full detail, including everything measured and everything deliberately left
+switched off: **[the researchC release notes](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/researchC)**.
+
 
 ## What this project is
 
@@ -106,6 +163,35 @@ unrestricted agent, not a surveillance product, and not a replacement for
 professionals or human relationships. Read the
 [research goals](docs/RESEARCH_GOALS.md) for the questions the project is
 actually trying to answer.
+
+## The research
+
+researchC asked whether a model's measured uncertainty can gate compute. **Most
+of the answer is a negative result, or a capability built, measured, and then
+deliberately left switched off.** Every gate was preregistered; two were failed
+by this project's own candidate and it shipped disabled rather than promoted.
+
+- **A forced binary manufactures the appearance of confidence.** Asked sixteen
+  unanswerable questions as Yes/No, the director's probabilities sat near 1e-8
+  and the measurement was degenerate *by construction*. Allowing a third answer
+  — a way to say *I don't know* — moved it five orders of magnitude without
+  making it any more informative.
+- **The council hedged 48/48 with zero resolution, and no vote was taken.** A
+  vote would have discarded the disagreement and returned more confidence than
+  the evidence supports.
+- **Grounding does not fix agreement bias.** A nonexistent class and false
+  authorship were accepted 6/6 *both* with and without a source manifest.
+- **A scorer correction lowered our own numbers** from 87.5% to 56.25%, because
+  malformed abstentions were being credited as correct.
+
+The probes that produced these numbers are published, so the findings can be
+checked rather than taken on trust:
+[full record and evidence](https://github.com/elfdev-tormentnexus/TORMENT_NEXUS/releases/tag/researchC) ·
+[lab notebook](docs/RESEARCHC_GOALS.md) ·
+[theory ledger](docs/RESEARCHC_THEORY_LEDGER.md) ·
+[probes](handoffs/researchc_open_threads_tools/) ·
+[researchD direction](docs/RESEARCHD_ESOTERIC.md)
+
 
 ## Why local, and what it is for
 
@@ -229,6 +315,7 @@ decompilation, the reconstructed installation contains:
 | --- | --- |
 | 64-bit Windows | The ready-to-run installation targets Windows x64. |
 | At least 16 GB RAM | Required for the bundled director and on-demand coder; more leaves room for voice and other applications. |
+| A Vulkan-capable GPU (optional) | Not required. If present, `TORMENT_NEXUS_LLAMA_GPU_LAYERS` moves layers onto it, which is faster and frees the equivalent system RAM. Unset by default, so the install runs on CPU unless you ask otherwise. |
 | About 55 GB free during installation | Downloaded capsules, decoded vector segments, and the directly reconstructed installation temporarily coexist. |
 | Internet for the initial download | About 12.4 GB for the main capsule set, plus about 8.8 GB if you also take the 14B companion. Ordinary local conversation and the offline library work without it afterward. |
 | Python 3 | Required only to run the published machinesoul decompiler. |
@@ -240,8 +327,11 @@ decompilation, the reconstructed installation contains:
    select `researchC`, expand **Assets**, and read its warning, checksums,
    model provenance, and known issues. The small plaintext
    `FETCH_SABLERESEARCHC.bat` is the easiest path: double-click it to resume
-   and SHA-256-verify every required bootstrap and Windows capsule. It does
-   not fetch the optional 14B companion. An interrupted download remains as a
+   and SHA-256-verify every required bootstrap and Windows capsule, then
+   continue straight into reconstruction and setup, so one click carries you
+   from download to a working installation. It does not fetch the optional
+   14B companion; `FETCH_SABLERESEARCHC_WITH_14B.bat` is the same one-click
+   path with that companion included. An interrupted download remains as a
    plainly named `.partial` file; rerunning the fetcher resumes it, and the
    final capsule name appears only after its checksum passes. If you prefer to
    download manually, take `machinesoul.py`, `DECOMPILE_SABLE_researchC.bat`,
@@ -267,6 +357,22 @@ decompilation, the reconstructed installation contains:
    sampler, listener, or network-capable subsystem starts, the application
    displays its disclosure and requires the exact text `I UNDERSTAND`.
    Anything else closes the application without starting those components.
+5. Two optional patches were published after the cut, so the fetcher does not
+   take them. They are a pair: **patch A is the reference documents, patch B
+   is the neural layer over them.** Take them by hand and keep them beside
+   `machinesoul.py` and `SABLERESEARCHC-REASSEMBLER.png`, which both
+   installers reuse. For the offline library, take
+   `INSTALL_SABLERESEARCHC_LIBRARY_PATCH.bat`,
+   `SABLERESEARCHC-LIBRARY-PATCH-MANIFEST.png` and
+   `SABLERESEARCHC-LIBRARY-PATCH.part01.png`, then run `library rebuild` once.
+   For semantic search over that library, take
+   `INSTALL_SABLERESEARCHC_VECTOR_PATCH.bat`,
+   `SABLERESEARCHC-VECTOR-PATCH-MANIFEST.png` and
+   `SABLERESEARCHC-VECTOR-PATCH.part01.png` afterwards. Patch B carries 15,000
+   precomputed embeddings and is a supplement, not a replacement — the shelf
+   is fully searchable by keyword without it. See
+   [Install on Windows](docs/INSTALL_WINDOWS.md#the-optional-patches) and
+   [the patch notes](docs/VECTOR_FIELD_PATCH.md).
 
 ### The optional 14B companion
 
@@ -313,8 +419,10 @@ After the one-time acknowledgement:
 - foreground-window activity awareness is off;
 - cloud escalation, the local agent API, autonomous startup editing, and
   experimental sensing are off;
-- local conversation, memory, time awareness, the offline reference library,
-  and conservative semantic retrieval are available;
+- local conversation, memory, time awareness, conservative semantic memory,
+  and full-text offline-library search are available;
+- persistent library-vector population is off until a developer explicitly
+  enables it; lexical indexing and search remain available;
 - web search may use a configured search service when a question requests or
   appears to require current information.
 
@@ -326,6 +434,7 @@ health check            explain what is ready
 tutorial                start the guided tour
 library status          inspect the offline reference shelf
 library search <words>  search manuals explicitly
+library semantic status inspect opt-in library-vector coverage
 audio mode              opt in to offline speech and microphone listening
 activity on             opt in to foreground-window sampling
 activity off            stop sampling and delete its retained log
@@ -343,6 +452,9 @@ the in-memory observations and `assistant\memory\activity_log.jsonl`.
 
 - Generate ordinary replies through the bundled local Qwen3 director.
 - Accept typed input and, after `audio mode`, listen and speak locally.
+- Perform the fixed public-domain Daisy Bell and Come Josephine machine songs,
+  or generate bounded original lyric syllables over those fixed tunes with
+  `sing what you want [about <subject>]`.
 - Maintain visible durable memories and a bounded recent conversation file.
 - Recall at most one older exchange only when the user clearly asks about an
   earlier conversation and the semantic match is unambiguous.
@@ -355,22 +467,39 @@ the in-memory observations and `assistant\memory\activity_log.jsonl`.
 
 ### Offline practical knowledge
 
-researchC contains an independent local reference library with built-in Canadian
-preparedness cards and a private user shelf. It supports:
+researchC contains an independent local reference library with 18
+integrity-bound Canadian preparedness cards, 39 indexed chunks, and a private
+user shelf. It supports:
 
 ```text
-.txt .md .rst .html .htm .json .csv .pdf .epub .docx
+.txt .md .rst .yml .yaml .yar .yara .py
+.html .htm .json .csv .pdf .epub .docx
 ```
 
 Ordinary conversation requires a real full-text word match before a manual
-excerpt can enter the prompt. Embeddings may rerank those lexical hits but
-cannot manufacture an automatic match. Explicit `library search` and the
-authenticated `/knowledge/search` endpoint may return wider
-`semantic-candidate` results, clearly labeled as candidates rather than facts.
+excerpt can enter the prompt. Persistent library-vector population starts off
+on a fresh installation and requires the developer command `library semantic
+on`; the choice persists, and `library semantic off` stops population without
+deleting already stored current vectors. When comparable target vectors exist,
+they may rerank lexical hits as one complete set but cannot manufacture an
+automatic match. Explicit `library search` and the authenticated
+`/knowledge/search` endpoint may then return wider `semantic-candidate`
+results, clearly labeled as candidates rather than facts. `library semantic
+status` reports the bounded fair target and its coverage.
 
 PDF extraction uses `pypdf`; scanned image-only PDFs need OCR first. Imported
 documents, extracted text, metadata, and vectors remain local and are not
 part of release packages. See [Offline knowledge](docs/OFFLINE_KNOWLEDGE.md).
+
+An optional LLM librarian can observe a bounded, immutable candidate snapshot
+after an answer exists, but it is off by default and its live proposal is
+discarded without affecting retrieval or replies. The first tested Qwen3 4B
+Instruct candidate failed its promotion gate—11/16 strictly valid decisions,
+9/16 correct valid decisions, and 1/8 forward/reversed-order agreement—so it
+remains research-only and shadow-only. A preregistered follow-up with the
+shipped 4B Q8 director improved validity to 15/16 and order agreement to 5/8,
+but correctness stayed 9/16; it also failed promotion. The separately tested
+Instruct GGUF is not part of the release package.
 
 ### Memory and semantic retrieval
 
@@ -387,6 +516,9 @@ ordinary memory and library search fall back to lexical behavior.
 
 ### Media, tools, and optional bridges
 
+- Perform Daisy Bell or Come Josephine entirely offline. The optional
+  `sing what you want` command uses the loopback director only for validated
+  syllables; notes, timing, harmony, and cache paths remain fixed trusted data.
 - Play local MP3, WAV, FLAC, and OGG files with a ten-scene reactive
   visualizer.
 - Use optional SearXNG or Brave search for current information.
@@ -639,7 +771,8 @@ came out negative, and name the prior art first:
 
 | Feature | Default and boundary |
 | --- | --- |
-| Local chat, speech, memory, embeddings, and offline library | Local files and loopback services. Files are not encrypted by TORMENT_NEXUS. |
+| Local chat, speech, and memory | Local files and loopback services. Files are not encrypted by TORMENT_NEXUS. |
+| Offline library | Full-text indexing is local and available by default. Persistent library-vector population starts off and is a developer opt-in; existing current vectors remain usable when population is turned off. |
 | Microphone | Off at first launch; enabled by `audio mode`. |
 | Activity awareness | Off at first launch; explicit opt-in, persistent choice, maximum 14-day default retention, deleted by `activity off`. |
 | Session rhythm | Local `session_rhythm.json`: durations, exchange counts, pause lengths. Timings only, never text. Capped at 200 sessions. |

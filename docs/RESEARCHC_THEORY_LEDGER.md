@@ -396,4 +396,3 @@ Kelly sizing, and a sheaf-cohomology scalar currently make no distinct
 validated prediction that changes a release decision. They remain research
 metaphors until a bounded experiment separates them from the simpler baselines
 above.
-

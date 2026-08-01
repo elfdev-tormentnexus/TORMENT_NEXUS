@@ -233,9 +233,10 @@ constrain — is now a project-wide pattern.
 
 ### 8. Hardware-grounded questions
 
-Parked deliberately in [`raspberry_pi_goals/`](../raspberry_pi_goals/README.md)
-until the hardware exists, because they cannot be honestly answered on a
-desktop:
+Parked deliberately in the repository-only `raspberry_pi_goals/` research
+notes until the hardware exists, because they cannot be honestly answered on
+a desktop. Those future-hardware notes are not part of the Windows release
+package:
 
 - **Monitor-mode radio sensing** — per-packet signal strength from many
   transmitters at once, a genuinely different measurement from the one that

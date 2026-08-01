@@ -41,27 +41,44 @@ marker. Only caller-specified live exchanges are excluded during the current
 run; after restart, the newest persisted exchanges are eligible like other
 history.
 
+The selected exchange is serialized into the final untrusted user-data
+envelope. It never enters a system-role message. It can establish what was
+said or decided earlier, but an earlier assistant answer is not evidence that
+its underlying factual claim was true; retrieve or verify that fact again.
+
 ### Offline knowledge
 
 Manuals and practical reference cards have their own source store, SQLite
 full-text index, and vector table. They never enter the personal-memory
 collection.
 
-Automatic chat context first requires a real SQLite FTS word match.
-Embeddings may rerank those lexical hits but cannot create an automatic
-semantic-only hit. Explicit `library search` and authenticated
-`/knowledge/search` may widen the search and label semantic-only results
-`semantic-candidate`.
+Automatic chat context first requires a real SQLite FTS word match. Persistent
+library-vector population starts off and is enabled separately with the
+developer command `library semantic on`. Where a complete comparable set of
+current target vectors exists, embeddings may rerank lexical hits but cannot
+create an automatic semantic-only hit. Explicit `library search` and
+authenticated `/knowledge/search` may widen the search and label semantic-only
+results `semantic-candidate` once those target vectors exist. Turning
+population off leaves already stored current vectors available.
 
 This keeps a large encyclopedia from being vector-scanned on every turn and
 reduces accidental injection of merely similar text. See
 [Offline knowledge](OFFLINE_KNOWLEDGE.md).
 
+An optional dedicated LLM librarian can observe the same bounded candidate
+pool in shadow mode. The answer-time candidate bytes and exact baseline
+citations are immutable, the librarian returns only a strict rank/abstention
+object, and the live path discards that return. The experiment measures
+whether model judgement improves abstention on lexical bait without reducing
+positive recall; it does not grant model output retrieval authority.
+
 ## Embedding service
 
 The full Windows archive includes a small BGE GGUF embedding model and runs
-its service on loopback, normally `127.0.0.1:8082`. The normal thresholds
-were measured for this project configuration.
+its service on loopback, normally `127.0.0.1:8082`. Memory embeddings and
+one-off query vectors use it independently; library population remains a
+persisted opt-in with a 15,000-excerpt, 120-per-source fair target. The normal
+thresholds were measured for this project configuration.
 
 The implementation uses mean pooling as an explicit project evaluation
 choice. Upstream BGE examples commonly use CLS pooling, so the project does
@@ -123,6 +140,11 @@ server can still receive retrieved memory or reference context as part of a
 model prompt, so the local-first privacy claim does not apply to that
 director traffic.
 
+The librarian evidence log uses a per-install keyed HMAC for query and
+candidate pseudonyms. Ordinary SHA-256 is intentionally retained only in
+fixed synthetic public test reports, where reproducibility is useful and the
+inputs are not private.
+
 ## Inbound bridge: local agent interface
 
 Set `TORMENT_NEXUS_AGENT_API=1` to expose a token-authenticated, GET-only
@@ -164,6 +186,10 @@ Remote answers remain untrusted input.
 - Ambiguity returns nothing automatically.
 - Automatic context is narrower than explicit search.
 - Personal memory, history, knowledge, and panel telemetry stay separate.
+- Recalled chat, offline references, and web results stay at user-data
+  priority rather than acquiring system authority.
+- A shadow model must earn promotion on held-out data; enabling observation
+  is not promotion.
 - The human session outranks an agent request.
 - Local and remote boundaries are stated at the point of use.
 - Thresholds are measurements tied to a specific stack, not universal facts.

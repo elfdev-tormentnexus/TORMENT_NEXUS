@@ -39,6 +39,7 @@ from editing import edit_guard
 from editing import edit_generator
 from editing import patch_engine
 from editing import suggestion_engine
+from core import source_awareness
 from core.config import MODEL_ROLE, MODEL_ROLE_AUTONOMOUS_CODER
 from core.file_utils import ensure_file, append_file
 from ui import ui
@@ -55,10 +56,34 @@ _last_applied_record = None
 _last_observed_serial_records = []
 
 
+def _one_line(value):
+    """Display-only model prose can never mint another physical log row."""
+    return " ".join(str(value or "").split()) or "(no detail)"
+
+
 def _log(line):
     ensure_file(LOG_FILE)
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    append_file(LOG_FILE, f"[{stamp}] {line}\n")
+    append_file(LOG_FILE, f"[{stamp}] {_one_line(line)}\n")
+
+
+def _log_retained_edit(target, added, removed):
+    """Append the writer-owned record consumed by source authorship checks."""
+    ensure_file(LOG_FILE)
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        record = source_awareness.retained_edit_record(
+            target,
+            "autonomous",
+            added,
+            removed,
+            stamp,
+        )
+    except source_awareness.SourceError as error:
+        _log(f"RETAINED RECORD FAILED {target}: {error}")
+        return False
+    append_file(LOG_FILE, f"[{stamp}] {record}\n")
+    return True
 
 
 def run_cycle(limit=RUN_LIMIT):
@@ -241,8 +266,9 @@ def _try_apply(suggestion):
     _applied_this_run += 1
     ui.set_status("Recording autonomous edit result")
 
+    explanation = _one_line(edit.get("explanation", "small guarded patch"))
     summary = (
-        f"APPLIED {target}: {edit['explanation']} "
+        f"APPLIED {target}: {explanation} "
         f"(+{added} -{removed}, backup: {backup_path})"
     )
     _last_applied_record = {
@@ -250,6 +276,6 @@ def _try_apply(suggestion):
         "backup": backup_path,
         "summary": summary,
     }
-    _log(summary)
+    _log_retained_edit(target, added, removed)
 
     return summary

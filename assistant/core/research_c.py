@@ -5,14 +5,18 @@ authorizes an action. Research C's first job is to collect the held-out table
 that could justify a refusal or routing threshold later; until that table
 exists, every existing deterministic guard remains the decision-maker.
 
-Only digests, sampler settings, numeric measurements, timings, and bounded
-outcome labels are written. Prompt, response, source, and memory text are not.
+Only per-install HMAC pseudonyms, sampler settings, numeric measurements,
+timings, and bounded outcome labels are written. Prompt, response, source,
+and memory text are not.
 """
 
 import hashlib
+import hmac
 import json
 import math
 import os
+import secrets
+import threading
 import time
 from datetime import datetime, timezone
 
@@ -20,7 +24,18 @@ from datetime import datetime, timezone
 ASSISTANT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROJECT_ROOT = os.path.dirname(ASSISTANT_ROOT)
 LOG_FILE = os.path.join(ASSISTANT_ROOT, "logs", "research_c.jsonl")
+AUDIT_HMAC_KEY_FILE = os.path.join(ASSISTANT_ROOT, ".audit_hmac_key")
+_AUDIT_HMAC_KEY_ENV = "TORMENT_NEXUS_AUDIT_HMAC_KEY"
+_configured_audit_hmac_key = os.environ.get(_AUDIT_HMAC_KEY_ENV, "").strip()
 SCHEMA = 1
+PRIVATE_DIGEST_SCHEME = "hmac-sha256-install-v1"
+PROCESS_PRIVATE_DIGEST_SCHEME = "hmac-sha256-process-v1"
+
+_audit_hmac_key_cache = None
+_audit_hmac_key_persistent = None
+_audit_hmac_key_lock = threading.Lock()
+_AUDIT_HMAC_FILE_LOCK_SECONDS = 10.0
+_AUDIT_HMAC_FILE_LOCK_POLL_SECONDS = 0.01
 
 _MODES = {"off": 0, "top2": 2, "top10": 10}
 _DEFAULT_MODE = "top2"
@@ -111,6 +126,9 @@ _SAFE_OUTCOME_LABELS = {
     "authorship",
     "byte_count",
     "definition",
+    "directory_count",
+    "directory_existence",
+    "directory_lines",
     "empty",
     "existence",
     "fact",
@@ -118,6 +136,8 @@ _SAFE_OUTCOME_LABELS = {
     "hardware",
     "instruction",
     "line_count",
+    "line_comparison",
+    "line_threshold",
     "meta_commentary",
     "not_about_person",
     "other",
@@ -130,6 +150,9 @@ _SAFE_OUTCOME_LABELS = {
     "too_short",
     "transient_state",
     "unknown",
+    "size",
+    "class_outline",
+    "function_outline",
 }
 
 
@@ -150,10 +173,242 @@ def request_fields(selected=None):
     return {"logprobs": True, "top_logprobs": top}
 
 
-def digest(*parts):
-    """One opaque identifier for text that must never enter the log."""
-    encoded = json.dumps(parts, ensure_ascii=False, sort_keys=True, default=str)
+def _encoded_parts(parts):
+    return json.dumps(
+        parts,
+        ensure_ascii=False,
+        sort_keys=True,
+        default=str,
+        separators=(",", ":"),
+    ).encode("utf-8", "replace")
+
+
+def _decoded_audit_hmac_key(value):
+    """Return one exact 256-bit key, or ``None`` for malformed storage."""
+    try:
+        value = value.decode("ascii") if isinstance(value, bytes) else str(value)
+    except (UnicodeDecodeError, ValueError):
+        return None
+    value = value.strip()
+    if len(value) != 64:
+        return None
+    try:
+        decoded = bytes.fromhex(value)
+    except ValueError:
+        return None
+    return decoded if len(decoded) == 32 else None
+
+
+def _lock_audit_hmac_descriptor(descriptor):
+    """Hold an inter-process exclusive lock over the key's first byte."""
+    deadline = time.monotonic() + _AUDIT_HMAC_FILE_LOCK_SECONDS
+    if os.name == "nt":
+        import msvcrt
+
+        while True:
+            try:
+                os.lseek(descriptor, 0, os.SEEK_SET)
+                msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+                return "windows"
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise OSError("timed out waiting for the audit-key lock")
+                time.sleep(_AUDIT_HMAC_FILE_LOCK_POLL_SECONDS)
+
+    import fcntl
+
+    while True:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            return "posix"
+        except OSError:
+            if time.monotonic() >= deadline:
+                raise OSError("timed out waiting for the audit-key lock")
+            time.sleep(_AUDIT_HMAC_FILE_LOCK_POLL_SECONDS)
+
+
+def _unlock_audit_hmac_descriptor(descriptor, lock_kind):
+    if lock_kind == "windows":
+        import msvcrt
+
+        os.lseek(descriptor, 0, os.SEEK_SET)
+        msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+    elif lock_kind == "posix":
+        import fcntl
+
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+
+
+def _read_audit_hmac_descriptor(descriptor):
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    return _decoded_audit_hmac_key(os.read(descriptor, 4096))
+
+
+def _write_audit_hmac_descriptor(descriptor, key):
+    """Replace malformed storage while the caller owns the file lock."""
+    payload = key.hex().encode("ascii")
+    os.lseek(descriptor, 0, os.SEEK_SET)
+    os.ftruncate(descriptor, 0)
+    written = 0
+    while written < len(payload):
+        count = os.write(descriptor, payload[written:])
+        if count <= 0:
+            raise OSError("audit-key write made no progress")
+        written += count
+    os.fsync(descriptor)
+    if _read_audit_hmac_descriptor(descriptor) != key:
+        raise OSError("audit-key verification failed after writing")
+
+
+def _read_audit_hmac_path():
+    """Best-effort read for an installation mounted without write access."""
+    try:
+        with open(AUDIT_HMAC_KEY_FILE, "rb") as source:
+            return _decoded_audit_hmac_key(source.read(4096))
+    except OSError:
+        return None
+
+
+def _remember_audit_hmac_key(key, persistent):
+    global _audit_hmac_key_cache, _audit_hmac_key_persistent
+    # Publish the classification before the key. The lock-free fast path uses
+    # a non-None key as its ready flag, so the reverse order creates a tiny
+    # window in which another thread can mislabel an ephemeral key as an
+    # installation-persistent one.
+    _audit_hmac_key_persistent = bool(persistent)
+    _audit_hmac_key_cache = key
+    return _audit_hmac_key_cache
+
+
+def _audit_hmac_key():
+    """Return this installation's private pseudonym key.
+
+    The key is created lazily so importing the measurement module remains a
+    read-only operation.  An installation mounted read-only still gets a
+    process-local random key; its pseudonyms simply will not join across a
+    restart.  There is deliberately no deterministic fallback.
+    """
+    global _audit_hmac_key_cache, _audit_hmac_key_persistent
+    if _audit_hmac_key_cache is not None:
+        if _audit_hmac_key_persistent is None:
+            # Test and embedding callers historically supplied an in-memory
+            # installation key directly. Production paths below always set
+            # this state together with the key.
+            _audit_hmac_key_persistent = True
+        return _audit_hmac_key_cache
+
+    # ``flock`` is process-scoped on some platforms, so the Python lock is
+    # not redundant: it also prevents two threads in this interpreter from
+    # observing different first-use keys before the cache is populated.
+    with _audit_hmac_key_lock:
+        if _audit_hmac_key_cache is not None:
+            return _audit_hmac_key_cache
+
+        configured = _decoded_audit_hmac_key(_configured_audit_hmac_key)
+        if configured is not None:
+            return _remember_audit_hmac_key(configured, persistent=True)
+
+        descriptor = None
+        lock_kind = None
+        flags = os.O_RDWR | os.O_CREAT
+        if hasattr(os, "O_BINARY"):
+            flags |= os.O_BINARY
+        try:
+            descriptor = os.open(AUDIT_HMAC_KEY_FILE, flags, 0o600)
+            lock_kind = _lock_audit_hmac_descriptor(descriptor)
+
+            # Every cooperating process reads only while holding this lock.
+            # A creator may therefore make the path visible at zero bytes
+            # without exposing a usable partial key to another process.
+            stored = _read_audit_hmac_descriptor(descriptor)
+            if stored is not None:
+                return _remember_audit_hmac_key(stored, persistent=True)
+
+            generated = secrets.token_bytes(32)
+            for _attempt in range(3):
+                try:
+                    _write_audit_hmac_descriptor(descriptor, generated)
+                    return _remember_audit_hmac_key(
+                        generated,
+                        persistent=True,
+                    )
+                except OSError:
+                    # fsync can report failure after every byte reached the
+                    # file. Re-read under the lock before deciding this key
+                    # is ephemeral, so waiters never choose a different one.
+                    stored = _read_audit_hmac_descriptor(descriptor)
+                    if stored is not None:
+                        return _remember_audit_hmac_key(
+                            stored,
+                            persistent=True,
+                        )
+
+            # A writable-looking installation can still run out of space or
+            # reject a write. Preserve the documented privacy-safe fallback:
+            # random for this process, never a deterministic guess. A later
+            # launch will repair the invalid/partial file under the same lock.
+            return _remember_audit_hmac_key(generated, persistent=False)
+        except OSError:
+            # A genuinely read-only installation may still contain a valid
+            # key. Use it if available; otherwise comparability is limited to
+            # this process rather than weakened with a deterministic key.
+            stored = _read_audit_hmac_path()
+            return _remember_audit_hmac_key(
+                stored or secrets.token_bytes(32),
+                persistent=stored is not None,
+            )
+        finally:
+            if descriptor is not None:
+                if lock_kind is not None:
+                    try:
+                        _unlock_audit_hmac_descriptor(descriptor, lock_kind)
+                    except OSError:
+                        pass
+                os.close(descriptor)
+
+
+def private_digest_status():
+    """Describe whether current pseudonyms survive a process restart."""
+    _audit_hmac_key()
+    persistent = bool(_audit_hmac_key_persistent)
+    return {
+        "persistent": persistent,
+        "scheme": (
+            PRIVATE_DIGEST_SCHEME
+            if persistent
+            else PROCESS_PRIVATE_DIGEST_SCHEME
+        ),
+    }
+
+
+def legacy_digest(*parts):
+    """The pre-Research-C-release deterministic digest, for old evidence.
+
+    New private identifiers must use :func:`digest`.  Keeping this verifier
+    explicit lets an operator inspect already-frozen local artifacts without
+    silently continuing to publish dictionary-testable prompt hashes.
+    """
+    encoded = json.dumps(
+        parts,
+        ensure_ascii=False,
+        sort_keys=True,
+        default=str,
+    )
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def digest(*parts):
+    """Per-install HMAC pseudonym for text that must never enter a log."""
+    return hmac.new(
+        _audit_hmac_key(),
+        _encoded_parts(parts),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def verify_digest(expected, *parts):
+    """Verify a current private pseudonym without exposing its key."""
+    return hmac.compare_digest(str(expected or ""), digest(*parts))
 
 
 def prompt_digest(messages):
@@ -486,13 +741,11 @@ def model_binding(model_path=None, *, role="director", server_path=None):
 
 
 def _safe_metadata_key(value):
-    """Keep registered schema keys and digest-alias every unknown key."""
+    """Keep registered keys and HMAC-alias every unknown private key."""
     key = str(value)
     if key in _SAFE_METADATA_KEYS:
         return key
-    return "unknown_" + hashlib.sha256(
-        key.encode("utf-8", errors="replace")
-    ).hexdigest()[:16]
+    return "unknown_" + digest("metadata-key", key)[:16]
 
 
 def _safe_event_identifier(value, allowed):
@@ -617,6 +870,7 @@ def record(
     event = {
         "schema": SCHEMA,
         "recorded_utc": datetime.now(timezone.utc).isoformat(),
+        "private_digest_scheme": private_digest_status()["scheme"],
         "workflow": _safe_event_identifier(workflow, _SAFE_WORKFLOWS),
         "stage": _safe_event_identifier(stage, _SAFE_STAGES),
         "artifact_digest": _hex_digest(artifact_digest),

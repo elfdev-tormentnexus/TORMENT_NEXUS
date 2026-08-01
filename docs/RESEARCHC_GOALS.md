@@ -1,10 +1,14 @@
 # Research C goals — measured uncertainty as a compute gate
 
-Status: **Research C release candidate implemented on 2026-07-30.** Measurement
-plumbing, proof-carrying source answers, and audio endpoint recovery are in the
-candidate. No uncertainty threshold or automatic model escalation is live:
-the labelled fit/holdout evidence required to authorize either one does not
-exist yet.
+Status: **Research C candidate expanded and under validation on 2026-07-31.**
+Measurement plumbing, proof-carrying source answers, audio endpoint recovery,
+the resilience-card shelf, and the non-deciding librarian observer are in the
+candidate. The physical Windows audio matrix remains outstanding. The first
+dedicated librarian-model run is complete, failed its promotion gate, and
+remains a shadow-only negative result. No uncertainty threshold, automatic
+model escalation, or LLM-controlled retrieval is live. The threshold and
+escalation fit/holdout evidence has not been collected, while the first
+librarian evidence failed its gate.
 
 ## Completion report — read this before the chronological lab notebook
 
@@ -100,6 +104,56 @@ Mock endpoint tests and all existing local-music tests pass. A real Windows
 matrix—automatic display sleep/wake, manual lock/unlock, device switching, and
 HDMI disconnect/reconnect—is still required before the release notes may call
 the audio path hardware-validated.
+
+### Offline resilience and librarian extension — implemented; first candidate not promoted
+
+The integrity-bound built-in shelf now contains 18 cards and 39 chunks. Seven
+new Canada-wide cards cover extreme heat, extreme cold, winter/vehicle
+carbon-monoxide risk, wildfire smoke, wildfire evacuation, earthquakes, and
+hazard-specific shelter in place. They label jurisdiction, review dates,
+high-stakes status, and `current_conditions=unavailable_offline`. Cardiac
+arrest/CPR/AED remains a non-indexed review candidate because emergency
+wording needs a qualified Canadian reviewer and the source material has reuse
+restrictions.
+
+The fixed disposable-index harness currently measures:
+
+- built-ins only: 18/18 candidate, top-1, and top-3 recall; 10/10
+  known-unknown abstention; exact citation/source-digest pairing;
+- with synthetic specialist lexical bait: 18/18 recall is preserved, but the
+  deterministic selector abstains on only 5/10 known unknowns and admits a
+  specialist passage on 2/18 positive prompts.
+
+Those failures are the predeclared job for the librarian to beat. They are
+not being hidden by changing the expected cases.
+
+The optional librarian is a shadow, not a router. It requires a distinct
+authenticated loopback service, explicit alias, GGUF digest, and
+llama-server digest; refuses redirects and proxy inheritance; accepts only a
+strict closed JSON permutation; and keeps only the newest idle observation.
+Its immutable candidate pool and baseline citations are captured when the
+answer prompt is built, then submitted only after the answer and receipt
+exist. Logs contain per-install HMAC pseudonyms and closed metadata rather
+than questions, excerpts, paths, URLs, raw output, or dictionary-testable
+query hashes. Lifecycle failures are part of the denominator.
+
+The first identity-bound model result is now preserved under
+`handoffs/researchc_librarian_2026-07-31/`. Qwen3 4B Instruct Q5_K_M produced
+strictly valid decisions on 11/16 calls (68.75%), correct valid decisions on
+9/16 (56.25%), and the same decision under forward/reversed candidate order
+on only 1/8 cases (12.5%). Mean call time was 2.146 seconds. An earlier draft
+metric incorrectly credited malformed abstentions and malformed/malformed
+agreement; the recorded result and regression tests use the corrected
+denominators. This model therefore remains shadow-only. The live call path
+still discards every librarian return, and any future promotion requires a
+better held-out result plus a separate reviewed change.
+
+The audit also closed a second-order authority leak: an assistant reply that
+had used an offline reference could enter conversation history, be recalled
+later, and acquire system-message priority. All older-conversation recall and
+web evidence now live in the final untrusted user-data envelope. Recalled
+assistant prose proves only what was said, not that an embedded factual claim
+was true.
 
 ### New theoretical ideas — measured disposition
 

@@ -30,6 +30,29 @@ ones.
   endpoint still disappears, visualizer capture re-enumerates the default
   output and local playback retries the same track from the saved frame.
   SoundCard cleanup `S_FALSE` no longer hides the primary capture failure.
+- The integrity-bound offline shelf now carries 18 Canadian resilience cards.
+  An optional dedicated LLM librarian can observe immutable answer-time
+  candidates after an answer exists, but it has no path into retrieval or
+  replies. Its first 4B probe failed the promotion gate and remains
+  shadow-only.
+- Persistent library-vector population now starts off and requires a persisted
+  developer opt-in. A materialized fair target places built-ins first, then
+  advances imported sources round-robin, capped at 120 excerpts per source and
+  15,000 total. Identity-scoped retries, quarantine inspection/clearing, and
+  detailed status replace the previous unbounded background behavior; lexical
+  indexing remains active when vector population is off.
+- The shared offline singing path now performs the public-domain Come
+  Josephine chorus and an original answering verse alongside Daisy Bell.
+  Josephine's instrumental score remains unchanged while its vocal carrier is
+  stated one octave lower to match Sable's established register.
+  `sing what you want` lets the loopback director choose between those fixed
+  trusted tunes and provide only validated one-syllable tokens; malformed
+  output receives one repair and then queues nothing. Notes, durations,
+  harmony, and paths never come from the model.
+
+The singing work has automated structural and routing coverage, but it is not
+yet physically listening-validated. The sleep/wake, lock/unlock, output-switch,
+and HDMI/DisplayPort recovery matrix remains a human release check.
 
 ## What the experiments found
 
@@ -75,6 +98,15 @@ The completed paired probes are preserved under
   confident denial. Offered a hedge token instead, it flagged uncertainty on
   **16 of 16**. This is the probability-level confirmation of the manifest
   finding above, and it places the cause in the output format.
+- The first identity-bound shadow-librarian run returned strictly valid JSON
+  on 11/16 calls, made correct valid decisions on 9/16, and agreed under
+  forward/reversed candidate order on only 1/8 cases. A draft scorer had
+  inflated malformed abstentions and malformed/malformed agreement; the
+  corrected result and bindings are preserved under
+  `handoffs/researchc_librarian_2026-07-31/`. The preregistered follow-up using
+  the shipped 4B Q8 director improved strict validity to 15/16 and order
+  agreement to 5/8, but correctness remained 9/16. It also failed the
+  all-perfect gate. No librarian was promoted.
 
 ## The bundled llama.cpp runtime
 

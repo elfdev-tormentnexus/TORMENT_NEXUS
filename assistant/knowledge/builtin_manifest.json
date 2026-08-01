@@ -1,0 +1,24 @@
+{
+  "algorithm": "sha256",
+  "files": {
+    "antivirus_https_inspection.md": "5b8ff27badf3859153550def3482e70845989b88cfab05cec71b0fc6e3552e30",
+    "earthquake_response.md": "8b6cd47b5222ba270da050f8c013d106c3a1cba77487f3f76bd547f409d9f67b",
+    "emergency_72_hour_kit.md": "17bb84ec10dc32b62cce50a274bf8c15051db45cc5f7835da1ebd7e3d2122ab9",
+    "extreme_cold.md": "acc0a6040192b1d4bf1445179589c224c3d017146bc57b3e97c5009ba55ecf14",
+    "extreme_heat.md": "c42650d35f7f4e59b7969dd177c8cf1e83f50fa654701d6c2184b93fa3a506fc",
+    "fire_and_carbon_monoxide.md": "25d788179d3f623f33a290778b02933b2a0336db12bb1bb0b4165deae7fd0393",
+    "flood_and_severe_weather.md": "7e070d4af2755487045c519c86d74d7cd00128164a613ce914e947f3cf7dfc3f",
+    "food_and_water_emergency.md": "701187cb8499862cff4c9d31b83265ba5ae67173f94fa5393f7a7f6ff864b081",
+    "hazard_specific_shelter_in_place.md": "a584078ff9e73141a5fbac89a1f94fcfd613024bcab94725e8a4fa54017b166a",
+    "household_chemicals.md": "f57682b1d6257c1671b18224f211b7211ac5ad2b0dad84796cb5c6d33a08010c",
+    "numeric_library_thread_hangs.md": "75ce9bbc843a10b5f935fa85453185780143fdb46b6c54c8f49a259762648e8f",
+    "offline_navigation_and_communication.md": "2335b1a048ea4be03be672e2fbc26d426cdbd0808f960f8021570416f8f62aa0",
+    "offline_reference_limits.md": "05b8ea80a53d5f5d2c7f674f1c8dedeee8ab44d5bb73c7d3847802819270b4ef",
+    "power_outage.md": "d150a03c9898089f260634a837bc4cfe9c103b831297462357ebe1a88a2ca621",
+    "wildfire_evacuation.md": "81c202f42cb44068ea00f58872ccfefaa98379dc54cca321204a2362debae34a",
+    "wildfire_smoke.md": "dc7aad9ce97d74423daa822e91222d49a21115022ec0ee1aad3ef3eecd63f4d5",
+    "windows_commit_charge_exhaustion.md": "5105c1598709e9347d0bfd88f79311c1701da62e1bcd557bddb16662b54a5bda",
+    "winter_storm_and_carbon_monoxide.md": "90c8be2975ad0c9289599d6df2171fbfc0202820b0fb1a16434b8f2b2b0abebf"
+  },
+  "schema": 1
+}

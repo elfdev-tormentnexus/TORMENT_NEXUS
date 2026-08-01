@@ -26,6 +26,7 @@ from core.config import DEBUG
 _q = queue.Queue()
 _thread = None
 _stop = threading.Event()
+_active = threading.Event()
 
 _process_fn = None
 _is_busy_fn = None
@@ -61,7 +62,11 @@ def _worker():
                     waited += 0.1
 
             if not _stop.is_set() and _process_fn is not None:
-                _process_fn(*item)
+                _active.set()
+                try:
+                    _process_fn(*item)
+                finally:
+                    _active.clear()
 
         except Exception as e:
             # A failed extraction must never take the chat down.
@@ -102,6 +107,11 @@ def pending():
     return _q.qsize()
 
 
+def active():
+    """Whether the shared director is inside memory extraction right now."""
+    return _active.is_set()
+
+
 def stop(drain_seconds=2.0):
     """
     Give queued extractions a moment to land, then shut down. Anything
@@ -135,3 +145,4 @@ def stop(drain_seconds=2.0):
         _thread = None
         _process_fn = None
         _is_busy_fn = None
+        _active.clear()

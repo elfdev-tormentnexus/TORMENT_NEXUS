@@ -50,6 +50,7 @@ import requests
 
 from core import file_utils
 from core import research_c
+from core import source_awareness
 from core.config import (
     MODEL_ROLE,
     MODEL_ROLE_SUPER_DEV,
@@ -123,10 +124,34 @@ def _record_decision(suggestion, timing=None, **outcomes):
     )
 
 
+def _one_line(value):
+    """Display-only model prose can never mint another physical log row."""
+    return " ".join(str(value or "").split()) or "(no detail)"
+
+
 def _log(message):
     file_utils.ensure_file(LOG_FILE)
     stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    file_utils.append_file(LOG_FILE, f"[{stamp}] {message}\n")
+    file_utils.append_file(LOG_FILE, f"[{stamp}] {_one_line(message)}\n")
+
+
+def _log_retained_edit(target, added, removed):
+    """Append the writer-owned record consumed by source authorship checks."""
+    file_utils.ensure_file(LOG_FILE)
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        record = source_awareness.retained_edit_record(
+            target,
+            "super_dev",
+            added,
+            removed,
+            stamp,
+        )
+    except source_awareness.SourceError as error:
+        _log(f"RETAINED RECORD FAILED {target}: {error}")
+        return False
+    file_utils.append_file(LOG_FILE, f"[{stamp}] {record}\n")
+    return True
 
 
 def _is_loopback_worker():
@@ -341,11 +366,8 @@ def _try_patch(suggestion):
         retained=True,
         changed_lines=added + removed,
     )
-    summary = edit.get("explanation", "small guarded patch")
-    _log(
-        f"APPLIED {target}: 14B planned; 7B drafted; +{added} -{removed}; "
-        f"backup={backup}; summary={summary}"
-    )
+    summary = _one_line(edit.get("explanation", "small guarded patch"))
+    _log_retained_edit(target, added, removed)
     return True, f"{target}: {summary} (+{added} -{removed})", None
 
 

@@ -1,7 +1,7 @@
 # Models and provenance
 
 Status: release artifact inventory for `researchC`, reviewed
-2026-07-28.
+2026-07-31.
 
 This file separates model behavior, application authority, and redistribution
 rights. A model’s name or alignment does not grant it tool authority, and a
@@ -44,7 +44,8 @@ controls are not an operating-system sandbox. See `SAFETY.md`.
 
 - **Local filename:** `models/Qwen3-4B-abliterated-bf16_q8_0.gguf`
 - **Role:** default director for ordinary conversation, persona, planning,
-  and requests routed through application-owned capabilities.
+  bounded freestyle lyric tokens, and requests routed through
+  application-owned capabilities.
 - **Exact size:** `4,645,051,328` bytes
 - **SHA-256:** `947656A42E73BDA324C527F06953596B77E4D91BC590476955205B5F64D4E974`
 - **Upstream artifact repository:**
@@ -123,7 +124,8 @@ store the original text verbatim.
 ### Piper HFC female voice
 
 - **Model:** `models/voice/piper/en_US-hfc_female-medium.onnx`
-- **Role:** default local text-to-speech voice.
+- **Role:** default local text-to-speech voice for spoken replies and the
+  fixed-note offline singing performances.
 - **Exact size:** `63,201,294` bytes
 - **SHA-256:** `914C473788FC1FA8B63ACE1CDCDB44588F4AE523D3AB37DF1536616835A140B7`
 - **Configuration:**
@@ -214,17 +216,24 @@ Role: local English automatic speech recognition through sherpa-onnx.
 The versioned model-pack manifest and installer refuse any source file whose
 size or SHA-256 differs from the values above.
 
-## Developer-workspace model not selected for researchC
+## Developer-workspace research model not selected for researchC
 
 This file currently exists in the development workspace but is not selected
-by either the full Windows package or the optional 14B model pack:
+by either the full Windows package or the optional 14B model pack. It was used
+only for the first identity-bound Research C shadow-librarian probe:
 
 | Local filename | Intended role | Exact bytes | SHA-256 | Provenance status |
 | --- | --- | ---: | --- | --- |
-| `models/Qwen3-4B-Instruct-2507-Q5_K_M.gguf` | Legacy/non-default director alternative | `2,889,513,216` | `1E4544DFA0A5F4477C03AA8E2CE42E96F217946B7F9CD130392C3FFFBC1449FD` | Not established by local metadata; do not redistribute without a separate review. |
+| `models/Qwen3-4B-Instruct-2507-Q5_K_M.gguf` | Research-only shadow-librarian probe; legacy/non-default director alternative | `2,889,513,216` | `1E4544DFA0A5F4477C03AA8E2CE42E96F217946B7F9CD130392C3FFFBC1449FD` | Not established by local metadata; do not redistribute without a separate review. |
 
-Its presence on a developer’s disk is not a statement that it is part of the
-public release.
+The probe produced 11/16 strictly valid decisions, 9/16 correct valid
+decisions, and only 1/8 agreement after candidate order was reversed. It
+failed the promotion gate. This is a negative result for that bound experiment,
+not a claim that every possible librarian model will fail.
+
+Its presence on a developer's disk and its research use are not statements
+that it is part of the public release. It remains excluded unless provenance,
+redistribution, memory cost, and a new held-out result receive separate review.
 
 ## Verification
 

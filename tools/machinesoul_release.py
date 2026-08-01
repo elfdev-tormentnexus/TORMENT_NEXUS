@@ -865,20 +865,39 @@ def render_plan_apng(plan_path: str, out_path: str) -> dict:
 
 
 def _validate_source(plan: dict) -> dict[str, SourceFile]:
-    root = plan["source_root"]
+    # Rehashing only the planned files would prove that nothing reviewed had
+    # changed while saying nothing about anything new. A file created after the
+    # plan was approved would have been cut in without ever being reviewed,
+    # rendered into an APNG frame, or covered by the approved plan hash. So the
+    # directory is reinventoried here and the whole inventory must match.
+    #
+    # inventory() is the planner's own walk, reused deliberately: it applies the
+    # same link/reparse refusal, the same _safe_relative normalisation and the
+    # same ordering, so validation cannot drift from planning. It also hashes
+    # each file exactly once, which matters when the stage holds several GiB of
+    # model weights.
+    root = os.path.realpath(plan["source_root"])
+    actual = {found.path: found for found in inventory(root)}
+
     by_path = {}
     for record in plan["files"]:
         relative = _safe_relative(record["path"])
         full = os.path.realpath(os.path.join(root, relative.replace("/", os.sep)))
         if full != root and not full.startswith(root + os.sep):
             raise ReleaseError(f"source path escapes root: {relative}")
-        if os.path.islink(full) or _is_reparse(full) or not os.path.isfile(full):
+        found = actual.get(relative)
+        if found is None:
             raise ReleaseError(f"planned source is missing or unsafe: {relative}")
-        size = os.path.getsize(full)
-        digest = _sha256_file(full)
-        if size != record["size"] or digest != record["sha256"]:
+        if found.size != record["size"] or found.sha256 != record["sha256"]:
             raise ReleaseError(f"planned source changed after review: {relative}")
-        by_path[relative] = SourceFile(relative, full, size, digest)
+        by_path[relative] = found
+
+    added = sorted(set(actual) - set(by_path))
+    if added:
+        shown = ", ".join(added[:5])
+        if len(added) > 5:
+            shown += f", and {len(added) - 5} more"
+        raise ReleaseError(f"source gained files after review: {shown}")
     return by_path
 
 
@@ -1016,6 +1035,55 @@ def _validate_manifest(manifest: dict) -> None:
             raise ReleaseError(f"invalid file record: {path}")
 
 
+def _validate_components(components: dict) -> None:
+    """Refuse a combined manifest whose two components were swapped or repeated.
+
+    combine_manifests() decides which component is which from argument order
+    alone, so supplying them the wrong way round, or supplying the same
+    manifest twice, previously produced a well-formed manifest describing the
+    wrong release. The generated installer then trusts that ordering.
+
+    The checks are structural rather than name-based. This tool is
+    release-agnostic on purpose -- the prefix is operator-supplied and the
+    combined format string is a stable format discriminator, not a release
+    name -- so hardcoding one release's prefixes here would only move the
+    problem to the next cut.
+    """
+    windows = components["windows"]
+    optional = components["optional_14b"]
+
+    windows_prefix = windows.get("prefix")
+    optional_prefix = optional.get("prefix")
+    if not windows_prefix or not optional_prefix:
+        raise ReleaseError("each component manifest must carry its prefix")
+    if windows_prefix == optional_prefix:
+        raise ReleaseError(
+            f"both components carry the prefix {windows_prefix!r}; "
+            "the same manifest was supplied twice"
+        )
+
+    windows_paths = {
+        _safe_relative(record["path"]) for record in windows.get("files", [])
+    }
+    optional_paths = {
+        _safe_relative(record["path"]) for record in optional.get("files", [])
+    }
+
+    if not windows_paths:
+        raise ReleaseError("the windows component contains no files")
+    if not optional_paths:
+        raise ReleaseError("the optional component contains no files")
+
+    stray = sorted(path for path in optional_paths if not path.startswith("models/"))
+    if stray:
+        shown = ", ".join(stray[:5])
+        if len(stray) > 5:
+            shown += f", and {len(stray) - 5} more"
+        raise ReleaseError(
+            f"optional component paths must live under models/: {shown}"
+        )
+
+
 def combine_manifests(
     windows_path: str,
     optional_14b_path: str,
@@ -1031,6 +1099,8 @@ def combine_manifests(
             manifest = json.load(handle)
         _validate_manifest(manifest)
         components[name] = manifest
+
+    _validate_components(components)
 
     combined = {
         "format": COMBINED_FORMAT,

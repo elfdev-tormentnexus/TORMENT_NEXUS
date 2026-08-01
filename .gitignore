@@ -21,6 +21,7 @@ venv/
 # there, add it here too.
 # ---------------------------------------------------------------
 assistant/.model_api_key
+assistant/.audit_hmac_key
 assistant/.dev_passcode
 assistant/.super_dev_passcode
 assistant/.tdeck_ble_pin

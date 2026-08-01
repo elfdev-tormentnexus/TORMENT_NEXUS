@@ -141,6 +141,52 @@ class CutAndReassembleTests(unittest.TestCase):
             )
         self.assertFalse(self.out.exists())
 
+    def test_a_file_added_after_planning_is_refused(self):
+        # Rehashing only the planned files proves nothing about a file that
+        # did not exist when the plan was reviewed. Such a file was never in
+        # the Markdown table, never rendered into an APNG frame, and is not
+        # covered by the approved plan hash, yet it would have been cut in.
+        _plan, digest = self._plan()
+        Path(self.source, "smuggled.py").write_text(
+            "def smuggled():\n    return 'never reviewed'\n",
+            encoding="utf-8",
+        )
+
+        with self.assertRaises(release.ReleaseError) as caught:
+            release.cut(
+                str(self.plan_path),
+                digest,
+                str(self.out),
+                str(self.manifest),
+            )
+
+        self.assertIn("gained files after review", str(caught.exception))
+        self.assertIn("smuggled.py", str(caught.exception))
+        self.assertFalse(self.out.exists())
+        self.assertFalse(self.manifest.exists())
+
+    def test_a_planned_file_removed_after_planning_is_still_refused(self):
+        _plan, digest = self._plan()
+        Path(self.source, "alpha.py").unlink()
+
+        with self.assertRaises(release.ReleaseError) as caught:
+            release.cut(
+                str(self.plan_path),
+                digest,
+                str(self.out),
+                str(self.manifest),
+            )
+
+        self.assertIn("alpha.py", str(caught.exception))
+        self.assertFalse(self.out.exists())
+
+    def test_an_untouched_source_still_cuts(self):
+        # The reinventory must not make the ordinary path stricter.
+        _plan, manifest = self._cut()
+
+        self.assertTrue(self.out.exists())
+        self.assertTrue(manifest["capsules"])
+
     def test_cut_review_renders_as_a_plan_bound_apng(self):
         plan, digest = self._plan()
         image = Path(self.folder, "CUT_REVIEW.png")
@@ -183,12 +229,70 @@ class CutAndReassembleTests(unittest.TestCase):
         for record in plan["files"]:
             self.assertEqual(_sha(rebuilt / record["path"]), record["sha256"])
 
+    def _cut_optional(self):
+        """Cut a second component shaped like the optional model pack.
+
+        It must be genuinely separate: combine_manifests() decides which
+        component is which from argument order, so a test that hands it the
+        same manifest twice cannot show that ordering is respected.
+        """
+        source = Path(self.folder, "source-14b")
+        (source / "models").mkdir(parents=True)
+        Path(source, "models", "companion.gguf").write_bytes(
+            bytes(range(211)) * 30
+        )
+        plan = release.make_plan(
+            str(source),
+            "SABLERESEARCHA-TEST-14B",
+            payload_limit=2048,
+        )
+        plan_path = Path(self.folder, "plan-14b.json")
+        digest = release.write_plan(
+            plan,
+            str(plan_path),
+            str(Path(self.folder, "CUT_REVIEW_14B.md")),
+        )
+        manifest_path = Path(self.folder, "manifest-14b.json")
+        manifest = release.cut(
+            str(plan_path),
+            digest,
+            str(Path(self.folder, "capsules-14b")),
+            str(manifest_path),
+        )
+        return manifest_path, manifest
+
+    def test_swapped_components_are_refused(self):
+        self._cut()
+        optional_path, _optional = self._cut_optional()
+
+        with self.assertRaises(release.ReleaseError) as caught:
+            release.combine_manifests(
+                str(optional_path),
+                str(self.manifest),
+                str(Path(self.folder, "swapped.json")),
+            )
+
+        self.assertIn("must live under models/", str(caught.exception))
+
+    def test_the_same_manifest_supplied_twice_is_refused(self):
+        self._cut()
+
+        with self.assertRaises(release.ReleaseError) as caught:
+            release.combine_manifests(
+                str(self.manifest),
+                str(self.manifest),
+                str(Path(self.folder, "doubled.json")),
+            )
+
+        self.assertIn("supplied twice", str(caught.exception))
+
     def test_combined_manifest_selects_each_release_component(self):
         _, manifest = self._cut()
+        optional_path, _optional = self._cut_optional()
         combined_path = Path(self.folder, "combined.json")
         combined = release.combine_manifests(
             str(self.manifest),
-            str(self.manifest),
+            str(optional_path),
             str(combined_path),
         )
         self.assertEqual(combined["format"], "SABLERESEARCHA_MANIFEST1")

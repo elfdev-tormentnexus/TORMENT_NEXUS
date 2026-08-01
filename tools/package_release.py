@@ -25,8 +25,10 @@ so a new stray folder cannot silently end up in a package sent to someone
 else.
 
     python tools/package_release.py                 build into dist/
-    python tools/package_release.py --archive       ... and zip it
-    python tools/package_release.py --split         cut the ZIP for GitHub
+    python tools/package_release.py --archive       LEGACY ZIP path; not
+                                                    used by machinesoul
+                                                    releases
+    python tools/package_release.py --split         LEGACY; splits that ZIP
     python tools/package_release.py --verify-only   re-check an existing build
     python tools/package_release.py --skip-download reuse cached wheels/python
     python tools/package_release.py --llama-runtime-dir PATH
@@ -141,11 +143,24 @@ MODEL_ARTIFACTS = (
 # ship dozens of unrelated benchmark/test programs, and their compiled
 # ``__FILE__`` strings exposed the maintainer's checkout path.
 #
-# The closure was verified with dumpbin /DEPENDENTS.  It is valid for the
-# release build only while GGML_BACKEND_DL is OFF and the optional CUDA,
-# Vulkan, HIP, SYCL, RPC, and BLAS backends are OFF.
+# The build now sets GGML_BACKEND_DL=ON and GGML_VULKAN=ON, which changes what
+# "the closure" means: backends are no longer linked in, they are LoadLibrary'd
+# at run time.  ggml-cpu.dll and ggml-vulkan.dll therefore do NOT appear in
+# llama-server.exe's import table, and a list derived from imports alone would
+# silently omit both -- shipping a server with no backend at all.  They are
+# named here explicitly for that reason.
+#
+# The import closure was reverified by reading the PE import directory rather
+# than with dumpbin, which produced no output without its toolchain
+# environment.  Seven files come from the closure; the two backends are added.
+#
+# ggml-vulkan.dll imports vulkan-1.dll, which is NOT shipped -- it is installed
+# by the GPU driver.  That is deliberate and is why dynamic loading matters: on
+# a machine with no Vulkan loader the backend's load fails, ggml skips it, and
+# the CPU backend still serves.  A statically linked Vulkan build would instead
+# refuse to start for every recipient without a GPU.
 LLAMA_RUNTIME_DEST = "llama.cpp/build/bin/Release"
-LLAMA_RUNTIME_FILENAMES = (
+LLAMA_RUNTIME_IMPORT_CLOSURE = (
     "llama-server.exe",
     "llama-server-impl.dll",
     "llama-common.dll",
@@ -153,7 +168,14 @@ LLAMA_RUNTIME_FILENAMES = (
     "llama.dll",
     "ggml.dll",
     "ggml-base.dll",
+)
+# Loaded by name at run time, so absent from the import closure above.
+LLAMA_RUNTIME_DYNAMIC_BACKENDS = (
     "ggml-cpu.dll",
+    "ggml-vulkan.dll",
+)
+LLAMA_RUNTIME_FILENAMES = (
+    LLAMA_RUNTIME_IMPORT_CLOSURE + LLAMA_RUNTIME_DYNAMIC_BACKENDS
 )
 LLAMA_RUNTIME_RELEASE_FILES = tuple(
     f"{LLAMA_RUNTIME_DEST}/{name}" for name in LLAMA_RUNTIME_FILENAMES
@@ -191,6 +213,24 @@ INCLUDE_DIRS = [
 # release inputs and remain recursive because many of their generated binary
 # files are not represented in this repository's index.
 TRACKED_ONLY_DIRS = {"assistant"}
+
+# This is the deliberately public derivative of the librarian experiment,
+# not a recursive handoff-directory inclusion. These files were checked to
+# contain only aggregate outcomes, closed labels, relative source names, and
+# reproducibility digests. Raw transcripts and the rest of handoffs/ remain
+# outside the release whitelist.
+LIBRARIAN_HANDOFF_FILES = (
+    "handoffs/researchc_librarian_2026-07-31/README.md",
+    "handoffs/researchc_librarian_2026-07-31/result.json",
+    (
+        "handoffs/researchc_librarian_2026-07-31/"
+        "shipped_director_followup_spec.json"
+    ),
+    (
+        "handoffs/researchc_librarian_2026-07-31/"
+        "shipped_director_followup_result.json"
+    ),
+)
 
 INCLUDE_FILES = [
     # The project's own documentation, not just the installer's README.
@@ -255,6 +295,10 @@ INCLUDE_FILES = [
     "tools/package_model_pack.py",
     "tools/package_release.py",
     "tools/researchc_report.py",
+    "tools/researchc_library_probe.py",
+    "tools/researchc_library_cases.json",
+    "tools/run_librarian_probe.ps1",
+    *LIBRARIAN_HANDOFF_FILES,
     "tools/build_super_dev_icon.py",
     "tools/build_researchc_fetcher.py",
     "tools/build_researchc_decompiler.py",
@@ -287,12 +331,27 @@ INCLUDE_FILES = [
     "models/Qwen2.5-Coder-7B-Instruct-abliterated-Q8_0.gguf",
     "models/embedding/bge-small-en-v1.5-q8_0.gguf",
     "models/voice/silero_vad.onnx",
+    # The machine's own performances of two public-domain songs. Synthesising
+    # one takes minutes, so shipping the cache makes a recipient's first
+    # `sing daisy bell` or `sing come josephine` immediate instead of a long
+    # silent wait. The filename embeds the voice key and the accompaniment
+    # gain, so anyone who changes either simply misses the cache and rebuilds:
+    # the shipped file is never wrong, only unused.
+    #
+    # Earlier versions and the content-addressed freestyle takes are left
+    # behind on purpose. A freestyle cache is keyed by a hash of its generated
+    # lyrics, so it can only ever hit for the machine that produced it.
+    "models/voice/cache/daisy_bell_machine_v11_mix110_en_US-hfc_female-medium.wav",
+    "models/voice/cache/come_josephine_machine_v2_vocal-minus12_mix105_en_US-hfc_female-medium.wav",
     *LLAMA_RUNTIME_RELEASE_FILES,
 ]
 
-# Disclosure and community files are release inputs once they exist, but a
-# branch that has not introduced one yet should not fail solely because of a
-# future-facing filename. All other INCLUDE_FILES are mandatory.
+# Disclosure and community files are release inputs once their exact reviewed
+# filename exists, but a branch that has not introduced one yet should not fail
+# solely because of a future-facing filename. All other INCLUDE_FILES are
+# mandatory. Do not rediscover these by keyword: a similarly named ignored or
+# untracked root note must never become public merely because it says MODEL,
+# SECURITY, or PRIVACY in its filename.
 OPTIONAL_ROOT_DOCUMENTS = (
     "SAFETY.md",
     "PRIVACY.md",
@@ -310,30 +369,17 @@ OPTIONAL_ROOT_DOCUMENTS = (
     "LICENSE.md",
     "NOTICE",
 )
-_root_disclosure_names = {
-    name for name in OPTIONAL_ROOT_DOCUMENTS
-    if os.path.isfile(os.path.join(ROOT, name))
-}
-for _name in os.listdir(ROOT):
-    _upper = _name.upper()
-    if (
-        os.path.isfile(os.path.join(ROOT, _name))
-        and _name.lower().endswith((".md", ".txt"))
-        and any(
-            marker in _upper
-            for marker in (
-                "SAFETY",
-                "PRIVACY",
-                "MODEL",
-                "NOTICE",
-                "RIGHTS",
-                "CONTRIBUT",
-                "SECURITY",
-            )
-        )
-    ):
-        _root_disclosure_names.add(_name)
-INCLUDE_FILES.extend(sorted(_root_disclosure_names))
+
+
+def _existing_optional_root_documents(root=ROOT):
+    """Return only exact, reviewed root-document names that currently exist."""
+    return tuple(
+        name for name in OPTIONAL_ROOT_DOCUMENTS
+        if os.path.isfile(os.path.join(root, name))
+    )
+
+
+INCLUDE_FILES.extend(sorted(_existing_optional_root_documents()))
 
 # Never ship these. Checked again by --verify against the built package.
 #
@@ -369,8 +415,12 @@ DENY_PATTERNS = [
     "icon_anim/.animator.lock",
     "*.model_api_key",
     ".model_api_key",
+    "*.audit_hmac_key",
+    ".audit_hmac_key",
     "*.dev_passcode",
     ".dev_passcode",
+    "*.super_dev_passcode",
+    ".super_dev_passcode",
     "*.tdeck_ble_pin",
     ".tdeck_ble_pin",
     "*.spotify_token",
@@ -395,6 +445,7 @@ DENY_PATTERNS = [
     "*/memory/chosen_name.json",
     "*/logs/*",
     "*/cache/prompt/*",
+    "*/cache/prompt-*/*",
     # Embedding vectors are derived from the operator's memories and
     # conversation history; they are as private as their sources.
     "*/cache/embeddings.json*",
@@ -427,7 +478,9 @@ DENY_PATTERNS = [
 # gives verify() a second independent check instead of trusting copy_tree().
 PRIVATE_RUNTIME_BASENAMES = {
     ".model_api_key",
+    ".audit_hmac_key",
     ".dev_passcode",
+    ".super_dev_passcode",
     ".tdeck_ble_pin",
     ".spotify_token",
     ".agent_token",
@@ -1134,10 +1187,16 @@ def bundle_wheels(report, skip_download=False):
 
 RUNTIME_ARTIFACTS = (
     "assistant/.model_api_key",
+    "assistant/.audit_hmac_key",
     "assistant/.dev_passcode",
+    "assistant/.super_dev_passcode",
     "assistant/.tdeck_ble_pin",
     "assistant/.spotify_token",
     "assistant/.agent_token",
+    "assistant/.anthropic_api_key",
+    "assistant/.openai_api_key",
+    "assistant/.safety_acknowledgement.json",
+    "assistant/.activity_consent.json",
     "assistant/memory/conversation_history.txt",
     "assistant/memory/memories.json",
     # Its absence is what marks a fresh install. Shipping it would rob the
@@ -1199,6 +1258,14 @@ def sanitize(report):
 
 
 STAGED_BINARY_SUFFIXES = (".dll", ".exe", ".pyd")
+STAGED_TEXT_SUFFIXES = (
+    ".bat", ".cfg", ".csv", ".html", ".htm", ".ini", ".json", ".jsonl",
+    ".md", ".ps1", ".py", ".rst", ".sh", ".toml", ".txt", ".yaml", ".yml",
+)
+STAGED_TEXT_NAMES = {
+    "license", "notice", "copying", "authors", "contributors", "readme",
+    "changelog", "security", "privacy",
+}
 
 
 def _local_path_markers():
@@ -1280,6 +1347,35 @@ def _verify_no_local_binary_paths(report, problems):
     )
 
 
+def _verify_no_local_text_paths(report, problems):
+    """Reject staged source/docs/config that disclose maintainer roots."""
+    markers = _local_path_markers()
+    scanned = 0
+
+    for folder, _, files in os.walk(STAGE):
+        for name in files:
+            lowered = name.casefold()
+            stem, suffix = os.path.splitext(lowered)
+            if (
+                suffix not in STAGED_TEXT_SUFFIXES
+                and lowered not in STAGED_TEXT_NAMES
+                and stem not in STAGED_TEXT_NAMES
+            ):
+                continue
+            full = os.path.join(folder, name)
+            rel = os.path.relpath(full, STAGE)
+            scanned += 1
+            label = _embedded_local_path(full, markers)
+            if label:
+                problems.append(
+                    f"staged text embeds the {label} path: {rel}"
+                )
+
+    report.append(
+        f"  checked {scanned} staged text files for local paths"
+    )
+
+
 def verify(report):
     """Re-scan the built package for anything personal that slipped in."""
     problems = []
@@ -1309,6 +1405,7 @@ def verify(report):
                 problems.append(f"{label} still holds {leftovers}")
 
     _verify_no_local_binary_paths(report, problems)
+    _verify_no_local_text_paths(report, problems)
     _verify_release_launchers(report, problems)
     _verify_manifest(report, problems)
 
@@ -1847,7 +1944,7 @@ cd /d "%~dp0"
 
 set "PY=%~dp0python\python.exe"
 if not exist "%PY%" (
-    echo   ERROR: bundled Python missing. Extract the whole archive first.
+    echo   ERROR: bundled Python missing. This folder is incomplete - run the decompiler again.
     pause
     exit /b 1
 )
@@ -2062,7 +2159,7 @@ WHAT THIS IS
 
 WHAT YOU NEED
     - 64-bit Windows
-    - About 13 GB for this extracted folder
+    - About 13 GB for this installed folder
     - At least 16 GB of RAM for the Q8 director and 7B coder
     - A microphone only if you want to speak; typed input works without one
 

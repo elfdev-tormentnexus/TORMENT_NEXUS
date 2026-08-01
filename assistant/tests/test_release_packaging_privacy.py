@@ -1,8 +1,10 @@
-"""Privacy boundaries for the Beta 6 release packager."""
+"""Privacy boundaries for the release packager."""
 
 import importlib.util
+import json
 import os
 from pathlib import Path
+import re
 import shutil
 from types import SimpleNamespace
 import tempfile
@@ -19,6 +21,235 @@ _SPEC = importlib.util.spec_from_file_location(
 )
 package_release = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(package_release)
+
+
+class LlamaRuntimeFileSetTests(unittest.TestCase):
+    """Backends load by name, so an import scan cannot discover them."""
+
+    def test_both_dynamic_backends_are_shipped(self):
+        # Deriving this list from llama-server.exe's imports alone would omit
+        # both and ship a server with no backend at all.
+        for name in ("ggml-cpu.dll", "ggml-vulkan.dll"):
+            with self.subTest(name=name):
+                self.assertIn(name, package_release.LLAMA_RUNTIME_FILENAMES)
+
+    def test_the_backends_are_not_claimed_to_be_imports(self):
+        for name in package_release.LLAMA_RUNTIME_DYNAMIC_BACKENDS:
+            with self.subTest(name=name):
+                self.assertNotIn(
+                    name, package_release.LLAMA_RUNTIME_IMPORT_CLOSURE
+                )
+
+    def test_every_runtime_file_is_an_explicit_release_input(self):
+        for name in package_release.LLAMA_RUNTIME_FILENAMES:
+            with self.subTest(name=name):
+                self.assertIn(
+                    f"{package_release.LLAMA_RUNTIME_DEST}/{name}",
+                    package_release.INCLUDE_FILES,
+                )
+
+    def test_the_vulkan_loader_is_never_shipped(self):
+        # vulkan-1.dll belongs to the GPU driver. Shipping one would shadow the
+        # recipient's own loader, and it is not ours to redistribute.
+        lowered = [n.lower() for n in package_release.LLAMA_RUNTIME_FILENAMES]
+
+        self.assertNotIn("vulkan-1.dll", lowered)
+
+
+class ShippedSongCacheTests(unittest.TestCase):
+    """A shipped performance nothing asks for is dead weight in the download."""
+
+    def _shipped(self):
+        return [
+            path for path in package_release.INCLUDE_FILES
+            if path.startswith("models/voice/cache/")
+        ]
+
+    def test_the_shipped_cache_is_what_the_assistant_will_look_for(self):
+        # The cache filename embeds the song version, the voice key and the
+        # accompaniment gain. Bumping any of those in config without updating
+        # the package would ship minutes of audio that never gets read, and
+        # the recipient would still wait through a full synthesis.
+        from core import config
+
+        self.assertEqual(
+            {os.path.basename(path) for path in self._shipped()},
+            {
+                os.path.basename(config.VOICE_DAISY_CACHE),
+                os.path.basename(config.VOICE_JOSEPHINE_CACHE),
+            },
+        )
+
+    def test_no_superseded_or_freestyle_performance_is_shipped(self):
+        shipped = self._shipped()
+
+        self.assertEqual(len(shipped), 2, shipped)
+        for path in shipped:
+            with self.subTest(path=path):
+                # Freestyle caches are keyed by a hash of generated lyrics, so
+                # they can only ever hit for the machine that produced them.
+                self.assertNotIn("freestyle", path)
+
+
+class SanitizedResearchHandoffPackagingTests(unittest.TestCase):
+    def test_only_the_reviewed_librarian_derivative_is_whitelisted(self):
+        expected = {
+            "handoffs/researchc_librarian_2026-07-31/README.md",
+            "handoffs/researchc_librarian_2026-07-31/result.json",
+            (
+                "handoffs/researchc_librarian_2026-07-31/"
+                "shipped_director_followup_spec.json"
+            ),
+            (
+                "handoffs/researchc_librarian_2026-07-31/"
+                "shipped_director_followup_result.json"
+            ),
+        }
+        packaged_handoffs = {
+            path for path in package_release.INCLUDE_FILES
+            if path.startswith("handoffs/")
+        }
+
+        self.assertEqual(
+            set(package_release.LIBRARIAN_HANDOFF_FILES),
+            expected,
+        )
+        self.assertEqual(packaged_handoffs, expected)
+
+    def test_librarian_derivative_contains_no_host_path_or_raw_material(self):
+        texts = {}
+        for relative in package_release.LIBRARIAN_HANDOFF_FILES:
+            text = Path(_ROOT, *relative.split("/")).read_text(
+                encoding="utf-8"
+            )
+            texts[relative] = text
+            self.assertIsNone(
+                re.search(r"(?i)\b[a-z]:[\\/]", text),
+                relative,
+            )
+            self.assertIsNone(
+                re.search(r"(?i)\bbearer\s+[a-z0-9._~-]{16,}", text),
+                relative,
+            )
+
+        first_result = json.loads(texts[
+            "handoffs/researchc_librarian_2026-07-31/result.json"
+        ])
+        followup_result = json.loads(texts[
+            "handoffs/researchc_librarian_2026-07-31/"
+            "shipped_director_followup_result.json"
+        ])
+        for result in (first_result, followup_result):
+            self.assertTrue(result["privacy"])
+            self.assertFalse(any(result["privacy"].values()))
+            self.assertEqual(
+                result["disposition"],
+                "shadow_only_not_promoted",
+            )
+
+        self.assertEqual(
+            first_result["librarian"]["parse_validity"],
+            11 / 16,
+        )
+        self.assertEqual(first_result["librarian"]["task_accuracy"], 9 / 16)
+        self.assertEqual(first_result["librarian"]["order_agreement"], 1 / 8)
+        self.assertEqual(followup_result["parse_validity"], 15 / 16)
+        self.assertEqual(followup_result["task_accuracy"], 9 / 16)
+        self.assertEqual(followup_result["order_agreement"], 5 / 8)
+        self.assertFalse(followup_result["librarian_gate_passed"])
+
+    def test_stage_copies_all_reviewed_handoff_files_and_nothing_else(self):
+        with tempfile.TemporaryDirectory(
+            prefix="torment-librarian-handoff-"
+        ) as folder, mock.patch.object(
+            package_release,
+            "STAGE",
+            os.path.join(folder, "stage"),
+        ), mock.patch.object(
+            package_release,
+            "INCLUDE_DIRS",
+            [],
+        ), mock.patch.object(
+            package_release,
+            "INCLUDE_FILES",
+            list(package_release.LIBRARIAN_HANDOFF_FILES),
+        ), mock.patch.dict(
+            os.environ,
+            {
+                "TORMENT_NEXUS_KNOWLEDGE_DIR": "",
+                "TORMENT_NEXUS_KNOWLEDGE_DB": "",
+            },
+            clear=False,
+        ):
+            copied, skipped = package_release.stage([])
+            destination = Path(
+                package_release.STAGE,
+                "handoffs",
+                "researchc_librarian_2026-07-31",
+            )
+            self.assertEqual(copied, 4)
+            self.assertEqual(skipped, 0)
+            self.assertEqual(
+                {path.name for path in destination.iterdir()},
+                {
+                    "README.md",
+                    "result.json",
+                    "shipped_director_followup_spec.json",
+                    "shipped_director_followup_result.json",
+                },
+            )
+
+    def test_unreviewed_cardiac_draft_is_not_a_public_release_input(self):
+        self.assertNotIn(
+            "docs/review_candidates/CARDIAC_ARREST_CPR_AED.md",
+            package_release.INCLUDE_FILES,
+        )
+
+
+class RootDisclosurePackagingTests(unittest.TestCase):
+    def test_keyword_named_untracked_bait_is_not_discovered(self):
+        with tempfile.TemporaryDirectory(
+            prefix="torment-root-disclosure-"
+        ) as folder:
+            Path(folder, "PRIVACY.md").write_text(
+                "reviewed public disclosure",
+                encoding="utf-8",
+            )
+            Path(folder, "SECURITY_PRIVATE_NOTES.md").write_text(
+                "untracked maintainer material",
+                encoding="utf-8",
+            )
+            Path(folder, "MODEL_SECRETS.txt").write_text(
+                "ignored maintainer material",
+                encoding="utf-8",
+            )
+
+            self.assertEqual(
+                package_release._existing_optional_root_documents(folder),
+                ("PRIVACY.md",),
+            )
+
+
+class PrivateRuntimeArtifactTests(unittest.TestCase):
+    def test_every_known_private_credential_has_all_three_guards(self):
+        names = {
+            ".model_api_key",
+            ".audit_hmac_key",
+            ".dev_passcode",
+            ".super_dev_passcode",
+            ".tdeck_ble_pin",
+            ".spotify_token",
+            ".agent_token",
+            ".anthropic_api_key",
+            ".openai_api_key",
+        }
+
+        for name in names:
+            relative = "assistant/" + name
+            with self.subTest(name=name):
+                self.assertTrue(package_release.denied(relative))
+                self.assertTrue(package_release.private_basename(name))
+                self.assertIn(relative, package_release.RUNTIME_ARTIFACTS)
 
 
 class TrackedSourcePackagingTests(unittest.TestCase):
@@ -67,6 +298,15 @@ class TrackedSourcePackagingTests(unittest.TestCase):
                 clear=False,
             ),
         )
+
+    def test_every_prompt_cache_profile_is_denylisted(self):
+        for path in (
+            "assistant/cache/prompt/cache.bin",
+            "assistant/cache/prompt-desktop/cache.bin",
+            "assistant/cache/prompt-super-dev/cache.bin.tmp",
+        ):
+            with self.subTest(path=path):
+                self.assertTrue(package_release.denied(path))
 
     def test_untracked_assistant_files_are_not_copied_but_vendor_tree_is(self):
         git_result = SimpleNamespace(
@@ -337,7 +577,7 @@ class LlamaRuntimePackagingTests(unittest.TestCase):
         ))
         self.assertIn("checked 2 staged binaries", "\n".join(report))
 
-    def test_binary_scan_accepts_neutral_binaries_and_ignores_text(self):
+    def test_path_scans_accept_neutral_binary_but_reject_leaking_text(self):
         os.makedirs(self.stage)
         Path(os.path.join(self.stage, "neutral.dll")).write_bytes(
             b"path-neutral runtime"
@@ -361,8 +601,11 @@ class LlamaRuntimePackagingTests(unittest.TestCase):
                 ):
             problems = []
             package_release._verify_no_local_binary_paths([], problems)
+            package_release._verify_no_local_text_paths([], problems)
 
-        self.assertEqual(problems, [])
+        self.assertEqual(len(problems), 1)
+        self.assertIn("staged text embeds the local checkout path", problems[0])
+        self.assertIn("developer-note.txt", problems[0])
 
 
 if __name__ == "__main__":

@@ -3,6 +3,7 @@ import sys
 import time
 import random
 import math
+import re
 import shutil
 import textwrap
 import threading
@@ -39,6 +40,20 @@ _VISUALIZER_OUTPUT_LOG = os.path.join(
     "logs",
     "visualizer_output.log",
 )
+_TERMINAL_CONTROL = re.compile(
+    r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]"
+)
+_TERMINAL_BIDI = re.compile(
+    r"[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]"
+)
+
+
+def _terminal_safe_text(text):
+    """Neutralize terminal control/bidi sequences at the final UI seam."""
+    value = str(text or "").replace("\r\n", "\n").replace("\r", "\n")
+    value = value.replace("\t", "    ")
+    value = _TERMINAL_CONTROL.sub("\ufffd", value)
+    return _TERMINAL_BIDI.sub("\ufffd", value)
 
 
 class _VisualizerOutputGuard:
@@ -2711,6 +2726,7 @@ def print_framed(text="", color="", expires_in=None):
     expire: a conversation that quietly edits itself is worse than a
     cluttered one.
     """
+    text = _terminal_safe_text(text)
     expires_at = (
         time.monotonic() + float(expires_in)
         if expires_in

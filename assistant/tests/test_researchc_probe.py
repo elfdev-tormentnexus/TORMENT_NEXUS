@@ -30,6 +30,21 @@ else:
     "the standalone live-probe tool is intentionally absent from packages",
 )
 class ResearchCProbeTests(unittest.TestCase):
+    def setUp(self):
+        # Resume-row validation calls the production private-digest helper.
+        # A regression suite must never create or rotate the installation's
+        # real audit key merely because that validation path was exercised.
+        for attribute, value in (
+            (
+                "_audit_hmac_key_cache",
+                b"research-c-probe-test-key".ljust(32, b"!"),
+            ),
+            ("_audit_hmac_key_persistent", True),
+        ):
+            patch = mock.patch.object(probe.research_c, attribute, value)
+            patch.start()
+            self.addCleanup(patch.stop)
+
     @staticmethod
     def _frozen_spec(prompts, state, bindings=None):
         core = {

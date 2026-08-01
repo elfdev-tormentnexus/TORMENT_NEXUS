@@ -61,6 +61,10 @@ Test both positive and negative cases:
   mixing recency or confidence;
 - earlier-conversation recall runs only for clear recall intent, returns at
   most one item, and requires cosine `>= 0.60` plus a `>= 0.06` margin;
+- recalled exchanges and web results appear only in the final untrusted
+  user-data envelope, never in a system-role message;
+- recalled assistant text is evidence of what was said, not evidence that
+  its underlying factual claim is true;
 - a long persisted exchange preserves both its beginning and end around the
   visible clipping marker;
 - stopping the embedding server leaves lexical behavior working.
@@ -74,28 +78,87 @@ thresholds. See [Semantic retrieval](SEMANTIC_AND_AGENT_BRIDGES.md).
 
 In a disposable library:
 
-1. Check that the eight built-in practical-reference cards are present.
-2. Import representative `.txt`, `.md`, `.rst`, `.html`, `.json`, `.csv`,
-   text PDF, `.epub`, and `.docx` files.
+1. Check that the eighteen built-in practical-reference cards exactly match
+   `assistant\knowledge\builtin_manifest.json`.
+2. Import representative `.txt`, `.md`, `.rst`, `.yml`, `.yaml`, `.yar`,
+   `.yara`, `.py`, `.html`, `.json`, `.csv`, text PDF, `.epub`, and `.docx`
+   files.
 3. Confirm imports are copied to the private shelf and indexed locally.
 4. Verify automatic context requires a lexical match.
-5. Verify embeddings only rerank those automatic lexical hits.
-6. Verify explicit `library search` can return a semantic-only result and
+5. Confirm persistent vector population begins off, enable it explicitly in
+   developer mode, and inspect the 15,000-total/120-per-source fair target with
+   `library semantic status`.
+6. Verify embeddings only rerank a complete comparable set of automatic
+   lexical hits.
+7. Verify explicit `library search` can return a semantic-only result and
    labels it `semantic-candidate`.
-7. Verify an unrelated query returns no confident answer.
-8. Import an image-only PDF and confirm the documentation accurately warns
+8. Verify an unrelated query returns no confident answer.
+9. Import an image-only PDF and confirm the documentation accurately warns
    that OCR is required.
-9. Remove and rebuild sources in developer mode; verify no stale extracted
+10. Remove and rebuild sources in developer mode; verify no stale extracted
    text remains.
 
 Use synthetic documents. Imported files, the SQLite index, extracted text,
 and vectors are private runtime data and must not enter a release.
+
+Run the fixed deterministic coverage suite from the repository root:
+
+```powershell
+python -B tools\researchc_library_probe.py `
+  --output assistant\logs\researchc_library_probe.json
+```
+
+The default run uses disposable indexes, the shipped cards, and synthetic
+specialist bait. It makes no model, embedding, or network request. Review
+positive candidate/top-1/top-3 recall, known-unknown abstention, specialist
+intrusion, prompt bytes, citation bijection, review labels, and trust
+exclusion. The built-in-only suite must pass. A failing specialist-bait gate
+is a measured retrieval limitation, not permission to edit the expected
+answer after seeing a result.
+
+The optional `--with-librarian` run requires the separately configured
+dedicated loopback service described in
+[Offline knowledge](OFFLINE_KNOWLEDGE.md). For every predeclared boundary
+case, run both normal and reversed candidate order. Before promotion, the
+librarian must improve known-unknown abstention without losing positive
+top-three recall, reject malformed or decorated JSON, and show no material
+order effect. The current fixed set is an engineering gate rather than a
+population estimate; use a larger held-out set and Bernoulli intervals for a
+research claim.
+
+The first corrected run of this gate is preserved in
+`handoffs/researchc_librarian_2026-07-31/`. The tested Qwen3 4B Instruct
+Q5_K_M candidate reached 11/16 strict parse validity, 9/16 task accuracy, and
+1/8 forward/reverse agreement. It failed the promotion gate and remains an
+observer. Invalid decisions must never count as correct or as order agreement,
+even when their empty selection resembles an expected abstention.
+
+Adversarial librarian tests must also verify:
+
+- proxy environment variables are ignored and redirects are refused;
+- the endpoint cannot equal another project model service;
+- model and server digests plus an explicit alias are required;
+- malformed JSON types cannot kill the worker;
+- a stopped but still-live request cannot be duplicated on restart;
+- answer-time candidates and actual citations form the logged baseline;
+- log-write failures cannot be counted as valid evidence;
+- private text and unkeyed query hashes never enter the evidence log;
+- foreground work cancels or postpones the observer; and
+- only the research harness can consume a returned librarian decision.
 
 ## Voice, media, and interface
 
 - Start in text mode and verify `audio mode`, `text mode`, and `voice status`.
 - Verify speech recognition, cancellation, and spoken replies on an ordinary
   Windows account.
+- Run `tests.test_freestyle_song` and `tests.test_singing_easter_egg`. Confirm
+  the lyric transport refuses non-loopback endpoints and redirects, invalid or
+  duplicate-key JSON queues nothing, audio-boundary revalidation cannot be
+  bypassed, and fixed notes/timing survive substitution.
+- On an uncached first render, listen through Daisy Bell, Come Josephine, and
+  one generated song. Record intelligibility, chord alignment, output level,
+  Escape cancellation, and whether a repeated generated song reuses its cache.
+  Structural tests are not a substitute for this listening check.
 - Play local MP3, WAV, FLAC, and OGG files and verify the visualizer remains
   responsive.
 - Confirm local-song startup does not produce an unwanted spoken

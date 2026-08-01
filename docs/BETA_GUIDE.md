@@ -56,9 +56,9 @@ I UNDERSTAND
 
 Declining starts none of those components.
 
-A fresh installation then begins with text mode and activity awareness off.
-Cloud escalation, the local agent API, autonomous startup editing, and
-experimental sensing are also off.
+A fresh installation then begins with text mode, activity awareness, and
+persistent library-vector population off. Cloud escalation, the local agent
+API, autonomous startup editing, and experimental sensing are also off.
 
 ## Capability status
 
@@ -66,10 +66,12 @@ experimental sensing are also off.
 | --- | --- | --- |
 | Local text conversation | Implemented | Uses an abliterated 4B model; output is not safety-filtered or guaranteed true. |
 | Offline voice | Implemented, opt-in | `audio mode` initializes listening/speech; microphone is off initially. |
+| Offline singing | Implemented, opt-in | Daisy Bell and Come Josephine use fixed public-domain scores. Freestyle accepts only bounded lyric syllables over those fixed tunes and queues nothing after one failed repair. Physical listening validation is still outstanding. |
 | Durable memory | Implemented | Local, inspectable, bounded files; not encrypted. |
 | Semantic memory rescue | Implemented, conservative | Automatic chat adds at most one unambiguous zero-overlap result. |
 | Older-conversation recall | Implemented, conservative | Requires a clear request about earlier conversation and returns at most one result. |
-| Offline manuals and cards | Implemented | Automatic use requires lexical evidence; explicit semantic results are candidates. |
+| Offline manuals and cards | Implemented | Full-text indexing is available by default. Library-vector population starts off; automatic use always requires lexical evidence. |
+| LLM librarian observer | Experimental, opt-in, shadow-only | Uses a separate authenticated loopback model after the answer exists; its proposal is discarded. The first tested 4B candidate failed promotion. |
 | Time awareness | Implemented | Reads timestamps; not hidden experience. |
 | Activity awareness | Implemented, opt-in | Window titles are private; `activity off` deletes retained observations. |
 | Local music/visualizer | Implemented | Operator supplies media; release package does not contain personal music. |
@@ -87,25 +89,43 @@ The detailed matrix is in
 
 ## Offline knowledge
 
-researchC includes eight built-in reference cards centered on Canadian emergency
-preparedness, fire/carbon-monoxide response, food/water safety, chemicals,
-outages, severe weather, navigation, communications, and the limits of
-offline material.
+researchC includes 18 integrity-bound reference cards and 39 indexed chunks
+centered on Canadian emergency preparedness, fire/carbon-monoxide response,
+food/water safety, chemicals, outages, severe weather, extreme heat and cold,
+wildfire smoke and evacuation, earthquakes, navigation, communications, and
+the limits of offline material.
 
 The private user library accepts:
 
 ```text
-.txt .md .rst .html .htm .json .csv .pdf .epub .docx
+.txt .md .rst .yml .yaml .yar .yara .py
+.html .htm .json .csv .pdf .epub .docx
 ```
 
 Text-based PDFs use the bundled `pypdf`; scanned PDFs require OCR. Imported
 files are copied into `assistant\knowledge\user_library` and indexed in a
 local SQLite FTS database.
 
-Automatic chat retrieval requires a real word match. Vectors only rerank
-lexical results. Explicit `library search` and the authenticated
-`/knowledge/search` endpoint may include semantic-only candidates, labeled
-as such.
+Automatic chat retrieval requires a real word match. Persistent library-vector
+population starts off on a fresh installation and requires developer command
+`library semantic on`; `library semantic status` reports its fair target,
+coverage, retries, and quarantine. Turning population off does not delete or
+disable already stored current vectors. When comparable target vectors exist,
+they rerank lexical results only as a complete set. Explicit `library search`
+and the authenticated `/knowledge/search` endpoint may then include
+semantic-only candidates, labeled as such.
+
+The optional LLM librarian is off by default and has no retrieval authority.
+After Sable has answered, it may observe a credential-redacted query and the
+immutable bounded candidate snapshot through a distinct authenticated
+loopback service. Closed metadata about the call is logged; the live proposal
+is discarded. The first identity-bound Qwen3 4B Instruct Q5_K_M run produced
+11/16 strictly valid decisions, 9/16 correct valid decisions, and only 1/8
+agreement after candidate order was reversed. It failed the promotion gate
+and remains shadow-only. A preregistered follow-up using the shipped 4B Q8
+director improved validity to 15/16 and order agreement to 5/8, while
+correctness remained 9/16. It also failed promotion. The separately tested
+Instruct GGUF is not included in the release.
 
 An offline passage can be outdated, incomplete, from another jurisdiction, or
 wrongly interpreted. It cannot verify live emergencies, changing law,
@@ -131,10 +151,10 @@ most one result whose score is at least `0.60` and whose lead is at least
 `0.06`. Long exchanges preserve their beginning and conclusion around a
 visible clipping marker.
 
-The embedding server is local and loopback-only by default. Private query
-vectors use a bounded in-memory cache and are not serialized. Persistent
-memory/history vectors are private derived data stored in the embedding
-cache.
+The shared embedding server is local and loopback-only by default. Private
+query vectors use a bounded in-memory cache and are not serialized. Persistent
+memory/history vectors are private derived data stored in the embedding cache;
+that memory path is separate from off-by-default library-vector population.
 
 ## Privacy defaults and stored data
 

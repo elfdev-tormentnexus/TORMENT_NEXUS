@@ -45,8 +45,10 @@ radiotap header. Unsmoothed, uncached, unquantised.
    It is also pointless: PicoScenes gets CSI by patching the open-source Linux
    `iwlwifi` driver *plus firmware*, and Intel's Windows firmware does not
    expose that path at all. (2026-07 update: open Linux tools now reach
-   AX-series cards — see [WIFI_SENSING_CSI_LANDSCAPE.md](WIFI_SENSING_CSI_LANDSCAPE.md).
-   The only-internet-link reason is the binding one and the guardrail stands.)
+   AX-series cards — see the repository-only research note
+   `docs/WIFI_SENSING_CSI_LANDSCAPE.md`, which is not part of the Windows
+   release package. The only-internet-link reason is the binding one and the
+   guardrail stands.)
 2. **Nothing is installed to the Windows disk.** Live USB only, until the Pi
    takes over. No dual-boot partition, no Secure Boot change, no bootloader.
 3. **The TP-Link is the only radio touched.** It carries no traffic; breaking

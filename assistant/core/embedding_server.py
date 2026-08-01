@@ -68,6 +68,14 @@ _identity_lock = threading.Lock()
 _identity_cache_key = None
 _identity_cache_value = None
 
+# Embedding payloads contain private memory and library excerpts.  Requests'
+# default session inherits HTTP(S)_PROXY and follows redirects, either of which
+# can move a loopback-only POST off-machine after the URL check above.  Keep a
+# transport with neither behaviour and still reject redirects explicitly at
+# every call site.
+_HTTP = requests.Session()
+_HTTP.trust_env = False
+
 EMBED_LOG_FILE = os.path.join(
     os.path.dirname(SERVER_LOG_FILE),
     "embed_server.log",
@@ -121,10 +129,11 @@ def _health_responds(timeout=2):
         return False
 
     try:
-        response = requests.get(
+        response = _HTTP.get(
             EMBED_SERVER_URL + "/health",
             headers=MODEL_REQUEST_HEADERS,
             timeout=timeout,
+            allow_redirects=False,
         )
         return response.status_code == 200
     except Exception:
@@ -147,11 +156,14 @@ def _advertised_model_ids(timeout=2):
         return set()
 
     try:
-        response = requests.get(
+        response = _HTTP.get(
             EMBED_SERVER_URL + "/v1/models",
             headers=MODEL_REQUEST_HEADERS,
             timeout=timeout,
+            allow_redirects=False,
         )
+        if not 200 <= response.status_code < 300:
+            return set()
         response.raise_for_status()
         rows = response.json().get("data", [])
     except Exception:
@@ -299,7 +311,7 @@ def embed(texts, timeout=None):
         return None
 
     try:
-        response = requests.post(
+        response = _HTTP.post(
             EMBED_SERVER_URL + "/v1/embeddings",
             headers=MODEL_REQUEST_HEADERS,
             json={
@@ -307,7 +319,10 @@ def embed(texts, timeout=None):
                 "model": server_alias(),
             },
             timeout=timeout if timeout is not None else EMBED_TIMEOUT_SECONDS,
+            allow_redirects=False,
         )
+        if not 200 <= response.status_code < 300:
+            return None
         response.raise_for_status()
         rows = response.json()["data"]
     except Exception:

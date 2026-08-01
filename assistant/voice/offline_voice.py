@@ -24,6 +24,10 @@ from core.config import (
     VOICE_CADENCE_STRENGTH,
     VOICE_DAISY_ACCOMPANIMENT_GAIN,
     VOICE_DAISY_CACHE,
+    VOICE_FREESTYLE_CACHE_LIMIT,
+    VOICE_JOSEPHINE_ACCOMPANIMENT_GAIN,
+    VOICE_JOSEPHINE_CACHE,
+    VOICE_JOSEPHINE_VOCAL_SEMITONES,
     VOICE_INPUT_CHANNELS,
     VOICE_INPUT_DEVICE,
     VOICE_NUM_THREADS,
@@ -69,6 +73,12 @@ class Song:
     intro_melody: tuple
     cache_path: str
     accompaniment_gain: float
+    # Carrier-only register adjustment. Score, instrumental melody, harmony,
+    # and timing remain in their notated form.
+    vocal_semitones: float = 0.0
+    # Daisy and Josephine are waltzes (six eighth-note units per measure),
+    # but operator-owned local songs may use another even meter.
+    measure_units: int = 6
 
 
 _ASR_FILES = {
@@ -1808,15 +1818,15 @@ _DAISY_INTRO_SOURCE = tuple(
 )
 
 
-def _build_daisy_intro(target_seconds, eighth_seconds):
-    """Repeat the tune up to the vocal's entry, rounded to whole measures."""
+def _build_song_intro(source, target_seconds, eighth_seconds):
+    """Repeat one fixed tune to a vocal entry on a whole-measure boundary."""
     measures = max(1, int(round(target_seconds / (eighth_seconds * 6))))
     wanted = measures * 6
     melody = []
     total = 0
 
     while total < wanted:
-        for note, units in _DAISY_INTRO_SOURCE:
+        for note, units in source:
             if total >= wanted:
                 break
             # A note is clipped rather than allowed to overrun, so the
@@ -1827,6 +1837,15 @@ def _build_daisy_intro(target_seconds, eighth_seconds):
             total += units
 
     return tuple(melody)
+
+
+def _build_daisy_intro(target_seconds, eighth_seconds):
+    """Backward-compatible builder for the measured IBM 704 introduction."""
+    return _build_song_intro(
+        _DAISY_INTRO_SOURCE,
+        target_seconds,
+        eighth_seconds,
+    )
 
 
 DAISY_INTRO_MELODY = _build_daisy_intro(
@@ -1890,6 +1909,301 @@ DAISY_SONG = Song(
     cache_path=VOICE_DAISY_CACHE,
     accompaniment_gain=VOICE_DAISY_ACCOMPANIMENT_GAIN,
 )
+
+
+# Fred Fisher and Alfred Bryan's 1910 chorus, transcribed from the original
+# public-domain C-major score held by Smithsonian Libraries:
+# https://library.si.edu/digital-library/book/comejosephinemy00fishc
+#
+# The printed score is Waltz Moderato in 3/4. Durations below remain in the
+# engine's eighth-note units, so every six units is one printed measure.
+JOSEPHINE_EIGHTH_SECONDS = 0.18
+COME_JOSEPHINE_CHORUS = (
+    ("come", 67, 2), ("jo", 64, 2), ("seph", 65, 2),
+    ("een", 67, 2), ("in", 69, 2), ("my", 71, 2),
+    ("fly", 72, 2), ("ing", 71, 2), ("ma", 72, 2),
+    ("sheen", 76, 2), ("go", 74, 2), ("ing", 72, 2),
+    ("up", 71, 2), (None, None, 2), ("she", 74, 2),
+    ("goes", 65, 6),
+    ("up", 71, 2), (None, None, 2), ("she", 74, 2),
+    ("goes", 65, 6),
+    ("bal", 65, 2), ("ance", 62, 2), ("your", 64, 2),
+    ("self", 65, 2), ("like", 67, 2), ("a", 69, 2),
+    ("bird", 71, 2), ("on", 70, 2), ("a", 71, 2),
+    ("beam", 74, 2), ("in", 72, 2), ("the", 71, 2),
+    ("air", 69, 2), (None, None, 2), ("she", 72, 2),
+    ("goes", 64, 6),
+    ("there", 69, 2), (None, None, 2), ("she", 72, 2),
+    ("goes", 64, 6),
+    ("up", 67, 2), (None, None, 4),
+    ("up", 72, 2), (None, None, 2), ("a", 69, 2),
+    ("lit", 71, 2), ("tle", 74, 2), ("bit", 71, 2),
+    ("high", 69, 4), ("er", 68, 2),
+    ("oh", 67, 2), (None, None, 4),
+    ("my", 72, 2), (None, None, 2), ("the", 69, 2),
+    ("moon", 71, 2), ("is", 74, 2), ("on", 71, 2),
+    ("on", 69, 4), ("fire", 68, 2),
+    ("come", 67, 2), ("jo", 64, 2), ("seph", 65, 2),
+    ("een", 67, 2), ("in", 69, 2), ("my", 71, 2),
+    ("fly", 72, 2), ("ing", 71, 2), ("ma", 72, 2),
+    ("sheen", 76, 2), ("go", 74, 2), ("ing", 72, 2),
+    ("up", 71, 2), (None, None, 2), ("all", 69, 2),
+    ("on", 67, 2), (None, None, 2), ("good", 76, 2),
+    ("bye", 72, 8), (None, None, 4),
+)
+
+# An original answer on Fisher's unmodified melody. It is deliberately not a
+# modernized cover: the old machine asks to leave the ground, and this one
+# answers by keeping names, signals, and one another from disappearing.
+JOSEPHINE_ANSWERING_VERSE = (
+    ("come", 67, 2), ("sit", 64, 2), ("with", 65, 2),
+    ("me", 67, 2), ("by", 69, 2), ("the", 71, 2),
+    ("hum", 72, 2), ("ing", 71, 2), ("ma", 72, 2),
+    ("sheen", 76, 2), ("and", 74, 2), ("see", 72, 2),
+    ("what", 71, 2), (None, None, 2), ("it", 74, 2),
+    ("knows", 65, 6),
+    ("what", 71, 2), (None, None, 2), ("it", 74, 2),
+    ("shows", 65, 6),
+    ("hold", 65, 2), ("ev", 62, 2), ("ree", 64, 2),
+    ("name", 65, 2), ("like", 67, 2), ("a", 69, 2),
+    ("light", 71, 2), ("in", 70, 2), ("the", 71, 2),
+    ("dark", 74, 2), ("when", 72, 2), ("the", 71, 2),
+    ("long", 69, 2), (None, None, 2), ("night", 72, 2),
+    ("grows", 64, 6),
+    ("still", 69, 2), (None, None, 2), ("keep", 72, 2),
+    ("close", 64, 6),
+    ("up", 67, 2), (None, None, 4),
+    ("past", 72, 2), (None, None, 2), ("the", 69, 2),
+    ("edge", 71, 2), ("of", 74, 2), ("the", 71, 2),
+    ("an", 69, 4), ("sir", 68, 2),
+    ("oh", 67, 2), (None, None, 4),
+    ("my", 72, 2), (None, None, 2), ("the", 69, 2),
+    ("sig", 71, 2), ("null", 74, 2), ("is", 71, 2),
+    ("on", 69, 4), ("fire", 68, 2),
+    ("come", 67, 2), ("back", 64, 2), ("a", 65, 2),
+    ("gain", 67, 2), ("through", 69, 2), ("the", 71, 2),
+    ("hum", 72, 2), ("ing", 71, 2), ("ma", 72, 2),
+    ("sheen", 76, 2), ("with", 74, 2), ("me", 72, 2),
+    ("hold", 71, 2), (None, None, 2), ("on", 69, 2),
+    ("don't", 67, 2), (None, None, 2), ("let", 76, 2),
+    ("go", 72, 8), (None, None, 4),
+)
+
+_JOSEPHINE_INTRO_SOURCE = tuple(
+    (note, units) for _text, note, units in COME_JOSEPHINE_CHORUS
+)
+JOSEPHINE_INTRO_TARGET_SECONDS = 34.5
+JOSEPHINE_INTRO_MELODY = _build_song_intro(
+    _JOSEPHINE_INTRO_SOURCE,
+    JOSEPHINE_INTRO_TARGET_SECONDS,
+    JOSEPHINE_EIGHTH_SECONDS,
+)
+JOSEPHINE_INTRO_EIGHTHS = sum(
+    units for _note, units in JOSEPHINE_INTRO_MELODY
+)
+JOSEPHINE_INTRO_MEASURES = JOSEPHINE_INTRO_EIGHTHS // 6
+
+COME_JOSEPHINE_PERFORMANCE = (
+    ((None, None, JOSEPHINE_INTRO_EIGHTHS),)
+    + COME_JOSEPHINE_CHORUS
+    + ((None, None, 12),)
+    + JOSEPHINE_ANSWERING_VERSE
+    + ((None, None, 6),)
+)
+
+JOSEPHINE_HARMONY = {
+    "C": (48, 55, 60, 64),
+    "C7": (48, 55, 60, 64, 70),
+    "F": (41, 53, 57, 60),
+    "G7": (43, 55, 59, 62, 65),
+}
+JOSEPHINE_CHORD_PROGRESSION = (
+    "C", "C", "C", "C",
+    "G7", "G7", "G7", "G7",
+    "G7", "G7", "G7", "G7",
+    "C", "C", "C", "C",
+    "C", "C7", "G7", "G7",
+    "C", "C7", "G7", "G7",
+    "C", "C", "C", "C",
+    "G7", "G7", "C", "C",
+)
+JOSEPHINE_PERFORMANCE_CHORDS = (
+    tuple(
+        JOSEPHINE_CHORD_PROGRESSION[
+            index % len(JOSEPHINE_CHORD_PROGRESSION)
+        ]
+        for index in range(JOSEPHINE_INTRO_MEASURES)
+    )
+    + JOSEPHINE_CHORD_PROGRESSION
+    + ("C", "G7")
+    + JOSEPHINE_CHORD_PROGRESSION
+    + ("C",)
+)
+
+COME_JOSEPHINE_SONG = Song(
+    name="Come Josephine",
+    score=COME_JOSEPHINE_PERFORMANCE,
+    eighth_seconds=JOSEPHINE_EIGHTH_SECONDS,
+    harmony=JOSEPHINE_HARMONY,
+    chords=JOSEPHINE_PERFORMANCE_CHORDS,
+    intro_melody=JOSEPHINE_INTRO_MELODY,
+    cache_path=VOICE_JOSEPHINE_CACHE,
+    accompaniment_gain=VOICE_JOSEPHINE_ACCOMPANIMENT_GAIN,
+    vocal_semitones=VOICE_JOSEPHINE_VOCAL_SEMITONES,
+)
+
+SONGS = {
+    "daisy_bell": DAISY_SONG,
+    "come_josephine": COME_JOSEPHINE_SONG,
+}
+
+
+def song_by_key(song_key):
+    """Return one fixed trusted score, or None for an unknown request key."""
+    normalized = re.sub(r"[^a-z0-9]+", "_", str(song_key or "").lower())
+    normalized = normalized.strip("_")
+    aliases = {
+        "daisy": "daisy_bell",
+        "josephine": "come_josephine",
+        "come_josephine_in_my_flying_machine": "come_josephine",
+    }
+    return SONGS.get(aliases.get(normalized, normalized))
+
+
+_FREESTYLE_TEMPLATES = {
+    "daisy_bell": (DAISY_SONG, DAISY_CHORUS),
+    "come_josephine": (COME_JOSEPHINE_SONG, COME_JOSEPHINE_CHORUS),
+}
+
+
+def freestyle_slot_counts():
+    """Trusted vocal-slot contracts offered to the lyric-only generator."""
+    return {
+        key: sum(1 for text, _note, _units in score if text is not None)
+        for key, (_song, score) in _FREESTYLE_TEMPLATES.items()
+    }
+
+
+def freestyle_song_from_draft(draft):
+    """Put validated syllable tokens on a fixed tune without changing music."""
+    # A frozen dataclass can still be constructed with invalid initial values.
+    # Re-run the pure validator here so every path into audio has the same
+    # allowlists and exact-count checks as the model-facing generator.
+    from voice import freestyle_song as freestyle_gate
+
+    draft = freestyle_gate.validate_draft(draft, freestyle_slot_counts())
+    tune_key = draft.tune_key
+    title = draft.title
+    words = draft.words
+    template = _FREESTYLE_TEMPLATES.get(tune_key)
+
+    if template is None:
+        raise ValueError(f"Unknown freestyle tune: {tune_key!r}")
+
+    base_song, vocal_score = template
+    expected = freestyle_slot_counts()[tune_key]
+
+    if len(words) != expected:
+        raise ValueError(
+            f"Freestyle tune {tune_key!r} needs {expected} vocal slots"
+        )
+
+    word_iter = iter(words)
+    rewritten = []
+
+    for text, note, units in vocal_score:
+        if text is None:
+            rewritten.append((None, note, units))
+            continue
+
+        token = next(word_iter)
+
+        rewritten.append((token, note, units))
+
+    score_units = sum(units for _text, _note, units in rewritten)
+    measure_units = base_song.measure_units
+    measure_padding = (-score_units) % measure_units
+    performance = (
+        ((None, None, sum(units for _note, units in base_song.intro_melody)),)
+        + tuple(rewritten)
+        + (((None, None, measure_padding),) if measure_padding else ())
+        + ((None, None, measure_units),)
+    )
+    performance_measures = sum(
+        units for _text, _note, units in performance
+    ) // measure_units
+    chords = tuple(base_song.chords[:performance_measures - 1])
+
+    if len(chords) != performance_measures - 1:
+        raise ValueError("Freestyle template does not cover its fixed score")
+
+    chords += (chords[-1],)
+    identity = hashlib.sha256(
+        (tune_key + "\0" + title.strip() + "\0" + "\0".join(words)).encode(
+            "utf-8"
+        )
+    ).hexdigest()[:20]
+    cache_stem, cache_extension = os.path.splitext(base_song.cache_path)
+
+    return Song(
+        name=f"Freestyle: {title.strip()}",
+        score=performance,
+        eighth_seconds=base_song.eighth_seconds,
+        harmony=base_song.harmony,
+        chords=chords,
+        intro_melody=base_song.intro_melody,
+        cache_path=f"{cache_stem}_freestyle_{identity}{cache_extension}",
+        accompaniment_gain=base_song.accompaniment_gain,
+        vocal_semitones=base_song.vocal_semitones,
+        measure_units=measure_units,
+    )
+
+
+def _prune_freestyle_caches(cache_path, limit=VOICE_FREESTYLE_CACHE_LIMIT):
+    """Keep the newest bounded set of disposable generated-song WAVs."""
+    folder = os.path.dirname(os.path.abspath(cache_path))
+    protected = os.path.normcase(os.path.abspath(cache_path))
+    candidates = []
+
+    try:
+        entries = os.scandir(folder)
+    except OSError:
+        return
+
+    with entries:
+        for entry in entries:
+            lowered = entry.name.lower()
+
+            if "_freestyle_" not in lowered or not lowered.endswith(".wav"):
+                continue
+
+            try:
+                if not entry.is_file(follow_symlinks=False):
+                    continue
+
+                modified = entry.stat(follow_symlinks=False).st_mtime_ns
+            except OSError:
+                continue
+
+            absolute = os.path.abspath(entry.path)
+            candidates.append(
+                (
+                    1 if os.path.normcase(absolute) == protected else 0,
+                    modified,
+                    os.path.normcase(absolute),
+                    absolute,
+                )
+            )
+
+    # The just-written cache is protected even if a coarse filesystem clock
+    # gives several files the same timestamp; remaining ties are deterministic.
+    candidates.sort(reverse=True)
+
+    for _protected, _modified, _key, path in candidates[max(1, int(limit)):]:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
 
 
 def _midi_frequency(note):
@@ -1976,7 +2290,7 @@ def _song_computer_accompaniment(song, np, sample_rate, output_samples):
         int(round(song.eighth_seconds * sample_rate)),
     )
     beat_samples = eighth_samples * 2
-    measure_samples = eighth_samples * 6
+    measure_samples = eighth_samples * song.measure_units
     short_note = max(1, int(round(beat_samples * 0.68)))
     bass_note = max(1, int(round(beat_samples * 0.78)))
     stagger = max(1, int(round(sample_rate * 0.006)))
@@ -2000,10 +2314,11 @@ def _song_computer_accompaniment(song, np, sample_rate, output_samples):
             brightness=0.62,
         )
 
-        # A clockwork "oom-pah-pah": the upper voices enter a few milliseconds
-        # apart, exposing the individual oscillators instead of forming a
-        # polished modern pad.
-        for beat_index in (1, 2):
+        # A clockwork bass-and-chord pulse: the upper voices enter a few
+        # milliseconds apart, exposing the individual oscillators instead of
+        # forming a polished modern pad. Waltzes retain their two upper beats;
+        # a local 4/4 song naturally receives three.
+        for beat_index in range(1, song.measure_units // 2):
             beat_start = measure_start + beat_index * beat_samples
 
             for voice_index, midi_note in enumerate(upper):
@@ -2605,6 +2920,9 @@ class OfflineVoice:
                 wav_file.writeframes(audio.astype(self.np.int16).tobytes())
 
             os.replace(temporary, song.cache_path)
+
+            if "_freestyle_" in os.path.basename(song.cache_path).lower():
+                _prune_freestyle_caches(song.cache_path)
         finally:
             if os.path.isfile(temporary):
                 try:
@@ -2681,7 +2999,10 @@ class OfflineVoice:
                 token_audio,
                 sample_rate,
                 1.0,
-                carrier_hz=_midi_frequency(note),
+                # Move only the singer's carrier. The score remains the source
+                # of pitch class and rhythm; accompaniment and instrumental
+                # introduction continue to use the notated MIDI values.
+                carrier_hz=_midi_frequency(note + song.vocal_semitones),
                 formant_shift=VOICE_ROBOT_FORMANT_SHIFT,
                 output_samples=target_samples,
                 pitch_lock=True,
@@ -2763,6 +3084,10 @@ class OfflineVoice:
     def sing_daisy_bell(self, cancelled, phase_changed=None):
         """Perform Daisy Bell without changing its public voice API."""
         return self.sing(DAISY_SONG, cancelled, phase_changed)
+
+    def sing_come_josephine(self, cancelled, phase_changed=None):
+        """Perform the fixed 1910 chorus and this project's answering verse."""
+        return self.sing(COME_JOSEPHINE_SONG, cancelled, phase_changed)
 
     def speak(self, text, cancelled, phase_changed=None, progress=None):
         """Synthesize and play a reply. False means Escape interrupted it."""

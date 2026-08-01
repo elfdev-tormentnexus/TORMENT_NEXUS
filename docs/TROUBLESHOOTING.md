@@ -199,8 +199,11 @@ images.
 ### Search does not find a paraphrase automatically
 
 That restraint is intentional. Automatic prompt injection requires a real
-full-text word match; embeddings can only rerank those lexical hits. An
-explicit search can explore more widely:
+full-text word match; embeddings can only rerank a complete comparable set of
+those lexical hits. Persistent library-vector population starts off on a fresh
+installation. Inspect it with `library semantic status`; a developer may opt
+in with `library semantic on`. Once current target vectors exist, an explicit
+search can explore more widely:
 
 ```text
 library search <words>

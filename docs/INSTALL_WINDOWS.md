@@ -53,6 +53,27 @@ ordered pixel vectors and break the inverse.
 - A standard Python 3 installation for the published machinesoul decompiler.
 - A microphone only if you later choose `audio mode`; researchC begins in
   text mode.
+- A GPU is **optional**. The bundled runtime carries a Vulkan backend, so
+  a current NVIDIA, AMD or Intel driver can run the director on the
+  graphics card instead of the processor.
+
+### Optional: run the director on your GPU
+
+Nothing is offloaded unless you ask. Set the number of layers to move:
+
+```powershell
+setx TORMENT_NEXUS_LLAMA_GPU_LAYERS 99
+```
+
+`99` means "all of them" and suits the 4B director on a card with about
+8 GB of video memory. Larger models need a smaller number: only the layers
+that fit belong on the card, and the rest stay on the processor. If the
+model fails to load, lower the number.
+
+Leaving the variable unset keeps the processor-only behaviour. On a machine
+with no Vulkan driver the backend simply does not load and the install runs
+on the processor exactly as before; nothing needs to be uninstalled or
+reconfigured.
 
 The decoded package contains its own private Python runtime for TORMENT_NEXUS.
 The separately installed Python is only the bootstrap needed to run
@@ -66,6 +87,7 @@ select the release titled `researchC`, expand **Assets**, and download:
 
 ```text
 FETCH_SABLERESEARCHC.bat
+FETCH_SABLERESEARCHC_WITH_14B.bat
 machinesoul.py
 DECOMPILE_SABLE_researchC.bat
 SABLERESEARCHC-MANIFEST.png
@@ -77,8 +99,11 @@ SABLERESEARCHC-WINDOWS.partNN.png
 
 `FETCH_SABLERESEARCHC.bat` is the small, readable download helper. Double-click
 it to fetch every required asset, resume interrupted transfers, and verify
-each file against the SHA-256 recorded at the cut. It deliberately does **not**
-download the optional 14B companion. Interrupted bytes remain in a visibly
+each file against the SHA-256 recorded at the cut, then continue straight into
+reconstruction and setup: one double-click carries you from download to a
+working installation. It deliberately does **not** download the optional 14B
+companion; `FETCH_SABLERESEARCHC_WITH_14B.bat` is the same one-click path with
+that companion included. Interrupted bytes remain in a visibly
 named `.partial` file so the next run can resume them; that temporary name is
 promoted to the real asset name only after SHA-256 verification. If you use
 it, wait for its verification message and continue at Step 2. If you download
@@ -162,6 +187,75 @@ cannot safely contain its own final digest.
 If every optional 14B capsule is present, the same pass recovers and installs
 its exact model. If none are present, it skips that companion. A partial set
 refuses rather than silently installing an incomplete model.
+
+## The optional patches
+
+Two patches were published after the cut. They are a pair: **patch A is the
+reference documents, patch B is the neural layer over them.** Patch A gives
+the assistant material a 4B model was never trained on; patch B gives it the
+embeddings that let it find that material by meaning rather than by wording.
+
+**The fetcher does not take either.** `FETCH_SABLERESEARCHC.bat` was generated
+from the asset list at the cut and verifies exactly the set it was built with;
+a patch published afterwards is outside that set by construction. Take them by
+hand and keep them beside `machinesoul.py` and
+`SABLERESEARCHC-REASSEMBLER.png`, which both installers reuse rather than
+duplicating.
+
+### Patch A: the offline library
+
+```text
+INSTALL_SABLERESEARCHC_LIBRARY_PATCH.bat
+SABLERESEARCHC-LIBRARY-PATCH-MANIFEST.png
+SABLERESEARCHC-LIBRARY-PATCH.part01.png
+```
+
+About 46 MB to download, installing about 146 MB across 18,458 files: Linux
+kernel documentation, SigmaHQ detection rules, YARA rules, MITRE ATT&CK and
+D3FEND, and CISA and NIST incident-response publications.
+
+Every record in this patch adds a file; none replaces one. Your installed
+release stays byte-identical to the published cut apart from the new material.
+Afterwards, start the assistant and run `library rebuild` once -- until it
+does, the corpora are on disk but not searchable.
+
+### Patch B: the vector field
+
+```text
+INSTALL_SABLERESEARCHC_VECTOR_PATCH.bat
+SABLERESEARCHC-VECTOR-PATCH-MANIFEST.png
+SABLERESEARCHC-VECTOR-PATCH.part01.png
+```
+
+About 6 MB, carrying 15,000 precomputed embeddings. **Install patch A and run
+`library rebuild` first** -- the vectors attach to chunks by content hash, so
+there must be chunks to attach them to. Run it too early and it says so and
+changes nothing; running it again afterwards is safe.
+
+This is a supplement, not a replacement. The shelf is fully searchable by
+keyword without it, and lexical search keeps covering the whole shelf
+afterwards. What patch B adds is the ability to retrieve by meaning, and it is
+the half that would otherwise cost your machine about an hour of local
+embedding to derive.
+
+Unlike patch A, it **replaces** one file: `assistant/knowledge/library.py`. A
+vector only means something beside the exact embedder and text policy that
+produced it, and the policy in the published cut is not the one these vectors
+were built under -- it bounded embed text at 1,600 UTF-8 bytes and cut wherever
+that offset fell, which put 15.5% of the target past the model's 512-token
+window and left a mid-word fragment in every truncated chunk. The field was
+built under a tightened policy, so the code travels with it.
+
+The importer recomputes that identity from your installation -- the model file
+on disk and the policy in the installed `library.py` -- and refuses if they
+disagree. Two embedding populations sharing one cosine space fail silently:
+plausible numbers, meaningless geometry. The refusal is the point.
+
+The original file is copied into the installation's `backups` folder before it
+is replaced, every write is verified by digest afterwards, and running the
+installer twice is a no-op. You do not need to enable anything: `library
+semantic on` governs the background backfill, not search, so once the field is
+imported semantic retrieval works immediately.
 
 ## What the one-step process verifies
 

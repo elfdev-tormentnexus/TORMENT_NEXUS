@@ -20,16 +20,17 @@ arrived from the web and contains instruction-shaped text is not the same
 kind of evidence as a NIST publication with a checksum, and the receipt says
 so rather than flattening both into "a source".
 
-Nothing here reads private conversation text into its output. The session
-digest exists so two receipts can be compared, or one reproduced, without
-publishing what was said -- the same reasoning behind machinespirit storing
-source text as a digest.
+Nothing here reads private conversation text into its output. The keyed
+session pseudonym lets receipts from the same installation be compared
+without publishing what was said or leaving a dictionary-testable hash --
+the same reasoning behind keeping private retrieval identities opaque.
 """
 
-import hashlib
 import json
 import os
 from datetime import datetime
+
+from core import research_c
 
 
 # What kind of claim a line is. Ordered from most checkable to least, which
@@ -109,13 +110,22 @@ class Receipt:
 
     # -- assembly ------------------------------------------------------
 
-    def cite(self, path, locator=None, trust=UNVERIFIED, note=None):
+    def cite(self, path, locator=None, trust=UNVERIFIED, note=None,
+             source_sha256=None):
         """Record a local file an answer actually drew on."""
+        source_sha256 = str(source_sha256 or "").casefold()
+        if (
+            len(source_sha256) != 64
+            or any(character not in "0123456789abcdef"
+                   for character in source_sha256)
+        ):
+            source_sha256 = None
         self.sources.append({
             "path": _relative(path),
             "locator": locator,
             "trust": trust if trust in TRUST_STATES else UNVERIFIED,
             "note": note,
+            "sha256": source_sha256,
         })
         return self
 
@@ -163,10 +173,11 @@ class Receipt:
 
     @property
     def digest(self):
-        """A reproducible fingerprint that publishes nothing that was said."""
+        """An installation-local fingerprint that publishes none of the text."""
         payload = json.dumps({
             "question": self.question_digest,
-            "sources": [(s["path"], s["locator"], s["trust"])
+            "sources": [
+                (s["path"], s["locator"], s["trust"], s.get("sha256"))
                         for s in self.sources],
             "claims": [(c["kind"], _digest(c["text"])) for c in self.claims],
             "identities": self.identities,
@@ -203,7 +214,14 @@ class Receipt:
             for entry in self.sources:
                 mark = "" if entry["trust"] == CLEAN else f"  ({entry['trust']})"
                 where = f":{entry['locator']}" if entry["locator"] else ""
-                out.append(f"  {entry['path']}{where}{mark}")
+                fingerprint = (
+                    f"  sha256:{entry['sha256'][:12]}"
+                    if entry.get("sha256")
+                    else ""
+                )
+                out.append(
+                    f"  {entry['path']}{where}{mark}{fingerprint}"
+                )
             weakest = self.weakest_trust
             if weakest and weakest != CLEAN:
                 out.append(f"  -- weakest source is {weakest}; "
@@ -234,7 +252,8 @@ class Receipt:
 
 
 def _digest(value):
-    return hashlib.sha256(str(value).encode("utf-8")).hexdigest()
+    """Per-install pseudonym; private text is not dictionary-testable."""
+    return research_c.digest(value)
 
 
 def _relative(path):
@@ -257,6 +276,15 @@ def _relative(path):
     try:
         root = os.path.dirname(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        return os.path.relpath(text, root).replace(os.sep, "/")
+        relative = os.path.relpath(text, root).replace(os.sep, "/")
+        if relative == ".." or relative.startswith("../"):
+            opaque = research_c.digest(
+                "external-source-path", os.path.normcase(text)
+            )[:16]
+            return f"external/source-{opaque}"
+        return relative
     except (ValueError, OSError):
-        return text.replace(os.sep, "/")
+        opaque = research_c.digest(
+            "external-source-path", os.path.normcase(text)
+        )[:16]
+        return f"external/source-{opaque}"

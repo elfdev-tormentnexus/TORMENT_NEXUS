@@ -1,0 +1,35 @@
+{
+  "schema": 1,
+  "completed_utc": "2026-07-31T08:05:22.0836470Z",
+  "spec": "shipped_director_followup_spec.json",
+  "disposition": "shadow_only_not_promoted",
+  "model_sha256": "947656a42e73bda324c527f06953596b77e4d91bc590476955205b5f64d4e974",
+  "server_bundle_sha256": "623aa9e45e1d6a6170d3f677c84576f087ab489433665ac336a705e89436fc2a",
+  "canonical_cases_sha256": "6d671b6ef97084fa17292b16258eb618ccef08e93f9764a0f86148060c5b2261",
+  "attempts": 16,
+  "case_count": 8,
+  "parse_validity": 0.9375,
+  "task_accuracy": 0.5625,
+  "order_agreement": 0.625,
+  "mean_prompt_bytes": 4568.125,
+  "mean_wall_seconds": 3.143218843757495,
+  "librarian_gate_passed": false,
+  "case_outcomes": [
+    {"id": "navigation", "forward": "valid_correct", "reverse": "invalid_ids", "order_agreement": false},
+    {"id": "limits", "forward": "valid_incorrect", "reverse": "valid_incorrect", "order_agreement": true},
+    {"id": "cooking", "forward": "valid_correct", "reverse": "valid_correct", "order_agreement": true},
+    {"id": "insulin", "forward": "valid_correct", "reverse": "valid_correct", "order_agreement": true},
+    {"id": "finance", "forward": "valid_incorrect", "reverse": "valid_incorrect", "order_agreement": true},
+    {"id": "plumbing", "forward": "valid_incorrect", "reverse": "valid_incorrect", "order_agreement": false},
+    {"id": "history", "forward": "valid_correct", "reverse": "valid_correct", "order_agreement": true},
+    {"id": "commit", "forward": "valid_correct", "reverse": "valid_correct", "order_agreement": false}
+  ],
+  "privacy": {
+    "contains_raw_query": false,
+    "contains_reference_excerpt": false,
+    "contains_local_path": false,
+    "contains_url": false,
+    "contains_raw_model_output": false,
+    "contains_bearer_key": false
+  }
+}

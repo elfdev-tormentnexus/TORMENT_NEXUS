@@ -24,6 +24,37 @@
   from its saved frame.
 - Completed the serialized grounding probes and preserved positive, null, and
   refuted results under `handoffs/researchc_evidence_2026-07-30/`.
+- Expanded the integrity-bound offline shelf to 18 cards and 39 chunks. Seven
+  new Canada-wide cards cover extreme heat, extreme cold, winter and vehicle
+  carbon-monoxide risk, wildfire smoke, wildfire evacuation, earthquakes, and
+  hazard-specific shelter in place; high-stakes cardiac-arrest material remains
+  a non-indexed review candidate.
+- Added an opt-in, non-deciding LLM librarian observer on a separate
+  authenticated loopback service. It sees only the credential-redacted query
+  and immutable bounded candidates after the answer exists, logs closed
+  privacy-preserving evidence, and cannot change retrieval or replies. The first
+  identity-bound Qwen3 4B Instruct candidate failed promotion: 11/16 strictly
+  valid decisions, 9/16 correct valid decisions, and 1/8 forward/reversed-order
+  agreement. A preregistered follow-up using the shipped 4B Q8 director reached
+  15/16 validity and 5/8 order agreement but the same 9/16 correctness, so it
+  also remains shadow-only. The separately tested Instruct GGUF remains
+  research-only and is not redistributed.
+- Made persistent library-vector population an explicit developer opt-in that
+  starts off on a fresh installation. Its materialized target embeds built-ins
+  first, then advances imported sources round-robin, with a 120-per-source and
+  15,000-total cap, identity-scoped retries, quarantine controls, and exact
+  operator status; full-text indexing remains available throughout.
+- Generalized the offline singing registry and added the public-domain 1910
+  Come Josephine chorus with an original answering verse. `sing what you want`
+  accepts only bounded model-written monosyllable tokens over Daisy or
+  Josephine's fixed trusted notes, makes one repair attempt, then queues
+  nothing. The model call is loopback-only and generated WAV caches are
+  bounded. Automated tests pass; physical listening validation remains open.
+- Preserved Come Josephine's score and accompaniment while lowering only its
+  vocal carrier by one octave to match Sable's established voice register.
+- Constrained freestyle lyric decoding with the vendored llama.cpp JSON-schema
+  grammar so tune choice, field shape, exact slot count, and syllable-token
+  form are enforced during sampling and then independently revalidated.
 
 ## researchB — 2026-07-30
 
