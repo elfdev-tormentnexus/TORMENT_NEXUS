@@ -2713,9 +2713,20 @@ class KnowledgeLibrary:
                 )
                 return []
         self._semantic_warning = ""
+        wanted = max(1, int(limit))
         scored = self._score_vectors(query_vector, rows)
+        if _numpy is not None and len(scored) > wanted:
+            # Sorting every candidate to read the top few is most of the
+            # Python left in this path once the arithmetic is vectorised.
+            # argpartition finds the same top-N without ordering the rest.
+            values = _numpy.fromiter(
+                (value for value, _ in scored), dtype="<f8", count=len(scored)
+            )
+            top = _numpy.argpartition(-values, wanted - 1)[:wanted]
+            top = top[_numpy.argsort(-values[top])]
+            return [scored[int(index)] for index in top]
         scored.sort(key=lambda item: item[0], reverse=True)
-        return scored[:max(1, int(limit))]
+        return scored[:wanted]
 
     def _score_vectors(self, query_vector, rows):
         """Cosine of the query against every candidate row.
