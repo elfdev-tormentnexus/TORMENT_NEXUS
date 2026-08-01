@@ -219,15 +219,19 @@ release stays byte-identical to the published cut apart from the new material.
 Afterwards, start the assistant and run `library rebuild` once -- until it
 does, the corpora are on disk but not searchable.
 
-### Patch B: the vector field
+### Patch C: the vector field
 
 ```text
-INSTALL_SABLERESEARCHC_VECTOR_PATCH.bat
-SABLERESEARCHC-VECTOR-PATCH-MANIFEST.png
-SABLERESEARCHC-VECTOR-PATCH.part01.png
+INSTALL_SABLERESEARCHC_VECTOR_PATCH2.bat
+SABLERESEARCHC-VECTOR-PATCH2-MANIFEST.png
+SABLERESEARCHC-VECTOR-PATCH2.part01.png
 ```
 
-About 6 MB, carrying 15,000 precomputed embeddings. **Install patch A and run
+About 30 MB, carrying 75,000 precomputed embeddings that reach 51.6% of the
+shelf's text. It supersedes an earlier patch B, which shipped 15,000 vectors
+that were 99.9% document openings because its selection ran out of budget
+before finishing a single round; install this on a base researchC install
+rather than on top of that one. **Install patch A and run
 `library rebuild` first** -- the vectors attach to chunks by content hash, so
 there must be chunks to attach them to. Run it too early and it says so and
 changes nothing; running it again afterwards is safe.

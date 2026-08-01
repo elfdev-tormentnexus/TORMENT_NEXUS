@@ -1,3 +1,12 @@
+> **Superseded.** The vector field described below shipped as patch B and was
+> wrong in a way none of its own checks could see: its selection ran out of
+> budget before completing a single round, so 14,979 of its 15,000 vectors
+> were a document's opening chunk and it reached 11% of the shelf's text.
+> Patch C replaces it with a planned selection — 75,000 vectors, 51.6% of the
+> shelf, 77.4% body chunks. This document is kept for the truncation analysis,
+> which is still correct and still shipped. The selection failure is written
+> up on the release page.
+
 # The researchC patches: corpus, then vector field
 
 researchC ships two patches after the base cut. Both are one click, both are
