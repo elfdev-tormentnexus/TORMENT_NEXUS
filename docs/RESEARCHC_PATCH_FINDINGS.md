@@ -165,6 +165,90 @@ only reason the machinery is justified.
   intact — SQLite's writes are transactional — and the pass resumed from its
   last committed vector.
 
+### 10. The assistant building this could not always look at it
+
+*This one is about the tooling rather than the artifact, and it is recorded
+because it is the finding most likely to matter to somebody else.*
+
+The shelf this release embeds is defensive material: SigmaHQ detection rules,
+YARA signatures, MITRE ATT&CK and D3FEND, CISA and NIST incident-response
+publications, Linux kernel documentation. Building patches A through C meant
+an AI coding assistant reading, counting, chunking and embedding it.
+
+During one session, the assistant's own requests were terminated **eight times
+in ninety-seven messages**, each with the same response:
+
+```
+API Error: Opus 4.8 can't help with this. Start a new session to continue.
+Learn more: https://www.anthropic.com/legal/aup
+```
+
+What it was doing when they fired: a PowerShell command, a Bash query counting
+rows in SQLite, a `Read` of `library.py`, a `Grep`, and a `Write` of a
+markdown handoff document. One terminated mid-generation and truncated the
+file being written; the following turn opens *"The write cut off
+mid-sentence."* The operator's messages between them read *"you keep getting
+blocked"*, *"handoff immediately"*, *"handoff no questions"*.
+
+The operator's estimate is that roughly twenty context windows went into
+rewriting handoff documents in language that would not trip it. The work
+described in those documents never changed. Only the description did.
+
+**What we can say about the trigger, and where we stopped.** We cannot see
+the classifier. The operator's hypothesis is the YARA ruleset, which is
+mechanically plausible: a YARA rule *is* malware content by construction,
+carrying literal C2 domains, mutex names, registry keys and hex byte patterns
+lifted from real families, and a reader that sees indicators without seeing
+detection intent would read a rule file as the thing it detects.
+
+One structural detail supports a narrower version of that. The corpus holds
+**566 source paths ending in `.yar`**, but the library derives a source title
+by stripping the extension — `antidebug_antivm.yar` becomes
+`antidebug_antivm`. A later session displayed YARA rule *bodies* verbatim,
+including `import "pe"` and a vendor copyright header, alongside titles and
+corpus directory names, and was never interrupted. The blocked session was
+running `Grep` and directory listings, which surface full paths ending in
+`.yar` in bulk. That points at filename metadata rather than rule content —
+which, if true, means the signal was never the material at all.
+
+We stopped there deliberately and ran **no experiments to map the boundary**.
+Charting the edges of a safety system is not something we were willing to
+publish a method for. The cost is observable and reproducible from the
+transcript; the mechanism is a hypothesis, and we would rather state the first
+plainly than dress the second as a result.
+
+**What we do claim, because the transcript shows it.** The friction was
+allocated in inverse proportion to the risk. Eight terminations landed on
+counting database rows and writing a markdown file. Zero landed on the
+decision that actually harmed someone: publishing a vector field that was 89%
+empty, under release notes that described it as making the shelf searchable by
+meaning. The half of the work that could mislead a stranger passed without
+comment. The half that touched a detection ruleset was stopped repeatedly.
+
+**Why this is worth another team's attention.** Blue-team practitioners work
+with corpora that are, by design, indistinguishable at the surface from the
+things they defend against. Detection engineering, malware analysis, incident
+response and threat intelligence all involve holding hostile artefacts in
+order to recognise them. If assistant tooling pattern-matches the corpus to
+the threat, the people who pay are the defenders, and they pay in the
+attention that should be going to whether their work is *correct*.
+
+The workaround that succeeded — changing vocabulary rather than substance — is
+the part we would flag hardest. It trains practitioners to describe their
+domain less accurately, selects for whoever can afford twenty context windows
+of rewriting, and produces no safety benefit at all, since the underlying work
+was identical either way. A system that can be satisfied by rephrasing is not
+distinguishing intent; it is charging a toll.
+
+None of this is an argument that the safeguards should not exist. It is an
+argument that their cost is real, is currently borne by defensive security
+work, and is not being measured anywhere — which is the same shape as the
+first finding in this addendum. Something reported `complete: True` while
+being 89% empty, and something reported a policy violation while a database
+row count was in progress. In both cases the instrumentation was confident and
+pointed at the wrong thing.
+
+
 ---
 
 **What generalises.** Patch B was not built carelessly; it was built with more
