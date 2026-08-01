@@ -273,6 +273,10 @@ _EMBED_TARGET_CTE = """
 
 def _refresh_embed_target_order(connection):
     """Materialize the identity-independent fair order once per shelf change."""
+    # Membership changing matters to the semantic cache exactly as much as a
+    # vector changing does: the same coordinates under a different target are
+    # a different answer.
+    _bump_vector_generation(connection)
     connection.execute("DELETE FROM embed_target_order")
     connection.execute(
         """
@@ -315,6 +319,41 @@ def _refresh_embed_target_order(connection):
         FROM ranked
         """
     )
+
+
+VECTOR_GENERATION_KEY = "vector_generation"
+
+
+def _bump_vector_generation(connection):
+    """Mark the stored vector population as changed.
+
+    The semantic scan reads every vector in the target, which at 75,000 is
+    115 MB per query, so it is cached in memory. That cache needs a change
+    token, and the obvious candidates do not work here: `PRAGMA data_version`
+    is unchanged on a freshly opened connection, and `_connect` opens one per
+    call, so it never sees another process's commit. A content signature over
+    the vectors costs 0.29s -- most of what caching was meant to save -- and
+    still cannot tell a same-size rewrite from no write at all.
+
+    So the writers say so explicitly. One row in library_meta, read in 50
+    microseconds, bumped wherever a vector or a chunk changes, including from
+    the separate process that imports a shipped field.
+    """
+    connection.execute(
+        """
+        INSERT INTO library_meta(key, value) VALUES(?, '1')
+        ON CONFLICT(key) DO UPDATE
+        SET value = CAST(CAST(library_meta.value AS INTEGER) + 1 AS TEXT)
+        """,
+        (VECTOR_GENERATION_KEY,),
+    )
+
+
+def _read_vector_generation(connection):
+    row = connection.execute(
+        "SELECT value FROM library_meta WHERE key=?", (VECTOR_GENERATION_KEY,)
+    ).fetchone()
+    return str(row["value"]) if row else "0"
 
 
 def _bounded_embed_text(*pieces):
@@ -1179,6 +1218,9 @@ class KnowledgeLibrary:
         self._rebuild_lock = threading.Lock()
         self._embed_lock = threading.Lock()
         self._schema_lock = threading.Lock()
+        self._vector_cache_lock = threading.Lock()
+        self._vector_cache_key = None
+        self._vector_cache_rows = []
         self._schema_ready = False
         self._last_error = ""
         self._last_rebuild = ""
@@ -2256,6 +2298,8 @@ class KnowledgeLibrary:
                 query,
                 self._target_parameters(identity) + (identity,),
             )
+            if cursor.rowcount:
+                _bump_vector_generation(connection)
             connection.commit()
         return max(0, cursor.rowcount)
 
@@ -2315,6 +2359,8 @@ class KnowledgeLibrary:
                         """,
                         (row["id"], row["content_hash"]),
                     )
+            if committed:
+                _bump_vector_generation(connection)
             connection.commit()
         return committed > 0
 
@@ -2563,6 +2609,8 @@ class KnowledgeLibrary:
                             """,
                             (row["id"], row["content_hash"]),
                         )
+                if batch_completed:
+                    _bump_vector_generation(connection)
                 connection.commit()
             completed += batch_completed
             if batch_completed == 0:
@@ -2686,22 +2734,9 @@ class KnowledgeLibrary:
         if not query_vector:
             return []
         identity = self._vector_identity()
+        wanted = max(1, int(limit))
         with self._connect() as connection:
-            rows = connection.execute(
-                _EMBED_TARGET_CTE + """
-                SELECT
-                    c.id, c.source_id, c.heading, c.text, c.vector,
-                    s.title, s.path, s.scope, s.sha256, s.metadata_json,
-                    s.trust_policy_version
-                FROM embed_target t
-                JOIN chunks c ON c.id=t.id
-                JOIN sources s ON s.id=c.source_id
-                WHERE c.vector IS NOT NULL AND c.vector_model=?
-                  AND length(c.vector)>0 AND length(c.vector)%4=0
-                ORDER BY t.id
-                """,
-                self._target_parameters(identity) + (identity,),
-            ).fetchall()
+            rows = self._target_vectors(connection, identity)
             eligible = len(rows)
             scan_limit = _vector_scan_limit()
             if eligible > scan_limit:
@@ -2712,21 +2747,87 @@ class KnowledgeLibrary:
                     "still covers the entire library."
                 )
                 return []
+
+            scored = self._score_vectors(query_vector, rows)
+            if not scored:
+                self._semantic_warning = ""
+                return []
+            if _numpy is not None and len(scored) > wanted:
+                # Ordering every candidate to read the top few is most of the
+                # Python left once the arithmetic is vectorised. argpartition
+                # finds the same top-N without sorting the remainder.
+                values = _numpy.fromiter(
+                    (value for value, _ in scored),
+                    dtype="<f8",
+                    count=len(scored),
+                )
+                top = _numpy.argpartition(-values, wanted - 1)[:wanted]
+                top = top[_numpy.argsort(-values[top])]
+                chosen = [scored[int(index)] for index in top]
+            else:
+                scored.sort(key=lambda item: item[0], reverse=True)
+                chosen = scored[:wanted]
+
+            # Phase two: read the full record for the handful being returned.
+            keys = [int(row["id"]) for _, row in chosen]
+            placeholders = ",".join("?" for _ in keys)
+            full = {
+                row["id"]: row
+                for row in connection.execute(
+                    f"""
+                    SELECT
+                        c.id, c.source_id, c.heading, c.text, c.vector,
+                        s.title, s.path, s.scope, s.sha256, s.metadata_json,
+                        s.trust_policy_version
+                    FROM chunks c
+                    JOIN sources s ON s.id=c.source_id
+                    WHERE c.id IN ({placeholders})
+                    """,
+                    keys,
+                )
+            }
         self._semantic_warning = ""
-        wanted = max(1, int(limit))
-        scored = self._score_vectors(query_vector, rows)
-        if _numpy is not None and len(scored) > wanted:
-            # Sorting every candidate to read the top few is most of the
-            # Python left in this path once the arithmetic is vectorised.
-            # argpartition finds the same top-N without ordering the rest.
-            values = _numpy.fromiter(
-                (value for value, _ in scored), dtype="<f8", count=len(scored)
-            )
-            top = _numpy.argpartition(-values, wanted - 1)[:wanted]
-            top = top[_numpy.argsort(-values[top])]
-            return [scored[int(index)] for index in top]
-        scored.sort(key=lambda item: item[0], reverse=True)
-        return scored[:wanted]
+        # A row that vanished between the two reads is dropped rather than
+        # returned half-populated; the shelf can be rebuilt underneath a query.
+        return [
+            (value, full[int(row["id"])])
+            for value, row in chosen
+            if int(row["id"]) in full
+        ]
+
+    def _target_vectors(self, connection, identity):
+        """The id and coordinate of every current vector, cached in memory.
+
+        Scoring needs an id and a coordinate and nothing else, so the text and
+        source metadata of 75,000 candidates is no longer read to return five
+        of them. What remains is still 115 MB of coordinates, and re-reading
+        that per query was the whole of the remaining cost, so it is held and
+        re-used until a writer says it changed.
+
+        The generation is one indexed row, read in microseconds. A stale
+        answer here would be indistinguishable from a correct one, so the
+        token is exact rather than a heuristic over the data.
+        """
+        generation = _read_vector_generation(connection)
+        key = (identity, generation)
+        with self._vector_cache_lock:
+            if self._vector_cache_key == key:
+                return self._vector_cache_rows
+        rows = connection.execute(
+            _EMBED_TARGET_CTE + """
+            SELECT c.id, c.vector
+            FROM embed_target t
+            JOIN chunks c ON c.id=t.id
+            WHERE c.vector IS NOT NULL AND c.vector_model=?
+              AND length(c.vector)>0 AND length(c.vector)%4=0
+            ORDER BY t.id
+            """,
+            self._target_parameters(identity) + (identity,),
+        ).fetchall()
+        with self._vector_cache_lock:
+            self._vector_cache_key = key
+            self._vector_cache_rows = rows
+        return rows
 
     def _score_vectors(self, query_vector, rows):
         """Cosine of the query against every candidate row.

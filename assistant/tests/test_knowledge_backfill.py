@@ -262,6 +262,80 @@ class ScopedBackfillTests(unittest.TestCase):
             library.EMBED_GLOBAL_CEILING, library._vector_scan_limit()
         )
 
+    def test_semantic_cache_reloads_when_the_generation_moves(self):
+        """A cached scan must not outlive the vectors it was built from.
+
+        The vectors are held in memory because re-reading them is most of a
+        query's cost, and a stale answer would be indistinguishable from a
+        correct one. So the cache is proven both ways: it does reuse, and it
+        does reload when a writer says the population changed.
+        """
+        self._seed(chunks=2)
+        with mock.patch.object(
+            library.embedding_server, "model_identity", return_value="m"
+        ):
+            identity = self.library._vector_identity()
+            with self.library._connect(write=True) as connection:
+                ids = [
+                    row["id"] for row in
+                    connection.execute("SELECT id FROM chunks ORDER BY id")
+                ]
+                for chunk_id, vector in zip(ids, ([1.0, 0.0], [0.0, 1.0])):
+                    connection.execute(
+                        "UPDATE chunks SET vector=?, vector_model=? "
+                        "WHERE id=?",
+                        (library._pack_vector(vector), identity, chunk_id),
+                    )
+                library._bump_vector_generation(connection)
+                connection.commit()
+
+            first = self.library._semantic([1.0, 0.0], 1)
+            self.assertEqual(first[0][1]["id"], ids[0])
+
+            # Swap the coordinates and announce it. The cache must notice.
+            with self.library._connect(write=True) as connection:
+                for chunk_id, vector in zip(ids, ([0.0, 1.0], [1.0, 0.0])):
+                    connection.execute(
+                        "UPDATE chunks SET vector=? WHERE id=?",
+                        (library._pack_vector(vector), chunk_id),
+                    )
+                library._bump_vector_generation(connection)
+                connection.commit()
+
+            second = self.library._semantic([1.0, 0.0], 1)
+            self.assertEqual(
+                second[0][1]["id"], ids[1],
+                "the semantic cache served vectors that had been replaced",
+            )
+
+    def test_embedding_a_row_moves_the_generation(self):
+        """The writer that fills a vector must announce it, or the cache lies."""
+        self._seed(chunks=2)
+        with self.library._connect() as connection:
+            before = library._read_vector_generation(connection)
+        with (
+            mock.patch.object(
+                library.embedding_server, "available", return_value=True
+            ),
+            mock.patch.object(
+                library.embedding_server, "is_alive", return_value=True
+            ),
+            mock.patch.object(
+                library.embedding_server, "model_identity", return_value="m"
+            ),
+            mock.patch.object(
+                library.embedding_server,
+                "embed",
+                side_effect=lambda texts, timeout=None: [
+                    [1.0, 0.0] for _ in texts
+                ],
+            ),
+        ):
+            self.library.embed_missing(max_batches=2)
+        with self.library._connect() as connection:
+            after = library._read_vector_generation(connection)
+        self.assertNotEqual(before, after)
+
     def test_the_python_floor_still_bounds_an_install_without_numpy(self):
         """Without numpy the old limit applies, and it is not raised."""
         saved = library._numpy

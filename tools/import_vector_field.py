@@ -158,6 +158,21 @@ def apply_field(database: Path, hashes, vectors, identity) -> dict:
             "UPDATE chunks SET vector=?, vector_model=? WHERE id=?",
             updates,
         )
+        if updates:
+            # The assistant keeps the scored vectors in memory and reloads
+            # them when this counter moves. This import runs in its own
+            # process, so nothing else would tell a running instance that the
+            # population underneath it had just changed.
+            connection.execute(
+                """
+                INSERT INTO library_meta(key, value)
+                VALUES('vector_generation', '1')
+                ON CONFLICT(key) DO UPDATE
+                SET value = CAST(
+                    CAST(library_meta.value AS INTEGER) + 1 AS TEXT
+                )
+                """
+            )
         connection.commit()
         return {
             "chunks_on_disk": len(rows),
